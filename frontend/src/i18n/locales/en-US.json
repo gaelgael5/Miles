@@ -1,0 +1,14 @@
+{
+  "app": { "title": "Miles back-office" },
+  "health": {
+    "title": "Service status",
+    "loading": "Checking the service…",
+    "ok": "Service operational",
+    "degraded": "Service degraded",
+    "unreachable": "Back-office unreachable",
+    "databaseUp": "Database reachable",
+    "databaseDown": "Database unreachable",
+    "schema": "Schema version {{current}} of {{expected}}",
+    "schemaNone": "Schema never initialised (expected version {{expected}})"
+  }
+}

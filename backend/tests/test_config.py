@@ -1,0 +1,42 @@
+from __future__ import annotations
+
+import pytest
+from pydantic import ValidationError
+
+from miles.config import Settings
+
+DSN = "postgresql://miles:s3cr3t-valeur@db:5432/miles"
+
+
+def test_settings_missing_database_url_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MILES_DATABASE_URL", raising=False)
+
+    with pytest.raises(ValidationError, match="database_url"):
+        Settings()  # type: ignore[call-arg]
+
+
+def test_settings_unknown_key_raises() -> None:
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        Settings(database_url=DSN, db_pool_size=5)  # type: ignore[arg-type, call-arg]
+
+
+def test_settings_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MILES_DATABASE_URL", DSN)
+    monkeypatch.setenv("MILES_DB_POOL_MAX_SIZE", "4")
+
+    settings = Settings()  # type: ignore[call-arg]
+
+    assert settings.database_url.get_secret_value() == DSN
+    assert settings.db_pool_max_size == 4
+
+
+def test_settings_repr_masks_database_url() -> None:
+    settings = Settings(database_url=DSN)  # type: ignore[arg-type]
+
+    assert "s3cr3t-valeur" not in repr(settings)
+    assert "s3cr3t-valeur" not in str(settings.model_dump())
+
+
+def test_settings_invalid_log_level_raises() -> None:
+    with pytest.raises(ValidationError, match="log_level"):
+        Settings(database_url=DSN, log_level="verbose")  # type: ignore[arg-type]

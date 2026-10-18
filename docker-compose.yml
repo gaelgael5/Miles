@@ -1,0 +1,43 @@
+name: miles
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: miles
+      POSTGRES_USER: miles
+      # Généré sur l'hôte par dev-deploy.sh dans .env (non versionné), jamais dans l'image.
+      POSTGRES_PASSWORD: ${MILES_DB_PASSWORD:?MILES_DB_PASSWORD absent de .env — lancer dev-deploy.sh}
+    volumes:
+      - miles-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miles -d miles"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      MILES_DATABASE_URL: postgresql://miles:${MILES_DB_PASSWORD:?}@db:5432/miles
+      MILES_LOG_LEVEL: ${MILES_LOG_LEVEL:-info}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    ports:
+      - "${MILES_HTTP_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  miles-db:

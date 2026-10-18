@@ -36,7 +36,8 @@ l'administration racine. Les autres règles de la skill (fail closed, secret cli
 cookie) s'appliquent. Détail : cadrage `terminal-pr`, « Correspondances OIDC vers les rôles ».
 
 ## Architecture applicative — décisions invariantes
-- **Backend** : Python. **Frontend** : TypeScript / React dans `frontend/`.
+- **Backend** : Python, FastAPI, asyncpg (requêtes paramétrées, pas d'ORM ni d'Alembic : migrations
+  SQL numérotées jouées par `miles-migrate`). **Frontend** : TypeScript / React / Vite dans `frontend/`.
 - **État** : **PostgreSQL**, non rediscutable (validé le 2026-10-14) — transactions multi-tables
   (objet + ligne d'index dans la même transaction), journal partitionné à la journée, `jsonb`.
   Un incident en cours d'écriture ne doit jamais corrompre l'existant, et ça se teste.
@@ -46,9 +47,16 @@ cookie) s'appliquent. Détail : cadrage `terminal-pr`, « Correspondances OIDC v
   côté Python *à confirmer*.
 
 ## Commandes essentielles
-*À confirmer* — le dépôt ne contient encore ni `pyproject.toml`, ni `frontend/package.json`, ni
-`dev-deploy.sh`. Installer, lancer, tester, style, types, déployer : à renseigner ici dès leur
-création, copiées depuis le dépôt réel. N'invente aucune commande, aucun port.
+Layout : `backend/` (paquet `miles`, `migrations/NNNN_*.sql` immuables), `frontend/` (Vite),
+`scripts/`, `docker-compose.yml`, `dev-deploy.sh`.
+```bash
+cd backend && uv sync                                   # installer
+cd backend && uv run ruff check src tests && uv run ruff format --check src tests && uv run mypy src
+cd backend && uv run pytest -v                          # unitaires (sans base)
+scripts/run-integration-tests.sh                        # intégration PostgreSQL — machine de test
+cd frontend && npm ci && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
+./dev-deploy.sh                                         # livrer (machine de test uniquement)
+```
 
 ## Backlog
 Le backlog des tâches est dans le workspace docflow `terminal-pr`, bloc `backlog`. C'est la
@@ -130,7 +138,7 @@ le travail livrable sur une machine de test. Commits en français, conventionnel
 Livrer = pousser sur `dev`, puis lancer `dev-deploy.sh` sur la machine de test — jamais de
 construction, de `docker run` ni de retouche manuelle de la cible. Les machines de test `test1`,
 `test2`… sont à ta disposition. Charge la skill `test-machine-deployment` AVANT de déployer.
-`dev-deploy.sh` **n'existe pas encore** : ne livre rien tant qu'il n'est pas écrit selon la skill.
+Aucune machine attribuée à ce jour : voir `ia_instructions/tests_and_ressources.md`.
 
 ### Définition de « terminé »
 **Une tâche est finie quand les tests passent.** Pas quand le code compile, pas quand il est

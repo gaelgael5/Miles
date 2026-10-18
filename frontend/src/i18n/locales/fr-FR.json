@@ -1,0 +1,14 @@
+{
+  "app": { "title": "Back-office Miles" },
+  "health": {
+    "title": "État du service",
+    "loading": "Vérification du service…",
+    "ok": "Service opérationnel",
+    "degraded": "Service dégradé",
+    "unreachable": "Back-office injoignable",
+    "databaseUp": "Base de données joignable",
+    "databaseDown": "Base de données injoignable",
+    "schema": "Version de schéma {{current}} sur {{expected}}",
+    "schemaNone": "Schéma jamais initialisé (version attendue {{expected}})"
+  }
+}

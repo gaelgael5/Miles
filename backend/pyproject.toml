@@ -1,0 +1,60 @@
+[project]
+name = "miles"
+version = "0.1.0"
+description = "Back-office Miles du terminal point relais"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg>=0.30",
+    "fastapi>=0.115",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "structlog>=24.4",
+    "uvicorn[standard]>=0.32",
+]
+
+[project.scripts]
+miles-migrate = "miles.cli:main"
+
+[dependency-groups]
+dev = [
+    "asyncpg-stubs>=0.30",
+    "httpx>=0.27",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/miles"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = ["integration: exige une vraie base PostgreSQL (MILES_TEST_DATABASE_URL)"]
+# Les tests d'intégration ne tournent que sur demande explicite (-m integration),
+# sur une machine de test : le poste de dev n'a pas de PostgreSQL.
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["miles"]
