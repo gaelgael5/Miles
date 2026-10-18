@@ -4,6 +4,7 @@
 # aucune sans avoir lu celle qui l'a motivée.
 #
 #   ./dev-deploy.sh                       déploiement normal (idempotent, rejouable)
+#   MILES_HTTP_PORT=8180 ./dev-deploy.sh  premier passage sur un port autre que 8080
 #   ./dev-deploy.sh --no-nohup            sans filet de session (CI, débogage pas à pas)
 #   ./dev-deploy.sh --bootstrap-deploy-key [--force]   clé de déploiement SSH (dépôt privé)
 #   ./dev-deploy.sh --reset-db            DÉTRUIT la base (confirmation exigée), puis s'arrête
@@ -102,7 +103,11 @@ if ! grep -q '^MILES_DB_PASSWORD=.\+' "$ENV_FILE"; then
   echo "MILES_DB_PASSWORD=$(openssl rand -hex 24)" >> "$ENV_FILE"
   echo "mot de passe de base généré (première exécution)"
 fi
-grep -q '^MILES_HTTP_PORT=' "$ENV_FILE" || echo "MILES_HTTP_PORT=8080" >> "$ENV_FILE"
+# Machines de test partagées : 8080 y est souvent pris. Le port se choisit au premier passage
+# (MILES_HTTP_PORT=… ./dev-deploy.sh), puis .env fait foi — l'environnement ne le change plus.
+if ! grep -q '^MILES_HTTP_PORT=' "$ENV_FILE"; then
+  echo "MILES_HTTP_PORT=${MILES_HTTP_PORT:-8080}" >> "$ENV_FILE"
+fi
 HTTP_PORT="$(grep '^MILES_HTTP_PORT=' "$ENV_FILE" | tail -1 | cut -d= -f2)"
 [[ "$HTTP_PORT" =~ ^[0-9]{2,5}$ ]] || fail "MILES_HTTP_PORT invalide dans .env : $HTTP_PORT"
 
