@@ -5,17 +5,17 @@ Ajouter une ligne à chaque attribution, la retirer quand la ressource est repri
 
 | Alias SSH | Nom d'hôte réel | Usage | Depuis |
 |---|---|---|---|
-| `test1` | `host-test-23` (Debian 12, Docker 29.8, compose v5.5, utilisateur `root`) | tests d'intégration PostgreSQL, livraison par `dev-deploy.sh` | 2026-10-18 |
+| `test1` | `host-test-36` (Debian 12, Docker 29.9, compose v5.6, utilisateur `root`) | tests d'intégration PostgreSQL, livraison par `dev-deploy.sh` | 2026-10-19 |
 
-Notes sur `test1`, relevées le 2026-10-18 :
-- **Machine partagée** : elle héberge aussi `wsportal-dev`, `wsportal-dev-others` et `harpocrate`.
-  Ne jamais agir hors du projet compose `miles`, sous peine d'arrêter les autres stacks.
-- **Ports déjà pris** : 8000, 8080, 8081 et 8090 (entre autres). Miles y est publié sur **8180**
-  (figé dans `/root/Miles/.env` depuis le premier déploiement, le 2026-10-19).
-- **Broker MQTT** (Mosquitto 2.0.20, depuis le 2026-10-19) : port **1883** publié, sans accès anonyme.
+`host-test-23`, l'ancienne machine derrière `test1`, a été reprise le 2026-10-19.
+
+Notes sur `test1`, relevées le 2026-10-19 :
+- **Machine dédiée** à l'arrivée : seuls les services standard (alloy, browserless) y tournaient.
+- **Ports** : Miles est publié sur **8080** (figé dans `/root/Miles/.env` au premier déploiement).
+- **Broker MQTT** (Mosquitto 2.0.20) : port **1883** publié, sans accès anonyme.
   Seul le compte `miles-backend` existe ; les comptes des terminaux viendront de l'enrôlement.
 - **Copie de déploiement** : `/root/Miles`, sur la branche `dev`. Annuaire du portail : `miles-miles`,
-  qui pointe sur `100.74.209.218:8180`.
+  `https://svc-miles-miles.yoops.org` → `100.74.129.165:8080`, joignable depuis le portail.
 - **Compte d'amorçage** (créé par `dev-deploy.sh` le 2026-10-19) : utilisateur `admin`, e-mail
   `admin@miles.invalid`. Le mot de passe est dans `/root/Miles/.deploy/admin-password` (600), à lire
   sur la machine, jamais à recopier ailleurs. Pour rouvrir l'amorçage : retirer les trois entrées

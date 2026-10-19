@@ -225,8 +225,10 @@ declare_exposition() {
     # l'entrée existe, pas que le portail atteint le service (« joignable »).
     public_url="$(grep -oE '"url":"https://[A-Za-z0-9.-]+"' <<<"$response" | cut -d'"' -f4 || true)"
     echo "service déclaré à l'annuaire : ${public_url:-URL non rendue} → $target_ip:$HTTP_PORT"
+    # Le verdict porte sur la stack EN PLACE : la déclaration précède la construction parce que
+    # le code TOTP expire en 30 s. Au premier passage rien n'écoute encore, d'où un faux négatif.
     if ! grep -q '"joignable":true' <<<"$response"; then
-      echo "AVERTISSEMENT : le portail ne joint pas $target_ip:$HTTP_PORT par le réseau maillé ; le lien de l'annuaire ne répondra pas"
+      echo "AVERTISSEMENT : le portail ne joint pas $target_ip:$HTTP_PORT (normal au premier déploiement, la stack n'est pas encore lancée ; sinon, réseau maillé à vérifier)"
     fi
   else
     echo "AVERTISSEMENT : déclaration de $workspace-$SERVICE_NAME refusée (HTTP ${http_code:-000}) ; elle se rejouera au prochain passage"
