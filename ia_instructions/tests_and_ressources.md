@@ -12,6 +12,8 @@ Notes sur `test1`, relevées le 2026-10-18 :
   Ne jamais agir hors du projet compose `miles`, sous peine d'arrêter les autres stacks.
 - **Ports déjà pris** : 8000, 8080, 8081 et 8090 (entre autres). Miles y est publié sur **8180**
   (figé dans `/root/Miles/.env` depuis le premier déploiement, le 2026-10-19).
+- **Broker MQTT** (Mosquitto 2.0.20, depuis le 2026-10-19) : port **1883** publié, sans accès anonyme.
+  Seul le compte `miles-backend` existe ; les comptes des terminaux viendront de l'enrôlement.
 - **Copie de déploiement** : `/root/Miles`, sur la branche `dev`. Annuaire du portail : `miles-miles`,
   qui pointe sur `100.74.209.218:8180`.
 - **Compte d'amorçage** (créé par `dev-deploy.sh` le 2026-10-19) : utilisateur `admin`, e-mail
