@@ -1,5 +1,9 @@
 {
-  "app": { "title": "Back-office Miles" },
+  "app": {
+    "title": "Back-office Miles",
+    "signedInAs": "Connecté en tant que {{username}}",
+    "logout": "Se déconnecter"
+  },
   "health": {
     "title": "État du service",
     "loading": "Vérification du service…",
@@ -10,5 +14,43 @@
     "databaseDown": "Base de données injoignable",
     "schema": "Version de schéma {{current}} sur {{expected}}",
     "schemaNone": "Schéma jamais initialisé (version attendue {{expected}})"
+  },
+  "auth": {
+    "loading": "Vérification de la session…",
+    "unreachable": "Back-office injoignable"
+  },
+  "bootstrap": {
+    "title": "Créer le compte administrateur",
+    "intro": "Aucun administrateur n'existe encore sur cette installation. Le compte créé ici est l'administrateur d'amorçage : il garde l'administration racine quelles que soient les règles OIDC.",
+    "email": "Adresse e-mail",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "confirmation": "Confirmer le mot de passe",
+    "warning": "Cet écran disparaît définitivement dès que le compte existe, et sa création est journalisée.",
+    "submit": "Créer le compte",
+    "errors": {
+      "mismatch": "Les deux mots de passe diffèrent.",
+      "closed": "Un administrateur existe déjà : cet écran est fermé.",
+      "weakPassword": {
+        "min_length": "Le mot de passe doit compter au moins {{limit}} caractères.",
+        "max_length": "Le mot de passe compte au plus {{limit}} caractères."
+      },
+      "invalid": {
+        "email": "Cette adresse e-mail n'est pas acceptée.",
+        "username": "Nom d'utilisateur : 3 à 64 caractères, minuscules, chiffres, point, tiret ou souligné, commençant par une lettre ou un chiffre."
+      },
+      "unexpected": "Le compte n'a pas pu être créé. Voir les journaux du back-office."
+    }
+  },
+  "login": {
+    "title": "Connexion",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "errors": {
+      "invalid": "Nom d'utilisateur ou mot de passe incorrect.",
+      "throttled": "Trop de tentatives échouées. Réessayer dans quelques minutes.",
+      "unexpected": "La connexion a échoué. Voir les journaux du back-office."
+    }
   }
 }

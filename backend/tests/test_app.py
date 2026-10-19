@@ -9,7 +9,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from miles import app as app_module
+from miles.auth.admin_account import AdminConfigError
 from miles.db.migration_files import MigrationError
+from tests.auth_fixtures import BASE_ENV, write_env
 from tests.conftest import FakeConnection, write_migrations
 
 
@@ -26,7 +28,17 @@ def env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     directory = write_migrations(tmp_path, {"0001_a.sql": "SELECT 1;", "0002_b.sql": "SELECT 2;"})
     monkeypatch.setenv("MILES_DATABASE_URL", "postgresql://miles:x@db:5432/miles")
     monkeypatch.setenv("MILES_MIGRATIONS_DIR", str(directory))
+    _set_env_files(monkeypatch, tmp_path / "files")
     return directory
+
+
+def _set_env_files(
+    monkeypatch: pytest.MonkeyPatch, directory: Path, content: str = BASE_ENV
+) -> None:
+    directory.mkdir()
+    env_file, backup = write_env(directory, content)
+    monkeypatch.setenv("MILES_ENV_FILE", str(env_file))
+    monkeypatch.setenv("MILES_ENV_BACKUP_FILE", str(backup))
 
 
 def test_create_app_lifespan_wires_probe_with_expected_version(
@@ -44,6 +56,8 @@ def test_create_app_lifespan_wires_probe_with_expected_version(
         probe = application.state.health_probe
         assert probe.args[0] is pool
         assert probe.args[1] == 2
+        assert application.state.auth.db is pool
+        assert application.state.auth.store.account is None
 
     assert pool.closed is True
 
@@ -75,6 +89,19 @@ def test_create_app_without_migrations_refuses_to_start(
 ) -> None:
     monkeypatch.setenv("MILES_DATABASE_URL", "postgresql://miles:x@db:5432/miles")
     monkeypatch.setenv("MILES_MIGRATIONS_DIR", str(tmp_path / "absent"))
+    _set_env_files(monkeypatch, tmp_path / "files")
 
     with pytest.raises(MigrationError):
+        app_module.create_app()
+
+
+def test_create_app_partial_admin_account_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    directory = write_migrations(tmp_path / "m", {"0001_a.sql": "SELECT 1;"})
+    monkeypatch.setenv("MILES_DATABASE_URL", "postgresql://miles:x@db:5432/miles")
+    monkeypatch.setenv("MILES_MIGRATIONS_DIR", str(directory))
+    _set_env_files(monkeypatch, tmp_path / "files", BASE_ENV + "MILES_ADMIN_USERNAME='admin'\n")
+
+    with pytest.raises(AdminConfigError):
         app_module.create_app()

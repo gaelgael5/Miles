@@ -1,5 +1,9 @@
 {
-  "app": { "title": "Miles back-office" },
+  "app": {
+    "title": "Miles back-office",
+    "signedInAs": "Signed in as {{username}}",
+    "logout": "Sign out"
+  },
   "health": {
     "title": "Service status",
     "loading": "Checking the service…",
@@ -10,5 +14,43 @@
     "databaseDown": "Database unreachable",
     "schema": "Schema version {{current}} of {{expected}}",
     "schemaNone": "Schema never initialised (expected version {{expected}})"
+  },
+  "auth": {
+    "loading": "Checking your session…",
+    "unreachable": "Back-office unreachable"
+  },
+  "bootstrap": {
+    "title": "Create the administrator account",
+    "intro": "No administrator exists yet on this installation. The account you create here is the bootstrap administrator: it keeps root administration whatever the OIDC rules.",
+    "email": "Email",
+    "username": "Username",
+    "password": "Password",
+    "confirmation": "Confirm password",
+    "warning": "This screen disappears for good as soon as the account exists, and its creation is logged.",
+    "submit": "Create the account",
+    "errors": {
+      "mismatch": "The two passwords differ.",
+      "closed": "An administrator already exists: this screen is closed.",
+      "weakPassword": {
+        "min_length": "The password needs at least {{limit}} characters.",
+        "max_length": "The password allows at most {{limit}} characters."
+      },
+      "invalid": {
+        "email": "This email address is not accepted.",
+        "username": "Username: 3 to 64 characters, lowercase letters, digits, dot, dash or underscore, starting with a letter or digit."
+      },
+      "unexpected": "The account could not be created. See the back-office logs."
+    }
+  },
+  "login": {
+    "title": "Sign in",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "errors": {
+      "invalid": "Wrong username or password.",
+      "throttled": "Too many failed attempts. Try again in a few minutes.",
+      "unexpected": "Sign-in failed. See the back-office logs."
+    }
   }
 }

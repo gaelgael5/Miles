@@ -20,8 +20,12 @@ STATE_DIR="$REPO_DIR/.deploy"
 LOG_FILE="$STATE_DIR/deploy-$(date +%Y%m%d-%H%M%S).log"
 PURGE_STAMP="$STATE_DIR/last-purge"
 ENV_FILE="$REPO_DIR/.env"
+BACKUP_ENV_FILE="$REPO_DIR/.env.bak"
+ADMIN_PASSWORD_FILE="$STATE_DIR/admin-password"
+# uid de l'utilisateur non root de l'image backend (backend/Dockerfile).
+RUNTIME_UID=10001
 DEPLOY_KEY="$HOME/.ssh/miles_deploy_key"
-TOTAL_STEPS=10
+TOTAL_STEPS=11
 # Nom publié à l'annuaire : doit rester le `name:` de docker-compose.yml, sinon le lien de la
 # machine de test dans le portail ne retrouve pas la stack.
 SERVICE_NAME="miles"
@@ -126,6 +130,14 @@ persist_default EXPOSE_WORKSPACE
 persist_default EXPOSE_HOST "$(hostname)"
 HTTP_PORT="$(env_value MILES_HTTP_PORT)"
 [[ "$HTTP_PORT" =~ ^[0-9]{2,5}$ ]] || fail "MILES_HTTP_PORT invalide dans .env : $HTTP_PORT"
+# .env et .env.bak sont montés FICHIER PAR FICHIER dans le backend, qui y écrit le compte
+# d'amorçage (décision du 19/10/2026). Un fichier monté doit exister : absent, docker
+# créerait un dossier à sa place. Ils appartiennent à l'utilisateur non root du runtime,
+# seul à devoir y écrire ; root, qui lance ce script et compose, les lit de toute façon.
+touch "$BACKUP_ENV_FILE"
+chmod 600 "$ENV_FILE" "$BACKUP_ENV_FILE"
+chown "$RUNTIME_UID:$RUNTIME_UID" "$ENV_FILE" "$BACKUP_ENV_FILE" \
+  || fail "chown de .env impossible : lancer dev-deploy.sh en root (machine de test)"
 
 # --- 11. Mode destructif isolé : drapeau explicite, confirmation, court-circuit ---------
 if [[ "$RESET_DB" -eq 1 ]]; then
@@ -198,7 +210,32 @@ step 5 "construction des images depuis la copie du dépôt"
 # Jamais sautée : c'est ici, sur copie fraîche, qu'on prouve que les images se bâtissent.
 compose build --pull || fail "construction en échec : défaut du dépôt, à corriger d'abord"
 
-step 6 "arrêt de la stack (orphelins compris)"
+# --- Compte d'amorçage de la machine de test, créé une seule fois ------------------------
+# Sur une machine de test, l'administrateur existe dès le premier démarrage : les tests
+# d'intégration s'authentifient sans passer par l'écran d'amorçage. Jamais régénéré ; pour
+# repartir de zéro, retirer les trois entrées MILES_ADMIN_* de .env.
+step 6 "compte d'amorçage"
+if grep -q '^MILES_ADMIN_' "$ENV_FILE"; then
+  echo "compte d'amorçage déjà déclaré dans .env, conservé"
+else
+  admin_password="$(openssl rand -base64 24)"
+  # Mot de passe par stdin, jamais en argument : l'argv se lit par `ps`.
+  admin_hash="$(printf '%s\n' "$admin_password" \
+    | compose run --rm --no-deps -T backend miles-admin hash-password)" \
+    || fail "empreinte du mot de passe d'amorçage impossible"
+  admin_email="${MILES_ADMIN_EMAIL:-admin@miles.invalid}"
+  admin_username="${MILES_ADMIN_USERNAME:-admin}"
+  # Les trois entrées d'un seul coup : un compte partiel ferait refuser le démarrage.
+  # Apostrophes : compose n'interpole pas les `$` de l'empreinte argon2id.
+  printf "MILES_ADMIN_EMAIL='%s'\nMILES_ADMIN_USERNAME='%s'\nMILES_ADMIN_PASSWORD_HASH='%s'\n" \
+    "$admin_email" "$admin_username" "$admin_hash" >> "$ENV_FILE"
+  # Le clair n'est rendu qu'aux tests de cette machine, jamais journalisé.
+  (umask 077 && printf '%s\n' "$admin_password" > "$ADMIN_PASSWORD_FILE")
+  unset admin_password
+  echo "compte d'amorçage '$admin_username' créé ; mot de passe dans $ADMIN_PASSWORD_FILE"
+fi
+
+step 7 "arrêt de la stack (orphelins compris)"
 compose down --remove-orphans
 
 # --- 6. Conflit de port, APRÈS l'arrêt ------------------------------------------------
@@ -209,7 +246,7 @@ fi
 compose up -d
 
 # --- 7. Attendre un conteneur réellement exécutable avant de migrer ---------------------
-step 7 "attente du conteneur backend"
+step 8 "attente du conteneur backend"
 stable=0
 for _ in $(seq 1 "$CONTAINER_WAIT_S"); do
   state="$(docker inspect -f '{{.State.Status}} {{.RestartCount}}' "$(compose ps -q backend)" 2>/dev/null || true)"
@@ -220,17 +257,17 @@ for _ in $(seq 1 "$CONTAINER_WAIT_S"); do
 done
 [[ "$stable" -ge 3 ]] || fail "backend jamais stable : docker compose logs backend"
 
-step 8 "migrations"
+step 9 "migrations"
 compose exec -T backend miles-migrate apply || fail "migration en échec : docker compose logs backend"
 
 # --- 8. Le schéma est-il réellement à jour ? -------------------------------------------
-step 9 "vérification de la version de schéma"
+step 10 "vérification de la version de schéma"
 # « apply » peut sortir en succès sans avoir atteint la dernière version (base tamponnée
 # à la main) : on interroge le résultat, pas le code de retour.
 compose exec -T backend miles-migrate status || fail "schéma en retard après migration"
 
 # --- 9. Contrôle de santé final, plafonné ----------------------------------------------
-step 10 "contrôle de santé sur le port publié $HTTP_PORT"
+step 11 "contrôle de santé sur le port publié $HTTP_PORT"
 # Par le frontend nginx, sur le port réellement exposé : valide aussi le proxy /api.
 healthy=0
 for _ in $(seq 1 "$HEALTH_WAIT_S"); do

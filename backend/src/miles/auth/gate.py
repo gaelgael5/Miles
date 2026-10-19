@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable
+
+import structlog
+from fastapi import Request, Response, status
+from fastapi.responses import JSONResponse
+
+from miles.auth.context import AuthContext, client_origin
+from miles.auth.sessions import (
+    LOCAL_ADMIN_KIND,
+    SESSION_COOKIE,
+    db_delete_session,
+    db_find_session,
+    token_digest,
+)
+
+log = structlog.get_logger(__name__)
+
+# Liste blanche : toute autre route /api exige une session. Une route ajoutée
+# demain est donc fermée par défaut, sans que son auteur ait à y penser.
+PUBLIC_API_PATHS = frozenset(
+    {"/api/health", "/api/bootstrap/status", "/api/bootstrap", "/api/auth/login"}
+)
+
+CallNext = Callable[[Request], Awaitable[Response]]
+
+
+def _deny(code: int, detail: str) -> JSONResponse:
+    return JSONResponse(status_code=code, content={"detail": detail})
+
+
+async def auth_gate(request: Request, call_next: CallNext) -> Response:
+    path = request.url.path
+    if not path.startswith("/api/") or path in PUBLIC_API_PATHS:
+        return await call_next(request)
+    ctx: AuthContext = request.app.state.auth
+    account = ctx.store.account
+    if account is None:
+        # Tant qu'aucun administrateur n'existe, seul l'amorçage est ouvert.
+        return _deny(status.HTTP_403_FORBIDDEN, "amorcage_requis")
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        return _deny(status.HTTP_401_UNAUTHORIZED, "session_requise")
+    session = await db_find_session(ctx.db, token_digest(token), ctx.now())
+    if session is None:
+        return _deny(status.HTTP_401_UNAUTHORIZED, "session_requise")
+    # Recalculé à chaque requête, pas mémorisé : après une réinitialisation du
+    # compte dans .env, les sessions de l'ancien administrateur ne valent plus rien.
+    if session.subject_kind != LOCAL_ADMIN_KIND or session.subject != account.username:
+        await db_delete_session(ctx.db, session.digest)
+        log.warning("session_revoquee_compte_change", origin=client_origin(request))
+        return _deny(status.HTTP_401_UNAUTHORIZED, "session_requise")
+    request.state.session = session
+    return await call_next(request)

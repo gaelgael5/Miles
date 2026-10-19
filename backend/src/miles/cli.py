@@ -6,7 +6,7 @@ import sys
 
 import structlog
 
-from miles.config import Settings
+from miles.config import DatabaseSettings
 from miles.db.migration_files import MigrationError, file_load_migrations
 from miles.db.migrations import db_schema_version, resolve_apply_migrations
 from miles.db.pool import db_connect
@@ -19,7 +19,7 @@ EXIT_MIGRATION_ERROR = 2
 EXIT_SCHEMA_BEHIND = 3
 
 
-async def _apply(settings: Settings) -> int:
+async def _apply(settings: DatabaseSettings) -> int:
     migrations = file_load_migrations(settings.migrations_dir)
     conn = await db_connect(settings)
     try:
@@ -30,7 +30,7 @@ async def _apply(settings: Settings) -> int:
     return EXIT_OK
 
 
-async def _status(settings: Settings) -> int:
+async def _status(settings: DatabaseSettings) -> int:
     expected = file_load_migrations(settings.migrations_dir)[-1].version
     conn = await db_connect(settings)
     try:
@@ -50,7 +50,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="miles-migrate")
     parser.add_argument("action", choices=["apply", "status"])
     args = parser.parse_args()
-    settings = Settings()  # type: ignore[call-arg]  # valeurs lues dans l'environnement
+    settings = DatabaseSettings()  # type: ignore[call-arg]  # valeurs lues dans l'environnement
     configure_logging(settings.log_level)
     command = _apply if args.action == "apply" else _status
     try:

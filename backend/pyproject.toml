@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Back-office Miles du terminal point relais"
 requires-python = ">=3.12"
 dependencies = [
+    "argon2-cffi>=23.1",
     "asyncpg>=0.30",
     "fastapi>=0.115",
     "pydantic>=2.9",
@@ -14,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 miles-migrate = "miles.cli:main"
+miles-admin = "miles.cli_admin:main"
 
 [dependency-groups]
 dev = [
@@ -51,7 +53,8 @@ src = ["src", "tests"]
 select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+# Les tests manipulent des mots de passe d'essai, sans valeur hors des tests.
+"tests/**" = ["S101", "S105", "S106"]
 
 [tool.mypy]
 python_version = "3.12"

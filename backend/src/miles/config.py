@@ -9,8 +9,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 DEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
 
 
-class Settings(BaseSettings):
-    """Configuration du back-office, lue dans l'environnement (préfixe MILES_)."""
+class DatabaseSettings(BaseSettings):
+    """Ce qu'il faut pour joindre la base et la migrer (préfixe MILES_).
+
+    Séparée de Settings : `miles-migrate` n'a pas à exiger le .env monté, qui ne
+    concerne que le service web.
+    """
 
     # extra="forbid" : une clef mal orthographiée doit faire échouer le démarrage,
     # pas laisser silencieusement s'appliquer une valeur par défaut.
@@ -24,3 +28,17 @@ class Settings(BaseSettings):
     db_connect_timeout_s: float = Field(default=5.0, gt=0)
     migrations_dir: Path = DEFAULT_MIGRATIONS_DIR
     log_level: Literal["debug", "info", "warning", "error"] = "info"
+
+
+class Settings(DatabaseSettings):
+    """Configuration du service web : la base, plus l'authentification."""
+
+    # Le .env de l'hôte et sa sauvegarde, montés fichier par fichier : le compte
+    # d'amorçage y vit (décision du 19/10/2026). Obligatoires : sans eux, le
+    # service ne saurait pas si un administrateur existe, et ne doit pas deviner.
+    env_file: Path
+    env_backup_file: Path
+    session_ttl_s: int = Field(default=12 * 3600, gt=0)
+    # Vrai par défaut : le portail est servi en HTTPS par le relais. Le désactiver
+    # n'a de sens que pour un accès HTTP direct, sur une machine de test.
+    cookie_secure: bool = True

@@ -222,3 +222,5 @@ __marimo__/
 # Miles
 node_modules/
 .deploy/
+# Sauvegarde de .env écrite par le backend : mêmes secrets que .env.
+.env.bak

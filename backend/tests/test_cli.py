@@ -7,20 +7,20 @@ from typing import Any
 import pytest
 
 from miles import cli
-from miles.config import Settings
+from miles.config import DatabaseSettings
 from tests.conftest import FakeConnection, write_migrations
 
 DSN = "postgresql://miles:x@db:5432/miles"
 
 
-def _settings(migrations_dir: Path) -> Settings:
-    return Settings(database_url=DSN, migrations_dir=migrations_dir)  # type: ignore[arg-type]
+def _settings(migrations_dir: Path) -> DatabaseSettings:
+    return DatabaseSettings(database_url=DSN, migrations_dir=migrations_dir)  # type: ignore[arg-type]
 
 
 def _patch_connect(monkeypatch: pytest.MonkeyPatch, conn: FakeConnection) -> list[bool]:
     closed: list[bool] = []
 
-    async def fake_connect(settings: Settings) -> Any:
+    async def fake_connect(settings: DatabaseSettings) -> Any:
         async def close() -> None:
             closed.append(True)
 

@@ -24,6 +24,15 @@ services:
     environment:
       MILES_DATABASE_URL: postgresql://miles:${MILES_DB_PASSWORD:?}@db:5432/miles
       MILES_LOG_LEVEL: ${MILES_LOG_LEVEL:-info}
+      MILES_ENV_FILE: /run/miles/.env
+      MILES_ENV_BACKUP_FILE: /run/miles/.env.bak
+      MILES_COOKIE_SECURE: ${MILES_COOKIE_SECURE:-true}
+    volumes:
+      # Fichier par fichier, pas le dossier du dépôt (décision du 19/10/2026) : le
+      # backend y écrit le compte d'amorçage, et .env.bak sert à restaurer .env si
+      # cette écriture est interrompue. dev-deploy.sh crée les deux avant le démarrage.
+      - ./.env:/run/miles/.env
+      - ./.env.bak:/run/miles/.env.bak
     depends_on:
       db:
         condition: service_healthy
