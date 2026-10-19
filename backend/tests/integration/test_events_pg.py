@@ -144,15 +144,10 @@ async def test_missing_sequence_is_detected_on_read(db: asyncpg.Pool) -> None:
     assert history.missing_sequences == [2]
 
 
-# Échoue aujourd'hui (x5 mesuré sur test1 le 19/10/2026) : question posée à Gael sur le
-# ticket 4563318e. strict=True : le jour où le critère passe, ce marqueur doit tomber.
-@pytest.mark.xfail(strict=True, reason="critère 11 du ticket 4563318e en arbitrage")
-async def test_mass_modification_cost_is_not_doubled_by_its_event(db: asyncpg.Pool) -> None:
-    # Modification de masse : N objets modifiés, UN event qui les désigne tous.
-    count, rounds = 2000, 5
-
-    async def modify(prefix: str, with_event: bool) -> float:
-        ids = [f"{prefix}-{i}" for i in range(count)]
+async def _median_cost(db: asyncpg.Pool, count: int, with_event: bool, rounds: int) -> float:
+    durations = []
+    for round_number in range(rounds):
+        ids = [f"{count}-{with_event}-{round_number}-{i}" for i in range(count)]
         async with db.acquire() as conn:
             started = time.perf_counter()
             async with conn.transaction():
@@ -161,12 +156,29 @@ async def test_mass_modification_cost_is_not_doubled_by_its_event(db: asyncpg.Po
                 )
                 if with_event:
                     await db_write_event(conn, _event(*ids), CATALOG, _now)
-            return time.perf_counter() - started
+            durations.append(time.perf_counter() - started)
+    # Médiane : un seul tirage lent ne doit décider ni dans un sens ni dans l'autre.
+    return sorted(durations)[rounds // 2]
 
-    baseline = [await modify(f"base{r}", False) for r in range(rounds)]
-    traced = [await modify(f"evt{r}", True) for r in range(rounds)]
 
-    # Médianes : un seul tirage lent ne doit décider ni dans un sens ni dans l'autre.
-    ratio = sorted(traced)[rounds // 2] / sorted(baseline)[rounds // 2]
-    print(f"coût relatif de l'event sur {count} objets : x{ratio:.2f}")
-    assert ratio < 2.0
+async def test_event_overhead_on_mass_modification_is_proportional_to_objects(
+    db: asyncpg.Pool,
+) -> None:
+    # Critère 11, reformulé par Gael le 19/10/2026 : pas de seuil x2 (numéroter chaque
+    # objet écrit au moins une ligne indexée par objet), mais un surcoût proportionnel
+    # au nombre d'objets, mesuré et suivi. Le suivi est la ligne imprimée ci-dessous.
+    small, large, rounds = 500, 2000, 5
+    overhead = {}
+    for count in (small, large):
+        baseline = await _median_cost(db, count, with_event=False, rounds=rounds)
+        traced = await _median_cost(db, count, with_event=True, rounds=rounds)
+        overhead[count] = traced - baseline
+        print(
+            f"surcoût de l'event, {count} objets : {overhead[count] * 1000:.1f} ms"
+            f" ({overhead[count] / count * 1e6:.1f} µs/objet, x{traced / baseline:.2f})"
+        )
+
+    # Linéaire : 4 fois plus d'objets, environ 4 fois plus de surcoût. Une croissance
+    # quadratique donnerait 16 ; la marge absorbe le bruit d'une machine partagée.
+    growth = overhead[large] / overhead[small]
+    assert growth < (large / small) * 1.5
