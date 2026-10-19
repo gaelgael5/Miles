@@ -138,7 +138,9 @@ le travail livrable sur une machine de test. Commits en français, conventionnel
 Livrer = pousser sur `dev`, puis lancer `dev-deploy.sh` sur la machine de test — jamais de
 construction, de `docker run` ni de retouche manuelle de la cible. Les machines de test `test1`,
 `test2`… sont à ta disposition. Charge la skill `test-machine-deployment` AVANT de déployer.
-Aucune machine attribuée à ce jour : voir `ia_instructions/tests_and_ressources.md`.
+Machines attribuées : `ia_instructions/tests_and_ressources.md`. `dev-deploy.sh` déclare la stack
+`miles` à l'annuaire du portail par code TOTP (`PORTAL_TOKEN` = outil MCP `totp_code`, jamais le
+jeton admin) — fiche globals « Déclarer un service exposé au portail (annuaire, code TOTP) ».
 
 ### Définition de « terminé »
 **Une tâche est finie quand les tests passent.** Pas quand le code compile, pas quand il est

@@ -8,6 +8,10 @@
 #   ./dev-deploy.sh --no-nohup            sans filet de session (CI, débogage pas à pas)
 #   ./dev-deploy.sh --bootstrap-deploy-key [--force]   clé de déploiement SSH (dépôt privé)
 #   ./dev-deploy.sh --reset-db            DÉTRUIT la base (confirmation exigée), puis s'arrête
+#
+# Annuaire du portail : EXPOSE_PORTAL_URL et EXPOSE_WORKSPACE (EXPOSE_HOST facultatif) se
+# donnent au premier passage, puis sont figés dans .env. PORTAL_TOKEN = code TOTP
+# « login:code » (outil MCP totp_code), fourni à CHAQUE passage, jamais écrit nulle part.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,7 +21,10 @@ LOG_FILE="$STATE_DIR/deploy-$(date +%Y%m%d-%H%M%S).log"
 PURGE_STAMP="$STATE_DIR/last-purge"
 ENV_FILE="$REPO_DIR/.env"
 DEPLOY_KEY="$HOME/.ssh/miles_deploy_key"
-TOTAL_STEPS=9
+TOTAL_STEPS=10
+# Nom publié à l'annuaire : doit rester le `name:` de docker-compose.yml, sinon le lien de la
+# machine de test dans le portail ne retrouve pas la stack.
+SERVICE_NAME="miles"
 CONTAINER_WAIT_S=90
 HEALTH_WAIT_S=120
 PURGE_EVERY_S=$((7 * 24 * 3600))
@@ -36,6 +43,15 @@ done
 step() { echo "==> [$1/$TOTAL_STEPS] $2"; }
 fail() { echo "ÉCHEC : $*" >&2; exit 1; }
 compose() { docker compose --project-directory "$REPO_DIR" --env-file "$ENV_FILE" "$@"; }
+env_value() { grep "^$1=" "$ENV_FILE" | tail -1 | cut -d= -f2- || true; }
+# Valeur non secrète prise dans l'environnement au premier passage, puis figée : .env fait foi.
+persist_default() {
+  local key="$1" default="${2:-}"
+  local value="${!key:-$default}"
+  grep -q "^$key=" "$ENV_FILE" && return 0
+  [[ -n "$value" ]] && echo "$key=$value" >> "$ENV_FILE"
+  return 0
+}
 
 # --- 0. Survivre à la perte de la session -----------------------------------------------
 # Le script arrête la stack ; lancé depuis une session qu'elle héberge (ou une connexion
@@ -103,12 +119,12 @@ if ! grep -q '^MILES_DB_PASSWORD=.\+' "$ENV_FILE"; then
   echo "MILES_DB_PASSWORD=$(openssl rand -hex 24)" >> "$ENV_FILE"
   echo "mot de passe de base généré (première exécution)"
 fi
-# Machines de test partagées : 8080 y est souvent pris. Le port se choisit au premier passage
-# (MILES_HTTP_PORT=… ./dev-deploy.sh), puis .env fait foi — l'environnement ne le change plus.
-if ! grep -q '^MILES_HTTP_PORT=' "$ENV_FILE"; then
-  echo "MILES_HTTP_PORT=${MILES_HTTP_PORT:-8080}" >> "$ENV_FILE"
-fi
-HTTP_PORT="$(grep '^MILES_HTTP_PORT=' "$ENV_FILE" | tail -1 | cut -d= -f2)"
+# Machines de test partagées : 8080 y est souvent pris, d'où un port choisi au premier passage.
+persist_default MILES_HTTP_PORT 8080
+persist_default EXPOSE_PORTAL_URL
+persist_default EXPOSE_WORKSPACE
+persist_default EXPOSE_HOST "$(hostname)"
+HTTP_PORT="$(env_value MILES_HTTP_PORT)"
 [[ "$HTTP_PORT" =~ ^[0-9]{2,5}$ ]] || fail "MILES_HTTP_PORT invalide dans .env : $HTTP_PORT"
 
 # --- 11. Mode destructif isolé : drapeau explicite, confirmation, court-circuit ---------
@@ -120,12 +136,69 @@ if [[ "$RESET_DB" -eq 1 ]]; then
   exit 0
 fi
 
+# --- Déclaration à l'annuaire du portail, best-effort -----------------------------------
+# Faite AVANT la construction, pas après le contrôle de santé : le code TOTP vit ~30 s et serait
+# périmé au bout d'un build de plusieurs minutes. La déclaration est un upsert idempotent ;
+# publier une stack pas encore debout est sans effet. Rien ici ne fait échouer le déploiement.
+declare_exposition() {
+  local portal workspace host target_ip body http_code
+  portal="$(env_value EXPOSE_PORTAL_URL)"
+  workspace="$(env_value EXPOSE_WORKSPACE)"
+  host="$(env_value EXPOSE_HOST)"
+  if [[ -z "$portal" || -z "$workspace" ]]; then
+    echo "annuaire non configuré (EXPOSE_PORTAL_URL / EXPOSE_WORKSPACE absents de .env) : rien à déclarer"
+    return 0
+  fi
+  if [[ -z "${PORTAL_TOKEN:-}" ]]; then
+    echo "AVERTISSEMENT : PORTAL_TOKEN absent, $workspace-$SERVICE_NAME non déclaré à l'annuaire"
+    return 0
+  fi
+  # Seule la voie agent (/me, droits du propriétaire) est admise : un jeton d'infra admin n'a
+  # rien à faire sur une machine de workspace. Le jeton n'est jamais affiché.
+  if [[ ! "$PORTAL_TOKEN" =~ ^[A-Za-z0-9._@+-]+:[0-9]{6,8}$ ]]; then
+    echo "AVERTISSEMENT : PORTAL_TOKEN n'a pas la forme login:code TOTP, déclaration ignorée"
+    return 0
+  fi
+  # Ces valeurs entrent dans un JSON écrit à la main : seules des formes sûres passent.
+  if [[ ! "$portal" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{2,5})?/?$ \
+        || ! "$workspace" =~ ^[a-z0-9][a-z0-9-]*$ || ! "$host" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]; then
+    echo "AVERTISSEMENT : EXPOSE_PORTAL_URL, EXPOSE_WORKSPACE ou EXPOSE_HOST invalide dans .env, déclaration ignorée"
+    return 0
+  fi
+  # Le portail central relaie par le réseau maillé (100.64/10) : son IP d'abord, sinon la cible
+  # imposée par EXPOSE_TARGET_HOST, sinon la première IP globale.
+  target_ip="$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 \
+    | grep -E '^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.' | head -1 || true)"
+  target_ip="${EXPOSE_TARGET_HOST:-${target_ip:-$(ip -4 -o addr show scope global | awk 'NR==1{print $4}' | cut -d/ -f1)}}"
+  if [[ ! "$target_ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+    echo "AVERTISSEMENT : adresse cible introuvable, déclaration ignorée"
+    return 0
+  fi
+  body="$(printf '{"workspace":"%s","service":"%s","host":"%s","target_host":"%s","target_port":%d,"scheme":"http","entry_path":""}' \
+    "$workspace" "$SERVICE_NAME" "$host" "$target_ip" "$HTTP_PORT")"
+  # Le jeton passe par une config curl lue sur stdin, jamais en argument (`ps auxww`).
+  http_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 -X PUT \
+    -H 'Content-Type: application/json' -d "$body" "${portal%/}/me/expositions" \
+    -K - 2>/dev/null <<<"header = \"Authorization: Bearer ${PORTAL_TOKEN}\"" || true)"
+  if [[ "$http_code" =~ ^2[0-9][0-9]$ ]]; then
+    echo "service déclaré à l'annuaire : $workspace-$SERVICE_NAME → $target_ip:$HTTP_PORT"
+  else
+    echo "AVERTISSEMENT : déclaration de $workspace-$SERVICE_NAME refusée (HTTP ${http_code:-000}) ; elle se rejouera au prochain passage"
+  fi
+}
+step 4 "déclaration à l'annuaire du portail"
+grep -q "^name: $SERVICE_NAME\$" "$REPO_DIR/docker-compose.yml" \
+  || fail "SERVICE_NAME ($SERVICE_NAME) diffère du name: de docker-compose.yml"
+declare_exposition
+# Code à usage unique : rien en aval n'en a besoin, et il ne doit atteindre aucun conteneur.
+unset PORTAL_TOKEN
+
 # --- 5. Construire, arrêter, relancer -------------------------------------------------
-step 4 "construction des images depuis la copie du dépôt"
+step 5 "construction des images depuis la copie du dépôt"
 # Jamais sautée : c'est ici, sur copie fraîche, qu'on prouve que les images se bâtissent.
 compose build --pull || fail "construction en échec : défaut du dépôt, à corriger d'abord"
 
-step 5 "arrêt de la stack (orphelins compris)"
+step 6 "arrêt de la stack (orphelins compris)"
 compose down --remove-orphans
 
 # --- 6. Conflit de port, APRÈS l'arrêt ------------------------------------------------
@@ -136,7 +209,7 @@ fi
 compose up -d
 
 # --- 7. Attendre un conteneur réellement exécutable avant de migrer ---------------------
-step 6 "attente du conteneur backend"
+step 7 "attente du conteneur backend"
 stable=0
 for _ in $(seq 1 "$CONTAINER_WAIT_S"); do
   state="$(docker inspect -f '{{.State.Status}} {{.RestartCount}}' "$(compose ps -q backend)" 2>/dev/null || true)"
@@ -147,17 +220,17 @@ for _ in $(seq 1 "$CONTAINER_WAIT_S"); do
 done
 [[ "$stable" -ge 3 ]] || fail "backend jamais stable : docker compose logs backend"
 
-step 7 "migrations"
+step 8 "migrations"
 compose exec -T backend miles-migrate apply || fail "migration en échec : docker compose logs backend"
 
 # --- 8. Le schéma est-il réellement à jour ? -------------------------------------------
-step 8 "vérification de la version de schéma"
+step 9 "vérification de la version de schéma"
 # « apply » peut sortir en succès sans avoir atteint la dernière version (base tamponnée
 # à la main) : on interroge le résultat, pas le code de retour.
 compose exec -T backend miles-migrate status || fail "schéma en retard après migration"
 
 # --- 9. Contrôle de santé final, plafonné ----------------------------------------------
-step 9 "contrôle de santé sur le port publié $HTTP_PORT"
+step 10 "contrôle de santé sur le port publié $HTTP_PORT"
 # Par le frontend nginx, sur le port réellement exposé : valide aussi le proxy /api.
 healthy=0
 for _ in $(seq 1 "$HEALTH_WAIT_S"); do
