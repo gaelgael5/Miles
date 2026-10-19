@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import socket
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from datetime import timedelta
@@ -19,6 +22,8 @@ from miles.db.migration_files import file_load_migrations
 from miles.db.pool import db_create_pool
 from miles.health import resolve_health
 from miles.log_config import configure_logging
+from miles.mqtt.protocol import BUILTIN_HANDLERS
+from miles.mqtt.responder import MqttSettings, run_responder
 
 log = structlog.get_logger(__name__)
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
@@ -48,6 +53,21 @@ def create_app() -> FastAPI:
             session_ttl=timedelta(seconds=settings.session_ttl_s),
             cookie_secure=settings.cookie_secure,
         )
+        responder = asyncio.create_task(
+            run_responder(
+                MqttSettings(
+                    host=settings.mqtt_host,
+                    port=settings.mqtt_port,
+                    username=settings.mqtt_username,
+                    password=settings.mqtt_password,
+                    client_id=f"miles-backend-{socket.gethostname()}",
+                ),
+                BUILTIN_HANDLERS,
+            )
+        )
+        # Le service MQTT tourne en tâche de fond : s'il s'arrête sur une erreur
+        # imprévue, le journal doit le dire au lieu de laisser les terminaux sans réponse.
+        responder.add_done_callback(_log_responder_end)
         log.info(
             "demarrage",
             expected_schema_version=expected_version,
@@ -56,9 +76,17 @@ def create_app() -> FastAPI:
         try:
             yield
         finally:
+            responder.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await responder
             await pool.close()
 
     return build_app(lifespan)
+
+
+def _log_responder_end(task: asyncio.Task[None]) -> None:
+    if not task.cancelled() and task.exception() is not None:
+        log.error("mqtt_service_arrete", reason=repr(task.exception()))
 
 
 def build_app(lifespan: Lifespan | None = None) -> FastAPI:

@@ -27,6 +27,8 @@ services:
       MILES_ENV_FILE: /run/miles/.env
       MILES_ENV_BACKUP_FILE: /run/miles/.env.bak
       MILES_COOKIE_SECURE: ${MILES_COOKIE_SECURE:-true}
+      MILES_MQTT_HOST: mqtt
+      MILES_MQTT_PASSWORD: ${MILES_MQTT_PASSWORD:?MILES_MQTT_PASSWORD absent de .env — lancer dev-deploy.sh}
     volumes:
       # Fichier par fichier, pas le dossier du dépôt (décision du 19/10/2026) : le
       # backend y écrit le compte d'amorçage, et .env.bak sert à restaurer .env si
@@ -36,6 +38,22 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mqtt:
+        condition: service_started
+    restart: unless-stopped
+
+  mqtt:
+    # Même image que scripts/run-integration-tests.sh et dev-deploy.sh : le broker
+    # éprouvé en test est celui qu'on livre.
+    image: eclipse-mosquitto:2.0.20
+    ports:
+      - "${MILES_MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      # Comptes et droits préparés par dev-deploy.sh (propriétaire mosquitto, 600).
+      - ./.deploy/mosquitto/passwd:/mosquitto/config/passwd:ro
+      - ./.deploy/mosquitto/acl:/mosquitto/config/acl:ro
+      - miles-mqtt:/mosquitto/data
     restart: unless-stopped
 
   frontend:
@@ -50,3 +68,4 @@ services:
 
 volumes:
   miles-db:
+  miles-mqtt:

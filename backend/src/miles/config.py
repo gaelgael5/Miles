@@ -42,3 +42,9 @@ class Settings(DatabaseSettings):
     # Vrai par défaut : le portail est servi en HTTPS par le relais. Le désactiver
     # n'a de sens que pour un accès HTTP direct, sur une machine de test.
     cookie_secure: bool = True
+    # Broker MQTT 5. Obligatoire : un back-office qui ne sert pas les terminaux ne
+    # doit pas démarrer en silence comme s'il était complet.
+    mqtt_host: str
+    mqtt_port: int = Field(default=1883, ge=1, le=65535)
+    mqtt_username: str = "miles-backend"
+    mqtt_password: SecretStr

@@ -24,6 +24,9 @@ BACKUP_ENV_FILE="$REPO_DIR/.env.bak"
 ADMIN_PASSWORD_FILE="$STATE_DIR/admin-password"
 # uid de l'utilisateur non root de l'image backend (backend/Dockerfile).
 RUNTIME_UID=10001
+MOSQUITTO_IMAGE="eclipse-mosquitto:2.0.20"
+MOSQUITTO_UID=1883
+MOSQUITTO_DIR="$STATE_DIR/mosquitto"
 DEPLOY_KEY="$HOME/.ssh/miles_deploy_key"
 TOTAL_STEPS=11
 # Nom publié à l'annuaire : doit rester le `name:` de docker-compose.yml, sinon le lien de la
@@ -123,8 +126,15 @@ if ! grep -q '^MILES_DB_PASSWORD=.\+' "$ENV_FILE"; then
   echo "MILES_DB_PASSWORD=$(openssl rand -hex 24)" >> "$ENV_FILE"
   echo "mot de passe de base généré (première exécution)"
 fi
+# Compte du back-office auprès du broker : généré une fois, comme celui de la base.
+if ! grep -q '^MILES_MQTT_PASSWORD=.\+' "$ENV_FILE"; then
+  sed -i '/^MILES_MQTT_PASSWORD=/d' "$ENV_FILE"
+  echo "MILES_MQTT_PASSWORD=$(openssl rand -hex 24)" >> "$ENV_FILE"
+  echo "mot de passe MQTT du back-office généré (première exécution)"
+fi
 # Machines de test partagées : 8080 y est souvent pris, d'où un port choisi au premier passage.
 persist_default MILES_HTTP_PORT 8080
+persist_default MILES_MQTT_PORT 1883
 persist_default EXPOSE_PORTAL_URL
 persist_default EXPOSE_WORKSPACE
 persist_default EXPOSE_HOST "$(hostname)"
@@ -138,6 +148,22 @@ touch "$BACKUP_ENV_FILE"
 chmod 600 "$ENV_FILE" "$BACKUP_ENV_FILE"
 chown "$RUNTIME_UID:$RUNTIME_UID" "$ENV_FILE" "$BACKUP_ENV_FILE" \
   || fail "chown de .env impossible : lancer dev-deploy.sh en root (machine de test)"
+MQTT_PORT="$(env_value MILES_MQTT_PORT)"
+[[ "$MQTT_PORT" =~ ^[0-9]{2,5}$ ]] || fail "MILES_MQTT_PORT invalide dans .env : $MQTT_PORT"
+
+# Comptes et droits du broker, refaits à chaque passage depuis .env et mosquitto/acl :
+# rien d'autre ne les porte, et leur propriétaire doit être mosquitto (fichiers en 600).
+# Les comptes des terminaux viendront de l'enrôlement ; seul le back-office existe ici.
+grep -q "image: $MOSQUITTO_IMAGE\$" "$REPO_DIR/docker-compose.yml" \
+  || fail "MOSQUITTO_IMAGE ($MOSQUITTO_IMAGE) diffère de l'image mqtt de docker-compose.yml"
+mkdir -p "$MOSQUITTO_DIR"
+(umask 077 && printf 'miles-backend:%s\n' "$(env_value MILES_MQTT_PASSWORD)" > "$MOSQUITTO_DIR/passwd")
+# -U hache en place le fichier en clair : le mot de passe ne passe jamais en argument.
+docker run --rm -v "$MOSQUITTO_DIR/passwd:/p" "$MOSQUITTO_IMAGE" mosquitto_passwd -U /p \
+  || fail "hachage des comptes du broker impossible"
+cp "$REPO_DIR/mosquitto/acl" "$MOSQUITTO_DIR/acl"
+chmod 600 "$MOSQUITTO_DIR/passwd" "$MOSQUITTO_DIR/acl"
+chown "$MOSQUITTO_UID:$MOSQUITTO_UID" "$MOSQUITTO_DIR/passwd" "$MOSQUITTO_DIR/acl"
 
 # --- 11. Mode destructif isolé : drapeau explicite, confirmation, court-circuit ---------
 if [[ "$RESET_DB" -eq 1 ]]; then
@@ -240,9 +266,11 @@ compose down --remove-orphans
 
 # --- 6. Conflit de port, APRÈS l'arrêt ------------------------------------------------
 # Sondé avant l'arrêt, le port serait pris… par notre propre service.
-if (exec 3<>"/dev/tcp/127.0.0.1/$HTTP_PORT") 2>/dev/null; then
-  fail "port $HTTP_PORT occupé par un autre service (ss -ltnp 'sport = :$HTTP_PORT')"
-fi
+for port in "$HTTP_PORT" "$MQTT_PORT"; do
+  if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+    fail "port $port occupé par un autre service (ss -ltnp 'sport = :$port')"
+  fi
+done
 compose up -d
 
 # --- 7. Attendre un conteneur réellement exécutable avant de migrer ---------------------

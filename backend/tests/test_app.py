@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -39,6 +40,18 @@ def _set_env_files(
     env_file, backup = write_env(directory, content)
     monkeypatch.setenv("MILES_ENV_FILE", str(env_file))
     monkeypatch.setenv("MILES_ENV_BACKUP_FILE", str(backup))
+    monkeypatch.setenv("MILES_MQTT_HOST", "mqtt")
+    monkeypatch.setenv("MILES_MQTT_PASSWORD", "x")
+    monkeypatch.setattr(app_module, "run_responder", _idle_responder)
+
+
+RESPONDERS: list[Any] = []
+
+
+async def _idle_responder(settings: Any, handlers: Any) -> None:
+    # Doublure : pas de broker en test unitaire ; on vérifie seulement le branchement.
+    RESPONDERS.append((settings, handlers))
+    await asyncio.Event().wait()
 
 
 def test_create_app_lifespan_wires_probe_with_expected_version(
@@ -58,6 +71,9 @@ def test_create_app_lifespan_wires_probe_with_expected_version(
         assert probe.args[1] == 2
         assert application.state.auth.db is pool
         assert application.state.auth.store.account is None
+        settings, handlers = RESPONDERS[-1]
+        assert (settings.host, settings.port, settings.username) == ("mqtt", 1883, "miles-backend")
+        assert "system.ping" in handlers
 
     assert pool.closed is True
 

@@ -1,0 +1,12 @@
+# Droits du broker. Le back-office se fie au segment <terminal> du topic d'une
+# demande PARCE QUE seules ces règles l'empêchent d'être usurpé : ne pas les relâcher.
+
+# Back-office : lit toutes les demandes, publie dans les boîtes de réponse.
+user miles-backend
+topic read miles/v1/devices/+/requests/+
+topic write miles/v1/devices/+/responses/+
+
+# Terminal : son nom d'utilisateur est son identifiant (%u). Il ne publie que
+# ses propres demandes et ne lit que sa propre boîte de réponse.
+pattern write miles/v1/devices/%u/requests/+
+pattern read miles/v1/devices/%u/responses/+
