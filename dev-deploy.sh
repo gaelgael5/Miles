@@ -215,11 +215,19 @@ declare_exposition() {
   body="$(printf '{"workspace":"%s","service":"%s","host":"%s","target_host":"%s","target_port":%d,"scheme":"http","entry_path":""}' \
     "$workspace" "$SERVICE_NAME" "$host" "$target_ip" "$HTTP_PORT")"
   # Le jeton passe par une config curl lue sur stdin, jamais en argument (`ps auxww`).
-  http_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 -X PUT \
+  local response public_url
+  response="$(curl -sS -w '\n%{http_code}' --max-time 15 -X PUT \
     -H 'Content-Type: application/json' -d "$body" "${portal%/}/me/expositions" \
     -K - 2>/dev/null <<<"header = \"Authorization: Bearer ${PORTAL_TOKEN}\"" || true)"
+  http_code="${response##*$'\n'}"
   if [[ "$http_code" =~ ^2[0-9][0-9]$ ]]; then
-    echo "service déclaré à l'annuaire : $workspace-$SERVICE_NAME → $target_ip:$HTTP_PORT"
+    # On rend l'URL et le verdict du portail, pas un nom reconstruit ici : un 200 dit que
+    # l'entrée existe, pas que le portail atteint le service (« joignable »).
+    public_url="$(grep -oE '"url":"https://[A-Za-z0-9.-]+"' <<<"$response" | cut -d'"' -f4 || true)"
+    echo "service déclaré à l'annuaire : ${public_url:-URL non rendue} → $target_ip:$HTTP_PORT"
+    if ! grep -q '"joignable":true' <<<"$response"; then
+      echo "AVERTISSEMENT : le portail ne joint pas $target_ip:$HTTP_PORT par le réseau maillé ; le lien de l'annuaire ne répondra pas"
+    fi
   else
     echo "AVERTISSEMENT : déclaration de $workspace-$SERVICE_NAME refusée (HTTP ${http_code:-000}) ; elle se rejouera au prochain passage"
   fi
