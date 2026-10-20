@@ -2,7 +2,11 @@
   "app": {
     "title": "Back-office Miles",
     "signedInAs": "Connecté en tant que {{username}}",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "nav": {
+      "home": "Accueil",
+      "secrets": "Secrets"
+    }
   },
   "health": {
     "title": "État du service",
@@ -51,6 +55,55 @@
       "invalid": "Nom d'utilisateur ou mot de passe incorrect.",
       "throttled": "Trop de tentatives échouées. Réessayer dans quelques minutes.",
       "unexpected": "La connexion a échoué. Voir les journaux du back-office."
+    }
+  },
+  "secrets": {
+    "title": "Secrets",
+    "intro": "Secrets de cette installation : secrets client OIDC, jetons de dépôt, identifiants de services. Une valeur est chiffrée en base et n'est plus jamais affichée ; les autres écrans choisissent un secret par son nom.",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "fields": {
+      "label": "Libellé",
+      "slug": "Identifiant (slug)",
+      "type": "Type",
+      "value": "Valeur",
+      "newValue": "Nouvelle valeur"
+    },
+    "create": {
+      "title": "Nouveau secret",
+      "open": "Ajouter un secret",
+      "submit": "Enregistrer le secret",
+      "fixedType": "Type : {{type}}",
+      "neverShownAgain": "La valeur ne sera plus jamais affichée, pas même à vous."
+    },
+    "list": {
+      "loading": "Chargement des secrets…",
+      "empty": "Aucun secret déclaré pour l'instant.",
+      "usedBy_one": "utilisé par {{count}} objet",
+      "usedBy_other": "utilisé par {{count}} objets",
+      "copySlug": "Copier l'identifiant",
+      "relabel": "Renommer",
+      "replace": "Remplacer la valeur",
+      "replaceValue": "Remplacer la valeur",
+      "delete": "Supprimer"
+    },
+    "errors": {
+      "invalid": {
+        "slug": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets, sans tiret au début.",
+        "label": "Libellé : 1 à 200 caractères.",
+        "secret_type": "Type : 2 à 64 caractères, majuscules, chiffres et soulignés, commençant par une lettre.",
+        "value": "Valeur : obligatoire, 16 Kio au plus, et jamais une référence ${…}."
+      },
+      "slugTaken": "Cet identifiant est déjà pris par un autre secret.",
+      "inUse": "Ce secret est encore utilisé et ne peut pas être supprimé. Détachez-le de :",
+      "unreachable": "Impossible de charger les secrets.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    },
+    "picker": {
+      "none": "— Aucun secret —",
+      "createInline": "Créer un secret",
+      "orphan": "Le secret choisi ({{slug}}) n'existe plus. Choisissez-en un autre.",
+      "orphanOption": "Secret introuvable : {{slug}}"
     }
   }
 }

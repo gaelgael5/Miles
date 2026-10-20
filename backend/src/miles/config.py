@@ -18,7 +18,11 @@ class DatabaseSettings(BaseSettings):
 
     # extra="forbid" : une clef mal orthographiée doit faire échouer le démarrage,
     # pas laisser silencieusement s'appliquer une valeur par défaut.
-    model_config = SettingsConfigDict(env_prefix="MILES_", extra="forbid", frozen=True)
+    # hide_input_in_errors : un démarrage refusé est journalisé, et l'erreur pydantic
+    # recopierait sinon les valeurs lues — mots de passe et clé des secrets compris.
+    model_config = SettingsConfigDict(
+        env_prefix="MILES_", extra="forbid", frozen=True, hide_input_in_errors=True
+    )
 
     # Obligatoire, sans défaut : un back-office démarré sans base n'a aucun sens,
     # et une URL par défaut pointerait en silence vers une base qui n'est pas la bonne.
@@ -48,3 +52,7 @@ class Settings(DatabaseSettings):
     mqtt_port: int = Field(default=1883, ge=1, le=65535)
     mqtt_username: str = "miles-backend"
     mqtt_password: SecretStr
+    # Clé qui chiffre les secrets de l'instance (MILES_SECRETS_KEY), générée une fois
+    # dans .env. Obligatoire et sans défaut : une clé de secours rendrait les secrets
+    # lisibles par quiconque connaît le code.
+    secrets_key: SecretStr

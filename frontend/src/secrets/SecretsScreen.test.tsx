@@ -1,0 +1,134 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+
+import "../i18n/i18n";
+import { slugFromLabel } from "../api/secrets";
+import { mockApi } from "../test/mockApi";
+import { SecretsScreen } from "./SecretsScreen";
+
+const VALUE = "ghp_valeur-a-ne-jamais-garder";
+const GIT = {
+  slug: "git-token",
+  label: "Jeton GitHub",
+  secret_type: "GIT_TOKEN",
+  created_at: "2026-10-20T10:00:00Z",
+  updated_at: "2026-10-20T10:00:00Z",
+  consumers: [],
+};
+
+function renderScreen() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <SecretsScreen />
+    </QueryClientProvider>,
+  );
+}
+
+function fill(label: string, value: string) {
+  fireEvent.change(screen.getByLabelText(label), { target: { value } });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("slugFromLabel", () => {
+  it("lowercases, strips accents and joins words with dashes", () => {
+    expect(slugFromLabel("  Clé d'accès GitHub — prod ")).toBe("cle-d-acces-github-prod");
+    expect(slugFromLabel("x".repeat(80))).toHaveLength(63);
+  });
+});
+
+describe("SecretsScreen", () => {
+  it("says so when no secret exists", async () => {
+    mockApi({ "GET /api/secrets": { status: 200, body: [] } });
+
+    renderScreen();
+
+    expect(await screen.findByText("No secret declared yet.")).toBeInTheDocument();
+  });
+
+  it("creates a secret with a slug proposed from the label, then forgets the value", async () => {
+    const calls = mockApi({
+      "GET /api/secrets": [
+        { status: 200, body: [] },
+        { status: 200, body: [GIT] },
+      ],
+      "POST /api/secrets": { status: 201, body: GIT },
+    });
+    renderScreen();
+    fireEvent.click(await screen.findByText("Add a secret"));
+
+    fill("Label", "Jeton GitHub");
+    fill("Type", "git_token");
+    fill("Value", VALUE);
+    fireEvent.click(screen.getByText("Save the secret"));
+
+    expect(await screen.findByText("Jeton GitHub")).toBeInTheDocument();
+    expect(calls.find((c) => c.key === "POST /api/secrets")?.body).toEqual({
+      slug: "jeton-github",
+      label: "Jeton GitHub",
+      secret_type: "GIT_TOKEN",
+      value: VALUE,
+    });
+    expect(document.body.innerHTML).not.toContain(VALUE);
+  });
+
+  it("names the refused field and a taken slug", async () => {
+    mockApi({
+      "GET /api/secrets": { status: 200, body: [] },
+      "POST /api/secrets": [
+        { status: 422, body: { detail: { field: "value" } } },
+        { status: 409, body: { detail: "slug_pris" } },
+      ],
+    });
+    renderScreen();
+    fireEvent.click(await screen.findByText("Add a secret"));
+    fill("Label", "Jeton");
+    fill("Type", "GIT_TOKEN");
+    fill("Value", "${local://x}");
+
+    fireEvent.click(screen.getByText("Save the secret"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("never a ${…} reference");
+
+    fireEvent.click(screen.getByText("Save the secret"));
+    expect(await screen.findByText(/already used by another secret/)).toBeInTheDocument();
+  });
+
+  it("lists the consumers when deleting a secret still in use", async () => {
+    mockApi({
+      "GET /api/secrets": { status: 200, body: [{ ...GIT, consumers: [{ kind: "workspace", id: "ws-1" }] }] },
+      "DELETE /api/secrets/git-token": {
+        status: 409,
+        body: { detail: { code: "secret_utilise", consumers: [{ kind: "workspace", id: "ws-1" }] } },
+      },
+    });
+    renderScreen();
+
+    fireEvent.click(await screen.findByText("Delete"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("still used");
+    expect(within(alert).getByText("workspace ws-1")).toBeInTheDocument();
+  });
+
+  it("replaces a value without ever displaying the old one", async () => {
+    const calls = mockApi({
+      "GET /api/secrets": { status: 200, body: [GIT] },
+      "PUT /api/secrets/git-token/value": { status: 204 },
+    });
+    renderScreen();
+    fireEvent.click(await screen.findByText("Replace the value"));
+
+    expect(screen.getByLabelText("New value")).toHaveValue("");
+    expect(screen.getByLabelText("New value")).toHaveAttribute("type", "password");
+    fill("New value", VALUE);
+    fireEvent.click(screen.getByText("Save"));
+
+    await screen.findByText("Replace the value");
+    expect(calls.find((c) => c.key === "PUT /api/secrets/git-token/value")?.body).toEqual({
+      value: VALUE,
+    });
+  });
+});

@@ -132,6 +132,13 @@ if ! grep -q '^MILES_MQTT_PASSWORD=.\+' "$ENV_FILE"; then
   echo "MILES_MQTT_PASSWORD=$(openssl rand -hex 24)" >> "$ENV_FILE"
   echo "mot de passe MQTT du back-office généré (première exécution)"
 fi
+# Clé des secrets de l'instance (décision du 20/10/2026) : générée UNE fois, jamais régénérée.
+# La régénérer rendrait illisibles tous les secrets chiffrés en base avec l'ancienne.
+if ! grep -q '^MILES_SECRETS_KEY=.\+' "$ENV_FILE"; then
+  sed -i '/^MILES_SECRETS_KEY=/d' "$ENV_FILE"
+  echo "MILES_SECRETS_KEY=$(openssl rand -base64 32 | tr '+/' '-_')" >> "$ENV_FILE"
+  echo "clé des secrets générée (première exécution)"
+fi
 # Machines de test partagées : 8080 y est souvent pris, d'où un port choisi au premier passage.
 persist_default MILES_HTTP_PORT 8080
 persist_default MILES_MQTT_PORT 1883

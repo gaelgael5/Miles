@@ -2,7 +2,11 @@
   "app": {
     "title": "Miles back-office",
     "signedInAs": "Signed in as {{username}}",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "nav": {
+      "home": "Home",
+      "secrets": "Secrets"
+    }
   },
   "health": {
     "title": "Service status",
@@ -51,6 +55,55 @@
       "invalid": "Wrong username or password.",
       "throttled": "Too many failed attempts. Try again in a few minutes.",
       "unexpected": "Sign-in failed. See the back-office logs."
+    }
+  },
+  "secrets": {
+    "title": "Secrets",
+    "intro": "Secrets of this installation: OIDC client secrets, repository tokens, service credentials. A value is encrypted in the database and never shown again; other screens select a secret by name.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "fields": {
+      "label": "Label",
+      "slug": "Identifier (slug)",
+      "type": "Type",
+      "value": "Value",
+      "newValue": "New value"
+    },
+    "create": {
+      "title": "New secret",
+      "open": "Add a secret",
+      "submit": "Save the secret",
+      "fixedType": "Type: {{type}}",
+      "neverShownAgain": "The value will never be displayed again, not even to you."
+    },
+    "list": {
+      "loading": "Loading secrets…",
+      "empty": "No secret declared yet.",
+      "usedBy_one": "used by {{count}} object",
+      "usedBy_other": "used by {{count}} objects",
+      "copySlug": "Copy identifier",
+      "relabel": "Rename",
+      "replace": "Replace the value",
+      "replaceValue": "Replace the value",
+      "delete": "Delete"
+    },
+    "errors": {
+      "invalid": {
+        "slug": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes, not starting with a dash.",
+        "label": "Label: 1 to 200 characters.",
+        "secret_type": "Type: 2 to 64 characters, uppercase letters, digits and underscores, starting with a letter.",
+        "value": "Value: required, at most 16 KiB, and never a ${…} reference."
+      },
+      "slugTaken": "This identifier is already used by another secret.",
+      "inUse": "This secret is still used and cannot be deleted. Detach it from:",
+      "unreachable": "Secrets could not be loaded.",
+      "unexpected": "The operation failed. See the back-office logs."
+    },
+    "picker": {
+      "none": "— No secret —",
+      "createInline": "Create a secret",
+      "orphan": "The selected secret ({{slug}}) no longer exists. Choose another one.",
+      "orphanOption": "Missing secret: {{slug}}"
     }
   }
 }

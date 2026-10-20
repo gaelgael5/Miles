@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { ApiError, request } from "./http";
+
+export { ApiError };
+
 export interface BootstrapStatus {
   admin_declared: boolean;
 }
@@ -21,30 +25,8 @@ export interface LoginInput {
   password: string;
 }
 
-/** Erreur HTTP de l'API, avec le `detail` qu'elle renvoie pour que l'écran dise pourquoi. */
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly detail: unknown,
-  ) {
-    super(`HTTP ${status}`);
-  }
-}
-
 const ME_KEY = ["auth", "me"] as const;
 const STATUS_KEY = ["auth", "bootstrap-status"] as const;
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { detail?: unknown };
-    throw new ApiError(response.status, body.detail);
-  }
-  return (response.status === 204 ? undefined : await response.json()) as T;
-}
 
 export function fetchBootstrapStatus(signal?: AbortSignal) {
   return request<BootstrapStatus>("/api/bootstrap/status", { signal });

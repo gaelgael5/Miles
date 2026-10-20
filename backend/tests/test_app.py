@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -8,10 +10,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from miles import app as app_module
 from miles.auth.admin_account import AdminConfigError
 from miles.db.migration_files import MigrationError
+from miles.secrets.crypto import SecretsKeyError
 from tests.auth_fixtures import BASE_ENV, write_env
 from tests.conftest import FakeConnection, write_migrations
 
@@ -42,6 +46,7 @@ def _set_env_files(
     monkeypatch.setenv("MILES_ENV_BACKUP_FILE", str(backup))
     monkeypatch.setenv("MILES_MQTT_HOST", "mqtt")
     monkeypatch.setenv("MILES_MQTT_PASSWORD", "x")
+    monkeypatch.setenv("MILES_SECRETS_KEY", base64.urlsafe_b64encode(os.urandom(32)).decode())
     monkeypatch.setattr(app_module, "run_responder", _idle_responder)
 
 
@@ -74,6 +79,7 @@ def test_create_app_lifespan_wires_probe_with_expected_version(
         settings, handlers = RESPONDERS[-1]
         assert (settings.host, settings.port, settings.username) == ("mqtt", 1883, "miles-backend")
         assert "system.ping" in handlers
+        assert application.state.secrets.pool is pool
 
     assert pool.closed is True
 
@@ -120,4 +126,25 @@ def test_create_app_partial_admin_account_refuses_to_start(
     _set_env_files(monkeypatch, tmp_path / "files", BASE_ENV + "MILES_ADMIN_USERNAME='admin'\n")
 
     with pytest.raises(AdminConfigError):
+        app_module.create_app()
+
+
+def test_create_app_with_malformed_secrets_key_refuses_to_start_without_echoing_it(
+    monkeypatch: pytest.MonkeyPatch, env: Path
+) -> None:
+    bad_key = base64.urlsafe_b64encode(b"cle-trop-courte").decode()
+    monkeypatch.setenv("MILES_SECRETS_KEY", bad_key)
+
+    with pytest.raises(SecretsKeyError) as caught:
+        app_module.create_app()
+    assert bad_key not in str(caught.value)
+    assert "MILES_SECRETS_KEY" in str(caught.value)
+
+
+def test_create_app_without_secrets_key_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch, env: Path
+) -> None:
+    monkeypatch.delenv("MILES_SECRETS_KEY")
+
+    with pytest.raises(ValidationError, match="secrets_key"):
         app_module.create_app()

@@ -14,16 +14,21 @@ from fastapi import FastAPI
 from miles.api_health import router as health_router
 from miles.auth.admin_store import AdminAccountStore
 from miles.auth.api_auth import router as auth_router
-from miles.auth.context import AuthContext
+from miles.auth.context import AuthContext, utc_now
 from miles.auth.gate import auth_gate
 from miles.auth.throttle import LoginThrottle
 from miles.config import Settings
 from miles.db.migration_files import file_load_migrations
 from miles.db.pool import db_create_pool
+from miles.events.model import EventTypeCatalog
 from miles.health import resolve_health
 from miles.log_config import configure_logging
 from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder
+from miles.secrets import service as secrets_events
+from miles.secrets.api_secrets import router as secrets_router
+from miles.secrets.crypto import SecretCipher, parse_secrets_key
+from miles.secrets.service import SecretsService
 
 log = structlog.get_logger(__name__)
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
@@ -39,6 +44,11 @@ def create_app() -> FastAPI:
     # Lu avant tout : un .env illisible ou un compte partiel empêche le démarrage
     # (fail closed) au lieu d'ouvrir l'amorçage au premier venu.
     store = AdminAccountStore.file_load(settings.env_file, settings.env_backup_file)
+    # Même règle pour la clé des secrets : absente ou mal formée, on ne démarre pas.
+    cipher = SecretCipher(parse_secrets_key(settings.secrets_key.get_secret_value()))
+    # Catalogue des types d'event connus du code. Le catalogue déclaré dans git
+    # viendra avec son propre ticket ; d'ici là, chaque module apporte ses types.
+    catalog = EventTypeCatalog(secrets_events.EVENT_TYPES)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -53,6 +63,7 @@ def create_app() -> FastAPI:
             session_ttl=timedelta(seconds=settings.session_ttl_s),
             cookie_secure=settings.cookie_secure,
         )
+        app.state.secrets = SecretsService(pool, cipher, catalog, utc_now)
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -97,4 +108,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.middleware("http")(auth_gate)
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(secrets_router)
     return app

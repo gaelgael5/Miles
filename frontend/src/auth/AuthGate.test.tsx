@@ -1,29 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 
+import { mockApi } from "../test/mockApi";
 import { AuthGate } from "./AuthGate";
-
-type Route = { status: number; body?: unknown };
-type Routes = Record<string, Route | Route[]>;
-
-/** Doublure de fetch par « MÉTHODE chemin » ; une liste rejoue ses réponses dans l'ordre. */
-function mockApi(routes: Routes) {
-  const calls: { key: string; body: unknown }[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn((path: string, init?: RequestInit) => {
-      const key = `${init?.method ?? "GET"} ${path}`;
-      calls.push({ key, body: init?.body ? JSON.parse(init.body as string) : undefined });
-      const entry = routes[key];
-      const route = Array.isArray(entry) ? (entry.length > 1 ? entry.shift() : entry[0]) : entry;
-      if (route === undefined) {
-        return Promise.reject(new Error(`route non simulée : ${key}`));
-      }
-      return Promise.resolve(new Response(JSON.stringify(route.body ?? {}), { status: route.status }));
-    }),
-  );
-  return calls;
-}
 
 const ME = { kind: "local_admin", username: "admin", email: "gael@example.org" };
 

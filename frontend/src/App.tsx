@@ -1,12 +1,18 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useLogout } from "./api/auth";
 import { AuthGate } from "./auth/AuthGate";
 import { HealthStatus } from "./health/HealthStatus";
+import { SecretsScreen } from "./secrets/SecretsScreen";
+
+type Page = "home" | "secrets";
+const PAGES: Page[] = ["home", "secrets"];
 
 export function App() {
   const { t } = useTranslation();
   const logout = useLogout();
+  const [page, setPage] = useState<Page>("home");
   return (
     <main>
       <h1>{t("app.title")}</h1>
@@ -19,7 +25,19 @@ export function App() {
                 {t("app.logout")}
               </button>
             </p>
-            <HealthStatus />
+            <nav>
+              {PAGES.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  aria-current={page === name ? "page" : undefined}
+                  onClick={() => setPage(name)}
+                >
+                  {t(`app.nav.${name}`)}
+                </button>
+              ))}
+            </nav>
+            {page === "home" ? <HealthStatus /> : <SecretsScreen />}
           </>
         )}
       </AuthGate>
