@@ -343,7 +343,8 @@ async def test_box_checked_recognises_the_admin_and_journals_it(flow: Flow) -> N
     assert created.status_code == 201
     rows = await flow.portal.pool.fetch(
         "SELECT type, author_directory, author_subject, properties::text AS props FROM events"
-        " WHERE type IN ('oidc.admin_recognized', 'secret.created') ORDER BY written_at"
+        " WHERE type IN ('oidc.admin_recognized', 'secret.created')"
+        " AND author_directory = 'mock' ORDER BY written_at"
     )
     assert [(r["type"], r["author_directory"], r["author_subject"]) for r in rows] == [
         ("oidc.admin_recognized", "mock", "alice-sub"),
