@@ -39,8 +39,11 @@ def _home_with_error(error: LoginError) -> RedirectResponse:
 
 
 @router.get("/connectors", response_model=list[PublicConnector])
-async def list_active_connectors(service: Service) -> list[PublicConnector]:
-    return [PublicConnector(id=c.id, label=c.label) for c in await service.resolve_list(True)]
+async def list_active_connectors(
+    service: Service, culture: Annotated[str | None, Query(max_length=35)] = None
+) -> list[PublicConnector]:
+    connectors = await service.resolve_public_list(culture)
+    return [PublicConnector(id=connector_id, label=label) for connector_id, label in connectors]
 
 
 @router.get("/start")

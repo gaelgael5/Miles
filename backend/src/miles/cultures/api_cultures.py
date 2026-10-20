@@ -19,6 +19,8 @@ from miles.cultures.service import (
 # le compte d'amorçage en ouvre une aujourd'hui ; quand les rôles arriveront, la
 # gestion restera à l'administrateur et la lecture des actives à tout authentifié.
 router = APIRouter(prefix="/api/cultures")
+# Publique : l'écran de connexion, avant toute session, propose les cultures actives.
+public_router = APIRouter()
 
 
 def cultures_service(request: Request) -> CulturesService:
@@ -87,3 +89,15 @@ async def set_activation(
     except EmptyChangeError:
         return _error({"field": "codes"})
     return ActivationResult(changed=changed)
+
+
+class PublicCulture(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str
+    label_native: str
+
+
+@public_router.get("/api/auth/cultures", response_model=list[PublicCulture])
+async def list_login_cultures(service: Service) -> list[PublicCulture]:
+    active = await service.resolve_list(only_active=True)
+    return [PublicCulture(code=c.code, label_native=c.label_native) for c in active]

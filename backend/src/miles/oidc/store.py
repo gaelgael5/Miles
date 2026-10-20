@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -18,7 +20,9 @@ class OidcDb(Protocol):
 _SELECT = """
 SELECT c.id, c.issuer, c.client_id, c.client_secret_slug, c.scopes, c.active,
        c.groups_claim, c.display_name_claim, c.recognize_admin, c.manage_associations,
-       c.created_at, c.updated_at, coalesce(l.label, c.id) AS label
+       c.created_at, c.updated_at, coalesce(l.label, c.id) AS label,
+       (SELECT coalesce(jsonb_object_agg(a.culture, a.label), '{}'::jsonb)
+        FROM oidc_connector_labels a WHERE a.connector_id = c.id) AS labels
 FROM oidc_connectors c
 LEFT JOIN oidc_connector_labels l ON l.connector_id = c.id AND l.culture = $1
 """
@@ -39,7 +43,13 @@ def _connector(row: Any) -> Connector:
         row["manage_associations"],
         row["created_at"],
         row["updated_at"],
+        _json(row["labels"]),
     )
+
+
+def _json(value: Any) -> dict[str, str]:
+    loaded = json.loads(value) if isinstance(value, str) else value
+    return dict(loaded)
 
 
 async def db_list_connectors(db: OidcDb, only_active: bool) -> list[Connector]:
@@ -82,7 +92,7 @@ async def db_insert_connector(
         )
     except asyncpg.UniqueViolationError:
         raise ConnectorIdTakenError(connector_id) from None
-    await db_set_label(db, connector_id, data.label)
+    await db_apply_labels(db, connector_id, data.labels)
 
 
 async def db_update_connector(
@@ -104,17 +114,54 @@ async def db_update_connector(
         data.manage_associations,
         now,
     )
-    await db_set_label(db, connector_id, data.label)
+    await db_apply_labels(db, connector_id, data.labels)
 
 
-async def db_set_label(db: OidcDb, connector_id: str, label: str) -> None:
+async def db_apply_labels(db: OidcDb, connector_id: str, labels: Mapping[str, str]) -> None:
+    """Écrit les cultures saisies ; une chaîne vide retire, une culture absente reste."""
+    filled = {c: v for c, v in labels.items() if v}
+    cleared = [c for c, v in labels.items() if not v]
     await db.execute(
-        "INSERT INTO oidc_connector_labels (connector_id, culture, label) VALUES ($1, $2, $3)"
+        "INSERT INTO oidc_connector_labels (connector_id, culture, label)"
+        " SELECT $1, culture, label FROM unnest($2::text[], $3::text[]) AS t(culture, label)"
         " ON CONFLICT (connector_id, culture) DO UPDATE SET label = excluded.label",
         connector_id,
-        LABEL_CULTURE,
-        label,
+        list(filled),
+        list(filled.values()),
     )
+    await db.execute(
+        "DELETE FROM oidc_connector_labels WHERE connector_id = $1 AND culture = ANY($2::text[])",
+        connector_id,
+        cleared,
+    )
+
+
+async def db_inactive_cultures(db: OidcDb, cultures: list[str]) -> list[str]:
+    """Cultures saisies qui ne sont pas actives : la saisie ne propose que les actives."""
+    rows = await db.fetch(
+        "SELECT c FROM unnest($1::text[]) AS t(c)"
+        " WHERE NOT EXISTS (SELECT 1 FROM cultures WHERE code = c AND active) ORDER BY c",
+        cultures,
+    )
+    return [r["c"] for r in rows]
+
+
+async def db_list_public_connectors(db: OidcDb, culture: str) -> list[tuple[str, str]]:
+    """(id, libellé) des connecteurs actifs, dans la culture demandée si elle est active.
+
+    Repli sur en-US pour une culture inactive, inconnue ou non renseignée : jamais un
+    identifiant technique ni une chaîne vide sur l'écran de connexion.
+    """
+    rows = await db.fetch(
+        "SELECT c.id, coalesce(v.label, f.label, c.id) AS label FROM oidc_connectors c"
+        " LEFT JOIN oidc_connector_labels f ON f.connector_id = c.id AND f.culture = $1"
+        " LEFT JOIN oidc_connector_labels v ON v.connector_id = c.id AND v.culture = $2"
+        "   AND EXISTS (SELECT 1 FROM cultures k WHERE k.code = $2 AND k.active)"
+        " WHERE c.active ORDER BY label, c.id",
+        LABEL_CULTURE,
+        culture,
+    )
+    return [(r["id"], r["label"]) for r in rows]
 
 
 async def db_count_identities(db: OidcDb, connector_id: str) -> int:

@@ -2,7 +2,9 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ApiError, useLogin } from "../api/auth";
+import { usePublicCultures } from "../api/cultures";
 import { startLoginUrl, usePublicConnectors } from "../api/oidc";
+import { readStoredCulture, resolveVisitorCulture, storeCulture } from "./visitorCulture";
 
 const OIDC_ERRORS = new Set([
   "connecteur_inconnu",
@@ -39,7 +41,15 @@ export function LoginScreen() {
   const login = useLogin();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const connectors = usePublicConnectors();
+  const activeCultures = usePublicCultures();
+  // Choix explicite de cette page ; à défaut, ce que dit le navigateur (décision du 20/10).
+  const [chosen, setChosen] = useState<string | null>(readStoredCulture);
+  const culture = resolveVisitorCulture(
+    (activeCultures.data ?? []).map((c) => c.code),
+    navigator.languages,
+    chosen,
+  );
+  const connectors = usePublicConnectors(culture);
   const oidcError = oidcErrorFromUrl();
   const failedLabel = connectors.data?.find((c) => c.id === oidcError?.connector)?.label;
 
@@ -85,6 +95,24 @@ export function LoginScreen() {
       {connectors.isSuccess && connectors.data.length > 0 && (
         <nav aria-label={t("login.oidcTitle")}>
           <p>{t("login.oidcTitle")}</p>
+          {(activeCultures.data?.length ?? 0) > 1 && (
+            <label>
+              {t("login.culture")}
+              <select
+                value={culture}
+                onChange={(e) => {
+                  storeCulture(e.target.value);
+                  setChosen(e.target.value);
+                }}
+              >
+                {activeCultures.data?.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label_native}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {connectors.data.map((connector) => (
             <a key={connector.id} href={startLoginUrl(connector.id)}>
               {connector.label}

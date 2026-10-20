@@ -17,18 +17,15 @@ RAW = ConnectorInput(
     client_secret_slug="kc-secret",
     scopes="openid email profile email",
     active=True,
-    label=" Keycloak ",
+    labels={"en-US": " Keycloak ", "fr-FR": ""},
 )
 
 
 def test_valid_input_is_normalised() -> None:
     data = validate_input(RAW, allow_http=False)
 
-    assert (data.client_id, data.label, data.scopes) == (
-        "miles",
-        "Keycloak",
-        "openid email profile",
-    )
+    assert (data.client_id, data.scopes) == ("miles", "openid email profile")
+    assert data.labels == {"en-US": "Keycloak", "fr-FR": ""}
 
 
 @pytest.mark.parametrize(
@@ -63,7 +60,10 @@ def test_scopes_must_include_openid_and_stay_simple(scopes: str) -> None:
     ("field", "override"),
     [
         ("client_id", {"client_id": "  "}),
-        ("label", {"label": ""}),
+        ("label", {"labels": {"fr-FR": "Clé"}}),
+        ("label", {"labels": {"en-US": "  "}}),
+        ("labels", {"labels": {"en-US": "K", "pas une culture": "x"}}),
+        ("labels", {"labels": {"en-US": "K" * 201}}),
         ("client_secret_slug", {"client_secret_slug": ""}),
     ],
 )

@@ -31,6 +31,8 @@ PUBLIC_API_PATHS = frozenset(
         "/api/auth/oidc/connectors",
         "/api/auth/oidc/start",
         "/api/auth/oidc/callback",
+        # Cultures actives, pour le sélecteur de l'écran de connexion (ticket 2dbfb065).
+        "/api/auth/cultures",
     }
 )
 # Une session OIDC authentifie, elle n'autorise pas (ticket e9fc9b9b) : tant que les

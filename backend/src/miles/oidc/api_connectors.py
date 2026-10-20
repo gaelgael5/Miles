@@ -39,7 +39,10 @@ class ConnectorOut(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     id: str
+    # Libellé en-US (repli) ; `labels` donne toutes les cultures saisies, y compris
+    # celles qui ne sont plus actives et dont les libellés sont conservés.
     label: str
+    labels: dict[str, str]
     issuer: str
     client_id: str
     client_secret_slug: str
@@ -55,7 +58,7 @@ class ConnectorOut(BaseModel):
 
 class ConnectorBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    label: str
+    labels: dict[str, str]
     issuer: str
     client_id: str
     client_secret_slug: str
@@ -74,7 +77,7 @@ class ConnectorBody(BaseModel):
             client_secret_slug=self.client_secret_slug,
             scopes=self.scopes,
             active=self.active,
-            label=self.label,
+            labels=self.labels,
             groups_claim=self.groups_claim,
             display_name_claim=self.display_name_claim,
             recognize_admin=self.recognize_admin,
@@ -90,6 +93,7 @@ def _out(c: Connector) -> ConnectorOut:
     return ConnectorOut(
         id=c.id,
         label=c.label,
+        labels=dict(c.labels),
         issuer=c.issuer,
         client_id=c.client_id,
         client_secret_slug=c.client_secret_slug,

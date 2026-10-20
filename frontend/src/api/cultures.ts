@@ -53,3 +53,12 @@ export function useSetCulturesActive() {
     onSuccess: () => client.invalidateQueries({ queryKey: CULTURES_KEY }),
   });
 }
+
+/** Cultures actives, lisibles sans session : le sélecteur de l'écran de connexion. */
+export function usePublicCultures() {
+  return useQuery({
+    queryKey: [...CULTURES_KEY, "public"],
+    queryFn: ({ signal }) =>
+      request<{ code: string; label_native: string }[]>("/api/auth/cultures", { signal }),
+  });
+}

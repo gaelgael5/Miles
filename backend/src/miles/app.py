@@ -20,6 +20,7 @@ from miles.auth.gate import auth_gate
 from miles.auth.throttle import LoginThrottle
 from miles.config import Settings
 from miles.cultures import service as cultures_events
+from miles.cultures.api_cultures import public_router as login_cultures_router
 from miles.cultures.api_cultures import router as cultures_router
 from miles.cultures.service import CulturesService
 from miles.db.migration_files import file_load_migrations
@@ -148,6 +149,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(secrets_router)
     app.include_router(secret_types_router)
     app.include_router(cultures_router)
+    app.include_router(login_cultures_router)
     app.include_router(oidc_connectors_router)
     app.include_router(oidc_login_router)
     app.include_router(security_router)

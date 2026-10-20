@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { type Culture, useActiveCultures } from "../api/cultures";
 import { ApiError } from "../api/http";
 import { type Connector, type ConnectorInput, DEFAULT_SCOPES, useSaveConnector } from "../api/oidc";
 import { SecretPicker } from "../secrets/SecretPicker";
@@ -8,12 +9,20 @@ import { SecretPicker } from "../secrets/SecretPicker";
 interface ConnectorFormProps {
   /** Connecteur modifié ; absent pour une création. Le formulaire est remonté par `key`. */
   connector?: Connector;
+  /** Les autres connecteurs : deux boutons au même libellé se signalent (critère 9). */
+  others: Connector[];
   onDone: () => void;
+}
+
+const FALLBACK = "en-US";
+
+function sameLabel(a: string | undefined, b: string): boolean {
+  return a !== undefined && a.trim() !== "" && a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 const EMPTY: ConnectorInput = {
   id: "",
-  label: "",
+  labels: { [FALLBACK]: "" },
   issuer: "",
   client_id: "",
   client_secret_slug: "",
@@ -28,11 +37,11 @@ const EMPTY: ConnectorInput = {
 
 /** Seuls les champs saisissables repartent vers l'API, qui refuse tout champ en trop. */
 function toInput(connector: Connector): ConnectorInput {
-  const { id, label, issuer, client_id, client_secret_slug, scopes, active } = connector;
+  const { id, labels, issuer, client_id, client_secret_slug, scopes, active } = connector;
   const { groups_claim, display_name_claim, recognize_admin, manage_associations } = connector;
   return {
     id,
-    label,
+    labels: { ...labels },
     issuer,
     client_id,
     client_secret_slug,
@@ -61,18 +70,56 @@ function errorKey(error: unknown): string {
   return "oidc.errors.unexpected";
 }
 
-export function ConnectorForm({ connector, onDone }: ConnectorFormProps) {
+function LabelField({
+  culture,
+  value,
+  duplicate,
+  onChange,
+}: {
+  culture: Culture;
+  value: string;
+  duplicate: boolean;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  const fallback = culture.code === FALLBACK;
+  return (
+    <>
+      <label>
+        {t("oidc.fields.labelIn", { culture: `${culture.code} — ${culture.label_native}` })}
+        {fallback && ` ${t("oidc.form.fallbackLabel")}`}
+        <input required={fallback} value={value} onChange={(e) => onChange(e.target.value)} />
+      </label>
+      {duplicate && <p role="status">{t("oidc.form.duplicateLabel", { culture: culture.code })}</p>}
+    </>
+  );
+}
+
+export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps) {
   const { t } = useTranslation();
   const save = useSaveConnector(connector !== undefined);
+  // Seules les cultures actives se saisissent ; en-US d'abord, c'est le repli.
+  const cultures = [...(useActiveCultures().data ?? [])].sort(
+    (a, b) => Number(b.code === FALLBACK) - Number(a.code === FALLBACK),
+  );
   const [draft, setDraft] = useState<ConnectorInput>(connector ? toInput(connector) : EMPTY);
 
   function set<K extends keyof ConnectorInput>(key: K, value: ConnectorInput[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
+  function setLabel(culture: string, value: string) {
+    setDraft((current) => ({ ...current, labels: { ...current.labels, [culture]: value } }));
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
-    save.mutate(draft, { onSuccess: onDone });
+    // N'envoyer que les cultures actives : celles désactivées gardent leurs libellés,
+    // que le serveur ne touche pas tant qu'on ne les lui envoie pas.
+    const labels = Object.fromEntries(
+      cultures.map((culture) => [culture.code, draft.labels[culture.code] ?? ""]),
+    );
+    save.mutate({ ...draft, labels }, { onSuccess: onDone });
   }
 
   return (
@@ -83,10 +130,20 @@ export function ConnectorForm({ connector, onDone }: ConnectorFormProps) {
           <input required value={draft.id} onChange={(e) => set("id", e.target.value)} />
         </label>
       )}
-      <label>
-        {t("oidc.fields.label")}
-        <input required value={draft.label} onChange={(e) => set("label", e.target.value)} />
-      </label>
+      <fieldset>
+        <legend>{t("oidc.fields.label")}</legend>
+        {cultures.map((culture) => (
+          <LabelField
+            key={culture.code}
+            culture={culture}
+            value={draft.labels[culture.code] ?? ""}
+            duplicate={others.some((o) =>
+              sameLabel(o.labels[culture.code], draft.labels[culture.code] ?? ""),
+            )}
+            onChange={(value) => setLabel(culture.code, value)}
+          />
+        ))}
+      </fieldset>
       <label>
         {t("oidc.fields.issuer")}
         <input

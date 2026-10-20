@@ -70,7 +70,8 @@
       "url_publique_absente": "OIDC sign-in is not configured on this installation (public address missing).",
       "configuration_connecteur": "{{connector}}: the connector's client secret is unavailable. Contact the administrator.",
       "unexpected": "Sign-in failed. See the back-office logs."
-    }
+    },
+    "culture": "Language of the sign-in buttons"
   },
   "secrets": {
     "title": "Secrets",
@@ -161,7 +162,8 @@
       "groupsClaim": "Claim carrying the groups",
       "displayNameClaim": "Claim carrying the display name",
       "recognizeAdmin": "Recognise the administrator",
-      "manageAssociations": "Manage associations"
+      "manageAssociations": "Manage associations",
+      "labelIn": "Label — {{culture}}"
     },
     "form": {
       "newTitle": "New connector",
@@ -170,7 +172,9 @@
       "cancel": "Cancel",
       "checkedOnSave": "On save, the provider is queried to check that it answers as an OIDC provider.",
       "recognizeAdminGrants": "When checked, an account of this directory carrying the bootstrap administrator's email becomes root administrator. Check it only on a directory where nobody chooses their own address.",
-      "manageAssociationsGrants": "When checked, identities of this directory can be associated with an identity carrying the same address, proposed by one account and accepted by the other within seven days."
+      "manageAssociationsGrants": "When checked, identities of this directory can be associated with an identity carrying the same address, proposed by one account and accepted by the other within seven days.",
+      "fallbackLabel": "(fallback, required)",
+      "duplicateLabel": "Another connector already has this label in {{culture}}: the two buttons will look the same."
     },
     "list": {
       "add": "Add a connector",

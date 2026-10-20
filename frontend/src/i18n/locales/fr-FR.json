@@ -70,7 +70,8 @@
       "url_publique_absente": "La connexion OIDC n'est pas configurée sur cette installation (adresse publique absente).",
       "configuration_connecteur": "{{connector}} : le secret client du connecteur est indisponible. Contactez l'administrateur.",
       "unexpected": "La connexion a échoué. Voir les journaux du back-office."
-    }
+    },
+    "culture": "Langue des boutons de connexion"
   },
   "secrets": {
     "title": "Secrets",
@@ -161,7 +162,8 @@
       "groupsClaim": "Claim portant les groupes",
       "displayNameClaim": "Claim portant le nom affiché",
       "recognizeAdmin": "Reconnaître l'administrateur",
-      "manageAssociations": "Gérer les associations"
+      "manageAssociations": "Gérer les associations",
+      "labelIn": "Libellé — {{culture}}"
     },
     "form": {
       "newTitle": "Nouveau connecteur",
@@ -170,7 +172,9 @@
       "cancel": "Annuler",
       "checkedOnSave": "À l'enregistrement, le fournisseur est interrogé pour vérifier qu'il répond comme un fournisseur OIDC.",
       "recognizeAdminGrants": "Cochée, un compte de cet annuaire portant l'e-mail de l'administrateur d'amorçage devient administrateur racine. Ne la cochez que sur un annuaire où personne ne choisit son adresse.",
-      "manageAssociationsGrants": "Cochée, les identités de cet annuaire peuvent être associées à une identité de même adresse, sur proposition d'un compte acceptée par l'autre sous sept jours."
+      "manageAssociationsGrants": "Cochée, les identités de cet annuaire peuvent être associées à une identité de même adresse, sur proposition d'un compte acceptée par l'autre sous sept jours.",
+      "fallbackLabel": "(repli, obligatoire)",
+      "duplicateLabel": "Un autre connecteur porte déjà ce libellé en {{culture}} : les deux boutons se ressembleront."
     },
     "list": {
       "add": "Ajouter un connecteur",

@@ -12,6 +12,8 @@ import structlog
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.oidc.model import (
+    CULTURE_RE,
+    LABEL_CULTURE,
     OIDC_SECRET_TYPE,
     Connector,
     ConnectorInput,
@@ -40,9 +42,11 @@ from miles.oidc.store import (
     db_count_identities,
     db_delete_connector,
     db_get_connector,
+    db_inactive_cultures,
     db_insert_attempt,
     db_insert_connector,
     db_list_connectors,
+    db_list_public_connectors,
     db_record_identity,
     db_take_attempt,
     db_update_connector,
@@ -120,6 +124,7 @@ class OidcService:
         data = validate_input(raw, self.allow_http_issuer)
         await self._check_issuer(data.issuer)
         async with self.pool.acquire() as conn, conn.transaction():
+            await self._check_cultures(conn, data)
             await self._attach(conn, data.client_secret_slug, connector_id)
             await db_insert_connector(conn, connector_id, data, self.now())
             await self._event(conn, CREATED_EVENT, connector_id, author, {"issuer": data.issuer})
@@ -137,6 +142,7 @@ class OidcService:
             locked = await db_get_connector(conn, connector_id, lock=True)
             if locked is None:
                 raise ConnectorNotFoundError(connector_id)
+            await self._check_cultures(conn, data)
             if data.client_secret_slug != locked.client_secret_slug:
                 await resolve_detach_secret(
                     conn, locked.client_secret_slug, self._consumer(connector_id)
@@ -232,6 +238,18 @@ class OidcService:
         log.info("oidc_connexion_reussie", connector=connector.id, root_admin=root_admin)
         return LoginSuccess(connector.id, identity, root_admin)
 
+    async def resolve_public_list(self, culture: str | None) -> list[tuple[str, str]]:
+        # Culture mal formée ou absente : repli sur en-US, sans erreur (critère 5).
+        wanted = culture if culture and CULTURE_RE.match(culture) else LABEL_CULTURE
+        return await db_list_public_connectors(self.pool, wanted)
+
+    @staticmethod
+    async def _check_cultures(conn: Any, data: ConnectorInput) -> None:
+        # Seules les cultures actives se saisissent : le référentiel est donné, et son
+        # activation est centralisée (ticket des cultures).
+        if await db_inactive_cultures(conn, list(data.labels)):
+            raise ConnectorInputError("labels")
+
     def _recognizes_admin(self, connector: Connector, identity: Identity) -> bool:
         """Seule garde de ce chemin vers l'administration racine : la case du connecteur.
 
@@ -319,7 +337,6 @@ _TRACKED_FIELDS = (
     "client_secret_slug",
     "scopes",
     "active",
-    "label",
     "groups_claim",
     "display_name_claim",
     "recognize_admin",
@@ -329,8 +346,13 @@ _TRACKED_FIELDS = (
 
 def _changes(before: Connector, after: ConnectorInput) -> dict[str, dict[str, Any]]:
     # Aucun de ces champs n'est secret : le secret client n'apparaît que par son slug.
-    return {
+    changes = {
         name: {"before": getattr(before, name), "after": getattr(after, name)}
         for name in _TRACKED_FIELDS
         if getattr(before, name) != getattr(after, name)
     }
+    merged = {**before.labels, **after.labels}
+    merged = {culture: label for culture, label in merged.items() if label}
+    if merged != dict(before.labels):
+        changes["labels"] = {"before": dict(before.labels), "after": merged}
+    return changes

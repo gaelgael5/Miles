@@ -14,9 +14,17 @@ const SECRET = {
   updated_at: "2026-10-20T10:00:00Z",
   consumers: [],
 };
+const ACTIVE = {
+  status: 200,
+  body: [
+    { code: "en-US", label_en: "English (United States)", label_native: "English (United States)", active: true },
+    { code: "fr-FR", label_en: "French (France)", label_native: "français (France)", active: true },
+  ],
+};
 const KC = {
   id: "kc",
   label: "Keycloak",
+  labels: { "en-US": "Keycloak", "de-DE": "Schlüssel" },
   issuer: "https://security.example.org/realms/miles",
   client_id: "miles",
   client_secret_slug: "kc-secret",
@@ -55,13 +63,15 @@ describe("ConnectorsScreen", () => {
         { status: 200, body: [KC] },
       ],
       [SECRETS]: { status: 200, body: [SECRET] },
+      "GET /api/cultures/active": ACTIVE,
       "POST /api/oidc/connectors": { status: 201, body: KC },
     });
     renderScreen();
     fireEvent.click(await screen.findByText("Add a connector"));
 
     fill("Identifier", "kc");
-    fill("Label", "Keycloak");
+    await screen.findByLabelText(/Label — fr-FR/);
+    fill("Label — en-US — English (United States) (fallback, required)", "Keycloak");
     fill("Issuer (provider address)", KC.issuer);
     fill("Client ID", "miles");
     await screen.findByRole("option", { name: "Secret Keycloak" });
@@ -72,7 +82,7 @@ describe("ConnectorsScreen", () => {
     expect(await screen.findByText("Keycloak")).toBeInTheDocument();
     expect(calls.find((c) => c.key === "POST /api/oidc/connectors")?.body).toEqual({
       id: "kc",
-      label: "Keycloak",
+      labels: { "en-US": "Keycloak", "fr-FR": "" },
       issuer: KC.issuer,
       client_id: "miles",
       client_secret_slug: "kc-secret",
@@ -89,18 +99,21 @@ describe("ConnectorsScreen", () => {
     const calls = mockApi({
       "GET /api/oidc/connectors": { status: 200, body: [KC] },
       [SECRETS]: { status: 200, body: [SECRET] },
+      "GET /api/cultures/active": ACTIVE,
       "PUT /api/oidc/connectors/kc": { status: 200, body: { ...KC, active: false } },
     });
     renderScreen();
     fireEvent.click(await screen.findByText("Edit"));
+    await screen.findByLabelText(/Label — fr-FR/);
 
     fireEvent.click(screen.getByLabelText("Active (offered on the sign-in screen)"));
     fireEvent.click(screen.getByText("Save"));
 
     await screen.findByText("Add a connector");
     const body = calls.find((c) => c.key === "PUT /api/oidc/connectors/kc")?.body;
+    // de-DE, désactivée depuis, n'est pas renvoyée : son libellé reste tel quel côté serveur.
     expect(body).toEqual({
-      label: "Keycloak",
+      labels: { "en-US": "Keycloak", "fr-FR": "" },
       issuer: KC.issuer,
       client_id: "miles",
       client_secret_slug: "kc-secret",
@@ -117,6 +130,7 @@ describe("ConnectorsScreen", () => {
     const calls = mockApi({
       "GET /api/oidc/connectors": { status: 200, body: [KC] },
       [SECRETS]: { status: 200, body: [SECRET] },
+      "GET /api/cultures/active": ACTIVE,
       "PUT /api/oidc/connectors/kc": { status: 200, body: { ...KC, recognize_admin: true } },
     });
     renderScreen();
@@ -137,10 +151,28 @@ describe("ConnectorsScreen", () => {
     expect([body.recognize_admin, body.manage_associations]).toEqual([true, false]);
   });
 
+  it("signals a label already used by another connector in the same culture", async () => {
+    const other = { ...KC, id: "entra", labels: { "en-US": "Annuaire", "fr-FR": "Annuaire" } };
+    mockApi({
+      "GET /api/oidc/connectors": { status: 200, body: [KC, other] },
+      [SECRETS]: { status: 200, body: [SECRET] },
+      "GET /api/cultures/active": ACTIVE,
+    });
+    renderScreen();
+    fireEvent.click((await screen.findAllByText("Edit"))[0] as HTMLElement);
+
+    fireEvent.change(await screen.findByLabelText(/Label — fr-FR/), {
+      target: { value: "annuaire " },
+    });
+
+    expect(screen.getByText(/Another connector already has this label in fr-FR/)).toBeInTheDocument();
+  });
+
   it("says when the provider does not answer at declaration", async () => {
     mockApi({
       "GET /api/oidc/connectors": { status: 200, body: [KC] },
       [SECRETS]: { status: 200, body: [SECRET] },
+      "GET /api/cultures/active": ACTIVE,
       "PUT /api/oidc/connectors/kc": {
         status: 422,
         body: { detail: { field: "issuer", reason: "injoignable" } },

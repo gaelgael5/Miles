@@ -11,7 +11,10 @@ export interface PublicConnector {
 /** Fiche d'administration : le secret client n'y figure que par son slug. */
 export interface Connector {
   id: string;
+  /** Libellé en-US, celui du repli. */
   label: string;
+  /** Libellés saisis par culture, y compris pour des cultures désactivées depuis. */
+  labels: Record<string, string>;
   issuer: string;
   client_id: string;
   client_secret_slug: string;
@@ -25,7 +28,7 @@ export interface Connector {
   updated_at: string;
 }
 
-export type ConnectorInput = Omit<Connector, "created_at" | "updated_at">;
+export type ConnectorInput = Omit<Connector, "created_at" | "updated_at" | "label">;
 
 export const DEFAULT_SCOPES = "openid email profile";
 const CONNECTORS_KEY = ["oidc", "connectors"] as const;
@@ -35,10 +38,14 @@ export function startLoginUrl(connectorId: string): string {
   return `/api/auth/oidc/start?connector=${encodeURIComponent(connectorId)}`;
 }
 
-export function usePublicConnectors() {
+export function usePublicConnectors(culture: string) {
   return useQuery({
-    queryKey: ["oidc", "public"],
-    queryFn: ({ signal }) => request<PublicConnector[]>("/api/auth/oidc/connectors", { signal }),
+    queryKey: ["oidc", "public", culture],
+    queryFn: ({ signal }) =>
+      request<PublicConnector[]>(
+        `/api/auth/oidc/connectors?culture=${encodeURIComponent(culture)}`,
+        { signal },
+      ),
   });
 }
 

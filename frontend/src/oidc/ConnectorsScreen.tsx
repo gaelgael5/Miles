@@ -48,7 +48,12 @@ export function ConnectorsScreen() {
           {t("oidc.list.add")}
         </button>
       ) : (
-        <ConnectorForm key={editing} connector={edited} onDone={() => setEditing(null)} />
+        <ConnectorForm
+          key={editing}
+          connector={edited}
+          others={(connectors.data ?? []).filter((c) => c.id !== editing)}
+          onDone={() => setEditing(null)}
+        />
       )}
       {connectors.isPending && <p role="status">{t("oidc.list.loading")}</p>}
       {connectors.isError && <p role="alert">{t("oidc.errors.unreachable")}</p>}

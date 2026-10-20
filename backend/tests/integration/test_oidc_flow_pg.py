@@ -85,7 +85,7 @@ async def flow(blank_db: str, tmp_path: Path) -> AsyncIterator[Flow]:
 async def _declare(flow: Flow, connector_id: str = "mock", **overrides: object) -> httpx.Response:
     body = {
         "id": connector_id,
-        "label": "Annuaire de test",
+        "labels": {"en-US": "Annuaire de test"},
         "issuer": _issuer(),
         "client_id": CLIENT_ID,
         "client_secret_slug": "mock-secret",
@@ -197,7 +197,7 @@ async def test_inactive_connector_is_hidden_and_cannot_be_forced(flow: Flow) -> 
 
 async def test_two_connectors_coexist_on_the_login_screen(flow: Flow) -> None:
     await _declare(flow)
-    await _declare(flow, "mock-bis", label="Autre annuaire")
+    await _declare(flow, "mock-bis", labels={"en-US": "Autre annuaire"})
 
     async with flow.portal.anonymous() as browser:
         listed = (await browser.get("/api/auth/oidc/connectors")).json()
@@ -227,7 +227,7 @@ async def test_invalid_declaration_names_the_field_and_stores_nothing(
 async def test_taken_identifier_is_refused(flow: Flow) -> None:
     await _declare(flow)
 
-    again = await _declare(flow, label="Doublon")
+    again = await _declare(flow, labels={"en-US": "Doublon"})
 
     assert (again.status_code, again.json()["detail"]) == (409, "identifiant_pris")
 
@@ -248,7 +248,7 @@ async def test_connector_used_for_login_cannot_be_deleted_only_deactivated(flow:
         await browser.get("/api/auth/oidc/callback", params=params)
         refused = await flow.admin.delete("/api/oidc/connectors/mock")
         body = {
-            "label": "Annuaire de test",
+            "labels": {"en-US": "Annuaire de test"},
             "issuer": _issuer(),
             "client_id": CLIENT_ID,
             "client_secret_slug": "mock-secret",
@@ -358,7 +358,7 @@ async def test_box_checked_recognises_the_admin_and_journals_it(flow: Flow) -> N
 async def test_unchecking_the_box_stops_recognition_at_the_next_login(flow: Flow) -> None:
     await _declare(flow, recognize_admin=True)
     body = {
-        "label": "Annuaire de test",
+        "labels": {"en-US": "Annuaire de test"},
         "issuer": _issuer(),
         "client_id": CLIENT_ID,
         "client_secret_slug": "mock-secret",
