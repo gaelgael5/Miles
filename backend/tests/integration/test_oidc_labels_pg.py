@@ -42,10 +42,16 @@ async def stack(blank_db: str, tmp_path: Path) -> AsyncIterator[PortalStack]:
         portal.app.state.oidc = OidcService(
             portal.pool, http, secrets, catalog, utc_now, "http://miles.test", True
         )
-        await portal.client.post(
+        created = await portal.client.post(
             "/api/secrets",
-            json={"slug": "s", "label": "s", "secret_type": "OIDC_CLIENT_SECRET", "value": "v"},
+            json={
+                "slug": "kc-secret",
+                "label": "kc",
+                "secret_type": "OIDC_CLIENT_SECRET",
+                "value": "v",
+            },
         )
+        assert created.status_code == 201
         await _activate(portal, "fr-FR", "ja-JP")
         yield portal
 
@@ -58,11 +64,21 @@ async def _activate(stack: PortalStack, *codes: str, active: bool = True) -> Non
 
 
 def _body(labels: dict[str, str]) -> dict[str, object]:
-    return {"labels": labels, "issuer": _issuer(), "client_id": "c", "client_secret_slug": "s"}
+    return {
+        "labels": labels,
+        "issuer": _issuer(),
+        "client_id": "c",
+        "client_secret_slug": "kc-secret",
+    }
 
 
 async def _declare(stack: PortalStack, labels: dict[str, str]) -> httpx.Response:
     return await stack.client.post(ROUTE, json={"id": "kc", **_body(labels)})
+
+
+async def _declared(stack: PortalStack, labels: dict[str, str]) -> None:
+    response = await _declare(stack, labels)
+    assert response.status_code == 201, response.text
 
 
 async def _shown(stack: PortalStack, culture: str | None) -> str:
@@ -73,7 +89,7 @@ async def _shown(stack: PortalStack, culture: str | None) -> str:
 
 
 async def test_login_screen_shows_the_label_of_the_visitor_culture(stack: PortalStack) -> None:
-    await _declare(stack, {"en-US": "Company directory", "fr-FR": "Annuaire maison"})
+    await _declared(stack, {"en-US": "Company directory", "fr-FR": "Annuaire maison"})
 
     assert await _shown(stack, "fr-FR") == "Annuaire maison"
     assert await _shown(stack, "en-US") == "Company directory"
@@ -84,7 +100,7 @@ async def test_every_other_case_falls_back_to_en_us(
     stack: PortalStack, culture: str | None
 ) -> None:
     # ja-JP active mais non renseignée ; de-DE inactive ; mal formée ; absente.
-    await _declare(stack, {"en-US": "Company directory", "fr-FR": "Annuaire maison"})
+    await _declared(stack, {"en-US": "Company directory", "fr-FR": "Annuaire maison"})
 
     assert await _shown(stack, culture) == "Company directory"
 
@@ -103,7 +119,7 @@ async def test_labels_are_entered_only_for_active_cultures(stack: PortalStack) -
 
 
 async def test_deactivated_culture_keeps_its_labels_and_gets_them_back(stack: PortalStack) -> None:
-    await _declare(stack, {"en-US": "Company directory", "fr-FR": "Annuaire maison"})
+    await _declared(stack, {"en-US": "Company directory", "fr-FR": "Annuaire maison"})
 
     await _activate(stack, "fr-FR", active=False)
     hidden = await _shown(stack, "fr-FR")
@@ -118,7 +134,7 @@ async def test_deactivated_culture_keeps_its_labels_and_gets_them_back(stack: Po
 
 
 async def test_culture_activated_later_is_completed_without_recreating(stack: PortalStack) -> None:
-    await _declare(stack, {"en-US": "Company directory"})
+    await _declared(stack, {"en-US": "Company directory"})
     await _activate(stack, "de-DE")
 
     updated = await stack.client.put(
@@ -130,7 +146,7 @@ async def test_culture_activated_later_is_completed_without_recreating(stack: Po
 
 
 async def test_empty_label_removes_it_and_the_change_is_journaled(stack: PortalStack) -> None:
-    await _declare(stack, {"en-US": "Company directory", "fr-FR": "Annuaire maison"})
+    await _declared(stack, {"en-US": "Company directory", "fr-FR": "Annuaire maison"})
 
     await stack.client.put(f"{ROUTE}/kc", json=_body({"en-US": "Company directory", "fr-FR": ""}))
 
@@ -145,7 +161,7 @@ async def test_empty_label_removes_it_and_the_change_is_journaled(stack: PortalS
 
 
 async def test_long_non_latin_labels_are_kept_whole(stack: PortalStack) -> None:
-    await _declare(stack, {"en-US": "Company directory", "ja-JP": JAPANESE})
+    await _declared(stack, {"en-US": "Company directory", "ja-JP": JAPANESE})
 
     assert await _shown(stack, "ja-JP") == JAPANESE
 
