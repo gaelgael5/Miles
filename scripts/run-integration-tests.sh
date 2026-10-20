@@ -16,6 +16,8 @@ MOSQUITTO_IMAGE="eclipse-mosquitto:2.0.20"
 # Fournisseur OIDC jetable : le parcours de connexion s'éprouve contre un vrai serveur
 # (découverte, PKCE, jetons signés), pas contre une doublure écrite par nous.
 OIDC_IMAGE="ghcr.io/navikt/mock-oauth2-server:2.1.10"
+KEYCLOAK_IMAGE="quay.io/keycloak/keycloak:26.0.7"
+KEYCLOAK_SECRET="$(openssl rand -hex 16)"
 OIDC_CONFIG='{"interactiveLogin":false,"tokenCallbacks":[{"issuerId":"miles","requestMappings":[{"requestParam":"code","match":"*","claims":{"sub":"alice-sub","name":"Alice","email":"alice@example.org","aud":["miles-client"]}}]}]}'
 MOSQUITTO_UID=1883
 MOUNT_DIR="$(mktemp -d)"
@@ -23,7 +25,7 @@ MOUNT_DIR="$(mktemp -d)"
 command -v docker >/dev/null || { echo "docker introuvable : voir https://docs.docker.com/engine/install/" >&2; exit 1; }
 
 cleanup() {
-  docker rm -f "$RUN_ID-db" "$RUN_ID-mqtt" "$RUN_ID-oidc" >/dev/null 2>&1 || true
+  docker rm -f "$RUN_ID-db" "$RUN_ID-mqtt" "$RUN_ID-oidc" "$RUN_ID-kc" >/dev/null 2>&1 || true
   docker network rm "$RUN_ID" >/dev/null 2>&1 || true
   docker image rm "$RUN_ID-backend" >/dev/null 2>&1 || true
   rm -rf "$MOUNT_DIR"
@@ -44,6 +46,19 @@ docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null \
 docker run -d --name "$RUN_ID-oidc" --network "$RUN_ID" -e JSON_CONFIG="$OIDC_CONFIG" \
   "$OIDC_IMAGE" >/dev/null
 
+# Keycloak jetable, realm importé : la vérification du service de sécurité s'éprouve
+# contre le vrai serveur, dont les réponses (404 de realm, 401 de client) font foi.
+KC_DIR="$MOUNT_DIR/keycloak"
+mkdir -p "$KC_DIR"
+printf '{"realm":"miles","enabled":true,"clients":[{"clientId":"miles-backoffice","enabled":true,"publicClient":false,"secret":"%s","serviceAccountsEnabled":true,"standardFlowEnabled":false}]}' \
+  "$KEYCLOAK_SECRET" > "$KC_DIR/miles-realm.json"
+# Le processus Keycloak ne tourne pas en root : le dossier monté doit lui être lisible.
+chmod 755 "$MOUNT_DIR" "$KC_DIR"
+chmod 644 "$KC_DIR/miles-realm.json"
+docker run -d --name "$RUN_ID-kc" --network "$RUN_ID" -v "$KC_DIR:/opt/keycloak/data/import:ro" \
+  -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD="$(openssl rand -hex 12)" \
+  "$KEYCLOAK_IMAGE" start-dev --import-realm >/dev/null
+
 docker build -q --target test -t "$RUN_ID-backend" "$REPO_DIR/backend" >/dev/null
 
 # Le fournisseur démarre en quelques secondes : on attend sa découverte, depuis le réseau.
@@ -58,11 +73,23 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 [[ "$oidc_ready" == 1 ]] || { echo "fournisseur OIDC jetable jamais prêt (docker logs $RUN_ID-oidc)" >&2; exit 1; }
+kc_ready=0
+for _ in $(seq 1 120); do
+  if docker run --rm --network "$RUN_ID" --entrypoint /opt/venv/bin/python "$RUN_ID-backend" \
+      -c "import httpx,sys; sys.exit(httpx.get('http://$RUN_ID-kc:8080/realms/miles/.well-known/openid-configuration').status_code != 200)" \
+      >/dev/null 2>&1; then
+    kc_ready=1
+    break
+  fi
+  sleep 2
+done
+[[ "$kc_ready" == 1 ]] || { echo "Keycloak jetable jamais prêt (docker logs $RUN_ID-kc)" >&2; exit 1; }
 
 echo "==> [1/3] tests contre PostgreSQL"
 docker run --rm --network "$RUN_ID" \
   -e MILES_TEST_DATABASE_URL="postgresql://postgres:$PG_PASSWORD@$RUN_ID-db:5432/postgres" \
   -e MILES_TEST_OIDC_URL="http://$RUN_ID-oidc:8080" \
+  -e MILES_TEST_KEYCLOAK_URL="http://$RUN_ID-kc:8080" -e MILES_TEST_KEYCLOAK_SECRET="$KEYCLOAK_SECRET" \
   "$RUN_ID-backend" -m integration -v --ignore=tests/integration/test_env_mount.py \
   --ignore=tests/integration/test_mqtt_broker.py "$@"
 

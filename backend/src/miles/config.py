@@ -62,9 +62,10 @@ class Settings(DatabaseSettings):
     # Configurée, jamais lue des en-têtes de la requête : un Host forgé enverrait le
     # code d'autorisation ailleurs. Absente, la connexion OIDC est indisponible.
     public_url: str | None = None
-    # Faux par défaut : un fournisseur en HTTP laisse passer jetons et codes en clair.
-    # Seuls les tests d'intégration, contre un fournisseur jetable, l'activent.
-    oidc_allow_http_issuer: bool = False
+    # Faux par défaut : un fournisseur d'identité (connecteur OIDC, service de sécurité)
+    # en HTTP laisse passer jetons, codes et secrets en clair. Seuls les tests
+    # d'intégration, contre des fournisseurs jetables, l'activent.
+    allow_http_identity_providers: bool = False
 
     @field_validator("public_url")
     @classmethod

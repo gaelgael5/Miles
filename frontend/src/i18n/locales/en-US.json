@@ -7,7 +7,8 @@
       "home": "Home",
       "secrets": "Secrets",
       "cultures": "Cultures",
-      "oidc": "OIDC"
+      "oidc": "OIDC",
+      "security": "Security"
     },
     "noRights": "You are signed in through {{directory}}, but no right is granted to you yet."
   },
@@ -187,6 +188,47 @@
       "idTaken": "This identifier is already used by another connector.",
       "inUse": "Accounts already signed in through this connector: it cannot be deleted. Deactivate it instead.",
       "unreachable": "Connectors could not be loaded.",
+      "unexpected": "The operation failed. See the back-office logs."
+    }
+  },
+  "security": {
+    "title": "Root security service",
+    "intro": "The security service (Keycloak) authenticates portal users and also the terminals of every workspace: if it is unavailable, no terminal starts. One service for the installation; workspaces reference it.",
+    "loading": "Loading the security service…",
+    "verify": "Verify",
+    "edit": "Edit",
+    "secretBy": "Client secret: secret “{{slug}}” (its value is never shown).",
+    "fields": {
+      "id": "Identifier",
+      "baseUrl": "Address",
+      "realm": "Realm",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret"
+    },
+    "form": {
+      "newTitle": "Declare the security service",
+      "editTitle": "Edit the security service",
+      "save": "Save and verify",
+      "cancel": "Cancel",
+      "dependents_one": "{{count}} enrolled installation depends on this service. I understand that changing it affects it.",
+      "dependents_other": "{{count}} enrolled installations depend on this service. I understand that changing it affects them."
+    },
+    "outcomes": {
+      "unchecked": "Security service {{id}}: not verified yet.",
+      "ok": "Security service {{id}}: reachable, realm recognised, access granted.",
+      "realm_inconnu": "Security service {{id}}: reachable, but the realm is unknown.",
+      "injoignable": "Security service {{id}} is unreachable. Terminals cannot start.",
+      "refuse": "Security service {{id}}: reachable, but the client or its secret is refused."
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes.",
+        "base_url": "Address: an https address, without query or fragment.",
+        "realm": "Realm: letters, digits, dot, dash or underscore.",
+        "client_id": "Client ID: required, at most 200 characters.",
+        "client_secret_slug": "Choose a declared secret of type “Root security service client secret”."
+      },
+      "unreachable": "The security service could not be loaded.",
       "unexpected": "The operation failed. See the back-office logs."
     }
   }

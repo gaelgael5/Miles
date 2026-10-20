@@ -7,7 +7,8 @@
       "home": "Accueil",
       "secrets": "Secrets",
       "cultures": "Cultures",
-      "oidc": "OIDC"
+      "oidc": "OIDC",
+      "security": "Sécurité"
     },
     "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé."
   },
@@ -187,6 +188,47 @@
       "idTaken": "Cet identifiant est déjà pris par un autre connecteur.",
       "inUse": "Des comptes se sont déjà connectés par ce connecteur : il ne peut pas être supprimé. Désactivez-le plutôt.",
       "unreachable": "Impossible de charger les connecteurs.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    }
+  },
+  "security": {
+    "title": "Service de sécurité racine",
+    "intro": "Le service de sécurité (Keycloak) authentifie les utilisateurs du portail et aussi les terminaux de tous les workspaces : s'il est indisponible, aucun terminal ne démarre. Un seul service pour l'installation ; les workspaces y font référence.",
+    "loading": "Chargement du service de sécurité…",
+    "verify": "Vérifier",
+    "edit": "Modifier",
+    "secretBy": "Secret client : secret « {{slug}} » (sa valeur n'est jamais affichée).",
+    "fields": {
+      "id": "Identifiant",
+      "baseUrl": "Adresse",
+      "realm": "Realm",
+      "clientId": "Identifiant client",
+      "clientSecret": "Secret client"
+    },
+    "form": {
+      "newTitle": "Déclarer le service de sécurité",
+      "editTitle": "Modifier le service de sécurité",
+      "save": "Enregistrer et vérifier",
+      "cancel": "Annuler",
+      "dependents_one": "{{count}} installation enrôlée dépend de ce service. Je comprends que la modification la touche.",
+      "dependents_other": "{{count}} installations enrôlées dépendent de ce service. Je comprends que la modification les touche."
+    },
+    "outcomes": {
+      "unchecked": "Service de sécurité {{id}} : pas encore vérifié.",
+      "ok": "Service de sécurité {{id}} : joignable, realm reconnu, accès accordé.",
+      "realm_inconnu": "Service de sécurité {{id}} : joignable, mais le realm est inconnu.",
+      "injoignable": "Le service de sécurité {{id}} est injoignable. Les terminaux ne peuvent pas démarrer.",
+      "refuse": "Service de sécurité {{id}} : joignable, mais le client ou son secret est refusé."
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
+        "base_url": "Adresse : une adresse https, sans requête ni fragment.",
+        "realm": "Realm : lettres, chiffres, point, tiret ou souligné.",
+        "client_id": "Identifiant client : obligatoire, 200 caractères au plus.",
+        "client_secret_slug": "Choisissez un secret déclaré de type « Secret client du service de sécurité racine »."
+      },
+      "unreachable": "Impossible de charger le service de sécurité.",
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }
   }

@@ -7,9 +7,10 @@ import { CulturesScreen } from "./cultures/CulturesScreen";
 import { HealthStatus } from "./health/HealthStatus";
 import { ConnectorsScreen } from "./oidc/ConnectorsScreen";
 import { SecretsScreen } from "./secrets/SecretsScreen";
+import { SecurityServiceScreen } from "./security/SecurityServiceScreen";
 
-type Page = "home" | "secrets" | "cultures" | "oidc";
-const PAGES: Page[] = ["home", "secrets", "cultures", "oidc"];
+type Page = "home" | "secrets" | "cultures" | "oidc" | "security";
+const PAGES: Page[] = ["home", "secrets", "cultures", "oidc", "security"];
 
 /** Le portail de l'administrateur : seul compte qui ait des droits tant que les rôles manquent. */
 function AdminPortal() {
@@ -33,6 +34,7 @@ function AdminPortal() {
       {page === "secrets" && <SecretsScreen />}
       {page === "cultures" && <CulturesScreen />}
       {page === "oidc" && <ConnectorsScreen />}
+      {page === "security" && <SecurityServiceScreen />}
     </>
   );
 }

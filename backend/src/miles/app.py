@@ -38,6 +38,9 @@ from miles.secrets.api_secrets import router as secrets_router
 from miles.secrets.api_secrets import types_router as secret_types_router
 from miles.secrets.crypto import SecretCipher, parse_secrets_key
 from miles.secrets.service import SecretsService
+from miles.security import service as security_events
+from miles.security.api_security import router as security_router
+from miles.security.service import SecurityServices
 
 log = structlog.get_logger(__name__)
 # Un fournisseur lent ne doit pas retenir un utilisateur indéfiniment sur la connexion.
@@ -60,7 +63,10 @@ def create_app() -> FastAPI:
     # Catalogue des types d'event connus du code. Le catalogue déclaré dans git
     # viendra avec son propre ticket ; d'ici là, chaque module apporte ses types.
     catalog = EventTypeCatalog(
-        secrets_events.EVENT_TYPES | cultures_events.EVENT_TYPES | oidc_events.EVENT_TYPES
+        secrets_events.EVENT_TYPES
+        | cultures_events.EVENT_TYPES
+        | oidc_events.EVENT_TYPES
+        | security_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -88,7 +94,10 @@ def create_app() -> FastAPI:
             catalog,
             utc_now,
             settings.public_url,
-            settings.oidc_allow_http_issuer,
+            settings.allow_http_identity_providers,
+        )
+        app.state.security = SecurityServices(
+            pool, http, app.state.secrets, catalog, utc_now, settings.allow_http_identity_providers
         )
         responder = asyncio.create_task(
             run_responder(
@@ -140,4 +149,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(cultures_router)
     app.include_router(oidc_connectors_router)
     app.include_router(oidc_login_router)
+    app.include_router(security_router)
     return app

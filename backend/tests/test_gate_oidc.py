@@ -64,6 +64,8 @@ def test_oidc_session_sees_itself_connected(oidc_client: TestClient) -> None:
         ("POST", "/api/cultures/activation"),
         ("GET", "/api/oidc/connectors"),
         ("POST", "/api/oidc/connectors"),
+        ("GET", "/api/security-services"),
+        ("POST", "/api/security-services/racine/verification"),
     ],
 )
 def test_oidc_session_without_roles_reaches_no_protected_route(
