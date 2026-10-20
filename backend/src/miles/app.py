@@ -18,6 +18,9 @@ from miles.auth.context import AuthContext, utc_now
 from miles.auth.gate import auth_gate
 from miles.auth.throttle import LoginThrottle
 from miles.config import Settings
+from miles.cultures import service as cultures_events
+from miles.cultures.api_cultures import router as cultures_router
+from miles.cultures.service import CulturesService
 from miles.db.migration_files import file_load_migrations
 from miles.db.pool import db_create_pool
 from miles.events.model import EventTypeCatalog
@@ -48,7 +51,7 @@ def create_app() -> FastAPI:
     cipher = SecretCipher(parse_secrets_key(settings.secrets_key.get_secret_value()))
     # Catalogue des types d'event connus du code. Le catalogue déclaré dans git
     # viendra avec son propre ticket ; d'ici là, chaque module apporte ses types.
-    catalog = EventTypeCatalog(secrets_events.EVENT_TYPES)
+    catalog = EventTypeCatalog(secrets_events.EVENT_TYPES | cultures_events.EVENT_TYPES)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -64,6 +67,7 @@ def create_app() -> FastAPI:
             cookie_secure=settings.cookie_secure,
         )
         app.state.secrets = SecretsService(pool, cipher, catalog, utc_now)
+        app.state.cultures = CulturesService(pool, catalog, utc_now)
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -109,4 +113,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(secrets_router)
+    app.include_router(cultures_router)
     return app

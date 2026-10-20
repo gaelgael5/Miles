@@ -5,7 +5,8 @@
     "logout": "Se déconnecter",
     "nav": {
       "home": "Accueil",
-      "secrets": "Secrets"
+      "secrets": "Secrets",
+      "cultures": "Cultures"
     }
   },
   "health": {
@@ -104,6 +105,25 @@
       "createInline": "Créer un secret",
       "orphan": "Le secret choisi ({{slug}}) n'existe plus. Choisissez-en un autre.",
       "orphanOption": "Secret introuvable : {{slug}}"
+    }
+  },
+  "cultures": {
+    "title": "Cultures",
+    "intro": "Toutes les cultures existent déjà ; activez celles dont l'installation se sert. Les cultures actives sont proposées partout où une valeur se saisit par culture.",
+    "filter": "Filtrer par code ou par nom",
+    "selected_one": "{{count}} culture sélectionnée",
+    "selected_other": "{{count}} cultures sélectionnées",
+    "activate": "Activer la sélection",
+    "deactivate": "Désactiver la sélection",
+    "keepValues": "Désactiver une culture ne supprime rien : les valeurs saisies pour elle sont conservées et reviennent si on la réactive.",
+    "active": "Active",
+    "fallbackNote": "(repli de l'installation, toujours active)",
+    "loading": "Chargement des cultures…",
+    "noMatch": "Aucune culture ne correspond à « {{filter}} ».",
+    "errors": {
+      "fallback": "en-US est le repli de l'installation et ne peut pas être désactivée.",
+      "unreachable": "Impossible de charger les cultures.",
+      "unexpected": "Le changement a échoué. Voir les journaux du back-office."
     }
   }
 }

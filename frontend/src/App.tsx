@@ -3,11 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import { useLogout } from "./api/auth";
 import { AuthGate } from "./auth/AuthGate";
+import { CulturesScreen } from "./cultures/CulturesScreen";
 import { HealthStatus } from "./health/HealthStatus";
 import { SecretsScreen } from "./secrets/SecretsScreen";
 
-type Page = "home" | "secrets";
-const PAGES: Page[] = ["home", "secrets"];
+type Page = "home" | "secrets" | "cultures";
+const PAGES: Page[] = ["home", "secrets", "cultures"];
 
 export function App() {
   const { t } = useTranslation();
@@ -37,7 +38,9 @@ export function App() {
                 </button>
               ))}
             </nav>
-            {page === "home" ? <HealthStatus /> : <SecretsScreen />}
+            {page === "home" && <HealthStatus />}
+            {page === "secrets" && <SecretsScreen />}
+            {page === "cultures" && <CulturesScreen />}
           </>
         )}
       </AuthGate>

@@ -80,6 +80,7 @@ def test_create_app_lifespan_wires_probe_with_expected_version(
         assert (settings.host, settings.port, settings.username) == ("mqtt", 1883, "miles-backend")
         assert "system.ping" in handlers
         assert application.state.secrets.pool is pool
+        assert application.state.cultures.pool is pool
 
     assert pool.closed is True
 

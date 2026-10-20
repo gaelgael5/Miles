@@ -4,7 +4,6 @@ import json
 import os
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import asyncpg
@@ -13,20 +12,6 @@ import pytest
 from fastapi import FastAPI
 from structlog.testing import capture_logs
 
-from miles.app import build_app
-from miles.auth.admin_store import AdminAccountStore
-from miles.auth.context import AuthContext
-from miles.auth.passwords import hash_password
-from miles.auth.sessions import (
-    LOCAL_ADMIN_KIND,
-    SESSION_COOKIE,
-    db_create_session,
-    new_session_token,
-)
-from miles.auth.throttle import LoginThrottle
-from miles.config import DEFAULT_MIGRATIONS_DIR
-from miles.db.migration_files import file_load_migrations
-from miles.db.migrations import resolve_apply_migrations
 from miles.events.model import EventAuthor, EventError, EventTypeCatalog
 from miles.secrets.crypto import SecretCipher
 from miles.secrets.model import (
@@ -41,7 +26,7 @@ from miles.secrets.service import (
     resolve_attach_secret,
     resolve_detach_secret,
 )
-from tests.auth_fixtures import ADMIN_PASSWORD, BASE_ENV, write_env
+from tests.integration.portal_stack import open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration
 
@@ -52,8 +37,7 @@ AUTHOR = EventAuthor("local", "admin")
 GIT = {"slug": "git-token", "label": "Jeton GitHub", "secret_type": "GIT_TOKEN", "value": VALUE}
 
 
-def _now() -> datetime:
-    return datetime.now(UTC)
+_now = utc_now
 
 
 @dataclass
@@ -66,37 +50,12 @@ class Stack:
 
 @pytest.fixture
 async def stack(blank_db: str, tmp_path: Path) -> AsyncIterator[Stack]:
-    pool = await asyncpg.create_pool(blank_db, min_size=2, max_size=4)
-    async with pool.acquire() as conn:
-        await resolve_apply_migrations(conn, file_load_migrations(DEFAULT_MIGRATIONS_DIR))
-    env, backup = write_env(
-        tmp_path,
-        BASE_ENV
-        + "MILES_ADMIN_EMAIL='admin@miles.invalid'\nMILES_ADMIN_USERNAME='admin'\n"
-        + f"MILES_ADMIN_PASSWORD_HASH='{hash_password(ADMIN_PASSWORD)}'\n",
-    )
-    service = SecretsService(
-        pool, SecretCipher(os.urandom(32)), EventTypeCatalog(EVENT_TYPES), _now
-    )
-    app = build_app()
-    app.state.auth = AuthContext(
-        store=AdminAccountStore.file_load(env, backup),
-        db=pool,
-        throttle=LoginThrottle(),
-        session_ttl=timedelta(hours=1),
-        cookie_secure=False,
-    )
-    app.state.secrets = service
-    token, digest = new_session_token()
-    await db_create_session(pool, digest, LOCAL_ADMIN_KIND, "admin", _now() + timedelta(hours=1))
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://miles", cookies={SESSION_COOKIE: token}
-    ) as client:
-        try:
-            yield Stack(pool, service, client, app)
-        finally:
-            await pool.close()
+    async with open_portal_stack(blank_db, tmp_path) as portal:
+        service = SecretsService(
+            portal.pool, SecretCipher(os.urandom(32)), EventTypeCatalog(EVENT_TYPES), _now
+        )
+        portal.app.state.secrets = service
+        yield Stack(portal.pool, service, portal.client, portal.app)
 
 
 async def _create(stack: Stack, **overrides: str) -> httpx.Response:

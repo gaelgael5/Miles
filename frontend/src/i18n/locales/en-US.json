@@ -5,7 +5,8 @@
     "logout": "Sign out",
     "nav": {
       "home": "Home",
-      "secrets": "Secrets"
+      "secrets": "Secrets",
+      "cultures": "Cultures"
     }
   },
   "health": {
@@ -104,6 +105,25 @@
       "createInline": "Create a secret",
       "orphan": "The selected secret ({{slug}}) no longer exists. Choose another one.",
       "orphanOption": "Missing secret: {{slug}}"
+    }
+  },
+  "cultures": {
+    "title": "Cultures",
+    "intro": "Every culture already exists; activate the ones this installation uses. Active cultures are offered wherever a value is entered per culture.",
+    "filter": "Filter by code or name",
+    "selected_one": "{{count}} culture selected",
+    "selected_other": "{{count}} cultures selected",
+    "activate": "Activate the selection",
+    "deactivate": "Deactivate the selection",
+    "keepValues": "Deactivating a culture deletes nothing: values entered for it are kept and come back if it is reactivated.",
+    "active": "Active",
+    "fallbackNote": "(fallback of the installation, always active)",
+    "loading": "Loading cultures…",
+    "noMatch": "No culture matches “{{filter}}”.",
+    "errors": {
+      "fallback": "en-US is the fallback of the installation and cannot be deactivated.",
+      "unreachable": "Cultures could not be loaded.",
+      "unexpected": "The change failed. See the back-office logs."
     }
   }
 }
