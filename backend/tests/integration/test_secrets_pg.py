@@ -91,6 +91,15 @@ async def test_resolution_needs_no_session_and_checks_the_expected_type(stack: S
         await stack.service.resolve_secret("absent")
 
 
+async def test_type_catalogue_is_served_and_enforced(stack: Stack) -> None:
+    types = (await stack.client.get("/api/secret-types")).json()["types"]
+    refused = await _create(stack, secret_type="API_KEY")
+
+    assert "GIT_TOKEN" in types and "OIDC_CLIENT_SECRET" in types
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == {"field": "secret_type"}
+
+
 async def test_list_filtered_by_type_returns_only_that_type(stack: Stack) -> None:
     await _create(stack)
     await _create(stack, slug="oidc-kc", secret_type="OIDC_CLIENT_SECRET", label="Keycloak")
@@ -286,6 +295,7 @@ async def test_secret_routes_require_a_session(stack: Stack) -> None:
             ("POST", "/api/secrets"),
             ("GET", "/api/secrets/git-token"),
             ("DELETE", "/api/secrets/git-token"),
+            ("GET", "/api/secret-types"),
         ]:
             response = await anonymous.request(method, path, json=GIT)
             assert response.status_code == 401, (method, path)

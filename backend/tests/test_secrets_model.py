@@ -5,6 +5,7 @@ import pytest
 from miles.secrets.model import (
     MAX_LABEL_LENGTH,
     MAX_VALUE_LENGTH,
+    SECRET_TYPES,
     Consumer,
     Secret,
     SecretInputError,
@@ -55,13 +56,15 @@ def test_validate_label_trims_and_bounds_length() -> None:
         assert caught.value.field == "label"
 
 
-@pytest.mark.parametrize("secret_type", ["OIDC_CLIENT_SECRET", "GIT_TOKEN", "A1"])
-def test_validate_secret_type_accepts_uppercase_names(secret_type: str) -> None:
+@pytest.mark.parametrize("secret_type", SECRET_TYPES)
+def test_validate_secret_type_accepts_every_catalogued_type(secret_type: str) -> None:
     assert validate_secret_type(secret_type) == secret_type
 
 
-@pytest.mark.parametrize("secret_type", ["", "A", "git_token", "1ABC", "GIT-TOKEN"])
-def test_validate_secret_type_rejects_other_shapes(secret_type: str) -> None:
+@pytest.mark.parametrize(
+    "secret_type", ["", "git_token", "GIT-TOKEN", "GITHUB_TOKEN", "API_KEY", " GIT_TOKEN"]
+)
+def test_validate_secret_type_rejects_types_outside_the_catalogue(secret_type: str) -> None:
     with pytest.raises(SecretInputError) as caught:
         validate_secret_type(secret_type)
     assert caught.value.field == "secret_type"

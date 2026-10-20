@@ -2,7 +2,12 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ApiError, invalidField } from "../api/http";
-import { type SecretSummary, slugFromLabel, useCreateSecret } from "../api/secrets";
+import {
+  type SecretSummary,
+  slugFromLabel,
+  useCreateSecret,
+  useSecretTypes,
+} from "../api/secrets";
 
 interface SecretCreateFormProps {
   /** Type imposé par le champ qui appelle (sélecteur) ; sinon saisi. */
@@ -26,6 +31,8 @@ function errorKey(error: unknown): string {
 export function SecretCreateForm({ secretType, onCreated, onCancel }: SecretCreateFormProps) {
   const { t } = useTranslation();
   const create = useCreateSecret();
+  // Inutile quand le champ appelant impose le type.
+  const types = useSecretTypes(secretType === undefined);
   const [label, setLabel] = useState("");
   // null tant que l'utilisateur n'a pas touché au slug : il suit alors le libellé.
   const [editedSlug, setEditedSlug] = useState<string | null>(null);
@@ -61,15 +68,26 @@ export function SecretCreateForm({ secretType, onCreated, onCancel }: SecretCrea
       {secretType === undefined ? (
         <label>
           {t("secrets.fields.type")}
-          <input
+          <select
             required
             value={typedType}
-            placeholder="GIT_TOKEN"
-            onChange={(e) => setTypedType(e.target.value.toUpperCase())}
-          />
+            disabled={!types.isSuccess}
+            onChange={(e) => setTypedType(e.target.value)}
+          >
+            <option value="">{t("secrets.fields.typePlaceholder")}</option>
+            {(types.data?.types ?? []).map((code) => (
+              <option key={code} value={code}>
+                {t(`secrets.types.${code}`, { defaultValue: code })}
+              </option>
+            ))}
+          </select>
         </label>
       ) : (
-        <p>{t("secrets.create.fixedType", { type: secretType })}</p>
+        <p>
+          {t("secrets.create.fixedType", {
+            type: t(`secrets.types.${secretType}`, { defaultValue: secretType }),
+          })}
+        </p>
       )}
       <label>
         {t("secrets.fields.value")}
@@ -82,6 +100,7 @@ export function SecretCreateForm({ secretType, onCreated, onCancel }: SecretCrea
         />
       </label>
       <p>{t("secrets.create.neverShownAgain")}</p>
+      {types.isError && <p role="alert">{t("secrets.errors.unreachable")}</p>}
       {create.isError && <p role="alert">{t(errorKey(create.error))}</p>}
       <button type="submit" disabled={create.isPending}>
         {t("secrets.create.submit")}

@@ -10,7 +10,7 @@ def test_no_route_serves_a_secret_value() -> None:
     routes = {
         (method.upper(), path)
         for path, operations in paths.items()
-        if path.startswith("/api/secrets")
+        if path.startswith(("/api/secrets", "/api/secret-types"))
         for method in operations
     }
     assert routes == {
@@ -20,4 +20,5 @@ def test_no_route_serves_a_secret_value() -> None:
         ("PATCH", "/api/secrets/{slug}"),
         ("PUT", "/api/secrets/{slug}/value"),
         ("DELETE", "/api/secrets/{slug}"),
+        ("GET", "/api/secret-types"),
     }

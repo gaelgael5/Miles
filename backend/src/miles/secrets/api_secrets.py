@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from miles.auth.sessions import Session
 from miles.events.model import LOCAL_DIRECTORY, EventAuthor
 from miles.secrets.model import (
+    SECRET_TYPES,
     SecretInputError,
     SecretInUseError,
     SecretNotFoundError,
@@ -19,6 +20,8 @@ from miles.secrets.model import (
 from miles.secrets.service import SecretsService
 
 router = APIRouter(prefix="/api/secrets")
+# Hors de /api/secrets : « types » y serait pris pour le slug d'un secret.
+types_router = APIRouter()
 
 
 def secrets_service(request: Request) -> SecretsService:
@@ -160,3 +163,13 @@ async def delete_secret(slug: str, request: Request, service: Service) -> Respon
     except _REFUSALS as exc:
         return _refusal(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+class SecretTypesOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    types: list[str]
+
+
+@types_router.get("/api/secret-types", response_model=SecretTypesOut)
+async def list_secret_types() -> SecretTypesOut:
+    return SecretTypesOut(types=list(SECRET_TYPES))

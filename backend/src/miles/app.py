@@ -30,6 +30,7 @@ from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder
 from miles.secrets import service as secrets_events
 from miles.secrets.api_secrets import router as secrets_router
+from miles.secrets.api_secrets import types_router as secret_types_router
 from miles.secrets.crypto import SecretCipher, parse_secrets_key
 from miles.secrets.service import SecretsService
 
@@ -113,5 +114,6 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(secrets_router)
+    app.include_router(secret_types_router)
     app.include_router(cultures_router)
     return app

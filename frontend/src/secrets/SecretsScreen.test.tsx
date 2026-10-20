@@ -7,6 +7,7 @@ import { mockApi } from "../test/mockApi";
 import { SecretsScreen } from "./SecretsScreen";
 
 const VALUE = "ghp_valeur-a-ne-jamais-garder";
+const TYPES = { status: 200, body: { types: ["OIDC_CLIENT_SECRET", "GIT_TOKEN"] } };
 const GIT = {
   slug: "git-token",
   label: "Jeton GitHub",
@@ -41,6 +42,22 @@ describe("slugFromLabel", () => {
 });
 
 describe("SecretsScreen", () => {
+  it("offers the secret type as a list of the types the API admits, never free text", async () => {
+    mockApi({ "GET /api/secrets": { status: 200, body: [] }, "GET /api/secret-types": TYPES });
+    renderScreen();
+    fireEvent.click(await screen.findByText("Add a secret"));
+
+    const type = screen.getByLabelText("Type");
+    await screen.findByRole("option", { name: "OIDC connector client secret" });
+
+    expect(type.tagName).toBe("SELECT");
+    expect(screen.getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual([
+      "",
+      "OIDC_CLIENT_SECRET",
+      "GIT_TOKEN",
+    ]);
+  });
+
   it("says so when no secret exists", async () => {
     mockApi({ "GET /api/secrets": { status: 200, body: [] } });
 
@@ -56,12 +73,14 @@ describe("SecretsScreen", () => {
         { status: 200, body: [GIT] },
       ],
       "POST /api/secrets": { status: 201, body: GIT },
+      "GET /api/secret-types": TYPES,
     });
     renderScreen();
     fireEvent.click(await screen.findByText("Add a secret"));
 
     fill("Label", "Jeton GitHub");
-    fill("Type", "git_token");
+    await screen.findByRole("option", { name: "Git service account token" });
+    fill("Type", "GIT_TOKEN");
     fill("Value", VALUE);
     fireEvent.click(screen.getByText("Save the secret"));
 
@@ -82,10 +101,12 @@ describe("SecretsScreen", () => {
         { status: 422, body: { detail: { field: "value" } } },
         { status: 409, body: { detail: "slug_pris" } },
       ],
+      "GET /api/secret-types": TYPES,
     });
     renderScreen();
     fireEvent.click(await screen.findByText("Add a secret"));
     fill("Label", "Jeton");
+    await screen.findByRole("option", { name: "Git service account token" });
     fill("Type", "GIT_TOKEN");
     fill("Value", "${local://x}");
 

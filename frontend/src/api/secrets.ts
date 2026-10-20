@@ -43,6 +43,16 @@ function secretPath(slug: string) {
   return `/api/secrets/${encodeURIComponent(slug)}`;
 }
 
+/** Types admis, servis par l'API : le champ « type » est une liste, jamais une saisie. */
+export function useSecretTypes(enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: [...SECRETS_KEY, "types"],
+    queryFn: ({ signal }) => request<{ types: string[] }>("/api/secret-types", { signal }),
+    staleTime: Infinity,
+  });
+}
+
 export function useSecrets(secretType?: string) {
   return useQuery({
     queryKey: [...SECRETS_KEY, secretType ?? null],

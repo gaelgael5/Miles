@@ -6,8 +6,16 @@ from dataclasses import dataclass
 from datetime import datetime
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
-# Liste extensible (OIDC_CLIENT_SECRET, GIT_TOKEN…) : un motif, pas une énumération.
-SECRET_TYPE_RE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
+# Le type se choisit dans une liste (Gael, 20/10/2026), pas se tape : un type saisi
+# à la main finit en variantes (GIT_TOKEN, GITHUB_TOKEN…) qu'aucun champ ne retrouve.
+# La liste reste extensible : un consommateur nouveau ajoute ici son type, et son
+# libellé dans les traductions du front. L'API refuse tout type absent d'ici.
+SECRET_TYPES = (
+    "OIDC_CLIENT_SECRET",  # secret client d'un connecteur OIDC
+    "SECURITY_SERVICE_CLIENT_SECRET",  # accès au service de sécurité racine (Keycloak)
+    "GIT_TOKEN",  # jeton ou mot de passe du compte de service git
+    "GIT_CLIENT_KEY",  # clé privée du certificat client mTLS d'accès au dépôt
+)
 CONSUMER_KIND_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,99}$")
 MAX_LABEL_LENGTH = 200
 # Large : une clé privée de certificat client tient dans un secret.
@@ -122,7 +130,7 @@ def validate_label(label: str) -> str:
 
 
 def validate_secret_type(secret_type: str) -> str:
-    if not SECRET_TYPE_RE.match(secret_type):
+    if secret_type not in SECRET_TYPES:
         raise SecretInputError("secret_type")
     return secret_type
 

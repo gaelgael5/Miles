@@ -68,7 +68,8 @@
       "slug": "Identifier (slug)",
       "type": "Type",
       "value": "Value",
-      "newValue": "New value"
+      "newValue": "New value",
+      "typePlaceholder": "— Choose a type —"
     },
     "create": {
       "title": "New secret",
@@ -105,6 +106,12 @@
       "createInline": "Create a secret",
       "orphan": "The selected secret ({{slug}}) no longer exists. Choose another one.",
       "orphanOption": "Missing secret: {{slug}}"
+    },
+    "types": {
+      "OIDC_CLIENT_SECRET": "OIDC connector client secret",
+      "SECURITY_SERVICE_CLIENT_SECRET": "Root security service client secret",
+      "GIT_TOKEN": "Git service account token",
+      "GIT_CLIENT_KEY": "Git client certificate private key"
     }
   },
   "cultures": {

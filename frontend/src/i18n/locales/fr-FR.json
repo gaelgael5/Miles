@@ -68,7 +68,8 @@
       "slug": "Identifiant (slug)",
       "type": "Type",
       "value": "Valeur",
-      "newValue": "Nouvelle valeur"
+      "newValue": "Nouvelle valeur",
+      "typePlaceholder": "— Choisir un type —"
     },
     "create": {
       "title": "Nouveau secret",
@@ -105,6 +106,12 @@
       "createInline": "Créer un secret",
       "orphan": "Le secret choisi ({{slug}}) n'existe plus. Choisissez-en un autre.",
       "orphanOption": "Secret introuvable : {{slug}}"
+    },
+    "types": {
+      "OIDC_CLIENT_SECRET": "Secret client d'un connecteur OIDC",
+      "SECURITY_SERVICE_CLIENT_SECRET": "Secret client du service de sécurité racine",
+      "GIT_TOKEN": "Jeton du compte de service git",
+      "GIT_CLIENT_KEY": "Clé privée du certificat client git"
     }
   },
   "cultures": {

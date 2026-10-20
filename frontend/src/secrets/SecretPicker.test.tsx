@@ -79,7 +79,7 @@ describe("SecretPicker", () => {
 
     fireEvent.click(await screen.findByText("Create a secret"));
     const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveTextContent("Type: OIDC_CLIENT_SECRET");
+    expect(dialog).toHaveTextContent("Type: OIDC connector client secret");
     fireEvent.change(screen.getByLabelText("Label"), { target: { value: "Keycloak client" } });
     fireEvent.change(screen.getByLabelText("Value"), { target: { value: "s3cr3t" } });
     fireEvent.click(screen.getByText("Save the secret"));
