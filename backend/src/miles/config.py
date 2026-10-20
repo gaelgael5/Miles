@@ -66,6 +66,9 @@ class Settings(DatabaseSettings):
     # en HTTP laisse passer jetons, codes et secrets en clair. Seuls les tests
     # d'intégration, contre des fournisseurs jetables, l'activent.
     allow_http_identity_providers: bool = False
+    # Hôtes git admis en plus de github.com (GitHub seul au premier lot). Vide en
+    # production ; seuls les tests d'intégration y mettent leur forge jetable.
+    git_test_hosts: list[str] = Field(default_factory=list)
 
     @field_validator("public_url")
     @classmethod

@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim AS base
+# git : le back-office éprouve et utilise lui-même les dépôts des workspaces.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PROJECT_ENVIRONMENT=/opt/venv
 WORKDIR /app
@@ -20,6 +23,8 @@ RUN uv sync --frozen
 ENTRYPOINT ["uv", "run", "--frozen", "pytest"]
 
 FROM python:3.12-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 miles
 COPY --from=base /opt/venv /opt/venv
 COPY --from=base /app/migrations /app/migrations

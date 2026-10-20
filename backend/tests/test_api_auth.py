@@ -199,8 +199,8 @@ def test_unknown_api_route_is_closed_by_default(harness: _Harness) -> None:
     client = _bootstrapped(harness)
     anonymous = harness.client()
 
-    assert anonymous.get("/api/workspaces").status_code == 401
-    assert client.get("/api/workspaces").status_code == 404
+    assert anonymous.get("/api/route-inexistante").status_code == 401
+    assert client.get("/api/route-inexistante").status_code == 404
 
 
 def test_session_expires_after_ttl(harness: _Harness) -> None:

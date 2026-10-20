@@ -17,6 +17,8 @@ MOSQUITTO_IMAGE="eclipse-mosquitto:2.0.20"
 # (découverte, PKCE, jetons signés), pas contre une doublure écrite par nous.
 OIDC_IMAGE="ghcr.io/navikt/mock-oauth2-server:2.1.10"
 KEYCLOAK_IMAGE="quay.io/keycloak/keycloak:26.0.7"
+# Forge git jetable : les cinq droits du workspace s'éprouvent par de vrais push.
+GITEA_IMAGE="gitea/gitea:1.22.6"
 KEYCLOAK_SECRET="$(openssl rand -hex 16)"
 OIDC_CONFIG='{"interactiveLogin":false,"tokenCallbacks":[{"issuerId":"miles","requestMappings":[{"requestParam":"code","match":"*","claims":{"sub":"alice-sub","name":"Alice","email":"alice@example.org","aud":["miles-client"]}}]}]}'
 MOSQUITTO_UID=1883
@@ -25,7 +27,7 @@ MOUNT_DIR="$(mktemp -d)"
 command -v docker >/dev/null || { echo "docker introuvable : voir https://docs.docker.com/engine/install/" >&2; exit 1; }
 
 cleanup() {
-  docker rm -f "$RUN_ID-db" "$RUN_ID-mqtt" "$RUN_ID-oidc" "$RUN_ID-kc" >/dev/null 2>&1 || true
+  docker rm -f "$RUN_ID-db" "$RUN_ID-mqtt" "$RUN_ID-oidc" "$RUN_ID-kc" "$RUN_ID-gitea" >/dev/null 2>&1 || true
   docker network rm "$RUN_ID" >/dev/null 2>&1 || true
   docker image rm "$RUN_ID-backend" >/dev/null 2>&1 || true
   rm -rf "$MOUNT_DIR"
@@ -59,6 +61,10 @@ docker run -d --name "$RUN_ID-kc" --network "$RUN_ID" -v "$KC_DIR:/opt/keycloak/
   -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD="$(openssl rand -hex 12)" \
   "$KEYCLOAK_IMAGE" start-dev --import-realm >/dev/null
 
+docker run -d --name "$RUN_ID-gitea" --network "$RUN_ID" \
+  -e GITEA__security__INSTALL_LOCK=true -e GITEA__database__DB_TYPE=sqlite3 \
+  -e GITEA__server__ROOT_URL="http://$RUN_ID-gitea:3000/" "$GITEA_IMAGE" >/dev/null
+
 docker build -q --target test -t "$RUN_ID-backend" "$REPO_DIR/backend" >/dev/null
 
 # Le fournisseur démarre en quelques secondes : on attend sa découverte, depuis le réseau.
@@ -84,12 +90,31 @@ for _ in $(seq 1 120); do
   sleep 2
 done
 [[ "$kc_ready" == 1 ]] || { echo "Keycloak jetable jamais prêt (docker logs $RUN_ID-kc)" >&2; exit 1; }
+gitea_ready=0
+for _ in $(seq 1 60); do
+  if docker exec "$RUN_ID-gitea" curl -sf http://localhost:3000/api/v1/version >/dev/null 2>&1; then
+    gitea_ready=1
+    break
+  fi
+  sleep 1
+done
+[[ "$gitea_ready" == 1 ]] || { echo "Gitea jetable jamais prêt (docker logs $RUN_ID-gitea)" >&2; exit 1; }
+# Mot de passe jamais en argument : gitea admin le reçoit par l'option, mais dans le
+# conteneur jetable seulement, détruit à la sortie. Les jetons, eux, restent en mémoire.
+docker exec -u git "$RUN_ID-gitea" gitea admin user create --username miles --admin \
+  --password "$(openssl rand -hex 16)" --email miles@forge.invalid --must-change-password=false >/dev/null
+GITEA_TOKEN="$(docker exec -u git "$RUN_ID-gitea" gitea admin user generate-access-token \
+  --username miles --token-name ecriture --scopes write:repository,write:user --raw | tail -1)"
+GITEA_READ_TOKEN="$(docker exec -u git "$RUN_ID-gitea" gitea admin user generate-access-token \
+  --username miles --token-name lecture --scopes read:repository --raw | tail -1)"
 
 echo "==> [1/3] tests contre PostgreSQL"
 docker run --rm --network "$RUN_ID" \
   -e MILES_TEST_DATABASE_URL="postgresql://postgres:$PG_PASSWORD@$RUN_ID-db:5432/postgres" \
   -e MILES_TEST_OIDC_URL="http://$RUN_ID-oidc:8080" \
   -e MILES_TEST_KEYCLOAK_URL="http://$RUN_ID-kc:8080" -e MILES_TEST_KEYCLOAK_SECRET="$KEYCLOAK_SECRET" \
+  -e MILES_TEST_GITEA_URL="http://$RUN_ID-gitea:3000" -e MILES_TEST_GITEA_TOKEN="$GITEA_TOKEN" \
+  -e MILES_TEST_GITEA_READ_TOKEN="$GITEA_READ_TOKEN" \
   "$RUN_ID-backend" -m integration -v --ignore=tests/integration/test_env_mount.py \
   --ignore=tests/integration/test_mqtt_broker.py "$@"
 

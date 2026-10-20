@@ -42,6 +42,9 @@ from miles.secrets.service import SecretsService
 from miles.security import service as security_events
 from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
+from miles.workspaces import service as workspace_events
+from miles.workspaces.api_workspaces import router as workspaces_router
+from miles.workspaces.service import WorkspacesService
 
 log = structlog.get_logger(__name__)
 # Un fournisseur lent ne doit pas retenir un utilisateur indéfiniment sur la connexion.
@@ -68,6 +71,7 @@ def create_app() -> FastAPI:
         | cultures_events.EVENT_TYPES
         | oidc_events.EVENT_TYPES
         | security_events.EVENT_TYPES
+        | workspace_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -100,6 +104,9 @@ def create_app() -> FastAPI:
         )
         app.state.security = SecurityServices(
             pool, http, app.state.secrets, catalog, utc_now, settings.allow_http_identity_providers
+        )
+        app.state.workspaces = WorkspacesService(
+            pool, app.state.secrets, catalog, utc_now, tuple(settings.git_test_hosts)
         )
         responder = asyncio.create_task(
             run_responder(
@@ -153,4 +160,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(oidc_connectors_router)
     app.include_router(oidc_login_router)
     app.include_router(security_router)
+    app.include_router(workspaces_router)
     return app
