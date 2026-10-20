@@ -32,6 +32,8 @@ services:
       # Clé des secrets de l'instance : générée une fois dans .env, jamais régénérée
       # (les secrets en base deviendraient illisibles). Absente : le backend refuse de démarrer.
       MILES_SECRETS_KEY: ${MILES_SECRETS_KEY:?MILES_SECRETS_KEY absent de .env — lancer dev-deploy.sh}
+      # Adresse publique (URL de retour OIDC) ; vide : la connexion OIDC est indisponible.
+      MILES_PUBLIC_URL: ${MILES_PUBLIC_URL:-}
     volumes:
       # Fichier par fichier, pas le dossier du dépôt (décision du 19/10/2026) : le
       # backend y écrit le compte d'amorçage, et .env.bak sert à restaurer .env si

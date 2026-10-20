@@ -8,6 +8,7 @@ from typing import Any, Protocol
 
 SESSION_COOKIE = "miles_session"
 LOCAL_ADMIN_KIND = "local_admin"
+OIDC_KIND = "oidc"
 _TOKEN_BYTES = 32
 
 
@@ -22,6 +23,11 @@ class Session:
     subject_kind: str
     subject: str
     expires_at: datetime
+    # Annuaire OIDC de la session ; None pour le compte d'amorçage. L'identité est
+    # (directory, subject) ; nom et e-mail ne servent qu'à l'affichage.
+    directory: str | None = None
+    display_name: str | None = None
+    email: str | None = None
 
 
 def new_session_token() -> tuple[str, bytes]:
@@ -36,28 +42,46 @@ def token_digest(token: str) -> bytes:
 
 
 async def db_create_session(
-    db: DbExecutor, digest: bytes, subject_kind: str, subject: str, expires_at: datetime
+    db: DbExecutor,
+    digest: bytes,
+    subject_kind: str,
+    subject: str,
+    expires_at: datetime,
+    directory: str | None = None,
+    display_name: str | None = None,
+    email: str | None = None,
 ) -> None:
     await db.execute(
-        "INSERT INTO sessions (token_digest, subject_kind, subject, expires_at)"
-        " VALUES ($1, $2, $3, $4)",
+        "INSERT INTO sessions (token_digest, subject_kind, subject, expires_at, directory,"
+        " display_name, email) VALUES ($1, $2, $3, $4, $5, $6, $7)",
         digest,
         subject_kind,
         subject,
         expires_at,
+        directory,
+        display_name,
+        email,
     )
 
 
 async def db_find_session(db: DbExecutor, digest: bytes, now: datetime) -> Session | None:
     row = await db.fetchrow(
-        "SELECT token_digest, subject_kind, subject, expires_at FROM sessions"
-        " WHERE token_digest = $1 AND expires_at > $2",
+        "SELECT token_digest, subject_kind, subject, expires_at, directory, display_name, email"
+        " FROM sessions WHERE token_digest = $1 AND expires_at > $2",
         digest,
         now,
     )
     if row is None:
         return None
-    return Session(row["token_digest"], row["subject_kind"], row["subject"], row["expires_at"])
+    return Session(
+        row["token_digest"],
+        row["subject_kind"],
+        row["subject"],
+        row["expires_at"],
+        row["directory"],
+        row["display_name"],
+        row["email"],
+    )
 
 
 async def db_delete_session(db: DbExecutor, digest: bytes) -> None:

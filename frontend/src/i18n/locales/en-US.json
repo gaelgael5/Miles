@@ -6,8 +6,10 @@
     "nav": {
       "home": "Home",
       "secrets": "Secrets",
-      "cultures": "Cultures"
-    }
+      "cultures": "Cultures",
+      "oidc": "OIDC"
+    },
+    "noRights": "You are signed in through {{directory}}, but no right is granted to you yet."
   },
   "health": {
     "title": "Service status",
@@ -55,6 +57,17 @@
     "errors": {
       "invalid": "Wrong username or password.",
       "throttled": "Too many failed attempts. Try again in a few minutes.",
+      "unexpected": "Sign-in failed. See the back-office logs."
+    },
+    "oidcTitle": "Or sign in with",
+    "oidcErrors": {
+      "connecteur_inconnu": "This connector does not exist or is inactive.",
+      "fournisseur_injoignable": "{{connector}}: the identity provider cannot be reached. Other connectors remain available.",
+      "refus_fournisseur": "{{connector}}: the identity provider refused the sign-in.",
+      "jeton_invalide": "{{connector}}: the identity provider's answer could not be verified. Sign-in refused.",
+      "state_invalide": "The sign-in expired or did not start in this browser. Try again.",
+      "url_publique_absente": "OIDC sign-in is not configured on this installation (public address missing).",
+      "configuration_connecteur": "{{connector}}: the connector's client secret is unavailable. Contact the administrator.",
       "unexpected": "Sign-in failed. See the back-office logs."
     }
   },
@@ -131,6 +144,50 @@
       "fallback": "en-US is the fallback of the installation and cannot be deactivated.",
       "unreachable": "Cultures could not be loaded.",
       "unexpected": "The change failed. See the back-office logs."
+    }
+  },
+  "oidc": {
+    "title": "OIDC connectors",
+    "intro": "Each active connector becomes a sign-in button. Connectors are declared for the whole installation; their client secret is chosen among the declared secrets.",
+    "fields": {
+      "id": "Identifier",
+      "label": "Label",
+      "issuer": "Issuer (provider address)",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "scopes": "Scopes",
+      "active": "Active (offered on the sign-in screen)"
+    },
+    "form": {
+      "newTitle": "New connector",
+      "editTitle": "Edit connector",
+      "save": "Save",
+      "cancel": "Cancel",
+      "checkedOnSave": "On save, the provider is queried to check that it answers as an OIDC provider."
+    },
+    "list": {
+      "add": "Add a connector",
+      "loading": "Loading connectors…",
+      "empty": "No connector declared: only the bootstrap account can sign in.",
+      "active": "Active",
+      "inactive": "Inactive",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "errors": {
+      "issuerUnreachable": "The provider does not answer at this address, or not as an OIDC provider. Nothing was saved.",
+      "invalid": {
+        "id": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes.",
+        "label": "Label: 1 to 200 characters.",
+        "issuer": "Issuer: an https address, without query or fragment.",
+        "client_id": "Client ID: required, at most 200 characters.",
+        "client_secret_slug": "Choose a declared secret of type “OIDC connector client secret”.",
+        "scopes": "Scopes: must include openid."
+      },
+      "idTaken": "This identifier is already used by another connector.",
+      "inUse": "Accounts already signed in through this connector: it cannot be deleted. Deactivate it instead.",
+      "unreachable": "Connectors could not be loaded.",
+      "unexpected": "The operation failed. See the back-office logs."
     }
   }
 }

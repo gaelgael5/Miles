@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from miles.auth.context import AuthContext, client_origin
 from miles.auth.sessions import (
     LOCAL_ADMIN_KIND,
+    OIDC_KIND,
     SESSION_COOKIE,
     db_delete_session,
     db_find_session,
@@ -20,8 +21,22 @@ log = structlog.get_logger(__name__)
 # Liste blanche : toute autre route /api exige une session. Une route ajoutée
 # demain est donc fermée par défaut, sans que son auteur ait à y penser.
 PUBLIC_API_PATHS = frozenset(
-    {"/api/health", "/api/bootstrap/status", "/api/bootstrap", "/api/auth/login"}
+    {
+        "/api/health",
+        "/api/bootstrap/status",
+        "/api/bootstrap",
+        "/api/auth/login",
+        # Connexion OIDC : l'écran de connexion liste les connecteurs actifs, puis le
+        # navigateur part chez le fournisseur et revient sans session.
+        "/api/auth/oidc/connectors",
+        "/api/auth/oidc/start",
+        "/api/auth/oidc/callback",
+    }
 )
+# Une session OIDC authentifie, elle n'autorise pas (ticket e9fc9b9b) : tant que les
+# rôles n'existent pas, elle ne sert qu'à se voir connecté et à se déconnecter.
+# Aucun accès par défaut : toute autre route lui est refusée.
+OIDC_SESSION_PATHS = frozenset({"/api/auth/me", "/api/auth/logout"})
 
 CallNext = Callable[[Request], Awaitable[Response]]
 
@@ -45,9 +60,12 @@ async def auth_gate(request: Request, call_next: CallNext) -> Response:
     session = await db_find_session(ctx.db, token_digest(token), ctx.now())
     if session is None:
         return _deny(status.HTTP_401_UNAUTHORIZED, "session_requise")
+    if session.subject_kind == OIDC_KIND:
+        if path not in OIDC_SESSION_PATHS:
+            return _deny(status.HTTP_403_FORBIDDEN, "aucun_droit")
     # Recalculé à chaque requête, pas mémorisé : après une réinitialisation du
     # compte dans .env, les sessions de l'ancien administrateur ne valent plus rien.
-    if session.subject_kind != LOCAL_ADMIN_KIND or session.subject != account.username:
+    elif session.subject_kind != LOCAL_ADMIN_KIND or session.subject != account.username:
         await db_delete_session(ctx.db, session.digest)
         log.warning("session_revoquee_compte_change", origin=client_origin(request))
         return _deny(status.HTTP_401_UNAUTHORIZED, "session_requise")

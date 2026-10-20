@@ -13,13 +13,17 @@ RUN_ID="miles-it-$(date +%s)-$$"
 PG_PASSWORD="$(openssl rand -hex 16)"
 RUNTIME_UID=10001
 MOSQUITTO_IMAGE="eclipse-mosquitto:2.0.20"
+# Fournisseur OIDC jetable : le parcours de connexion s'éprouve contre un vrai serveur
+# (découverte, PKCE, jetons signés), pas contre une doublure écrite par nous.
+OIDC_IMAGE="ghcr.io/navikt/mock-oauth2-server:2.1.10"
+OIDC_CONFIG='{"interactiveLogin":false,"tokenCallbacks":[{"issuerId":"miles","requestMappings":[{"requestParam":"code","match":"*","claims":{"sub":"alice-sub","name":"Alice","email":"alice@example.org","aud":["miles-client"]}}]}]}'
 MOSQUITTO_UID=1883
 MOUNT_DIR="$(mktemp -d)"
 
 command -v docker >/dev/null || { echo "docker introuvable : voir https://docs.docker.com/engine/install/" >&2; exit 1; }
 
 cleanup() {
-  docker rm -f "$RUN_ID-db" "$RUN_ID-mqtt" >/dev/null 2>&1 || true
+  docker rm -f "$RUN_ID-db" "$RUN_ID-mqtt" "$RUN_ID-oidc" >/dev/null 2>&1 || true
   docker network rm "$RUN_ID" >/dev/null 2>&1 || true
   docker image rm "$RUN_ID-backend" >/dev/null 2>&1 || true
   rm -rf "$MOUNT_DIR"
@@ -37,11 +41,28 @@ done
 docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null \
   || { echo "PostgreSQL jetable jamais prêt (docker logs $RUN_ID-db)" >&2; exit 1; }
 
+docker run -d --name "$RUN_ID-oidc" --network "$RUN_ID" -e JSON_CONFIG="$OIDC_CONFIG" \
+  "$OIDC_IMAGE" >/dev/null
+
 docker build -q --target test -t "$RUN_ID-backend" "$REPO_DIR/backend" >/dev/null
+
+# Le fournisseur démarre en quelques secondes : on attend sa découverte, depuis le réseau.
+oidc_ready=0
+for _ in $(seq 1 60); do
+  if docker run --rm --network "$RUN_ID" --entrypoint /opt/venv/bin/python "$RUN_ID-backend" \
+      -c "import httpx,sys; sys.exit(httpx.get('http://$RUN_ID-oidc:8080/miles/.well-known/openid-configuration').status_code != 200)" \
+      >/dev/null 2>&1; then
+    oidc_ready=1
+    break
+  fi
+  sleep 1
+done
+[[ "$oidc_ready" == 1 ]] || { echo "fournisseur OIDC jetable jamais prêt (docker logs $RUN_ID-oidc)" >&2; exit 1; }
 
 echo "==> [1/3] tests contre PostgreSQL"
 docker run --rm --network "$RUN_ID" \
   -e MILES_TEST_DATABASE_URL="postgresql://postgres:$PG_PASSWORD@$RUN_ID-db:5432/postgres" \
+  -e MILES_TEST_OIDC_URL="http://$RUN_ID-oidc:8080" \
   "$RUN_ID-backend" -m integration -v --ignore=tests/integration/test_env_mount.py \
   --ignore=tests/integration/test_mqtt_broker.py "$@"
 

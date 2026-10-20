@@ -9,6 +9,7 @@ from fastapi import Request, Response
 from miles.auth.admin_store import AdminAccountStore
 from miles.auth.sessions import (
     LOCAL_ADMIN_KIND,
+    OIDC_KIND,
     SESSION_COOKIE,
     DbExecutor,
     db_create_session,
@@ -35,9 +36,31 @@ class AuthContext:
     now: Callable[[], datetime] = utc_now
 
     async def resolve_open_admin_session(self, response: Response, username: str) -> None:
+        await self._open_session(response, LOCAL_ADMIN_KIND, username)
+
+    async def resolve_open_oidc_session(
+        self,
+        response: Response,
+        directory: str,
+        subject: str,
+        display_name: str | None,
+        email: str | None,
+    ) -> None:
+        await self._open_session(response, OIDC_KIND, subject, directory, display_name, email)
+
+    async def _open_session(
+        self,
+        response: Response,
+        kind: str,
+        subject: str,
+        directory: str | None = None,
+        display_name: str | None = None,
+        email: str | None = None,
+    ) -> None:
         token, digest = new_session_token()
+        expires_at = self.now() + self.session_ttl
         await db_create_session(
-            self.db, digest, LOCAL_ADMIN_KIND, username, self.now() + self.session_ttl
+            self.db, digest, kind, subject, expires_at, directory, display_name, email
         )
         # Pas d'attribut Domain : cookie limité à l'hôte qui l'a posé, jamais
         # partagé avec un service voisin du même domaine. SameSite=Strict tient

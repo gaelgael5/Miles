@@ -9,9 +9,11 @@ export interface BootstrapStatus {
 }
 
 export interface Me {
-  kind: "local_admin";
+  kind: "local_admin" | "oidc";
   username: string;
-  email: string;
+  email: string | null;
+  /** Connecteur OIDC de la session ; null pour le compte d'amorçage. */
+  directory: string | null;
 }
 
 export interface BootstrapInput {

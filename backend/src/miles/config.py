@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_PUBLIC_URL_RE = re.compile(r"^https?://[A-Za-z0-9.-]+(:[0-9]{2,5})?/?$")
 DEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
 
 
@@ -56,3 +58,19 @@ class Settings(DatabaseSettings):
     # dans .env. Obligatoire et sans défaut : une clé de secours rendrait les secrets
     # lisibles par quiconque connaît le code.
     secrets_key: SecretStr
+    # Adresse publique du portail (https://…), d'où se déduit l'URL de retour OIDC.
+    # Configurée, jamais lue des en-têtes de la requête : un Host forgé enverrait le
+    # code d'autorisation ailleurs. Absente, la connexion OIDC est indisponible.
+    public_url: str | None = None
+    # Faux par défaut : un fournisseur en HTTP laisse passer jetons et codes en clair.
+    # Seuls les tests d'intégration, contre un fournisseur jetable, l'activent.
+    oidc_allow_http_issuer: bool = False
+
+    @field_validator("public_url")
+    @classmethod
+    def _public_url_shape(cls, value: str | None) -> str | None:
+        if value is None or value.strip() == "":
+            return None
+        if not _PUBLIC_URL_RE.match(value):
+            raise ValueError("public_url doit être une origine http(s) sans chemin")
+        return value.rstrip("/")

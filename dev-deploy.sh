@@ -232,6 +232,13 @@ declare_exposition() {
     # l'entrée existe, pas que le portail atteint le service (« joignable »).
     public_url="$(grep -oE '"url":"https://[A-Za-z0-9.-]+"' <<<"$response" | cut -d'"' -f4 || true)"
     echo "service déclaré à l'annuaire : ${public_url:-URL non rendue} → $target_ip:$HTTP_PORT"
+    # L'adresse publique sert d'URL de retour OIDC. Prise une fois de l'annuaire, puis
+    # figée dans .env : c'est ce que le fournisseur a enregistré comme redirection admise.
+    if [[ -n "$public_url" ]] && ! grep -q '^MILES_PUBLIC_URL=.\+' "$ENV_FILE"; then
+      sed -i '/^MILES_PUBLIC_URL=/d' "$ENV_FILE"
+      echo "MILES_PUBLIC_URL=$public_url" >> "$ENV_FILE"
+      echo "adresse publique inscrite dans .env : $public_url"
+    fi
     # Le verdict porte sur la stack EN PLACE : la déclaration précède la construction parce que
     # le code TOTP expire en 30 s. Au premier passage rien n'écoute encore, d'où un faux négatif.
     if ! grep -q '"joignable":true' <<<"$response"; then

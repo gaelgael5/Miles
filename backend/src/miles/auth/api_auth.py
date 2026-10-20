@@ -12,7 +12,7 @@ from miles.auth.admin_account import InvalidAdminInputError
 from miles.auth.context import AuthContext, auth_context, client_origin
 from miles.auth.env_file import EnvEntriesPresentError, EnvFileError
 from miles.auth.passwords import MAX_PASSWORD_LENGTH, WeakPasswordError, verify_password
-from miles.auth.sessions import SESSION_COOKIE, Session, db_delete_session
+from miles.auth.sessions import OIDC_KIND, SESSION_COOKIE, Session, db_delete_session
 
 log = structlog.get_logger(__name__)
 router = APIRouter()
@@ -39,9 +39,11 @@ class LoginRequest(BaseModel):
 
 class Me(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["local_admin"]
+    kind: Literal["local_admin", "oidc"]
     username: str
-    email: str
+    email: str | None
+    # Connecteur OIDC de la session ; absent pour le compte d'amorçage.
+    directory: str | None = None
 
 
 def _error(code: int, detail: object) -> JSONResponse:
@@ -115,6 +117,14 @@ async def post_login(
 @router.get("/api/auth/me", response_model=Me)
 async def get_me(request: Request, ctx: Ctx) -> Me:
     session: Session = request.state.session
+    if session.subject_kind == OIDC_KIND:
+        # Le nom affiché est cosmétique : à défaut, on montre le sub, jamais rien.
+        return Me(
+            kind="oidc",
+            username=session.display_name or session.subject,
+            email=session.email,
+            directory=session.directory,
+        )
     account = ctx.store.account
     if account is None:
         # La passerelle refuse déjà toute session sans compte : arriver ici est un défaut.

@@ -8,6 +8,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from datetime import timedelta
 from functools import partial
 
+import httpx
 import structlog
 from fastapi import FastAPI
 
@@ -28,6 +29,10 @@ from miles.health import resolve_health
 from miles.log_config import configure_logging
 from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder
+from miles.oidc import service as oidc_events
+from miles.oidc.api_connectors import router as oidc_connectors_router
+from miles.oidc.api_login import router as oidc_login_router
+from miles.oidc.service import OidcService
 from miles.secrets import service as secrets_events
 from miles.secrets.api_secrets import router as secrets_router
 from miles.secrets.api_secrets import types_router as secret_types_router
@@ -35,6 +40,8 @@ from miles.secrets.crypto import SecretCipher, parse_secrets_key
 from miles.secrets.service import SecretsService
 
 log = structlog.get_logger(__name__)
+# Un fournisseur lent ne doit pas retenir un utilisateur indéfiniment sur la connexion.
+OIDC_HTTP_TIMEOUT_S = 5.0
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
 
@@ -52,7 +59,9 @@ def create_app() -> FastAPI:
     cipher = SecretCipher(parse_secrets_key(settings.secrets_key.get_secret_value()))
     # Catalogue des types d'event connus du code. Le catalogue déclaré dans git
     # viendra avec son propre ticket ; d'ici là, chaque module apporte ses types.
-    catalog = EventTypeCatalog(secrets_events.EVENT_TYPES | cultures_events.EVENT_TYPES)
+    catalog = EventTypeCatalog(
+        secrets_events.EVENT_TYPES | cultures_events.EVENT_TYPES | oidc_events.EVENT_TYPES
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -69,6 +78,18 @@ def create_app() -> FastAPI:
         )
         app.state.secrets = SecretsService(pool, cipher, catalog, utc_now)
         app.state.cultures = CulturesService(pool, catalog, utc_now)
+        # Pas de redirection suivie : un fournisseur qui redirige la découverte ou
+        # l'échange de code ne doit pas nous emmener ailleurs sans qu'on le voie.
+        http = httpx.AsyncClient(timeout=OIDC_HTTP_TIMEOUT_S, follow_redirects=False)
+        app.state.oidc = OidcService(
+            pool,
+            http,
+            app.state.secrets,
+            catalog,
+            utc_now,
+            settings.public_url,
+            settings.oidc_allow_http_issuer,
+        )
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -95,6 +116,7 @@ def create_app() -> FastAPI:
             responder.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await responder
+            await http.aclose()
             await pool.close()
 
     return build_app(lifespan)
@@ -116,4 +138,6 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(secrets_router)
     app.include_router(secret_types_router)
     app.include_router(cultures_router)
+    app.include_router(oidc_connectors_router)
+    app.include_router(oidc_login_router)
     return app

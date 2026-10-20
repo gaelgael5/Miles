@@ -6,8 +6,10 @@
     "nav": {
       "home": "Accueil",
       "secrets": "Secrets",
-      "cultures": "Cultures"
-    }
+      "cultures": "Cultures",
+      "oidc": "OIDC"
+    },
+    "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé."
   },
   "health": {
     "title": "État du service",
@@ -55,6 +57,17 @@
     "errors": {
       "invalid": "Nom d'utilisateur ou mot de passe incorrect.",
       "throttled": "Trop de tentatives échouées. Réessayer dans quelques minutes.",
+      "unexpected": "La connexion a échoué. Voir les journaux du back-office."
+    },
+    "oidcTitle": "Ou se connecter avec",
+    "oidcErrors": {
+      "connecteur_inconnu": "Ce connecteur n'existe pas ou est inactif.",
+      "fournisseur_injoignable": "{{connector}} : le fournisseur d'identité est injoignable. Les autres connecteurs restent utilisables.",
+      "refus_fournisseur": "{{connector}} : le fournisseur d'identité a refusé la connexion.",
+      "jeton_invalide": "{{connector}} : la réponse du fournisseur d'identité n'a pas pu être vérifiée. Connexion refusée.",
+      "state_invalide": "La connexion a expiré ou n'a pas commencé dans ce navigateur. Recommencez.",
+      "url_publique_absente": "La connexion OIDC n'est pas configurée sur cette installation (adresse publique absente).",
+      "configuration_connecteur": "{{connector}} : le secret client du connecteur est indisponible. Contactez l'administrateur.",
       "unexpected": "La connexion a échoué. Voir les journaux du back-office."
     }
   },
@@ -131,6 +144,50 @@
       "fallback": "en-US est le repli de l'installation et ne peut pas être désactivée.",
       "unreachable": "Impossible de charger les cultures.",
       "unexpected": "Le changement a échoué. Voir les journaux du back-office."
+    }
+  },
+  "oidc": {
+    "title": "Connecteurs OIDC",
+    "intro": "Chaque connecteur actif devient un bouton de l'écran de connexion. Les connecteurs se déclarent pour toute l'installation ; leur secret client se choisit parmi les secrets déclarés.",
+    "fields": {
+      "id": "Identifiant",
+      "label": "Libellé",
+      "issuer": "Émetteur (adresse du fournisseur)",
+      "clientId": "Identifiant client",
+      "clientSecret": "Secret client",
+      "scopes": "Scopes",
+      "active": "Actif (proposé sur l'écran de connexion)"
+    },
+    "form": {
+      "newTitle": "Nouveau connecteur",
+      "editTitle": "Modifier le connecteur",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "checkedOnSave": "À l'enregistrement, le fournisseur est interrogé pour vérifier qu'il répond comme un fournisseur OIDC."
+    },
+    "list": {
+      "add": "Ajouter un connecteur",
+      "loading": "Chargement des connecteurs…",
+      "empty": "Aucun connecteur déclaré : seul le compte d'amorçage peut se connecter.",
+      "active": "Actif",
+      "inactive": "Inactif",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "errors": {
+      "issuerUnreachable": "Le fournisseur ne répond pas à cette adresse, ou pas comme un fournisseur OIDC. Rien n'a été enregistré.",
+      "invalid": {
+        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
+        "label": "Libellé : 1 à 200 caractères.",
+        "issuer": "Émetteur : une adresse https, sans requête ni fragment.",
+        "client_id": "Identifiant client : obligatoire, 200 caractères au plus.",
+        "client_secret_slug": "Choisissez un secret déclaré de type « Secret client d'un connecteur OIDC ».",
+        "scopes": "Scopes : openid est obligatoire."
+      },
+      "idTaken": "Cet identifiant est déjà pris par un autre connecteur.",
+      "inUse": "Des comptes se sont déjà connectés par ce connecteur : il ne peut pas être supprimé. Désactivez-le plutôt.",
+      "unreachable": "Impossible de charger les connecteurs.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }
   }
 }
