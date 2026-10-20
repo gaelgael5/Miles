@@ -95,6 +95,7 @@ def create_app() -> FastAPI:
             utc_now,
             settings.public_url,
             settings.allow_http_identity_providers,
+            admin_email=lambda: store.account.email if store.account else None,
         )
         app.state.security = SecurityServices(
             pool, http, app.state.secrets, catalog, utc_now, settings.allow_http_identity_providers

@@ -28,6 +28,9 @@ class Session:
     directory: str | None = None
     display_name: str | None = None
     email: str | None = None
+    # Administration racine reconnue à la connexion OIDC (ticket ad33b114). Elle tient
+    # à la session et non à l'identité ; la passerelle la revérifie à chaque requête.
+    root_admin: bool = False
 
 
 def new_session_token() -> tuple[str, bytes]:
@@ -50,10 +53,11 @@ async def db_create_session(
     directory: str | None = None,
     display_name: str | None = None,
     email: str | None = None,
+    root_admin: bool = False,
 ) -> None:
     await db.execute(
         "INSERT INTO sessions (token_digest, subject_kind, subject, expires_at, directory,"
-        " display_name, email) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        " display_name, email, root_admin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         digest,
         subject_kind,
         subject,
@@ -61,13 +65,14 @@ async def db_create_session(
         directory,
         display_name,
         email,
+        root_admin,
     )
 
 
 async def db_find_session(db: DbExecutor, digest: bytes, now: datetime) -> Session | None:
     row = await db.fetchrow(
-        "SELECT token_digest, subject_kind, subject, expires_at, directory, display_name, email"
-        " FROM sessions WHERE token_digest = $1 AND expires_at > $2",
+        "SELECT token_digest, subject_kind, subject, expires_at, directory, display_name, email,"
+        " root_admin FROM sessions WHERE token_digest = $1 AND expires_at > $2",
         digest,
         now,
     )
@@ -81,6 +86,7 @@ async def db_find_session(db: DbExecutor, digest: bytes, now: datetime) -> Sessi
         row["directory"],
         row["display_name"],
         row["email"],
+        row["root_admin"],
     )
 
 

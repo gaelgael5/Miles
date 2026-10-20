@@ -19,6 +19,7 @@ function ConnectorRow({ connector, onEdit }: { connector: Connector; onEdit: () 
     <li>
       <strong>{connector.label}</strong> <code>{connector.id}</code> {connector.issuer}{" "}
       <span>{t(connector.active ? "oidc.list.active" : "oidc.list.inactive")}</span>{" "}
+      {connector.recognize_admin && <span>{t("oidc.list.recognizesAdmin")} </span>}
       <button type="button" onClick={onEdit}>
         {t("oidc.list.edit")}
       </button>

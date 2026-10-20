@@ -18,8 +18,7 @@ from tests.auth_fixtures import ADMIN_PASSWORD, BASE_ENV, FakeClock, FakeSession
 NOW = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)
 
 
-@pytest.fixture
-def oidc_client(tmp_path: Path) -> TestClient:
+def _client(tmp_path: Path, root_admin: bool = False, email: str | None = None) -> TestClient:
     env, backup = write_env(
         tmp_path,
         BASE_ENV
@@ -39,7 +38,15 @@ def oidc_client(tmp_path: Path) -> TestClient:
     token, digest = new_session_token()
     asyncio.run(
         db_create_session(
-            db, digest, OIDC_KIND, "alice-sub", NOW + timedelta(hours=1), "kc", "Alice", None
+            db,
+            digest,
+            OIDC_KIND,
+            "alice-sub",
+            NOW + timedelta(hours=1),
+            "kc",
+            "Alice",
+            email,
+            root_admin,
         )
     )
     client = TestClient(app)
@@ -47,11 +54,39 @@ def oidc_client(tmp_path: Path) -> TestClient:
     return client
 
 
+@pytest.fixture
+def oidc_client(tmp_path: Path) -> TestClient:
+    return _client(tmp_path)
+
+
+def test_recognised_admin_session_reaches_administration_routes(tmp_path: Path) -> None:
+    client = _client(tmp_path, root_admin=True, email="ADMIN@miles.invalid")
+
+    assert client.get("/api/secret-types").status_code == 200
+    assert client.get("/api/auth/me").json()["root_admin"] is True
+
+
+def test_recognised_admin_session_is_revoked_once_the_admin_email_changes(
+    tmp_path: Path,
+) -> None:
+    # Session reconnue pour une adresse qui n'est plus celle du compte d'amorçage.
+    client = _client(tmp_path, root_admin=True, email="ancien@miles.invalid")
+
+    assert client.get("/api/secret-types").status_code == 401
+    assert client.get("/api/auth/me").status_code == 401
+
+
 def test_oidc_session_sees_itself_connected(oidc_client: TestClient) -> None:
     me = oidc_client.get("/api/auth/me")
 
     assert me.status_code == 200
-    assert me.json() == {"kind": "oidc", "username": "Alice", "email": None, "directory": "kc"}
+    assert me.json() == {
+        "kind": "oidc",
+        "username": "Alice",
+        "email": None,
+        "directory": "kc",
+        "root_admin": False,
+    }
 
 
 @pytest.mark.parametrize(

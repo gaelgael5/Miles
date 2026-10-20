@@ -22,6 +22,10 @@ const KC = {
   client_secret_slug: "kc-secret",
   scopes: "openid email profile",
   active: true,
+  groups_claim: "groups",
+  display_name_claim: "name",
+  recognize_admin: false,
+  manage_associations: false,
   created_at: "2026-10-20T10:00:00Z",
   updated_at: "2026-10-20T10:00:00Z",
 };
@@ -74,6 +78,10 @@ describe("ConnectorsScreen", () => {
       client_secret_slug: "kc-secret",
       scopes: "openid email profile",
       active: true,
+      groups_claim: "groups",
+      display_name_claim: "name",
+      recognize_admin: false,
+      manage_associations: false,
     });
   });
 
@@ -98,7 +106,35 @@ describe("ConnectorsScreen", () => {
       client_secret_slug: "kc-secret",
       scopes: "openid email profile",
       active: false,
+      groups_claim: "groups",
+      display_name_claim: "name",
+      recognize_admin: false,
+      manage_associations: false,
     });
+  });
+
+  it("leaves both power-granting boxes unchecked and says what each grants", async () => {
+    const calls = mockApi({
+      "GET /api/oidc/connectors": { status: 200, body: [KC] },
+      [SECRETS]: { status: 200, body: [SECRET] },
+      "PUT /api/oidc/connectors/kc": { status: 200, body: { ...KC, recognize_admin: true } },
+    });
+    renderScreen();
+    fireEvent.click(await screen.findByText("Edit"));
+
+    const recognize = screen.getByLabelText("Recognise the administrator");
+    expect(recognize).not.toBeChecked();
+    expect(screen.getByLabelText("Manage associations")).not.toBeChecked();
+    expect(screen.getByText(/becomes root administrator/)).toBeInTheDocument();
+    fireEvent.click(recognize);
+    fireEvent.click(screen.getByText("Save"));
+
+    await screen.findByText("Add a connector");
+    const body = calls.find((c) => c.key === "PUT /api/oidc/connectors/kc")?.body as {
+      recognize_admin: boolean;
+      manage_associations: boolean;
+    };
+    expect([body.recognize_admin, body.manage_associations]).toEqual([true, false]);
   });
 
   it("says when the provider does not answer at declaration", async () => {

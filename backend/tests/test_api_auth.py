@@ -77,6 +77,7 @@ def test_bootstrap_declares_account_logs_in_and_closes(harness: _Harness) -> Non
         "username": "admin",
         "email": BOOTSTRAP["email"],
         "directory": None,
+        "root_admin": True,
     }
     cookie = response.headers["set-cookie"]
     assert "HttpOnly" in cookie and "SameSite=strict" in cookie and "Domain" not in cookie

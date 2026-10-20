@@ -21,6 +21,7 @@ from miles.oidc.provider import (
     exchange_code,
     fetch_jwks,
     fetch_metadata,
+    identity_from_claims,
     verify_id_token,
 )
 from miles.secrets.model import Secret
@@ -74,7 +75,8 @@ def _token(
 
 
 def test_valid_token_yields_the_identity() -> None:
-    identity = verify_id_token(_token(), _jwks(), METADATA, CLIENT, NONCE)
+    claims = verify_id_token(_token(), _jwks(), METADATA, CLIENT, NONCE)
+    identity = identity_from_claims(claims, "name")
 
     assert (identity.subject, identity.display_name, identity.email) == (
         "alice-sub",
@@ -86,7 +88,9 @@ def test_valid_token_yields_the_identity() -> None:
 def test_display_name_falls_back_to_preferred_username_then_nothing() -> None:
     token = _token(name=None, preferred_username="alice", email=None)
 
-    identity = verify_id_token(token, _jwks(), METADATA, CLIENT, NONCE)
+    identity = identity_from_claims(
+        verify_id_token(token, _jwks(), METADATA, CLIENT, NONCE), "name"
+    )
 
     assert (identity.display_name, identity.email) == ("alice", None)
 
@@ -123,7 +127,7 @@ def test_unsigned_token_is_refused() -> None:
 def test_multiple_audiences_are_accepted_when_azp_names_us() -> None:
     token = _token(aud=[CLIENT, "autre"], azp=CLIENT)
 
-    assert verify_id_token(token, _jwks(), METADATA, CLIENT, NONCE).subject == "alice-sub"
+    assert verify_id_token(token, _jwks(), METADATA, CLIENT, NONCE)["sub"] == "alice-sub"
 
 
 def test_authorization_url_carries_state_nonce_and_s256_challenge() -> None:
@@ -260,3 +264,10 @@ def test_symmetric_algorithm_is_refused_before_any_key_lookup() -> None:
 
     with pytest.raises(InvalidTokenError, match="algorithme refusé"):
         verify_id_token(token, _jwks(), METADATA, CLIENT, NONCE)
+
+
+def test_display_name_comes_from_the_claim_the_connector_declares() -> None:
+    claims = verify_id_token(_token(nickname="Ali"), _jwks(), METADATA, CLIENT, NONCE)
+
+    assert identity_from_claims(claims, "nickname").display_name == "Ali"
+    assert identity_from_claims(claims, "absent").display_name == "Alice"

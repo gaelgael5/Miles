@@ -26,7 +26,7 @@ class FakeSessionDb:
 
     async def execute(self, query: str, *args: Any) -> str:
         if query.startswith("INSERT INTO sessions"):
-            digest, kind, subject, expires_at, directory, display_name, email = args
+            digest, kind, subject, expires_at, directory, display_name, email, root_admin = args
             self.rows[digest] = {
                 "token_digest": digest,
                 "subject_kind": kind,
@@ -35,6 +35,7 @@ class FakeSessionDb:
                 "directory": directory,
                 "display_name": display_name,
                 "email": email,
+                "root_admin": root_admin,
             }
             return "INSERT 0 1"
         if query.startswith("DELETE FROM sessions"):

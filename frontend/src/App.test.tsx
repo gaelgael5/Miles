@@ -24,7 +24,7 @@ describe("App", () => {
       "GET /api/bootstrap/status": { status: 200, body: { admin_declared: true } },
       "GET /api/auth/me": {
         status: 200,
-        body: { kind: "oidc", username: "Alice", email: null, directory: "kc" },
+        body: { kind: "oidc", username: "Alice", email: null, directory: "kc", root_admin: false },
       },
     });
 
@@ -35,12 +35,34 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   });
 
+  it("gives an OIDC session recognised as administrator the full portal", async () => {
+    mockApi({
+      "GET /api/bootstrap/status": { status: 200, body: { admin_declared: true } },
+      "GET /api/auth/me": {
+        status: 200,
+        body: { kind: "oidc", username: "Alice", email: "a@b.c", directory: "kc", root_admin: true },
+      },
+      "GET /api/health": { status: 200, body: {} },
+    });
+
+    renderApp();
+
+    expect(await screen.findByRole("button", { name: "OIDC" })).toBeInTheDocument();
+    expect(screen.queryByText(/no right/)).not.toBeInTheDocument();
+  });
+
   it("gives the bootstrap administrator the portal navigation", async () => {
     mockApi({
       "GET /api/bootstrap/status": { status: 200, body: { admin_declared: true } },
       "GET /api/auth/me": {
         status: 200,
-        body: { kind: "local_admin", username: "admin", email: "a@b.c", directory: null },
+        body: {
+          kind: "local_admin",
+          username: "admin",
+          email: "a@b.c",
+          directory: null,
+          root_admin: true,
+        },
       },
       "GET /api/health": { status: 200, body: {} },
     });

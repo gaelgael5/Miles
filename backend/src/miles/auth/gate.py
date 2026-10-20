@@ -41,6 +41,11 @@ OIDC_SESSION_PATHS = frozenset({"/api/auth/me", "/api/auth/logout"})
 CallNext = Callable[[Request], Awaitable[Response]]
 
 
+def _same_email(session_email: str | None, admin_email: str) -> bool:
+    # Même règle qu'à la reconnaissance : égalité insensible à la casse, rien d'autre.
+    return session_email is not None and session_email.lower() == admin_email.lower()
+
+
 def _deny(code: int, detail: str) -> JSONResponse:
     return JSONResponse(status_code=code, content={"detail": detail})
 
@@ -60,7 +65,14 @@ async def auth_gate(request: Request, call_next: CallNext) -> Response:
     session = await db_find_session(ctx.db, token_digest(token), ctx.now())
     if session is None:
         return _deny(status.HTTP_401_UNAUTHORIZED, "session_requise")
-    if session.subject_kind == OIDC_KIND:
+    if session.subject_kind == OIDC_KIND and session.root_admin:
+        # Recalculé à chaque requête, comme pour le compte d'amorçage : si l'e-mail de
+        # .env a changé, l'ancienne adresse ne donne plus rien, session ouverte ou non.
+        if not _same_email(session.email, account.email):
+            await db_delete_session(ctx.db, session.digest)
+            log.warning("session_admin_oidc_revoquee", origin=client_origin(request))
+            return _deny(status.HTTP_401_UNAUTHORIZED, "session_requise")
+    elif session.subject_kind == OIDC_KIND:
         if path not in OIDC_SESSION_PATHS:
             return _deny(status.HTTP_403_FORBIDDEN, "aucun_droit")
     # Recalculé à chaque requête, pas mémorisé : après une réinitialisation du

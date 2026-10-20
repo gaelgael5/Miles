@@ -17,6 +17,10 @@ export interface Connector {
   client_secret_slug: string;
   scopes: string;
   active: boolean;
+  groups_claim: string;
+  display_name_claim: string;
+  recognize_admin: boolean;
+  manage_associations: boolean;
   created_at: string;
   updated_at: string;
 }

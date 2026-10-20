@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from miles.auth.sessions import Session
-from miles.events.model import LOCAL_DIRECTORY, EventAuthor
+from miles.auth.author import request_author
 from miles.oidc.model import (
+    DEFAULT_DISPLAY_NAME_CLAIM,
+    DEFAULT_GROUPS_CLAIM,
     DEFAULT_SCOPES,
     Connector,
     ConnectorIdTakenError,
@@ -44,6 +45,10 @@ class ConnectorOut(BaseModel):
     client_secret_slug: str
     scopes: str
     active: bool
+    groups_claim: str
+    display_name_claim: str
+    recognize_admin: bool
+    manage_associations: bool
     created_at: datetime
     updated_at: datetime
 
@@ -56,6 +61,11 @@ class ConnectorBody(BaseModel):
     client_secret_slug: str
     scopes: str = DEFAULT_SCOPES
     active: bool = True
+    groups_claim: str = DEFAULT_GROUPS_CLAIM
+    display_name_claim: str = DEFAULT_DISPLAY_NAME_CLAIM
+    # Décochées si absentes : un pouvoir ne s'accorde jamais par omission.
+    recognize_admin: bool = False
+    manage_associations: bool = False
 
     def to_input(self) -> ConnectorInput:
         return ConnectorInput(
@@ -65,6 +75,10 @@ class ConnectorBody(BaseModel):
             scopes=self.scopes,
             active=self.active,
             label=self.label,
+            groups_claim=self.groups_claim,
+            display_name_claim=self.display_name_claim,
+            recognize_admin=self.recognize_admin,
+            manage_associations=self.manage_associations,
         )
 
 
@@ -81,14 +95,13 @@ def _out(c: Connector) -> ConnectorOut:
         client_secret_slug=c.client_secret_slug,
         scopes=c.scopes,
         active=c.active,
+        groups_claim=c.groups_claim,
+        display_name_claim=c.display_name_claim,
+        recognize_admin=c.recognize_admin,
+        manage_associations=c.manage_associations,
         created_at=c.created_at,
         updated_at=c.updated_at,
     )
-
-
-def _author(request: Request) -> EventAuthor:
-    session: Session = request.state.session
-    return EventAuthor(LOCAL_DIRECTORY, session.subject)
 
 
 def _error(code: int, detail: object) -> JSONResponse:
@@ -127,7 +140,7 @@ async def list_connectors(service: Service) -> list[ConnectorOut]:
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ConnectorOut)
 async def create_connector(body: ConnectorCreate, request: Request, service: Service) -> object:
     try:
-        return _out(await service.resolve_create(_author(request), body.id, body.to_input()))
+        return _out(await service.resolve_create(request_author(request), body.id, body.to_input()))
     except _REFUSALS as exc:
         return _refusal(exc)
 
@@ -137,7 +150,9 @@ async def update_connector(
     connector_id: str, body: ConnectorBody, request: Request, service: Service
 ) -> object:
     try:
-        return _out(await service.resolve_update(_author(request), connector_id, body.to_input()))
+        return _out(
+            await service.resolve_update(request_author(request), connector_id, body.to_input())
+        )
     except _REFUSALS as exc:
         return _refusal(exc)
 
@@ -145,7 +160,7 @@ async def update_connector(
 @router.delete("/{connector_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_connector(connector_id: str, request: Request, service: Service) -> Response:
     try:
-        await service.resolve_delete(_author(request), connector_id)
+        await service.resolve_delete(request_author(request), connector_id)
     except _REFUSALS as exc:
         return _refusal(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

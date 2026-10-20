@@ -157,14 +157,20 @@
       "clientId": "Identifiant client",
       "clientSecret": "Secret client",
       "scopes": "Scopes",
-      "active": "Actif (proposé sur l'écran de connexion)"
+      "active": "Actif (proposé sur l'écran de connexion)",
+      "groupsClaim": "Claim portant les groupes",
+      "displayNameClaim": "Claim portant le nom affiché",
+      "recognizeAdmin": "Reconnaître l'administrateur",
+      "manageAssociations": "Gérer les associations"
     },
     "form": {
       "newTitle": "Nouveau connecteur",
       "editTitle": "Modifier le connecteur",
       "save": "Enregistrer",
       "cancel": "Annuler",
-      "checkedOnSave": "À l'enregistrement, le fournisseur est interrogé pour vérifier qu'il répond comme un fournisseur OIDC."
+      "checkedOnSave": "À l'enregistrement, le fournisseur est interrogé pour vérifier qu'il répond comme un fournisseur OIDC.",
+      "recognizeAdminGrants": "Cochée, un compte de cet annuaire portant l'e-mail de l'administrateur d'amorçage devient administrateur racine. Ne la cochez que sur un annuaire où personne ne choisit son adresse.",
+      "manageAssociationsGrants": "Cochée, les identités de cet annuaire peuvent être associées à une identité de même adresse, sur proposition d'un compte acceptée par l'autre sous sept jours."
     },
     "list": {
       "add": "Ajouter un connecteur",
@@ -173,7 +179,8 @@
       "active": "Actif",
       "inactive": "Inactif",
       "edit": "Modifier",
-      "delete": "Supprimer"
+      "delete": "Supprimer",
+      "recognizesAdmin": "reconnaît l'administrateur"
     },
     "errors": {
       "issuerUnreachable": "Le fournisseur ne répond pas à cette adresse, ou pas comme un fournisseur OIDC. Rien n'a été enregistré.",
@@ -183,7 +190,9 @@
         "issuer": "Émetteur : une adresse https, sans requête ni fragment.",
         "client_id": "Identifiant client : obligatoire, 200 caractères au plus.",
         "client_secret_slug": "Choisissez un secret déclaré de type « Secret client d'un connecteur OIDC ».",
-        "scopes": "Scopes : openid est obligatoire."
+        "scopes": "Scopes : openid est obligatoire.",
+        "groups_claim": "Claim des groupes : lettres, chiffres et . _ : / - seulement.",
+        "display_name_claim": "Claim du nom affiché : lettres, chiffres et . _ : / - seulement."
       },
       "idTaken": "Cet identifiant est déjà pris par un autre connecteur.",
       "inUse": "Des comptes se sont déjà connectés par ce connecteur : il ne peut pas être supprimé. Désactivez-le plutôt.",

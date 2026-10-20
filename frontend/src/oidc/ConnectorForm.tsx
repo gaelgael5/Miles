@@ -19,12 +19,30 @@ const EMPTY: ConnectorInput = {
   client_secret_slug: "",
   scopes: DEFAULT_SCOPES,
   active: true,
+  groups_claim: "groups",
+  display_name_claim: "name",
+  // Décochées d'office : chacune accorde un pouvoir (décision du 19/10/2026).
+  recognize_admin: false,
+  manage_associations: false,
 };
 
 /** Seuls les champs saisissables repartent vers l'API, qui refuse tout champ en trop. */
 function toInput(connector: Connector): ConnectorInput {
   const { id, label, issuer, client_id, client_secret_slug, scopes, active } = connector;
-  return { id, label, issuer, client_id, client_secret_slug, scopes, active };
+  const { groups_claim, display_name_claim, recognize_admin, manage_associations } = connector;
+  return {
+    id,
+    label,
+    issuer,
+    client_id,
+    client_secret_slug,
+    scopes,
+    active,
+    groups_claim,
+    display_name_claim,
+    recognize_admin,
+    manage_associations,
+  };
 }
 
 function errorKey(error: unknown): string {
@@ -93,6 +111,41 @@ export function ConnectorForm({ connector, onDone }: ConnectorFormProps) {
         {t("oidc.fields.scopes")}
         <input required value={draft.scopes} onChange={(e) => set("scopes", e.target.value)} />
       </label>
+      <label>
+        {t("oidc.fields.groupsClaim")}
+        <input
+          required
+          value={draft.groups_claim}
+          onChange={(e) => set("groups_claim", e.target.value)}
+        />
+      </label>
+      <label>
+        {t("oidc.fields.displayNameClaim")}
+        <input
+          required
+          value={draft.display_name_claim}
+          onChange={(e) => set("display_name_claim", e.target.value)}
+        />
+      </label>
+      {/* Chaque case dit ce qu'elle accorde, pas seulement son nom (critère 6 de 02891f10). */}
+      <label>
+        <input
+          type="checkbox"
+          checked={draft.recognize_admin}
+          onChange={(e) => set("recognize_admin", e.target.checked)}
+        />
+        {t("oidc.fields.recognizeAdmin")}
+      </label>
+      <p>{t("oidc.form.recognizeAdminGrants")}</p>
+      <label>
+        <input
+          type="checkbox"
+          checked={draft.manage_associations}
+          onChange={(e) => set("manage_associations", e.target.checked)}
+        />
+        {t("oidc.fields.manageAssociations")}
+      </label>
+      <p>{t("oidc.form.manageAssociationsGrants")}</p>
       <label>
         <input
           type="checkbox"

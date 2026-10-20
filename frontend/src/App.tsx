@@ -54,7 +54,7 @@ export function App() {
                 {t("app.logout")}
               </button>
             </p>
-            {me.kind === "oidc" ? (
+            {!me.root_admin ? (
               // Authentifié n'est pas autorisé : sans rôle, rien d'autre ne s'ouvre.
               <p role="status">{t("app.noRights", { directory: me.directory ?? "" })}</p>
             ) : (

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -8,6 +9,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
+from structlog.testing import capture_logs
 
 from miles.auth.sessions import SESSION_COOKIE
 from miles.cultures.service import EVENT_TYPES as CULTURE_EVENTS
@@ -49,11 +51,23 @@ class Flow:
 @pytest.fixture
 async def flow(blank_db: str, tmp_path: Path) -> AsyncIterator[Flow]:
     catalog = EventTypeCatalog(SECRET_EVENTS | CULTURE_EVENTS | OIDC_EVENTS)
-    async with open_portal_stack(blank_db, tmp_path) as portal, httpx.AsyncClient() as http:
+    # L'e-mail du compte d'amorçage est celui que le fournisseur jetable met dans ses
+    # jetons (en d'autres capitales) : la reconnaissance ne dépend que de la case.
+    async with (
+        open_portal_stack(blank_db, tmp_path, admin_email="ALICE@example.org") as portal,
+        httpx.AsyncClient() as http,
+    ):
         secrets = SecretsService(portal.pool, SecretCipher(os.urandom(32)), catalog, utc_now)
         portal.app.state.secrets = secrets
         portal.app.state.oidc = OidcService(
-            portal.pool, http, secrets, catalog, utc_now, PUBLIC_URL, allow_http_issuer=True
+            portal.pool,
+            http,
+            secrets,
+            catalog,
+            utc_now,
+            PUBLIC_URL,
+            allow_http_issuer=True,
+            admin_email=lambda: "ALICE@example.org",
         )
         created = await portal.client.post(
             "/api/secrets",
@@ -111,6 +125,7 @@ async def test_full_login_through_a_real_provider_opens_an_oidc_session(flow: Fl
         "username": "Alice",
         "email": "alice@example.org",
         "directory": "mock",
+        "root_admin": False,
     }
     assert forbidden.status_code == 403
     identities = await flow.portal.pool.fetch("SELECT connector_id, subject FROM oidc_identities")
@@ -287,3 +302,101 @@ async def test_missing_public_url_makes_oidc_login_unavailable(flow: Flow) -> No
         start = await _start(browser)
 
     assert start.headers["location"] == "/?login_error=url_publique_absente&connector=mock"
+
+
+async def _login(flow: Flow, browser: httpx.AsyncClient) -> httpx.Response:
+    params = await _provider_redirect(flow, await _start(browser))
+    return await browser.get("/api/auth/oidc/callback", params=params)
+
+
+async def test_new_connector_grants_no_power_by_default(flow: Flow) -> None:
+    created = (await _declare(flow)).json()
+
+    assert (created["recognize_admin"], created["manage_associations"]) == (False, False)
+    assert (created["groups_claim"], created["display_name_claim"]) == ("groups", "name")
+
+
+async def test_admin_email_without_the_box_gives_no_administration(flow: Flow) -> None:
+    await _declare(flow)
+    async with flow.portal.anonymous() as browser:
+        await _login(flow, browser)
+        me = (await browser.get("/api/auth/me")).json()
+        secrets = await browser.get("/api/secrets")
+
+    assert me["root_admin"] is False
+    assert secrets.status_code == 403
+
+
+async def test_box_checked_recognises_the_admin_and_journals_it(flow: Flow) -> None:
+    await _declare(flow, recognize_admin=True)
+    async with flow.portal.anonymous() as browser:
+        await _login(flow, browser)
+        me = (await browser.get("/api/auth/me")).json()
+        secrets = await browser.get("/api/secrets")
+        created = await browser.post(
+            "/api/secrets",
+            json={"slug": "par-oidc", "label": "x", "secret_type": "GIT_TOKEN", "value": "v"},
+        )
+
+    assert (me["kind"], me["root_admin"], me["directory"]) == ("oidc", True, "mock")
+    assert secrets.status_code == 200
+    assert created.status_code == 201
+    rows = await flow.portal.pool.fetch(
+        "SELECT type, author_directory, author_subject, properties::text AS props FROM events"
+        " WHERE type IN ('oidc.admin_recognized', 'secret.created') ORDER BY written_at"
+    )
+    assert [(r["type"], r["author_directory"], r["author_subject"]) for r in rows] == [
+        ("oidc.admin_recognized", "mock", "alice-sub"),
+        ("secret.created", "mock", "alice-sub"),
+    ]
+    assert "alice-sub" in rows[0]["props"]
+    # La reconnaissance tient à la session : rien n'est inscrit sur l'identité.
+    assert await flow.portal.pool.fetchval("SELECT count(*) FROM oidc_identities") == 1
+
+
+async def test_unchecking_the_box_stops_recognition_at_the_next_login(flow: Flow) -> None:
+    await _declare(flow, recognize_admin=True)
+    body = {
+        "label": "Annuaire de test",
+        "issuer": _issuer(),
+        "client_id": CLIENT_ID,
+        "client_secret_slug": "mock-secret",
+        "recognize_admin": False,
+    }
+    await flow.admin.put("/api/oidc/connectors/mock", json=body)
+    async with flow.portal.anonymous() as browser:
+        await _login(flow, browser)
+        me = (await browser.get("/api/auth/me")).json()
+
+    assert me["root_admin"] is False
+    changes = await flow.portal.pool.fetchval(
+        "SELECT properties->'changes'->'recognize_admin' FROM events"
+        " WHERE type = 'oidc.connector.updated'"
+    )
+    assert json.loads(changes) == {"before": True, "after": False}
+
+
+async def test_missing_groups_claim_is_logged_with_its_name(flow: Flow) -> None:
+    await _declare(flow, groups_claim="bo_groups")
+    async with flow.portal.anonymous() as browser:
+        with capture_logs() as logs:
+            await _login(flow, browser)
+
+    missing = [e for e in logs if e["event"] == "oidc_claim_groupes_absent"]
+    assert missing == [
+        {
+            "event": "oidc_claim_groupes_absent",
+            "connector": "mock",
+            "claim": "bo_groups",
+            "log_level": "warning",
+        }
+    ]
+
+
+async def test_declared_display_name_claim_is_the_one_displayed(flow: Flow) -> None:
+    await _declare(flow, display_name_claim="email")
+    async with flow.portal.anonymous() as browser:
+        await _login(flow, browser)
+        me = (await browser.get("/api/auth/me")).json()
+
+    assert me["username"] == "alice@example.org"

@@ -7,8 +7,7 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from miles.auth.sessions import Session
-from miles.events.model import LOCAL_DIRECTORY, EventAuthor
+from miles.auth.author import request_author
 from miles.secrets.model import (
     SECRET_TYPES,
     SecretInputError,
@@ -81,13 +80,6 @@ def _out(summary: SecretSummary) -> SecretOut:
     )
 
 
-def _author(request: Request) -> EventAuthor:
-    # La passerelle a posé la session : seul le compte d'amorçage en ouvre une pour
-    # l'instant, d'où l'annuaire « local ».
-    session: Session = request.state.session
-    return EventAuthor(LOCAL_DIRECTORY, session.subject)
-
-
 def _error(code: int, detail: object) -> JSONResponse:
     return JSONResponse(status_code=code, content={"detail": detail})
 
@@ -128,7 +120,7 @@ async def get_secret(slug: str, service: Service) -> object:
 async def create_secret(body: SecretCreate, request: Request, service: Service) -> object:
     try:
         summary = await service.resolve_create(
-            _author(request), body.slug, body.label, body.secret_type, body.value
+            request_author(request), body.slug, body.label, body.secret_type, body.value
         )
     except _REFUSALS as exc:
         return _refusal(exc)
@@ -140,7 +132,7 @@ async def relabel_secret(
     slug: str, body: SecretRelabel, request: Request, service: Service
 ) -> object:
     try:
-        return _out(await service.resolve_relabel(_author(request), slug, body.label))
+        return _out(await service.resolve_relabel(request_author(request), slug, body.label))
     except _REFUSALS as exc:
         return _refusal(exc)
 
@@ -150,7 +142,7 @@ async def replace_secret_value(
     slug: str, body: SecretValue, request: Request, service: Service
 ) -> Response:
     try:
-        await service.resolve_replace_value(_author(request), slug, body.value)
+        await service.resolve_replace_value(request_author(request), slug, body.value)
     except _REFUSALS as exc:
         return _refusal(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -159,7 +151,7 @@ async def replace_secret_value(
 @router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_secret(slug: str, request: Request, service: Service) -> Response:
     try:
-        await service.resolve_delete(_author(request), slug)
+        await service.resolve_delete(request_author(request), slug)
     except _REFUSALS as exc:
         return _refusal(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

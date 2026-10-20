@@ -46,7 +46,9 @@ class PortalStack:
 
 
 @asynccontextmanager
-async def open_portal_stack(dsn: str, tmp_path: Path) -> AsyncIterator[PortalStack]:
+async def open_portal_stack(
+    dsn: str, tmp_path: Path, admin_email: str = "admin@miles.invalid"
+) -> AsyncIterator[PortalStack]:
     pool = await asyncpg.create_pool(dsn, min_size=2, max_size=4)
     try:
         async with pool.acquire() as conn:
@@ -54,7 +56,7 @@ async def open_portal_stack(dsn: str, tmp_path: Path) -> AsyncIterator[PortalSta
         env, backup = write_env(
             tmp_path,
             BASE_ENV
-            + "MILES_ADMIN_EMAIL='admin@miles.invalid'\nMILES_ADMIN_USERNAME='admin'\n"
+            + f"MILES_ADMIN_EMAIL='{admin_email}'\nMILES_ADMIN_USERNAME='admin'\n"
             + f"MILES_ADMIN_PASSWORD_HASH='{hash_password(ADMIN_PASSWORD)}'\n",
         )
         app = build_app()

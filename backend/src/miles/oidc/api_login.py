@@ -97,7 +97,12 @@ async def finish_login(
         response = RedirectResponse(HOME, status_code=status.HTTP_303_SEE_OTHER)
         identity = success.identity
         await ctx.resolve_open_oidc_session(
-            response, success.connector_id, identity.subject, identity.display_name, identity.email
+            response,
+            success.connector_id,
+            identity.subject,
+            identity.display_name,
+            identity.email,
+            success.root_admin,
         )
     response.delete_cookie(
         STATE_COOKIE, path=CALLBACK_PATH, secure=ctx.cookie_secure, httponly=True

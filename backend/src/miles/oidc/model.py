@@ -7,6 +7,9 @@ from urllib.parse import urlsplit
 
 CONNECTOR_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 _SCOPE_RE = re.compile(r"^[A-Za-z0-9_:./-]{1,100}$")
+_CLAIM_RE = re.compile(r"^[A-Za-z0-9_:./-]{1,100}$")
+DEFAULT_GROUPS_CLAIM = "groups"
+DEFAULT_DISPLAY_NAME_CLAIM = "name"
 MAX_ISSUER_LENGTH = 500
 MAX_CLIENT_ID_LENGTH = 200
 MAX_LABEL_LENGTH = 200
@@ -53,6 +56,12 @@ class ConnectorInput:
     scopes: str
     active: bool
     label: str
+    groups_claim: str = DEFAULT_GROUPS_CLAIM
+    display_name_claim: str = DEFAULT_DISPLAY_NAME_CLAIM
+    # Deux pouvoirs, décochés par défaut (décision du 19/10/2026) : chacun ne s'accorde
+    # que par la décision explicite d'un administrateur.
+    recognize_admin: bool = False
+    manage_associations: bool = False
 
 
 @dataclass(frozen=True)
@@ -64,6 +73,10 @@ class Connector:
     scopes: str
     active: bool
     label: str
+    groups_claim: str
+    display_name_claim: str
+    recognize_admin: bool
+    manage_associations: bool
     created_at: datetime
     updated_at: datetime
 
@@ -108,6 +121,9 @@ def validate_input(raw: ConnectorInput, allow_http: bool) -> ConnectorInput:
         raise ConnectorInputError("label")
     if not raw.client_secret_slug:
         raise ConnectorInputError("client_secret_slug")
+    for field in ("groups_claim", "display_name_claim"):
+        if not _CLAIM_RE.match(getattr(raw, field)):
+            raise ConnectorInputError(field)
     return ConnectorInput(
         issuer=validate_issuer(raw.issuer, allow_http),
         client_id=client_id,
@@ -115,4 +131,8 @@ def validate_input(raw: ConnectorInput, allow_http: bool) -> ConnectorInput:
         scopes=validate_scopes(raw.scopes),
         active=raw.active,
         label=label,
+        groups_claim=raw.groups_claim,
+        display_name_claim=raw.display_name_claim,
+        recognize_admin=raw.recognize_admin,
+        manage_associations=raw.manage_associations,
     )

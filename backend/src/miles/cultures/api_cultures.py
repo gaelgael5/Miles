@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from miles.auth.sessions import Session
+from miles.auth.author import request_author
 from miles.cultures.service import (
     Culture,
     CulturesService,
@@ -14,7 +14,6 @@ from miles.cultures.service import (
     FallbackCultureError,
     UnknownCulturesError,
 )
-from miles.events.model import LOCAL_DIRECTORY, EventAuthor
 
 # Les routes passent par la passerelle : seule une session ouvre /api/cultures. Seul
 # le compte d'amorçage en ouvre une aujourd'hui ; quand les rôles arriveront, la
@@ -78,8 +77,7 @@ async def list_active_cultures(service: Service) -> list[CultureOut]:
 async def set_activation(
     body: ActivationRequest, request: Request, service: Service
 ) -> ActivationResult | JSONResponse:
-    session: Session = request.state.session
-    author = EventAuthor(LOCAL_DIRECTORY, session.subject)
+    author = request_author(request)
     try:
         changed = await service.resolve_set_active(author, body.codes, body.active)
     except FallbackCultureError:

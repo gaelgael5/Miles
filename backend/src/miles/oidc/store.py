@@ -17,6 +17,7 @@ class OidcDb(Protocol):
 
 _SELECT = """
 SELECT c.id, c.issuer, c.client_id, c.client_secret_slug, c.scopes, c.active,
+       c.groups_claim, c.display_name_claim, c.recognize_admin, c.manage_associations,
        c.created_at, c.updated_at, coalesce(l.label, c.id) AS label
 FROM oidc_connectors c
 LEFT JOIN oidc_connector_labels l ON l.connector_id = c.id AND l.culture = $1
@@ -32,6 +33,10 @@ def _connector(row: Any) -> Connector:
         row["scopes"],
         row["active"],
         row["label"],
+        row["groups_claim"],
+        row["display_name_claim"],
+        row["recognize_admin"],
+        row["manage_associations"],
         row["created_at"],
         row["updated_at"],
     )
@@ -61,13 +66,18 @@ async def db_insert_connector(
     try:
         await db.execute(
             "INSERT INTO oidc_connectors (id, issuer, client_id, client_secret_slug, scopes,"
-            " active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $7)",
+            " active, groups_claim, display_name_claim, recognize_admin, manage_associations,"
+            " created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)",
             connector_id,
             data.issuer,
             data.client_id,
             data.client_secret_slug,
             data.scopes,
             data.active,
+            data.groups_claim,
+            data.display_name_claim,
+            data.recognize_admin,
+            data.manage_associations,
             now,
         )
     except asyncpg.UniqueViolationError:
@@ -80,13 +90,18 @@ async def db_update_connector(
 ) -> None:
     await db.execute(
         "UPDATE oidc_connectors SET issuer = $2, client_id = $3, client_secret_slug = $4,"
-        " scopes = $5, active = $6, updated_at = $7 WHERE id = $1",
+        " scopes = $5, active = $6, groups_claim = $7, display_name_claim = $8,"
+        " recognize_admin = $9, manage_associations = $10, updated_at = $11 WHERE id = $1",
         connector_id,
         data.issuer,
         data.client_id,
         data.client_secret_slug,
         data.scopes,
         data.active,
+        data.groups_claim,
+        data.display_name_claim,
+        data.recognize_admin,
+        data.manage_associations,
         now,
     )
     await db_set_label(db, connector_id, data.label)

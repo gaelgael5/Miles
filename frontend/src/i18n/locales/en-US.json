@@ -157,14 +157,20 @@
       "clientId": "Client ID",
       "clientSecret": "Client secret",
       "scopes": "Scopes",
-      "active": "Active (offered on the sign-in screen)"
+      "active": "Active (offered on the sign-in screen)",
+      "groupsClaim": "Claim carrying the groups",
+      "displayNameClaim": "Claim carrying the display name",
+      "recognizeAdmin": "Recognise the administrator",
+      "manageAssociations": "Manage associations"
     },
     "form": {
       "newTitle": "New connector",
       "editTitle": "Edit connector",
       "save": "Save",
       "cancel": "Cancel",
-      "checkedOnSave": "On save, the provider is queried to check that it answers as an OIDC provider."
+      "checkedOnSave": "On save, the provider is queried to check that it answers as an OIDC provider.",
+      "recognizeAdminGrants": "When checked, an account of this directory carrying the bootstrap administrator's email becomes root administrator. Check it only on a directory where nobody chooses their own address.",
+      "manageAssociationsGrants": "When checked, identities of this directory can be associated with an identity carrying the same address, proposed by one account and accepted by the other within seven days."
     },
     "list": {
       "add": "Add a connector",
@@ -173,7 +179,8 @@
       "active": "Active",
       "inactive": "Inactive",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "recognizesAdmin": "recognises the administrator"
     },
     "errors": {
       "issuerUnreachable": "The provider does not answer at this address, or not as an OIDC provider. Nothing was saved.",
@@ -183,7 +190,9 @@
         "issuer": "Issuer: an https address, without query or fragment.",
         "client_id": "Client ID: required, at most 200 characters.",
         "client_secret_slug": "Choose a declared secret of type “OIDC connector client secret”.",
-        "scopes": "Scopes: must include openid."
+        "scopes": "Scopes: must include openid.",
+        "groups_claim": "Groups claim: letters, digits and . _ : / - only.",
+        "display_name_claim": "Display name claim: letters, digits and . _ : / - only."
       },
       "idTaken": "This identifier is already used by another connector.",
       "inUse": "Accounts already signed in through this connector: it cannot be deleted. Deactivate it instead.",

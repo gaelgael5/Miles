@@ -31,6 +31,7 @@ from miles.oidc.provider import (
     exchange_code,
     fetch_jwks,
     fetch_metadata,
+    identity_from_claims,
     new_login_attempt,
     state_digest,
     verify_id_token,
@@ -54,7 +55,8 @@ log = structlog.get_logger(__name__)
 CREATED_EVENT = "oidc.connector.created"
 UPDATED_EVENT = "oidc.connector.updated"
 DELETED_EVENT = "oidc.connector.deleted"
-EVENT_TYPES = frozenset({CREATED_EVENT, UPDATED_EVENT, DELETED_EVENT})
+ADMIN_RECOGNIZED_EVENT = "oidc.admin_recognized"
+EVENT_TYPES = frozenset({CREATED_EVENT, UPDATED_EVENT, DELETED_EVENT, ADMIN_RECOGNIZED_EVENT})
 CALLBACK_PATH = "/api/auth/oidc/callback"
 # Le temps de s'authentifier chez le fournisseur ; au-delà, la tentative est perdue.
 ATTEMPT_TTL = timedelta(minutes=10)
@@ -86,6 +88,8 @@ class LoginStart:
 class LoginSuccess:
     connector_id: str
     identity: Identity
+    # Administration racine reconnue par l'e-mail (ticket ad33b114) : propre à la session.
+    root_admin: bool = False
 
 
 @dataclass(frozen=True)
@@ -97,6 +101,8 @@ class OidcService:
     now: Callable[[], datetime]
     public_url: str | None
     allow_http_issuer: bool
+    # E-mail du compte d'amorçage, relu à chaque connexion : le .env peut changer.
+    admin_email: Callable[[], str | None] = lambda: None
 
     async def resolve_list(self, only_active: bool) -> list[Connector]:
         return await db_list_connectors(self.pool, only_active)
@@ -137,11 +143,13 @@ class OidcService:
                 )
                 await self._attach(conn, data.client_secret_slug, connector_id)
             await db_update_connector(conn, connector_id, data, self.now())
-            changed = sorted(_changed_fields(locked, data))
-            await self._event(conn, UPDATED_EVENT, connector_id, author, {"fields": changed})
+            changes = _changes(locked, data)
+            # Avant et après pour chaque champ : les deux cases sont des réglages de
+            # sécurité, et le journal doit dire qui les a cochées ou décochées.
+            await self._event(conn, UPDATED_EVENT, connector_id, author, {"changes": changes})
         # Les sessions déjà ouvertes ne dépendent pas de la configuration : le changement
         # vaut pour les authentifications suivantes, sans casser celles en cours.
-        log.info("oidc_connecteur_modifie", connector=connector_id, fields=changed)
+        log.info("oidc_connecteur_modifie", connector=connector_id, fields=sorted(changes))
         return await self.resolve_get(connector_id)
 
     async def resolve_delete(self, author: EventAuthor, connector_id: str) -> None:
@@ -204,12 +212,39 @@ class OidcService:
         connector = await db_get_connector(self.pool, connector_id)
         if connector is None or not connector.active:
             raise LoginError("connecteur_inconnu", connector_id, "connecteur désactivé en cours")
-        identity = await self._authenticate(connector, attempt, code)
-        await db_record_identity(self.pool, connector.id, identity.subject, self.now())
-        log.info("oidc_connexion_reussie", connector=connector.id)
-        return LoginSuccess(connector.id, identity)
+        claims = await self._authenticate(connector, attempt, code)
+        identity = identity_from_claims(claims, connector.display_name_claim)
+        if connector.groups_claim not in claims:
+            # Aucun rôle ne pourra se lire : le journal dit pourquoi, au lieu d'un refus
+            # sans cause le jour où les correspondances liront ce claim.
+            log.warning(
+                "oidc_claim_groupes_absent", connector=connector.id, claim=connector.groups_claim
+            )
+        root_admin = self._recognizes_admin(connector, identity)
+        async with self.pool.acquire() as conn, conn.transaction():
+            await db_record_identity(conn, connector.id, identity.subject, self.now())
+            if root_admin:
+                # Accès à l'administration racine : il doit se retrouver dans le journal.
+                author = EventAuthor(connector.id, identity.subject)
+                await self._event(
+                    conn, ADMIN_RECOGNIZED_EVENT, connector.id, author, {"sub": identity.subject}
+                )
+        log.info("oidc_connexion_reussie", connector=connector.id, root_admin=root_admin)
+        return LoginSuccess(connector.id, identity, root_admin)
 
-    async def _authenticate(self, connector: Connector, attempt: Any, code: str) -> Identity:
+    def _recognizes_admin(self, connector: Connector, identity: Identity) -> bool:
+        """Seule garde de ce chemin vers l'administration racine : la case du connecteur.
+
+        Égalité insensible à la casse et rien d'autre (décision du 19/10/2026) : ni
+        espaces retirés, ni domaine comparé. `email_verified` n'est pas exigé, c'est la
+        case qui ne se coche que sur un annuaire où l'adresse ne se choisit pas.
+        """
+        admin_email = self.admin_email()
+        if not connector.recognize_admin or not admin_email or not identity.email:
+            return False
+        return identity.email.lower() == admin_email.lower()
+
+    async def _authenticate(self, connector: Connector, attempt: Any, code: str) -> dict[str, Any]:
         metadata = await self._metadata(connector)
         try:
             secret = await self.secrets.resolve_secret(
@@ -278,6 +313,24 @@ class OidcService:
         await db_write_event(conn, event, self.catalog, self.now)
 
 
-def _changed_fields(before: Connector, after: ConnectorInput) -> set[str]:
-    names = ("issuer", "client_id", "client_secret_slug", "scopes", "active", "label")
-    return {name for name in names if getattr(before, name) != getattr(after, name)}
+_TRACKED_FIELDS = (
+    "issuer",
+    "client_id",
+    "client_secret_slug",
+    "scopes",
+    "active",
+    "label",
+    "groups_claim",
+    "display_name_claim",
+    "recognize_admin",
+    "manage_associations",
+)
+
+
+def _changes(before: Connector, after: ConnectorInput) -> dict[str, dict[str, Any]]:
+    # Aucun de ces champs n'est secret : le secret client n'apparaît que par son slug.
+    return {
+        name: {"before": getattr(before, name), "after": getattr(after, name)}
+        for name in _TRACKED_FIELDS
+        if getattr(before, name) != getattr(after, name)
+    }

@@ -7,8 +7,7 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from miles.auth.sessions import Session
-from miles.events.model import LOCAL_DIRECTORY, EventAuthor
+from miles.auth.author import request_author
 from miles.security.service import (
     SecurityInput,
     SecurityInputError,
@@ -75,11 +74,6 @@ async def _out(services: SecurityServices, s: SecurityService) -> SecurityServic
     )
 
 
-def _author(request: Request) -> EventAuthor:
-    session: Session = request.state.session
-    return EventAuthor(LOCAL_DIRECTORY, session.subject)
-
-
 def _error(code: int, detail: object) -> JSONResponse:
     return JSONResponse(status_code=code, content={"detail": detail})
 
@@ -105,7 +99,7 @@ async def list_services(services: Services) -> list[SecurityServiceOut]:
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=SecurityServiceOut)
 async def declare_service(body: SecurityCreate, request: Request, services: Services) -> object:
     try:
-        declared = await services.resolve_declare(_author(request), body.id, body.to_input())
+        declared = await services.resolve_declare(request_author(request), body.id, body.to_input())
     except _REFUSALS as exc:
         return _refusal(exc)
     return await _out(services, declared)
@@ -116,7 +110,9 @@ async def update_service(
     service_id: str, body: SecurityBody, request: Request, services: Services
 ) -> object:
     try:
-        updated = await services.resolve_update(_author(request), service_id, body.to_input())
+        updated = await services.resolve_update(
+            request_author(request), service_id, body.to_input()
+        )
     except _REFUSALS as exc:
         return _refusal(exc)
     return await _out(services, updated)

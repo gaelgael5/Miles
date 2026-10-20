@@ -14,6 +14,8 @@ export interface Me {
   email: string | null;
   /** Connecteur OIDC de la session ; null pour le compte d'amorçage. */
   directory: string | null;
+  /** Compte d'amorçage, ou session OIDC reconnue administrateur par son e-mail. */
+  root_admin: boolean;
 }
 
 export interface BootstrapInput {

@@ -204,7 +204,7 @@ def verify_id_token(
     metadata: ProviderMetadata,
     client_id: str,
     nonce: str,
-) -> Identity:
+) -> dict[str, Any]:
     """Vérifie signature, émetteur, audience, expiration et nonce — tous, toujours.
 
     Aucune option de contournement, même en test : un jeton non vérifié qui passe une
@@ -237,8 +237,15 @@ def verify_id_token(
     subject = claims["sub"]
     if not isinstance(subject, str) or not 0 < len(subject) <= _MAX_SUBJECT_LENGTH:
         raise InvalidTokenError("sub absent ou invalide")
+    return claims
+
+
+def identity_from_claims(claims: Mapping[str, Any], display_name_claim: str) -> Identity:
+    """L'identité est le sub ; nom et e-mail servent à l'affichage et à la reconnaissance."""
     return Identity(
-        subject, _text_claim(claims, "name", "preferred_username"), _text_claim(claims, "email")
+        claims["sub"],
+        _text_claim(claims, display_name_claim, "name", "preferred_username"),
+        _text_claim(claims, "email"),
     )
 
 

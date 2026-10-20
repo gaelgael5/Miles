@@ -45,8 +45,11 @@ class AuthContext:
         subject: str,
         display_name: str | None,
         email: str | None,
+        root_admin: bool = False,
     ) -> None:
-        await self._open_session(response, OIDC_KIND, subject, directory, display_name, email)
+        await self._open_session(
+            response, OIDC_KIND, subject, directory, display_name, email, root_admin
+        )
 
     async def _open_session(
         self,
@@ -56,11 +59,12 @@ class AuthContext:
         directory: str | None = None,
         display_name: str | None = None,
         email: str | None = None,
+        root_admin: bool = False,
     ) -> None:
         token, digest = new_session_token()
         expires_at = self.now() + self.session_ttl
         await db_create_session(
-            self.db, digest, kind, subject, expires_at, directory, display_name, email
+            self.db, digest, kind, subject, expires_at, directory, display_name, email, root_admin
         )
         # Pas d'attribut Domain : cookie limité à l'hôte qui l'a posé, jamais
         # partagé avec un service voisin du même domaine. SameSite=Strict tient
