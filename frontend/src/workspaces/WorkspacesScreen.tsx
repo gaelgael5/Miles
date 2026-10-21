@@ -5,6 +5,7 @@ import { ApiError, invalidField } from "../api/http";
 import { slugFromLabel } from "../api/secrets";
 import { type Workspace, useCreateWorkspace, useWorkspaces } from "../api/workspaces";
 import { PageHead } from "../layout/PageHead";
+import { ContractsScreen } from "./ContractsScreen";
 import { DataModelsScreen } from "./DataModelsScreen";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
@@ -69,7 +70,7 @@ function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   );
 }
 
-type View = "settings" | "dataModels";
+type View = "settings" | "dataModels" | "contracts";
 
 function WorkspaceRow({
   workspace,
@@ -106,9 +107,14 @@ function WorkspaceRow({
       <div className="actions row-actions">
         {/* Les modèles s'écrivent dans la branche de travail : sans elle, rien à ouvrir. */}
         {workspace.work_branch !== null && (
-          <button type="button" className="btn btn-secondary" onClick={() => onOpen("dataModels")}>
-            {t("workspaces.card.dataModels")}
-          </button>
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => onOpen("dataModels")}>
+              {t("workspaces.card.dataModels")}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => onOpen("contracts")}>
+              {t("workspaces.card.contracts")}
+            </button>
+          </>
         )}
         <button type="button" className="btn btn-secondary" onClick={() => onOpen("settings")}>
           {t("workspaces.card.settings")}
@@ -127,6 +133,9 @@ export function WorkspacesScreen() {
   const [selected, setSelected] = useState<{ id: string; view: View } | null>(null);
   const current = workspaces.data?.find((w) => w.id === selected?.id);
 
+  if (current && selected?.view === "contracts") {
+    return <ContractsScreen workspace={current} onBack={() => setSelected(null)} />;
+  }
   if (current && selected?.view === "dataModels") {
     return <DataModelsScreen workspace={current} onBack={() => setSelected(null)} />;
   }

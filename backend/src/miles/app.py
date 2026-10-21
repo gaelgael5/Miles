@@ -19,6 +19,9 @@ from miles.auth.context import AuthContext, utc_now
 from miles.auth.gate import auth_gate
 from miles.auth.throttle import LoginThrottle
 from miles.config import Settings
+from miles.contracts import service as contracts_events
+from miles.contracts.api_contracts import router as contracts_router
+from miles.contracts.service import ContractsService
 from miles.cultures import service as cultures_events
 from miles.cultures.api_cultures import public_router as login_cultures_router
 from miles.cultures.api_cultures import router as cultures_router
@@ -87,6 +90,7 @@ def create_app() -> FastAPI:
         | gitaccess_events.EVENT_TYPES
         | datamodels_events.EVENT_TYPES
         | workshop_events.EVENT_TYPES
+        | contracts_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -130,6 +134,7 @@ def create_app() -> FastAPI:
         branches = WorkBranches(pool, app.state.workspaces, resolver, git_hosts)
         app.state.data_models = DataModelsService(pool, branches, catalog, utc_now)
         app.state.workshop = WorkshopService(pool, branches, catalog, utc_now)
+        app.state.contracts = ContractsService(pool, branches, catalog, utc_now)
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -186,4 +191,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(connections_router)
     app.include_router(data_models_router)
     app.include_router(workshop_router)
+    app.include_router(contracts_router)
     return app

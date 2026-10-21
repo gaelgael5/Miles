@@ -78,8 +78,8 @@ def _mapping(loader: _StrictLoader, node: yaml.MappingNode) -> dict[Any, Any]:
 _StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping)
 
 
-def load_yaml(text: str) -> Any:
-    if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
+def load_yaml(text: str, max_bytes: int = MAX_TEXT_BYTES) -> Any:
+    if len(text.encode("utf-8")) > max_bytes:
         raise ModelSyntaxError("document trop volumineux", None, None)
     try:
         return yaml.load(text, Loader=_StrictLoader)  # noqa: S506  # SafeLoader strict

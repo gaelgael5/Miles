@@ -293,7 +293,8 @@
       "captionSecurity": "Sécurité",
       "captionWorkBranch": "Branche de travail",
       "settings": "Paramétrer",
-      "dataModels": "Modèles de données"
+      "dataModels": "Modèles de données",
+      "contracts": "Contrats"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -515,7 +516,13 @@
       "dossier_d_environnement": "dossier nommé comme un environnement : un environnement est une branche",
       "emplacement_inattendu": "emplacement inattendu dans l'arborescence",
       "nom_different_du_fichier": "le nom diffère de celui du fichier ({{detail}})",
-      "yaml_invalide": "YAML invalide ({{detail}})"
+      "yaml_invalide": "YAML invalide ({{detail}})",
+      "metadonnees_de_contrat_invalides": "métadonnées du contrat (slug, sens) invalides",
+      "slug_different_du_dossier": "le slug diffère de son dossier ({{detail}})",
+      "fichier_de_contrat_inattendu": "fichier inattendu dans un contrat",
+      "openapi_illisible": "OpenAPI illisible ({{detail}})",
+      "version_non_prise_en_charge": "version OpenAPI {{detail}} non prise en charge",
+      "openapi_invalide": "{{detail}}"
     }
   },
   "versions": {
@@ -543,6 +550,50 @@
         "rien_a_figer": "Rien n'a changé depuis la dernière version : rien à figer.",
         "version_concurrente": "Une autre version a été enregistrée au même moment : rien n'a été figé. Réessayez.",
         "deja_a_cette_version": "La branche de travail a déjà ce contenu."
+      },
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    }
+  },
+  "contracts": {
+    "title": "Contrats OpenAPI — {{name}}",
+    "intro": "Importés depuis les tiers, jamais édités. Le slug d'un contrat est figé une fois importé.",
+    "add": "Importer un contrat",
+    "empty": "Aucun contrat importé dans la branche de travail.",
+    "fields": {
+      "content": "Contrat OpenAPI (YAML ou JSON)",
+      "slug": "Slug",
+      "sens": "Sens"
+    },
+    "form": {
+      "title": "Importer un contrat",
+      "read": "Lire le contrat",
+      "submit": "Importer dans la branche de travail",
+      "slugHelp": "Proposé d'après le titre du contrat. Modifiable maintenant seulement : une fois importé, le slug est figé et ne se renomme jamais."
+    },
+    "sens": {
+      "sortant": "Sortant — appel d'un service distant",
+      "entrant": "Entrant — webhook reçu"
+    },
+    "warnings": {
+      "aucune_operation": "Ce contrat n'a aucune opération : c'est licite, mais probablement le mauvais fichier."
+    },
+    "list": {
+      "captionSens": "Sens",
+      "captionOperations": "Opérations",
+      "operations_one": "{{count}} opération",
+      "operations_other": "{{count}} opérations",
+      "noOperation": "Aucune opération",
+      "showOperations": "Opérations"
+    },
+    "errors": {
+      "unreadable": "Fichier illisible, ligne {{line}}, colonne {{column}} : {{message}}",
+      "invalid": "Ce fichier n'est pas un document OpenAPI valide :",
+      "version": "La version OpenAPI {{found}} n'est pas prise en charge. Acceptées : {{accepted}}.",
+      "taken": "Ce slug est déjà pris par le contrat « {{by}} ».",
+      "field": {
+        "slug": "Slug : lettres minuscules, chiffres et tirets, de 2 à 63 caractères.",
+        "slug_vide": "Il ne reste rien d'utilisable du titre : donnez un slug.",
+        "sens": "Choisissez le sens : sortant ou entrant."
       },
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }

@@ -219,3 +219,5 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 /* Titre de carte et son action principale sur une ligne, l'action à droite. */
 .card-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
 .card-head h2 { margin: 0; }
+/* Choix exclusif (bouton radio) sur sa ligne, libellé cliquable. */
+.choice { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 14px; cursor: pointer; }

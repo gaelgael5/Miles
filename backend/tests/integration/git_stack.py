@@ -6,6 +6,8 @@ import secrets as random
 import httpx
 import pytest
 
+from miles.contracts.service import EVENT_TYPES as CONTRACT_EVENTS
+from miles.contracts.service import ContractsService
 from miles.datamodels.service import EVENT_TYPES as DATA_MODEL_EVENTS
 from miles.datamodels.service import DataModelsService
 from miles.events.model import EventTypeCatalog
@@ -36,7 +38,12 @@ def env(name: str) -> str:
 def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     """Branche secrets, connexions, workspaces et modèles comme le fait app.py."""
     catalog = EventTypeCatalog(
-        SECRET_EVENTS | WORKSPACE_EVENTS | GITACCESS_EVENTS | DATA_MODEL_EVENTS | WORKSHOP_EVENTS
+        SECRET_EVENTS
+        | WORKSPACE_EVENTS
+        | GITACCESS_EVENTS
+        | DATA_MODEL_EVENTS
+        | WORKSHOP_EVENTS
+        | CONTRACT_EVENTS
     )
     secrets = SecretsService(portal.pool, SecretCipher(os.urandom(32)), catalog, utc_now)
     resolver = AccessResolver(secrets)
@@ -50,6 +57,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     branches = WorkBranches(portal.pool, state.workspaces, resolver, hosts)
     state.data_models = DataModelsService(portal.pool, branches, catalog, utc_now)
     state.workshop = WorkshopService(portal.pool, branches, catalog, utc_now)
+    state.contracts = ContractsService(portal.pool, branches, catalog, utc_now)
 
 
 async def add_secret(client: httpx.AsyncClient, slug: str, kind: str, value: str) -> None:

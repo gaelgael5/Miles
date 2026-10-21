@@ -293,7 +293,8 @@
       "captionSecurity": "Security",
       "captionWorkBranch": "Work branch",
       "settings": "Settings",
-      "dataModels": "Data models"
+      "dataModels": "Data models",
+      "contracts": "Contracts"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -515,7 +516,13 @@
       "dossier_d_environnement": "folder named after an environment: an environment is a branch",
       "emplacement_inattendu": "unexpected location in the layout",
       "nom_different_du_fichier": "the name differs from the file name ({{detail}})",
-      "yaml_invalide": "invalid YAML ({{detail}})"
+      "yaml_invalide": "invalid YAML ({{detail}})",
+      "metadonnees_de_contrat_invalides": "contract metadata (slug, direction) invalid",
+      "slug_different_du_dossier": "the slug differs from its folder ({{detail}})",
+      "fichier_de_contrat_inattendu": "unexpected file in a contract",
+      "openapi_illisible": "unreadable OpenAPI ({{detail}})",
+      "version_non_prise_en_charge": "unsupported OpenAPI version {{detail}}",
+      "openapi_invalide": "{{detail}}"
     }
   },
   "versions": {
@@ -543,6 +550,50 @@
         "rien_a_figer": "Nothing changed since the last version: nothing to freeze.",
         "version_concurrente": "Another version was saved at the same time: nothing was frozen. Try again.",
         "deja_a_cette_version": "The work branch already has this content."
+      },
+      "unexpected": "The operation failed. See the back-office logs."
+    }
+  },
+  "contracts": {
+    "title": "OpenAPI contracts — {{name}}",
+    "intro": "Imported from third parties, never edited. A contract's slug is frozen once imported.",
+    "add": "Import a contract",
+    "empty": "No contract imported on the work branch.",
+    "fields": {
+      "content": "OpenAPI contract (YAML or JSON)",
+      "slug": "Slug",
+      "sens": "Direction"
+    },
+    "form": {
+      "title": "Import a contract",
+      "read": "Read the contract",
+      "submit": "Import to the work branch",
+      "slugHelp": "Proposed from the contract title. You can change it now only: once imported, the slug is frozen and never renamed."
+    },
+    "sens": {
+      "sortant": "Outbound — call to a remote service",
+      "entrant": "Inbound — webhook received"
+    },
+    "warnings": {
+      "aucune_operation": "This contract has no operation: it is allowed, but probably the wrong file."
+    },
+    "list": {
+      "captionSens": "Direction",
+      "captionOperations": "Operations",
+      "operations_one": "{{count}} operation",
+      "operations_other": "{{count}} operations",
+      "noOperation": "No operation",
+      "showOperations": "Operations"
+    },
+    "errors": {
+      "unreadable": "Unreadable file, line {{line}}, column {{column}}: {{message}}",
+      "invalid": "This file is not a valid OpenAPI document:",
+      "version": "OpenAPI version {{found}} is not supported. Accepted: {{accepted}}.",
+      "taken": "This slug is already used by the contract “{{by}}”.",
+      "field": {
+        "slug": "Slug: lowercase letters, digits and dashes, 2 to 63 characters.",
+        "slug_vide": "Nothing usable remains of the title: give a slug.",
+        "sens": "Choose the direction: outbound or inbound."
       },
       "unexpected": "The operation failed. See the back-office logs."
     }
