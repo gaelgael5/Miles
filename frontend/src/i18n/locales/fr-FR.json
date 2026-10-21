@@ -284,7 +284,8 @@
       "injoignable": "la forge est injoignable",
       "protection": "refusé par une règle de protection couvrant miles-verification-* : ajustez la protection de branche ou de tag",
       "droit_refuse": "refusé : le jeton n'a pas le droit d'écrire sur ce dépôt",
-      "echec": "échec"
+      "echec": "échec",
+      "certificat": "refusé au niveau TLS : certificat client absent, d'une autre autorité, ou expiré"
     },
     "check": {
       "ok": "OK",
@@ -340,6 +341,26 @@
         "protection": "Une règle de protection refuse la branche de travail.",
         "droit_refuse": "Le jeton ne peut plus écrire sur le dépôt.",
         "echec": "Le dépôt a refusé l'opération."
+      }
+    },
+    "cert": {
+      "legend": "Certificat client (quand la forge exige le mTLS)",
+      "pem": "Certificat (PEM)",
+      "key": "Clé privée du certificat",
+      "none": "Pas de certificat client.",
+      "add": "Ajouter un certificat client",
+      "replace": "Remplacer le certificat client",
+      "save": "Tester et remplacer",
+      "testedFirst": "Le nouveau certificat ne remplace l'ancien que si les cinq droits passent avec lui.",
+      "expires_one": "Le certificat client expire le {{date}} (encore {{count}} jour).",
+      "expires_other": "Le certificat client expire le {{date}} (encore {{count}} jours).",
+      "expired": "Le certificat client a expiré le {{date}} : le dépôt refuse l'accès.",
+      "errors": {
+        "expire": "Ce certificat a déjà expiré.",
+        "ne_correspond_pas": "La clé choisie ne va pas avec ce certificat.",
+        "illisible": "Le certificat ou sa clé est illisible (PEM attendu).",
+        "au_moins_un_acces": "Donnez un jeton d'accès, un certificat client, ou les deux.",
+        "access": "L'accès avec ce certificat échoue : l'ancien certificat est conservé."
       }
     }
   }

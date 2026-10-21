@@ -284,7 +284,8 @@
       "injoignable": "the forge cannot be reached",
       "protection": "refused by a protection rule covering miles-verification-*: adjust the branch or tag protection",
       "droit_refuse": "refused: the token has no write right on this repository",
-      "echec": "failed"
+      "echec": "failed",
+      "certificat": "refused at TLS: client certificate missing, from another authority, or expired"
     },
     "check": {
       "ok": "OK",
@@ -340,6 +341,26 @@
         "protection": "A protection rule refuses the work branch.",
         "droit_refuse": "The token can no longer write on the repository.",
         "echec": "The repository refused the operation."
+      }
+    },
+    "cert": {
+      "legend": "Client certificate (when the forge requires mTLS)",
+      "pem": "Certificate (PEM)",
+      "key": "Certificate private key",
+      "none": "No client certificate.",
+      "add": "Add a client certificate",
+      "replace": "Replace the client certificate",
+      "save": "Test and replace",
+      "testedFirst": "The new certificate replaces the old one only if the five rights pass with it.",
+      "expires_one": "Client certificate expires on {{date}} ({{count}} day left).",
+      "expires_other": "Client certificate expires on {{date}} ({{count}} days left).",
+      "expired": "The client certificate expired on {{date}}: the repository refuses access.",
+      "errors": {
+        "expire": "This certificate has already expired.",
+        "ne_correspond_pas": "The chosen key does not match this certificate.",
+        "illisible": "The certificate or its key cannot be read (PEM expected).",
+        "au_moins_un_acces": "Give an access token, a client certificate, or both.",
+        "access": "Access with this certificate fails: the old certificate is kept."
       }
     }
   }

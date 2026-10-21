@@ -14,6 +14,7 @@ import {
 } from "../api/workspaces";
 import { SecretPicker } from "../secrets/SecretPicker";
 import { AccessReportView } from "./AccessReportView";
+import { CertificateFields, CertificatePanel } from "./CertificatePanel";
 import { WorkBranchPanel } from "./WorkBranchPanel";
 
 function failedReport(error: unknown): AccessReport | null {
@@ -47,6 +48,10 @@ function CreateForm({ onDone }: { onDone: () => void }) {
   const [repoUrl, setRepoUrl] = useState("");
   const [secret, setSecret] = useState<string | null>(null);
   const [service, setService] = useState<string>("");
+  const [certPem, setCertPem] = useState("");
+  const [keySlug, setKeySlug] = useState<string | null>(null);
+  // Jeton, certificat, ou les deux : au moins l'un des deux (décision du 16/10/2026).
+  const withCertificate = certPem.trim() !== "" && keySlug !== null;
   const [suffix, setSuffix] = useState(newVerificationSuffix);
   const refused = failedReport(create.error);
 
@@ -57,6 +62,7 @@ function CreateForm({ onDone }: { onDone: () => void }) {
       name,
       repo_url: repoUrl,
       git_secret_slug: secret,
+      client_certificate: withCertificate ? { cert_pem: certPem, key_secret_slug: keySlug } : null,
       security_service_id: service || null,
       verification_suffix: suffix,
     };
@@ -91,6 +97,15 @@ function CreateForm({ onDone }: { onDone: () => void }) {
         value={secret}
         onChange={setSecret}
       />
+      <fieldset>
+        <legend>{t("workspaces.cert.legend")}</legend>
+        <CertificateFields
+          certPem={certPem}
+          keySlug={keySlug}
+          onCertPem={setCertPem}
+          onKeySlug={setKeySlug}
+        />
+      </fieldset>
       <label>
         {t("workspaces.fields.securityService")}
         <select value={service} onChange={(e) => setService(e.target.value)}>
@@ -108,7 +123,7 @@ function CreateForm({ onDone }: { onDone: () => void }) {
       )}
       {create.isError && <p role="alert">{t(errorKey(create.error))}</p>}
       {refused && <AccessReportView report={refused} />}
-      <button type="submit" disabled={create.isPending || secret === null}>
+      <button type="submit" disabled={create.isPending || (secret === null && !withCertificate)}>
         {t("workspaces.form.submit")}
       </button>
       <button type="button" onClick={onDone}>
@@ -143,6 +158,7 @@ function WorkspaceCard({ workspace }: { workspace: Workspace }) {
         <p role="status">{t("workspaces.form.testing", { branch: verificationBranch(suffix) })}</p>
       )}
       {report && <AccessReportView report={report} />}
+      <CertificatePanel workspace={workspace} />
       <WorkBranchPanel workspace={workspace} />
     </li>
   );

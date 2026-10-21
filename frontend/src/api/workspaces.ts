@@ -19,7 +19,10 @@ export interface Workspace {
   id: string;
   name: string;
   repo_url: string;
-  git_secret_slug: string;
+  git_secret_slug: string | null;
+  client_key_secret_slug: string | null;
+  /** Échéance du certificat client : un certificat expiré coupe l'accès sans autre signal. */
+  client_cert_not_after: string | null;
   security_service_id: string | null;
   last_check: AccessReport | null;
   last_check_at: string | null;
@@ -35,11 +38,17 @@ export interface TreeDiagnosis {
   manifest: "absent" | "invalide" | "valide";
 }
 
+export interface CertificateInput {
+  cert_pem: string;
+  key_secret_slug: string;
+}
+
 export interface WorkspaceInput {
   id: string;
   name: string;
   repo_url: string;
   git_secret_slug: string | null;
+  client_certificate: CertificateInput | null;
   security_service_id: string | null;
   verification_suffix: string;
 }
@@ -95,4 +104,21 @@ export function useOpenWorkBranch(id: string) {
       ),
     onSuccess: () => client.invalidateQueries({ queryKey: KEY }),
   });
+}
+
+export function useReplaceCertificate(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CertificateInput & { verification_suffix: string }) =>
+      request<Workspace>(`/api/workspaces/${encodeURIComponent(id)}/client-certificate`, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/** Jours restants avant l'échéance ; négatif si elle est passée. */
+export function daysUntil(isoDate: string, now: Date = new Date()): number {
+  return Math.floor((new Date(isoDate).getTime() - now.getTime()) / 86_400_000);
 }

@@ -35,6 +35,8 @@ const WORKSPACE = {
   name: "Retrait de colis",
   repo_url: "https://github.com/acme/retrait.git",
   git_secret_slug: "gh",
+  client_key_secret_slug: null,
+  client_cert_not_after: null,
   security_service_id: null,
   last_check: { ...REPORT, all_passed: true, residual_branch: null, checks: REPORT.checks.map((c) => ({ ...c, ok: true, reason: null })) },
   last_check_at: "2026-10-20T10:00:00Z",
@@ -76,6 +78,7 @@ describe("WorkspacesScreen", () => {
         { status: 200, body: [WORKSPACE] },
       ],
       [SECRETS]: { status: 200, body: [TOKEN] },
+      "GET /api/secrets?secret_type=GIT_CLIENT_KEY": { status: 200, body: [] },
       "GET /api/security-services": { status: 200, body: [] },
       "POST /api/workspaces": { status: 201, body: WORKSPACE },
     });
@@ -92,6 +95,7 @@ describe("WorkspacesScreen", () => {
       name: "Retrait de colis",
       repo_url: "https://github.com/acme/retrait",
       git_secret_slug: "gh",
+      client_certificate: null,
       security_service_id: null,
       verification_suffix: suffix,
     });
@@ -102,6 +106,7 @@ describe("WorkspacesScreen", () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [] },
       [SECRETS]: { status: 200, body: [TOKEN] },
+      "GET /api/secrets?secret_type=GIT_CLIENT_KEY": { status: 200, body: [] },
       "GET /api/security-services": { status: 200, body: [] },
       "POST /api/workspaces": {
         status: 422,
@@ -125,6 +130,7 @@ describe("WorkspacesScreen", () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [] },
       [SECRETS]: { status: 200, body: [TOKEN] },
+      "GET /api/secrets?secret_type=GIT_CLIENT_KEY": { status: 200, body: [] },
       "GET /api/security-services": { status: 200, body: [] },
       "POST /api/workspaces": { status: 409, body: { detail: "depot_deja_associe" } },
     });
@@ -198,5 +204,46 @@ describe("WorkBranchPanel", () => {
     expect(screen.getByText("manifest.json is missing.")).toBeInTheDocument();
     expect(screen.getByText(/prod\/ looks like an environment folder/)).toBeInTheDocument();
     expect(screen.getByText("Unexpected: src/app.py")).toBeInTheDocument();
+  });
+});
+
+describe("CertificatePanel", () => {
+  it("warns when the client certificate is about to expire", async () => {
+    const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();
+    mockApi({
+      "GET /api/workspaces": {
+        status: 200,
+        body: [{ ...WORKSPACE, client_key_secret_slug: "cle", client_cert_not_after: soon }],
+      },
+    });
+    renderScreen();
+
+    expect(await screen.findByText(/Client certificate expires on .* \(4 days left\)/)).toHaveAttribute(
+      "role",
+      "alert",
+    );
+  });
+
+  it("says when the replacement key does not match the certificate", async () => {
+    mockApi({
+      "GET /api/workspaces": { status: 200, body: [WORKSPACE] },
+      "GET /api/secrets?secret_type=GIT_CLIENT_KEY": {
+        status: 200,
+        body: [{ ...TOKEN, slug: "cle", label: "Clé client", secret_type: "GIT_CLIENT_KEY" }],
+      },
+      "PUT /api/workspaces/retrait/client-certificate": {
+        status: 422,
+        body: { detail: { field: "client_key_secret_slug", reason: "ne_correspond_pas" } },
+      },
+    });
+    renderScreen();
+    fireEvent.click(await screen.findByText("Add a client certificate"));
+
+    fill("Certificate (PEM)", "-----BEGIN CERTIFICATE-----");
+    await screen.findByRole("option", { name: "Clé client" });
+    fill("Certificate private key", "cle");
+    fireEvent.click(screen.getByText("Test and replace"));
+
+    expect(await screen.findByText("The chosen key does not match this certificate.")).toBeInTheDocument();
   });
 });
