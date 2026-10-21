@@ -216,3 +216,6 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
   margin: 0; padding: 14px 16px; background: var(--surface-douce); border: 1px solid var(--bordure-carte);
   border-radius: 6px; font-family: var(--police-mono); font-size: 12.5px; white-space: pre; overflow-x: auto;
 }
+/* Titre de carte et son action principale sur une ligne, l'action à droite. */
+.card-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.card-head h2 { margin: 0; }

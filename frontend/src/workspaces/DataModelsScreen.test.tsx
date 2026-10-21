@@ -6,6 +6,7 @@ import { BARE, CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/data-models";
+const NO_VERSION = { "GET /api/workspaces/retrait/versions": { status: 200, body: [] } };
 const PERSONNE = { scope: "shared", name: "personne", path: "shared/messages/personne.yaml" };
 const COLIS = { scope: "suivi", name: "colis", path: "domains/suivi/messages/colis.yaml" };
 const YAML = "nom: personne\nversion: 1\nproprietes:\n  nom:\n    type: chaine\n";
@@ -31,6 +32,7 @@ describe("DataModelsScreen", () => {
   it("lists the models of the work branch and shows one exactly as stored", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...NO_VERSION,
       [`GET ${ROUTE}`]: { status: 200, body: [COLIS, PERSONNE] },
       [`GET ${ROUTE}/shared/personne`]: { status: 200, body: { ...PERSONNE, content: YAML } },
     });
@@ -50,6 +52,7 @@ describe("DataModelsScreen", () => {
   it("writes a shared model when no domain is given", async () => {
     const calls = mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...NO_VERSION,
       [`GET ${ROUTE}`]: [
         { status: 200, body: [] },
         { status: 200, body: [PERSONNE] },
@@ -72,6 +75,7 @@ describe("DataModelsScreen", () => {
   it("lists every grammar problem with its place in the document", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...NO_VERSION,
       [`GET ${ROUTE}`]: { status: 200, body: [] },
       [`POST ${ROUTE}`]: {
         status: 422,
@@ -101,6 +105,7 @@ describe("DataModelsScreen", () => {
   it("names the YAML position and the models that still use one being deleted", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...NO_VERSION,
       [`GET ${ROUTE}`]: { status: 200, body: [PERSONNE] },
       [`POST ${ROUTE}`]: {
         status: 422,

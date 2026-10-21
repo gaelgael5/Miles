@@ -50,6 +50,10 @@ from miles.secrets.service import SecretsService
 from miles.security import service as security_events
 from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
+from miles.workshop import service as workshop_events
+from miles.workshop.api_workshop import router as workshop_router
+from miles.workshop.service import WorkshopService
+from miles.workshop.target import WorkBranches
 from miles.workspaces import model as workspace_events
 from miles.workspaces.api_workspaces import router as workspaces_router
 from miles.workspaces.service import WorkspacesService
@@ -82,6 +86,7 @@ def create_app() -> FastAPI:
         | workspace_events.EVENT_TYPES
         | gitaccess_events.EVENT_TYPES
         | datamodels_events.EVENT_TYPES
+        | workshop_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -122,9 +127,9 @@ def create_app() -> FastAPI:
             pool, resolver, verifier, catalog, utc_now, git_hosts
         )
         app.state.workspaces = WorkspacesService(pool, resolver, catalog, utc_now, git_hosts)
-        app.state.data_models = DataModelsService(
-            pool, app.state.workspaces, resolver, catalog, utc_now, git_hosts
-        )
+        branches = WorkBranches(pool, app.state.workspaces, resolver, git_hosts)
+        app.state.data_models = DataModelsService(pool, branches, catalog, utc_now)
+        app.state.workshop = WorkshopService(pool, branches, catalog, utc_now)
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -180,4 +185,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(workspaces_router)
     app.include_router(connections_router)
     app.include_router(data_models_router)
+    app.include_router(workshop_router)
     return app

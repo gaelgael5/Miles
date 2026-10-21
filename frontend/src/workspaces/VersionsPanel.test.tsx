@@ -1,0 +1,123 @@
+import { fireEvent, screen, within } from "@testing-library/react";
+
+import "../i18n/i18n";
+import { mockApi } from "../test/mockApi";
+import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
+
+const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const VERSIONS = "/api/workspaces/retrait/versions";
+const MODELS = "GET /api/workspaces/retrait/data-models";
+const V1 = {
+  number: 1,
+  label: "Recette du 21 octobre",
+  commit: "0123456789abcdef0123456789abcdef01234567",
+  author: "admin via Miles <admin@local.miles.invalid>",
+  saved_at: "2026-10-21T15:00:00Z",
+};
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+async function openWorkshop() {
+  renderWorkspaces();
+  fireEvent.click(await screen.findByText("Data models"));
+  return screen.findByRole("region", { name: "Versions of the work branch" });
+}
+
+describe("VersionsPanel", () => {
+  it("saves a version with its label, then lists it", async () => {
+    const calls = mockApi({
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${VERSIONS}`]: [
+        { status: 200, body: [] },
+        { status: 200, body: [V1] },
+      ],
+      [`POST ${VERSIONS}`]: { status: 201, body: V1 },
+    });
+    const panel = await openWorkshop();
+    expect(await within(panel).findByText("No version saved yet.")).toBeInTheDocument();
+
+    fireEvent.click(within(panel).getByText("Save a version"));
+    fill("Label", "Recette du 21 octobre");
+    fireEvent.click(within(panel).getByText("Save the version"));
+
+    expect(await within(panel).findByText("Version 1 — Recette du 21 octobre")).toBeInTheDocument();
+    expect(within(panel).getByText("0123456789")).toBeInTheDocument();
+    expect(calls.find((c) => c.key === `POST ${VERSIONS}`)?.body).toEqual({
+      label: "Recette du 21 octobre",
+    });
+  });
+
+  it("shows, file by file, why the configuration cannot be frozen", async () => {
+    mockApi({
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${VERSIONS}`]: { status: 200, body: [] },
+      [`POST ${VERSIONS}`]: {
+        status: 422,
+        body: {
+          detail: {
+            code: "parametrage_invalide",
+            reports: [
+              { path: "", problems: [{ path: "prod", code: "dossier_d_environnement", detail: null }] },
+              {
+                path: "shared/messages/colis.yaml",
+                problems: [{ path: "proprietes.p.modele", code: "modele_inconnu", detail: "personne" }],
+              },
+            ],
+          },
+        },
+      },
+    });
+    const panel = await openWorkshop();
+    fireEvent.click(within(panel).getByText("Save a version"));
+    fill("Label", "Ne passera pas");
+    fireEvent.click(within(panel).getByText("Save the version"));
+
+    const alert = await within(panel).findByRole("alert");
+    expect(alert).toHaveTextContent("The configuration does not pass the rules: nothing was frozen.");
+    expect(alert).toHaveTextContent("Repository layout");
+    expect(alert).toHaveTextContent("folder named after an environment");
+    expect(alert).toHaveTextContent("shared/messages/colis.yaml");
+    expect(alert).toHaveTextContent("proprietes.p.modele — model “personne” does not exist");
+  });
+
+  it("says there is nothing to freeze", async () => {
+    mockApi({
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${VERSIONS}`]: { status: 200, body: [V1] },
+      [`POST ${VERSIONS}`]: { status: 409, body: { detail: "rien_a_figer" } },
+    });
+    const panel = await openWorkshop();
+    fireEvent.click(within(panel).getByText("Save a version"));
+    fill("Label", "Encore");
+    fireEvent.click(within(panel).getByText("Save the version"));
+
+    expect(
+      await within(panel).findByText("Nothing changed since the last version: nothing to freeze."),
+    ).toBeInTheDocument();
+  });
+
+  it("returns to a version after confirmation, by a new commit", async () => {
+    const calls = mockApi({
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${VERSIONS}`]: { status: 200, body: [V1] },
+      [`POST ${VERSIONS}/1/restore`]: { status: 200, body: { commit: "fedcba98765432100000" } },
+    });
+    const panel = await openWorkshop();
+    fireEvent.click(await within(panel).findByText("Return to this version"));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Later versions remain, nothing is erased.");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Return to this version" }));
+
+    expect(
+      await within(panel).findByText("Back to this version, by a new commit fedcba9876."),
+    ).toBeInTheDocument();
+    expect(calls.some((c) => c.key === `POST ${VERSIONS}/1/restore`)).toBe(true);
+  });
+});

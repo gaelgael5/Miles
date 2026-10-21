@@ -71,3 +71,55 @@ export function useDeleteDataModel(workspaceId: string) {
     request<undefined>(one(workspaceId, model.scope, model.name), { method: "DELETE" }),
   );
 }
+
+/** Version enregistrée : une étiquette `version/<n>` sur un commit de la branche de travail. */
+export interface SavedVersion {
+  number: number;
+  label: string;
+  commit: string;
+  author: string;
+  saved_at: string;
+}
+
+function versionsRoot(workspaceId: string) {
+  return `/api/workspaces/${encodeURIComponent(workspaceId)}/versions`;
+}
+
+function versionsKey(workspaceId: string) {
+  return ["versions", workspaceId] as const;
+}
+
+export function useVersions(workspaceId: string) {
+  return useQuery({
+    queryKey: versionsKey(workspaceId),
+    queryFn: ({ signal }) => request<SavedVersion[]>(versionsRoot(workspaceId), { signal }),
+  });
+}
+
+export function useSaveVersion(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (label: string) =>
+      request<SavedVersion>(versionsRoot(workspaceId), {
+        method: "POST",
+        body: JSON.stringify({ label }),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: versionsKey(workspaceId) }),
+  });
+}
+
+export function useRestoreVersion(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (number: number) =>
+      request<{ commit: string }>(`${versionsRoot(workspaceId)}/${number}/restore`, {
+        method: "POST",
+      }),
+    // Le retour réécrit l'arbre de la branche : les modèles listés changent aussi.
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: versionsKey(workspaceId) }),
+        client.invalidateQueries({ queryKey: key(workspaceId) }),
+      ]),
+  });
+}

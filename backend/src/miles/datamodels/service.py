@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import AsyncIterator, Callable, Sequence
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 
 import asyncpg
@@ -18,18 +17,9 @@ from miles.datamodels.grammar import (
 )
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
-from miles.git.forge import Repository, RepositoryUrlError, parse_repository
-from miles.git.workcopy import BranchMissingError, BranchMovedError, WorkCopy, checkout
-from miles.git.worktree import RepositoryAccessError
-from miles.gitaccess.model import GitAccessError
-from miles.gitaccess.resolver import AccessResolver
-from miles.workspaces.model import (
-    RepositoryUnavailableError,
-    WorkspaceConflictError,
-    WorkspaceInputError,
-    commit_author,
-)
-from miles.workspaces.service import WorkspacesService
+from miles.git.workcopy import WorkCopy
+from miles.workshop.target import WorkBranches
+from miles.workspaces.model import WorkspaceConflictError, WorkspaceInputError
 
 log = structlog.get_logger(__name__)
 
@@ -99,19 +89,17 @@ class DataModelsService:
     """
 
     pool: asyncpg.Pool
-    workspaces: WorkspacesService
-    resolver: AccessResolver
+    branches: WorkBranches
     catalog: EventTypeCatalog
     now: Callable[[], datetime]
-    extra_git_hosts: Sequence[str] = field(default=())
 
     async def resolve_list(self, workspace_id: str) -> list[ModelEntry]:
-        async with self._copy(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id) as copy:
             return await _entries(copy)
 
     async def resolve_get(self, workspace_id: str, scope: str, name: str) -> tuple[ModelEntry, str]:
         path = model_path(_scope(scope), _name(name))
-        async with self._copy(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id) as copy:
             content = await copy.read(path)
         if content is None:
             raise ModelNotFoundError(path)
@@ -125,7 +113,7 @@ class DataModelsService:
         # Vérifié avant tout accès au dépôt : un document refusé ne coûte aucun clone.
         model = parse_model(content)
         entry = ModelEntry(scope, model.name, model_path(scope, model.name))
-        async with self._copy(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id) as copy:
             existing = await copy.read(entry.path)
             if existing is not None:
                 if existing == content:
@@ -140,7 +128,7 @@ class DataModelsService:
             if missing:
                 raise ModelGrammarError(missing)
             await copy.write(entry.path, content)
-            commit = await self._push(copy, f"Modèle de données {entry.path}", author)
+            commit = await self.branches.push(copy, f"Modèle de données {entry.path}", author)
         await self._event(workspace_id, CREATED_EVENT, author, entry, commit)
         log.info("modele_de_donnees_cree", workspace=workspace_id, path=entry.path)
         return entry, False
@@ -150,7 +138,7 @@ class DataModelsService:
     ) -> None:
         scope, name = _scope(scope), _name(name)
         entry = ModelEntry(scope, name, model_path(scope, name))
-        async with self._copy(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id) as copy:
             entries = await _entries(copy)
             if entry not in entries:
                 raise ModelNotFoundError(entry.path)
@@ -158,45 +146,9 @@ class DataModelsService:
             if users:
                 raise ModelInUseError(users)
             await copy.remove(entry.path)
-            commit = await self._push(copy, f"Suppression du modèle {entry.path}", author)
+            commit = await self.branches.push(copy, f"Suppression du modèle {entry.path}", author)
         await self._event(workspace_id, DELETED_EVENT, author, entry, commit)
         log.info("modele_de_donnees_supprime", workspace=workspace_id, path=entry.path)
-
-    @asynccontextmanager
-    async def _copy(self, workspace_id: str) -> AsyncIterator[WorkCopy]:
-        """Copie de la branche de travail, refus git traduits en refus du workspace."""
-        repo, connection_id, branch = await self._target(workspace_id)
-        try:
-            access = await self.resolver.for_connection(self.pool, connection_id)
-        except GitAccessError:
-            raise WorkspaceInputError("git_connection_id") from None
-        try:
-            async with checkout(repo, access, branch) as copy:
-                yield copy
-        except RepositoryAccessError as exc:
-            # Dépôt devenu inaccessible : on désigne l'accès, la branche reste intacte.
-            raise RepositoryUnavailableError(exc.reason.value) from None
-        except BranchMissingError:
-            raise WorkspaceConflictError("branche_de_travail_introuvable") from None
-
-    async def _target(self, workspace_id: str) -> tuple[Repository, str, str]:
-        workspace = await self.workspaces.resolve_get(workspace_id)
-        if workspace.repo_url is None or workspace.git_connection_id is None:
-            raise WorkspaceConflictError("depot_non_configure")
-        # Pas de branche implicite (critère 10) : sans branche de travail, rien à écrire.
-        if workspace.work_branch is None:
-            raise WorkspaceConflictError("branche_de_travail_absente")
-        try:
-            repo = parse_repository(workspace.repo_url, self.extra_git_hosts)
-        except RepositoryUrlError:
-            raise WorkspaceInputError("repo_url") from None
-        return repo, workspace.git_connection_id, workspace.work_branch
-
-    async def _push(self, copy: WorkCopy, message: str, author: EventAuthor) -> str:
-        try:
-            return await copy.commit_push(message, commit_author(author))
-        except BranchMovedError:
-            raise WorkspaceConflictError("branche_modifiee") from None
 
     async def _event(
         self,

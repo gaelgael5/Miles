@@ -13,6 +13,7 @@ import {
 import { ApiError } from "../api/http";
 import type { Workspace } from "../api/workspaces";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
+import { VersionsPanel } from "./VersionsPanel";
 
 type Detail = {
   code?: string;
@@ -210,6 +211,8 @@ export function DataModelsScreen({ workspace, onBack }: { workspace: Workspace; 
           </button>
         )}
       </div>
+      {/* En haut de l'atelier, comme sur toutes ses maquettes : figer ce qu'on vient d'écrire. */}
+      <VersionsPanel workspaceId={workspace.id} />
       {creating && <CreateForm workspaceId={workspace.id} onDone={() => setCreating(false)} />}
       {models.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
       {models.isError && <Refusal error={models.error} />}

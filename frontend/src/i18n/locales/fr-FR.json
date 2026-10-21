@@ -509,7 +509,42 @@
       "valeurs_textuelles_attendues": "les valeurs doivent être du texte (mettez on, off, yes, no entre guillemets)",
       "valeurs_en_double": "valeurs en double",
       "imbrication_trop_profonde": "listes imbriquées sur plus de {{detail}} niveaux",
-      "modele_inconnu": "le modèle « {{detail}} » n'existe pas"
+      "modele_inconnu": "le modèle « {{detail}} » n'existe pas",
+      "manifeste_absent": "manifest.json est absent",
+      "manifeste_invalide": "manifest.json est invalide",
+      "dossier_d_environnement": "dossier nommé comme un environnement : un environnement est une branche",
+      "emplacement_inattendu": "emplacement inattendu dans l'arborescence",
+      "nom_different_du_fichier": "le nom diffère de celui du fichier ({{detail}})",
+      "yaml_invalide": "YAML invalide ({{detail}})"
+    }
+  },
+  "versions": {
+    "title": "Versions de la branche de travail",
+    "save": "Enregistrer une version",
+    "submit": "Enregistrer la version",
+    "empty": "Aucune version enregistrée.",
+    "fields": {
+      "label": "Libellé"
+    },
+    "labelHelp": "Fige l'état courant de la branche de travail, après vérification de tout le paramétrage. Dites à quoi sert cette version : vous la relirez dans six mois.",
+    "number": "Version {{number}}",
+    "tree": "Arborescence du dépôt",
+    "restore": "Revenir à cette version",
+    "restored": "Retour à cette version, par un nouveau commit {{commit}}.",
+    "restoreConfirm": {
+      "title": "Revenir à la version {{number}} ?",
+      "body": "La branche de travail retrouve le contenu de « {{label}} » par un nouveau commit. Les versions suivantes restent, rien n'est effacé.",
+      "confirm": "Revenir à cette version"
+    },
+    "errors": {
+      "invalid": "Le paramétrage ne passe pas les règles : rien n'a été figé.",
+      "label": "Une version porte un libellé, sur une ligne, de 200 caractères au plus.",
+      "conflict": {
+        "rien_a_figer": "Rien n'a changé depuis la dernière version : rien à figer.",
+        "version_concurrente": "Une autre version a été enregistrée au même moment : rien n'a été figé. Réessayez.",
+        "deja_a_cette_version": "La branche de travail a déjà ce contenu."
+      },
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }
   }
 }

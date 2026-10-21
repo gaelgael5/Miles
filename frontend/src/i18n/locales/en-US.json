@@ -509,7 +509,42 @@
       "valeurs_textuelles_attendues": "values must be text (quote on, off, yes, no)",
       "valeurs_en_double": "duplicate values",
       "imbrication_trop_profonde": "lists nested deeper than {{detail}} levels",
-      "modele_inconnu": "model “{{detail}}” does not exist"
+      "modele_inconnu": "model “{{detail}}” does not exist",
+      "manifeste_absent": "manifest.json is missing",
+      "manifeste_invalide": "manifest.json is invalid",
+      "dossier_d_environnement": "folder named after an environment: an environment is a branch",
+      "emplacement_inattendu": "unexpected location in the layout",
+      "nom_different_du_fichier": "the name differs from the file name ({{detail}})",
+      "yaml_invalide": "invalid YAML ({{detail}})"
+    }
+  },
+  "versions": {
+    "title": "Versions of the work branch",
+    "save": "Save a version",
+    "submit": "Save the version",
+    "empty": "No version saved yet.",
+    "fields": {
+      "label": "Label"
+    },
+    "labelHelp": "Freezes the current state of the work branch, after checking the whole configuration. Say what this version is for: you will read it months from now.",
+    "number": "Version {{number}}",
+    "tree": "Repository layout",
+    "restore": "Return to this version",
+    "restored": "Back to this version, by a new commit {{commit}}.",
+    "restoreConfirm": {
+      "title": "Return to version {{number}}?",
+      "body": "The work branch gets back the content of “{{label}}” through a new commit. Later versions remain, nothing is erased.",
+      "confirm": "Return to this version"
+    },
+    "errors": {
+      "invalid": "The configuration does not pass the rules: nothing was frozen.",
+      "label": "A version needs a label, on one line, up to 200 characters.",
+      "conflict": {
+        "rien_a_figer": "Nothing changed since the last version: nothing to freeze.",
+        "version_concurrente": "Another version was saved at the same time: nothing was frozen. Try again.",
+        "deja_a_cette_version": "The work branch already has this content."
+      },
+      "unexpected": "The operation failed. See the back-office logs."
     }
   }
 }
