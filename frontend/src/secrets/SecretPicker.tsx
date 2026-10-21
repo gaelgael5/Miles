@@ -33,38 +33,47 @@ export function SecretPicker({ label, secretType, value, onChange }: SecretPicke
     value !== null && secrets.isSuccess && !known.some((secret) => secret.slug === value);
 
   return (
-    <div>
+    <div className="field">
       <label htmlFor={id}>{label}</label>
-      <select
-        id={id}
-        value={value ?? ""}
-        disabled={secrets.isPending}
-        onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
-      >
-        <option value="">{t("secrets.picker.none")}</option>
-        {known.map((secret) => (
-          <option key={secret.slug} value={secret.slug}>
-            {secret.label}
-          </option>
-        ))}
-        {orphan && <option value={value}>{t("secrets.picker.orphanOption", { slug: value })}</option>}
-      </select>
-      <button type="button" className="btn btn-secondary" onClick={() => setCreating(true)}>
-        {t("secrets.picker.createInline")}
-      </button>
+      <div className="field-row">
+        <select
+          id={id}
+          value={value ?? ""}
+          disabled={secrets.isPending}
+          onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+        >
+          <option value="">{t("secrets.picker.none")}</option>
+          {known.map((secret) => (
+            <option key={secret.slug} value={secret.slug}>
+              {secret.label}
+            </option>
+          ))}
+          {orphan && <option value={value}>{t("secrets.picker.orphanOption", { slug: value })}</option>}
+        </select>
+        <button type="button" className="btn btn-secondary" onClick={() => setCreating(true)}>
+          {t("secrets.picker.createInline")}
+        </button>
+      </div>
       {secrets.isError && <p className="alert" role="alert">{t("secrets.errors.unreachable")}</p>}
       {orphan && <p className="alert" role="alert">{t("secrets.picker.orphan", { slug: value })}</p>}
       {creating &&
         createPortal(
-          <div role="dialog" aria-modal="true" aria-label={t("secrets.create.title")}>
-            <SecretCreateForm
-              secretType={secretType}
-              onCreated={(secret) => {
-                setCreating(false);
-                onChange(secret.slug);
-              }}
-              onCancel={() => setCreating(false)}
-            />
+          <div className="overlay">
+            <div
+              className="dialog dialog-wide"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("secrets.create.title")}
+            >
+              <SecretCreateForm
+                secretType={secretType}
+                onCreated={(secret) => {
+                  setCreating(false);
+                  onChange(secret.slug);
+                }}
+                onCancel={() => setCreating(false)}
+              />
+            </div>
           </div>,
           document.body,
         )}
