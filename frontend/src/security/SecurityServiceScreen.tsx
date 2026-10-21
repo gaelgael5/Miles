@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PageHead } from "../layout/PageHead";
 import { invalidField } from "../api/http";
 import {
   type SecurityInput,
@@ -61,14 +62,14 @@ function SecurityForm({ service, onDone }: FormProps) {
   }
 
   return (
-    <form onSubmit={submit} aria-label={t(service ? "security.form.editTitle" : "security.form.newTitle")}>
+    <form className="card" onSubmit={submit} aria-label={t(service ? "security.form.editTitle" : "security.form.newTitle")}>
       {!service && (
-        <label>
+        <label className="field">
           {t("security.fields.id")}
           <input required value={id} onChange={(e) => setId(e.target.value)} />
         </label>
       )}
-      <label>
+      <label className="field">
         {t("security.fields.baseUrl")}
         <input
           required
@@ -78,11 +79,11 @@ function SecurityForm({ service, onDone }: FormProps) {
           onChange={(e) => set("base_url", e.target.value)}
         />
       </label>
-      <label>
+      <label className="field">
         {t("security.fields.realm")}
         <input required value={draft.realm} onChange={(e) => set("realm", e.target.value)} />
       </label>
-      <label>
+      <label className="field">
         {t("security.fields.clientId")}
         <input required value={draft.client_id} onChange={(e) => set("client_id", e.target.value)} />
       </label>
@@ -93,23 +94,26 @@ function SecurityForm({ service, onDone }: FormProps) {
         onChange={(slug) => set("client_secret_slug", slug ?? "")}
       />
       {dependents > 0 && (
-        <label role="alert">
+        <label className="field-check alert" role="alert">
           <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
           {t("security.form.dependents", { count: dependents })}
         </label>
       )}
-      {save.isError && <p role="alert">{t(errorKey(save.error))}</p>}
+      {save.isError && <p className="alert" role="alert">{t(errorKey(save.error))}</p>}
+      <div className="actions">
       <button
         type="submit"
+        className="btn btn-primary"
         disabled={save.isPending || needsConfirmation || draft.client_secret_slug === ""}
       >
         {t("security.form.save")}
       </button>
       {service && (
-        <button type="button" onClick={onDone}>
+        <button type="button" className="btn btn-secondary" onClick={onDone}>
           {t("security.form.cancel")}
         </button>
       )}
+      </div>
     </form>
   );
 }
@@ -124,24 +128,42 @@ function ServiceCard({ service }: { service: SecurityService }) {
     return <SecurityForm service={service} onDone={() => setEditing(false)} />;
   }
   return (
-    <div>
-      <p>
-        <strong>{service.id}</strong> — {service.kind} — {service.base_url} — realm{" "}
-        <code>{service.realm}</code> — {t("security.fields.clientId")} <code>{service.client_id}</code>
-      </p>
-      <p>{t("security.secretBy", { slug: service.client_secret_slug })}</p>
+    <div className="card">
+      <div className="row-title">{service.id}</div>
+      <div className="row-sub">
+        {service.kind} · {service.base_url}
+      </div>
+      <div className="row">
+        <div className="cell">
+          <div className="caption">{t("security.fields.realm")}</div>
+          <div className="value mono">{service.realm}</div>
+        </div>
+        <div className="cell">
+          <div className="caption">{t("security.fields.clientId")}</div>
+          <div className="value mono">{service.client_id}</div>
+        </div>
+        <div className="cell">
+          <div className="caption">{t("security.fields.clientSecret")}</div>
+          <div className="value">{t("security.secretBy", { slug: service.client_secret_slug })}</div>
+        </div>
+      </div>
       {/* La panne la plus structurante du dispositif : nommée, reconnaissable d'emblée. */}
-      <p role={outcome !== null && outcome !== "ok" ? "alert" : "status"}>
+      <p
+        className={outcome === "ok" ? "notice" : "alert"}
+        role={outcome !== null && outcome !== "ok" ? "alert" : "status"}
+      >
         {t(outcome === null ? "security.outcomes.unchecked" : `security.outcomes.${outcome}`, {
           id: service.id,
         })}
       </p>
-      <button type="button" disabled={verify.isPending} onClick={() => verify.mutate(undefined)}>
-        {t("security.verify")}
-      </button>
-      <button type="button" onClick={() => setEditing(true)}>
-        {t("security.edit")}
-      </button>
+      <div className="actions">
+        <button type="button" className="btn btn-primary" disabled={verify.isPending} onClick={() => verify.mutate(undefined)}>
+          {t("security.verify")}
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>
+          {t("security.edit")}
+        </button>
+      </div>
     </div>
   );
 }
@@ -153,10 +175,9 @@ export function SecurityServiceScreen() {
 
   return (
     <section aria-labelledby="security-title">
-      <h2 id="security-title">{t("security.title")}</h2>
-      <p>{t("security.intro")}</p>
-      {services.isPending && <p role="status">{t("security.loading")}</p>}
-      {services.isError && <p role="alert">{t("security.errors.unreachable")}</p>}
+      <PageHead id="security-title" title={t("security.title")} lead={t("security.intro")} />
+      {services.isPending && <p className="muted" role="status">{t("security.loading")}</p>}
+      {services.isError && <p className="alert" role="alert">{t("security.errors.unreachable")}</p>}
       {services.isSuccess && services.data.length === 0 && (
         <SecurityForm key="new" onDone={() => undefined} />
       )}

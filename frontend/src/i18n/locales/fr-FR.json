@@ -1,17 +1,24 @@
 {
   "app": {
-    "title": "Back-office Miles",
     "signedInAs": "Connecté en tant que {{username}}",
     "logout": "Se déconnecter",
     "nav": {
-      "home": "Accueil",
-      "secrets": "Secrets",
+      "workspaces": "Workspaces",
+      "security": "Service de sécurité",
+      "oidc": "Connecteurs OIDC",
       "cultures": "Cultures",
-      "oidc": "OIDC",
-      "security": "Sécurité",
-      "workspaces": "Workspaces"
+      "secrets": "Secrets",
+      "health": "État du service"
     },
-    "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé."
+    "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé.",
+    "brand": "Miles",
+    "sub": "Back-office",
+    "freshInstall": "Installation neuve",
+    "navigation": "Navigation principale",
+    "sections": {
+      "organisation": "Organisation",
+      "settings": "Réglages"
+    }
   },
   "health": {
     "title": "État du service",
@@ -22,7 +29,8 @@
     "databaseUp": "Base de données joignable",
     "databaseDown": "Base de données injoignable",
     "schema": "Version de schéma {{current}} sur {{expected}}",
-    "schemaNone": "Schéma jamais initialisé (version attendue {{expected}})"
+    "schemaNone": "Schéma jamais initialisé (version attendue {{expected}})",
+    "intro": "Base de données et schéma de cette installation du back-office."
   },
   "auth": {
     "loading": "Vérification de la session…",
@@ -103,7 +111,9 @@
       "relabel": "Renommer",
       "replace": "Remplacer la valeur",
       "replaceValue": "Remplacer la valeur",
-      "delete": "Supprimer"
+      "delete": "Supprimer",
+      "captionType": "Type",
+      "captionUsage": "Utilisation"
     },
     "errors": {
       "invalid": {
@@ -185,7 +195,8 @@
       "inactive": "Inactif",
       "edit": "Modifier",
       "delete": "Supprimer",
-      "recognizesAdmin": "reconnaît l'administrateur"
+      "recognizesAdmin": "reconnaît l'administrateur",
+      "captionState": "État"
     },
     "errors": {
       "issuerUnreachable": "Le fournisseur ne répond pas à cette adresse, ou pas comme un fournisseur OIDC. Rien n'a été enregistré.",
@@ -264,12 +275,17 @@
       "submit": "Tester les accès et créer",
       "cancel": "Annuler",
       "writesForReal": "Le test écrit vraiment : il crée la branche et le tag {{branch}}, pousse un commit, puis retire les deux. Sur un dépôt vide, Miles crée d'abord la branche main.",
-      "testing": "Essai des cinq droits avec la branche {{branch}}…"
+      "testing": "Essai des cinq droits avec la branche {{branch}}…",
+      "stepIdentity": "Identité",
+      "stepAccess": "Accès au dépôt",
+      "stepSecurity": "Service de sécurité"
     },
     "card": {
       "recheck": "Retester les accès",
       "securityService": "Service de sécurité : {{id}}",
-      "noSecurityService": "Aucun service de sécurité racine référencé : les écrans qui en ont besoin le diront."
+      "noSecurityService": "Aucun service de sécurité racine référencé : les écrans qui en ont besoin le diront.",
+      "captionSecurity": "Sécurité",
+      "captionWorkBranch": "Branche de travail"
     },
     "rights": {
       "lire": "Lire et récupérer",

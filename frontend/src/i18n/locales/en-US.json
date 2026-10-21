@@ -1,17 +1,24 @@
 {
   "app": {
-    "title": "Miles back-office",
     "signedInAs": "Signed in as {{username}}",
     "logout": "Sign out",
     "nav": {
-      "home": "Home",
-      "secrets": "Secrets",
+      "workspaces": "Workspaces",
+      "security": "Security service",
+      "oidc": "OIDC connectors",
       "cultures": "Cultures",
-      "oidc": "OIDC",
-      "security": "Security",
-      "workspaces": "Workspaces"
+      "secrets": "Secrets",
+      "health": "Service status"
     },
-    "noRights": "You are signed in through {{directory}}, but no right is granted to you yet."
+    "noRights": "You are signed in through {{directory}}, but no right is granted to you yet.",
+    "brand": "Miles",
+    "sub": "Back-office",
+    "freshInstall": "Fresh installation",
+    "navigation": "Main navigation",
+    "sections": {
+      "organisation": "Organisation",
+      "settings": "Settings"
+    }
   },
   "health": {
     "title": "Service status",
@@ -22,7 +29,8 @@
     "databaseUp": "Database reachable",
     "databaseDown": "Database unreachable",
     "schema": "Schema version {{current}} of {{expected}}",
-    "schemaNone": "Schema never initialised (expected version {{expected}})"
+    "schemaNone": "Schema never initialised (expected version {{expected}})",
+    "intro": "Database and schema of this back-office installation."
   },
   "auth": {
     "loading": "Checking your session…",
@@ -103,7 +111,9 @@
       "relabel": "Rename",
       "replace": "Replace the value",
       "replaceValue": "Replace the value",
-      "delete": "Delete"
+      "delete": "Delete",
+      "captionType": "Type",
+      "captionUsage": "Usage"
     },
     "errors": {
       "invalid": {
@@ -185,7 +195,8 @@
       "inactive": "Inactive",
       "edit": "Edit",
       "delete": "Delete",
-      "recognizesAdmin": "recognises the administrator"
+      "recognizesAdmin": "recognises the administrator",
+      "captionState": "State"
     },
     "errors": {
       "issuerUnreachable": "The provider does not answer at this address, or not as an OIDC provider. Nothing was saved.",
@@ -264,12 +275,17 @@
       "submit": "Test access and create",
       "cancel": "Cancel",
       "writesForReal": "The test writes for real: it creates the branch and tag {{branch}}, pushes a commit, then removes both. On an empty repository, Miles first creates the branch main.",
-      "testing": "Testing the five rights with the branch {{branch}}…"
+      "testing": "Testing the five rights with the branch {{branch}}…",
+      "stepIdentity": "Identity",
+      "stepAccess": "Repository access",
+      "stepSecurity": "Security service"
     },
     "card": {
       "recheck": "Test access again",
       "securityService": "Security service: {{id}}",
-      "noSecurityService": "No root security service referenced: screens that need it will say so."
+      "noSecurityService": "No root security service referenced: screens that need it will say so.",
+      "captionSecurity": "Security",
+      "captionWorkBranch": "Work branch"
     },
     "rights": {
       "lire": "Read and fetch",

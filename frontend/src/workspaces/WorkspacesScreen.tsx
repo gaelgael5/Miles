@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PageHead } from "../layout/PageHead";
 import { ApiError, invalidField } from "../api/http";
 import { useSecurityServices } from "../api/security";
 import {
@@ -72,16 +73,20 @@ function CreateForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={submit} aria-label={t("workspaces.form.title")}>
-      <label>
+    <form className="card" onSubmit={submit} aria-label={t("workspaces.form.title")}>
+      <div className="step">
+        <span className="step-number">1</span>
+        <h2>{t("workspaces.form.stepIdentity")}</h2>
+      </div>
+      <label className="field">
         {t("workspaces.fields.id")}
         <input required value={id} onChange={(e) => setId(e.target.value)} />
       </label>
-      <label>
+      <label className="field">
         {t("workspaces.fields.name")}
         <input required value={name} onChange={(e) => setName(e.target.value)} />
       </label>
-      <label>
+      <label className="field">
         {t("workspaces.fields.repoUrl")}
         <input
           required
@@ -91,6 +96,10 @@ function CreateForm({ onDone }: { onDone: () => void }) {
           onChange={(e) => setRepoUrl(e.target.value)}
         />
       </label>
+      <div className="step">
+        <span className="step-number">2</span>
+        <h2>{t("workspaces.form.stepAccess")}</h2>
+      </div>
       <SecretPicker
         label={t("workspaces.fields.gitSecret")}
         secretType="GIT_TOKEN"
@@ -106,7 +115,11 @@ function CreateForm({ onDone }: { onDone: () => void }) {
           onKeySlug={setKeySlug}
         />
       </fieldset>
-      <label>
+      <div className="step">
+        <span className="step-number">3</span>
+        <h2>{t("workspaces.form.stepSecurity")}</h2>
+      </div>
+      <label className="field">
         {t("workspaces.fields.securityService")}
         <select value={service} onChange={(e) => setService(e.target.value)}>
           <option value="">{t("workspaces.fields.noSecurityService")}</option>
@@ -117,18 +130,20 @@ function CreateForm({ onDone }: { onDone: () => void }) {
           ))}
         </select>
       </label>
-      <p>{t("workspaces.form.writesForReal", { branch: verificationBranch(suffix) })}</p>
+      <p className="alert">{t("workspaces.form.writesForReal", { branch: verificationBranch(suffix) })}</p>
       {create.isPending && (
-        <p role="status">{t("workspaces.form.testing", { branch: verificationBranch(suffix) })}</p>
+        <p className="muted" role="status">{t("workspaces.form.testing", { branch: verificationBranch(suffix) })}</p>
       )}
-      {create.isError && <p role="alert">{t(errorKey(create.error))}</p>}
+      {create.isError && <p className="alert" role="alert">{t(errorKey(create.error))}</p>}
       {refused && <AccessReportView report={refused} />}
-      <button type="submit" disabled={create.isPending || (secret === null && !withCertificate)}>
+      <div className="actions">
+      <button type="submit" className="btn btn-primary" disabled={create.isPending || (secret === null && !withCertificate)}>
         {t("workspaces.form.submit")}
       </button>
-      <button type="button" onClick={onDone}>
+      <button type="button" className="btn btn-secondary" onClick={onDone}>
         {t("workspaces.form.cancel")}
       </button>
+      </div>
     </form>
   );
 }
@@ -140,26 +155,43 @@ function WorkspaceCard({ workspace }: { workspace: Workspace }) {
   const report = recheck.data ?? workspace.last_check;
 
   return (
-    <li>
-      <strong>{workspace.name}</strong> <code>{workspace.id}</code> — {workspace.repo_url}
-      <p>
-        {workspace.security_service_id
-          ? t("workspaces.card.securityService", { id: workspace.security_service_id })
-          : t("workspaces.card.noSecurityService")}
-      </p>
-      <button
-        type="button"
-        disabled={recheck.isPending}
-        onClick={() => recheck.mutate(suffix, { onSettled: () => setSuffix(newVerificationSuffix()) })}
-      >
-        {t("workspaces.card.recheck")}
-      </button>
-      {recheck.isPending && (
-        <p role="status">{t("workspaces.form.testing", { branch: verificationBranch(suffix) })}</p>
-      )}
-      {report && <AccessReportView report={report} />}
-      <CertificatePanel workspace={workspace} />
-      <WorkBranchPanel workspace={workspace} />
+    <li className="row">
+      <div className="row-main">
+        <div className="row-title">{workspace.name}</div>
+        <div className="row-sub">
+          {workspace.id} · {workspace.repo_url}
+        </div>
+      </div>
+      <div className="cell">
+        <div className="caption">{t("workspaces.card.captionSecurity")}</div>
+        <div className="value">
+          {workspace.security_service_id
+            ? t("workspaces.card.securityService", { id: workspace.security_service_id })
+            : t("workspaces.card.noSecurityService")}
+        </div>
+      </div>
+      <div className="cell">
+        <div className="caption">{t("workspaces.card.captionWorkBranch")}</div>
+        <div className="value mono">{workspace.work_branch ?? "—"}</div>
+      </div>
+      <div className="actions row-actions">
+        <button
+          type="button"
+          className="btn btn-secondary"
+          disabled={recheck.isPending}
+          onClick={() => recheck.mutate(suffix, { onSettled: () => setSuffix(newVerificationSuffix()) })}
+        >
+          {t("workspaces.card.recheck")}
+        </button>
+      </div>
+      <div className="row-detail">
+        {recheck.isPending && (
+          <p className="muted" role="status">{t("workspaces.form.testing", { branch: verificationBranch(suffix) })}</p>
+        )}
+        {report && <AccessReportView report={report} />}
+        <CertificatePanel workspace={workspace} />
+        <WorkBranchPanel workspace={workspace} />
+      </div>
     </li>
   );
 }
@@ -172,20 +204,26 @@ export function WorkspacesScreen() {
 
   return (
     <section aria-labelledby="workspaces-title">
-      <h2 id="workspaces-title">{t("workspaces.title")}</h2>
-      <p>{t("workspaces.intro")}</p>
-      {creating ? (
-        <CreateForm onDone={() => setCreating(false)} />
-      ) : (
-        <button type="button" onClick={() => setCreating(true)}>
-          {t("workspaces.add")}
-        </button>
-      )}
-      {workspaces.isError && <p role="alert">{t("workspaces.errors.unreachable")}</p>}
+      <PageHead
+        id="workspaces-title"
+        title={t("workspaces.title")}
+        lead={t("workspaces.intro")}
+        action={
+          !creating && (
+            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+              {t("workspaces.add")}
+            </button>
+          )
+        }
+      />
+      {creating && <CreateForm onDone={() => setCreating(false)} />}
+      {workspaces.isError && <p className="alert" role="alert">{t("workspaces.errors.unreachable")}</p>}
       {workspaces.isSuccess && workspaces.data.length === 0 && <p>{t("workspaces.empty")}</p>}
-      <ul>
-        {workspaces.data?.map((w) => <WorkspaceCard key={w.id} workspace={w} />)}
-      </ul>
+      {(workspaces.data?.length ?? 0) > 0 && (
+        <ul className="card-list plain-list">
+          {workspaces.data?.map((w) => <WorkspaceCard key={w.id} workspace={w} />)}
+        </ul>
+      )}
     </section>
   );
 }

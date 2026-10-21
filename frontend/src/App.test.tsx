@@ -47,7 +47,7 @@ describe("App", () => {
 
     renderApp();
 
-    expect(await screen.findByRole("button", { name: "OIDC" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "OIDC connectors" })).toBeInTheDocument();
     expect(screen.queryByText(/no right/)).not.toBeInTheDocument();
   });
 
@@ -69,6 +69,6 @@ describe("App", () => {
 
     renderApp();
 
-    expect(await screen.findByRole("button", { name: "OIDC" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "OIDC connectors" })).toBeInTheDocument();
   });
 });

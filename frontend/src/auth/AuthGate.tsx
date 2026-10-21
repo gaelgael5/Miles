@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Me, useBootstrapStatus, useMe } from "../api/auth";
+import { Topbar } from "../layout/Topbar";
 import { BootstrapScreen } from "./BootstrapScreen";
 import { LoginScreen } from "./LoginScreen";
 
@@ -16,17 +17,28 @@ export function AuthGate({ children }: AuthGateProps) {
   const declared = status.data?.admin_declared === true;
   const me = useMe(declared);
 
+  if (me.data !== null && me.data !== undefined && declared) {
+    return <>{children(me.data)}</>;
+  }
+  // Hors portail (chargement, amorçage, connexion) : une colonne centrée, sans navigation.
+  let screen: ReactNode;
   if (status.isPending || (declared && me.isPending)) {
-    return <p role="status">{t("auth.loading")}</p>;
+    screen = <p className="muted" role="status">{t("auth.loading")}</p>;
+  } else if (status.isError || me.isError) {
+    screen = <p className="alert" role="alert">{t("auth.unreachable")}</p>;
+  } else if (!declared) {
+    screen = <BootstrapScreen />;
+  } else {
+    screen = <LoginScreen />;
   }
-  if (status.isError || me.isError) {
-    return <p role="alert">{t("auth.unreachable")}</p>;
-  }
-  if (!declared) {
-    return <BootstrapScreen />;
-  }
-  if (me.data === null || me.data === undefined) {
-    return <LoginScreen />;
-  }
-  return <>{children(me.data)}</>;
+  return (
+    <>
+      <Topbar>
+        {!declared && status.isSuccess && (
+          <span className="topbar-user">{t("app.freshInstall")}</span>
+        )}
+      </Topbar>
+      <div className="narrow">{screen}</div>
+    </>
+  );
 }

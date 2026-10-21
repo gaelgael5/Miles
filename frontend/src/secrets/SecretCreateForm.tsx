@@ -56,17 +56,17 @@ export function SecretCreateForm({ secretType, onCreated, onCancel }: SecretCrea
   }
 
   return (
-    <form onSubmit={submit} aria-label={t("secrets.create.title")}>
-      <label>
+    <form className="card" onSubmit={submit} aria-label={t("secrets.create.title")}>
+      <label className="field">
         {t("secrets.fields.label")}
         <input required value={label} onChange={(e) => setLabel(e.target.value)} />
       </label>
-      <label>
+      <label className="field">
         {t("secrets.fields.slug")}
         <input required value={slug} onChange={(e) => setEditedSlug(e.target.value)} />
       </label>
       {secretType === undefined ? (
-        <label>
+        <label className="field">
           {t("secrets.fields.type")}
           <select
             required
@@ -89,7 +89,7 @@ export function SecretCreateForm({ secretType, onCreated, onCancel }: SecretCrea
           })}
         </p>
       )}
-      <label>
+      <label className="field">
         {t("secrets.fields.value")}
         <input
           type="password"
@@ -100,13 +100,13 @@ export function SecretCreateForm({ secretType, onCreated, onCancel }: SecretCrea
         />
       </label>
       <p>{t("secrets.create.neverShownAgain")}</p>
-      {types.isError && <p role="alert">{t("secrets.errors.unreachable")}</p>}
-      {create.isError && <p role="alert">{t(errorKey(create.error))}</p>}
-      <button type="submit" disabled={create.isPending}>
+      {types.isError && <p className="alert" role="alert">{t("secrets.errors.unreachable")}</p>}
+      {create.isError && <p className="alert" role="alert">{t(errorKey(create.error))}</p>}
+      <button type="submit" className="btn btn-primary" disabled={create.isPending}>
         {t("secrets.create.submit")}
       </button>
       {onCancel && (
-        <button type="button" onClick={onCancel}>
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>
           {t("secrets.cancel")}
         </button>
       )}

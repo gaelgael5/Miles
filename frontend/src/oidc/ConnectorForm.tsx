@@ -85,12 +85,12 @@ function LabelField({
   const fallback = culture.code === FALLBACK;
   return (
     <>
-      <label>
+      <label className="field">
         {t("oidc.fields.labelIn", { culture: `${culture.code} — ${culture.label_native}` })}
         {fallback && ` ${t("oidc.form.fallbackLabel")}`}
         <input required={fallback} value={value} onChange={(e) => onChange(e.target.value)} />
       </label>
-      {duplicate && <p role="status">{t("oidc.form.duplicateLabel", { culture: culture.code })}</p>}
+      {duplicate && <p className="muted" role="status">{t("oidc.form.duplicateLabel", { culture: culture.code })}</p>}
     </>
   );
 }
@@ -123,9 +123,9 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
   }
 
   return (
-    <form onSubmit={submit} aria-label={t(connector ? "oidc.form.editTitle" : "oidc.form.newTitle")}>
+    <form className="card" onSubmit={submit} aria-label={t(connector ? "oidc.form.editTitle" : "oidc.form.newTitle")}>
       {connector === undefined && (
-        <label>
+        <label className="field">
           {t("oidc.fields.id")}
           <input required value={draft.id} onChange={(e) => set("id", e.target.value)} />
         </label>
@@ -144,7 +144,7 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
           />
         ))}
       </fieldset>
-      <label>
+      <label className="field">
         {t("oidc.fields.issuer")}
         <input
           required
@@ -154,7 +154,7 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
           onChange={(e) => set("issuer", e.target.value)}
         />
       </label>
-      <label>
+      <label className="field">
         {t("oidc.fields.clientId")}
         <input required value={draft.client_id} onChange={(e) => set("client_id", e.target.value)} />
       </label>
@@ -164,11 +164,11 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
         value={draft.client_secret_slug || null}
         onChange={(slug) => set("client_secret_slug", slug ?? "")}
       />
-      <label>
+      <label className="field">
         {t("oidc.fields.scopes")}
         <input required value={draft.scopes} onChange={(e) => set("scopes", e.target.value)} />
       </label>
-      <label>
+      <label className="field">
         {t("oidc.fields.groupsClaim")}
         <input
           required
@@ -176,7 +176,7 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
           onChange={(e) => set("groups_claim", e.target.value)}
         />
       </label>
-      <label>
+      <label className="field">
         {t("oidc.fields.displayNameClaim")}
         <input
           required
@@ -185,7 +185,7 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
         />
       </label>
       {/* Chaque case dit ce qu'elle accorde, pas seulement son nom (critère 6 de 02891f10). */}
-      <label>
+      <label className="field-check">
         <input
           type="checkbox"
           checked={draft.recognize_admin}
@@ -194,7 +194,7 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
         {t("oidc.fields.recognizeAdmin")}
       </label>
       <p>{t("oidc.form.recognizeAdminGrants")}</p>
-      <label>
+      <label className="field-check">
         <input
           type="checkbox"
           checked={draft.manage_associations}
@@ -203,7 +203,7 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
         {t("oidc.fields.manageAssociations")}
       </label>
       <p>{t("oidc.form.manageAssociationsGrants")}</p>
-      <label>
+      <label className="field-check">
         <input
           type="checkbox"
           checked={draft.active}
@@ -212,11 +212,11 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
         {t("oidc.fields.active")}
       </label>
       <p>{t("oidc.form.checkedOnSave")}</p>
-      {save.isError && <p role="alert">{t(errorKey(save.error))}</p>}
-      <button type="submit" disabled={save.isPending || draft.client_secret_slug === ""}>
+      {save.isError && <p className="alert" role="alert">{t(errorKey(save.error))}</p>}
+      <button type="submit" className="btn btn-primary" disabled={save.isPending || draft.client_secret_slug === ""}>
         {t("oidc.form.save")}
       </button>
-      <button type="button" onClick={onDone}>
+      <button type="button" className="btn btn-secondary" onClick={onDone}>
         {t("oidc.form.cancel")}
       </button>
     </form>

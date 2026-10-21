@@ -1,0 +1,176 @@
+/*
+ * Feuille de style du back-office, reprise des maquettes du cadrage (docflow terminal-pr,
+ * base « data-mockup-base v1 »). Les jetons sont ceux des maquettes, au nom près : les
+ * changer ici, c'est s'écarter du design validé — le refaire d'abord dans les maquettes.
+ */
+:root {
+  --fond: #f4f5f7;
+  --surface: #ffffff;
+  --surface-alt: #eef0f3;
+  --surface-douce: #fbfcfd;
+  --bordure: #dadde3;
+  --bordure-fine: #edeff2;
+  --bordure-carte: #e6e9ed;
+  --bordure-champ: #c3c9d2;
+  --encre: #1b1f26;
+  --encre-douce: #3a424f;
+  --encre-faible: #5a6372;
+  --accent: #1f5fa9;
+  --accent-fond: #edf2f9;
+  --accent-fonce: #164578;
+  --barre-faible: #9aa3b0;
+  --barre-tres-faible: #c7cdd6;
+  --barre-bouton: #2b3340;
+  --barre-bouton-bordure: #434c5c;
+  --danger: #7a1f1f;
+  --alerte-fond: #f7f3ea;
+  --alerte-bordure: #e3d6b8;
+  --alerte-encre: #6b4e12;
+  --succes-fond: #e8f1e9;
+  --succes-bordure: #bcd9c2;
+  --succes-encre: #155b33;
+  --succes-vif: #1e7a4c;
+  --avertissement: #8a5a00;
+  --police: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --police-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--police); color: var(--encre); background: var(--fond); }
+a { color: var(--accent); }
+a:hover { color: var(--accent-fonce); }
+code, .mono { font-family: var(--police-mono); font-size: 12.5px; }
+
+/* Ossature : barre supérieure, navigation latérale, contenu. */
+.shell { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar {
+  background: var(--encre); color: var(--surface); padding: 14px 28px;
+  display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+}
+.topbar-brand { font-weight: 700; font-size: 15px; letter-spacing: 0.01em; }
+.topbar-sub { font-size: 13px; color: var(--barre-faible); }
+.topbar-spacer { flex-grow: 1; }
+.topbar-user { font-size: 13px; color: var(--barre-tres-faible); }
+.topbar-button {
+  background: var(--barre-bouton); color: var(--surface); border: 1px solid var(--barre-bouton-bordure);
+  border-radius: 6px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.body { display: flex; flex-wrap: wrap; align-items: flex-start; flex-grow: 1; }
+.sidebar {
+  flex: 0 0 240px; background: var(--surface); border-right: 1px solid var(--bordure);
+  padding: 24px 0; align-self: stretch;
+}
+.sidebar-section {
+  padding: 24px 20px 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--encre-faible);
+}
+.sidebar-section:first-child { padding-top: 0; }
+.sidebar-link {
+  display: block; width: 100%; text-align: left; padding: 10px 20px; font: inherit; font-size: 14px;
+  color: var(--encre-douce); background: none; border: none; border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.sidebar-link[aria-current="page"] {
+  font-weight: 600; color: var(--encre); background: var(--accent-fond);
+  border-left-color: var(--accent);
+}
+.content { flex: 999 1 560px; min-width: 0; padding: 32px 36px 48px; }
+/* Écrans hors portail (amorçage, connexion) : une colonne centrée, sans navigation. */
+.narrow { max-width: 720px; margin: 0 auto; padding: 48px 24px; width: 100%; }
+
+/* En-tête de page : titre, chapeau, action principale. */
+.page-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 28px; }
+.page-head > div { flex: 999 1 300px; min-width: 0; }
+h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; }
+h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.lead { margin: 0; font-size: 14px; color: var(--encre-faible); }
+.section { margin-top: 36px; }
+
+/* Boutons. */
+.btn {
+  font: inherit; font-size: 14px; font-weight: 600; padding: 12px 20px; min-height: 44px;
+  border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary { background: var(--accent); color: var(--surface); border: none; }
+.btn-primary:hover { background: var(--accent-fonce); }
+.btn-secondary {
+  background: var(--surface); color: var(--encre-douce); border: 1px solid var(--bordure-champ);
+  font-weight: 500; font-size: 13px;
+}
+.btn-danger {
+  background: var(--surface); color: var(--danger); border: 1px solid var(--bordure-champ);
+  font-weight: 500; font-size: 13px;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-block { width: 100%; justify-content: center; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 20px; }
+
+/* Cartes et lignes de liste. */
+.card {
+  background: var(--surface); border: 1px solid var(--bordure); border-radius: 8px;
+  padding: 24px 26px; margin-bottom: 20px;
+}
+.card-list { background: var(--surface); border: 1px solid var(--bordure); border-radius: 8px; overflow: hidden; }
+.row {
+  display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 22px;
+  border-bottom: 1px solid var(--bordure-carte); align-items: flex-start;
+}
+.row:last-child { border-bottom: none; }
+.row-main { flex: 999 1 260px; min-width: 0; }
+.row-title { font-size: 16px; font-weight: 600; }
+.row-sub { margin-top: 6px; font-family: var(--police-mono); font-size: 12px; color: var(--encre-faible); }
+.cell { flex: 0 0 170px; }
+.caption {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--encre-faible); margin-bottom: 4px;
+}
+.value { font-size: 13px; }
+.muted { color: var(--encre-faible); font-size: 13px; }
+
+/* Formulaires. */
+.field { display: block; margin-bottom: 18px; font-size: 14px; font-weight: 600; }
+.field input, .field select, .field textarea {
+  display: block; width: 100%; margin-top: 8px; font-family: inherit; font-size: 14px;
+  font-weight: 400; padding: 10px 12px; min-height: 44px; border: 1px solid var(--bordure-champ);
+  border-radius: 6px; background: var(--surface); color: var(--encre);
+}
+.field textarea { font-family: var(--police-mono); font-size: 12.5px; }
+.field-check { display: flex; gap: 10px; align-items: center; font-size: 14px; margin-bottom: 6px; }
+.field-check input { width: 18px; height: 18px; }
+.help { margin: -10px 0 18px; font-size: 13px; color: var(--encre-faible); }
+fieldset { border: 1px solid var(--bordure-carte); border-radius: 6px; padding: 16px; margin: 0 0 18px; }
+legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
+.step { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+.step-number {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--surface);
+  font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Pastilles, alertes, comptes rendus. */
+.badge {
+  display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 4px;
+  border: 1px solid var(--bordure-champ); color: var(--encre-douce); background: var(--surface-alt);
+}
+.badge-success { background: var(--succes-fond); border-color: var(--succes-bordure); color: var(--succes-encre); }
+.badge-accent { background: var(--accent-fond); border-color: var(--accent); color: var(--accent-fonce); }
+.badge-warning { background: var(--alerte-fond); border-color: var(--alerte-bordure); color: var(--avertissement); }
+.alert {
+  background: var(--alerte-fond); border: 1px solid var(--alerte-bordure); border-radius: 8px;
+  padding: 13px 16px; font-size: 13px; color: var(--alerte-encre); margin: 12px 0;
+}
+.alert-danger { background: #fbefef; border-color: #e7c4c4; color: var(--danger); }
+.notice {
+  background: var(--succes-fond); border: 1px solid var(--succes-bordure); border-radius: 8px;
+  padding: 13px 16px; font-size: 13px; color: var(--succes-encre); margin: 12px 0;
+}
+.checks { list-style: none; margin: 8px 0; padding: 0; }
+.checks li { padding: 10px 0; border-bottom: 1px solid var(--bordure-fine); font-size: 14px; }
+.checks li.ok::before { content: "✓ "; color: var(--succes-vif); font-weight: 700; }
+.checks li.ko { color: var(--danger); }
+.checks li.ko::before { content: "✗ "; font-weight: 700; }
+.panel { background: var(--surface-douce); border: 1px solid var(--bordure-carte); border-radius: 8px; padding: 16px 18px; margin-top: 16px; }
+.plain-list { list-style: none; margin: 0; padding: 0; }
+.row-actions { margin-top: 0; }
+/* Ce qui se déplie sous une ligne (formulaire, compte rendu, panneaux) prend toute la largeur. */
+.row-detail { flex: 1 1 100%; min-width: 0; }

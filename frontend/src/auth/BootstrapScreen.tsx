@@ -43,17 +43,18 @@ export function BootstrapScreen() {
   const failure = bootstrap.isError ? errorKey(bootstrap.error) : null;
   return (
     <form onSubmit={submit} aria-labelledby="bootstrap-title">
-      <h2 id="bootstrap-title">{t("bootstrap.title")}</h2>
-      <p>{t("bootstrap.intro")}</p>
-      <label>
+      <h1 id="bootstrap-title">{t("bootstrap.title")}</h1>
+      <p className="lead">{t("bootstrap.intro")}</p>
+      <div className="card" style={{ marginTop: 24 }}>
+      <label className="field">
         {t("bootstrap.email")}
         <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       </label>
-      <label>
+      <label className="field">
         {t("bootstrap.username")}
         <input required value={username} onChange={(e) => setUsername(e.target.value)} />
       </label>
-      <label>
+      <label className="field">
         {t("bootstrap.password")}
         <input
           type="password"
@@ -63,7 +64,7 @@ export function BootstrapScreen() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </label>
-      <label>
+      <label className="field">
         {t("bootstrap.confirmation")}
         <input
           type="password"
@@ -73,12 +74,18 @@ export function BootstrapScreen() {
           onChange={(e) => setConfirmation(e.target.value)}
         />
       </label>
-      {mismatch && <p role="alert">{t("bootstrap.errors.mismatch")}</p>}
-      {failure && <p role="alert">{t(failure.key, failure.values)}</p>}
-      <p>{t("bootstrap.warning")}</p>
-      <button type="submit" disabled={mismatch || bootstrap.isPending}>
+      {mismatch && <p className="alert" role="alert">{t("bootstrap.errors.mismatch")}</p>}
+      {failure && <p className="alert" role="alert">{t(failure.key, failure.values)}</p>}
+      <button
+        type="submit"
+        className="btn btn-primary btn-block"
+        disabled={mismatch || bootstrap.isPending}
+      >
         {t("bootstrap.submit")}
       </button>
+      </div>
+      {/* Avertissement de la maquette : ce chemin ne s'ouvre qu'une fois, et se journalise. */}
+      <p className="alert">{t("bootstrap.warning")}</p>
     </form>
   );
 }

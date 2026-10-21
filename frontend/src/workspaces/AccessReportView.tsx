@@ -6,10 +6,10 @@ import type { AccessReport } from "../api/workspaces";
 export function AccessReportView({ report }: { report: AccessReport }) {
   const { t } = useTranslation();
   return (
-    <div>
-      <ul>
+    <div className="panel">
+      <ul className="checks">
         {report.checks.map((check) => (
-          <li key={check.right}>
+          <li key={check.right} className={check.ok ? "ok" : "ko"}>
             {t(`workspaces.rights.${check.right}`)} —{" "}
             {check.ok
               ? t("workspaces.check.ok")
@@ -25,10 +25,10 @@ export function AccessReportView({ report }: { report: AccessReport }) {
       )}
       {/* Jamais nettoyé en silence ni oublié : le nom exact, à supprimer à la main. */}
       {report.residual_branch && (
-        <p role="alert">{t("workspaces.check.residualBranch", { name: report.residual_branch })}</p>
+        <p className="alert" role="alert">{t("workspaces.check.residualBranch", { name: report.residual_branch })}</p>
       )}
       {report.residual_tag && (
-        <p role="alert">{t("workspaces.check.residualTag", { name: report.residual_tag })}</p>
+        <p className="alert" role="alert">{t("workspaces.check.residualTag", { name: report.residual_tag })}</p>
       )}
     </div>
   );

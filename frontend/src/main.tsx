@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
 import "./i18n/i18n";
+import "./styles/miles.css";
 
 const root = document.getElementById("root");
 if (root === null) {

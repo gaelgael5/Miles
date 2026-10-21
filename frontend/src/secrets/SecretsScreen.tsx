@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PageHead } from "../layout/PageHead";
 import { ApiError, invalidField } from "../api/http";
 import {
   type Consumer,
@@ -53,25 +54,39 @@ function SecretRow({ secret }: { secret: SecretSummary }) {
   }
 
   return (
-    <li>
-      <strong>{secret.label}</strong> <code>{secret.slug}</code> {secret.secret_type}{" "}
-      {t("secrets.list.usedBy", { count: secret.consumers.length })}
+    <li className="row">
+      <div className="row-main">
+        <div className="row-title">{secret.label}</div>
+        <div className="row-sub">{secret.slug}</div>
+      </div>
+      <div className="cell">
+        <div className="caption">{t("secrets.list.captionType")}</div>
+        <div className="value">
+          <span className="badge">{secret.secret_type}</span>
+        </div>
+      </div>
+      <div className="cell">
+        <div className="caption">{t("secrets.list.captionUsage")}</div>
+        <div className="value">{t("secrets.list.usedBy", { count: secret.consumers.length })}</div>
+      </div>
+      <div className="actions row-actions">
       {/* « Copier » copie le slug, jamais la valeur : le navigateur ne l'a d'ailleurs pas. */}
-      <button type="button" onClick={() => void navigator.clipboard?.writeText(secret.slug)}>
+      <button type="button" className="btn btn-secondary" onClick={() => void navigator.clipboard?.writeText(secret.slug)}>
         {t("secrets.list.copySlug")}
       </button>
-      <button type="button" onClick={() => open("relabel")}>
+      <button type="button" className="btn btn-secondary" onClick={() => open("relabel")}>
         {t("secrets.list.relabel")}
       </button>
-      <button type="button" onClick={() => open("replace")}>
+      <button type="button" className="btn btn-secondary" onClick={() => open("replace")}>
         {t("secrets.list.replaceValue")}
       </button>
-      <button type="button" onClick={() => remove.mutate(secret.slug)}>
+      <button type="button" className="btn btn-danger" onClick={() => remove.mutate(secret.slug)}>
         {t("secrets.list.delete")}
       </button>
+      </div>
       {mode !== "idle" && (
-        <form onSubmit={submit} aria-label={t(`secrets.list.${mode}`)}>
-          <label>
+        <form className="row-detail" onSubmit={submit} aria-label={t(`secrets.list.${mode}`)}>
+          <label className="field">
             {t(mode === "relabel" ? "secrets.fields.label" : "secrets.fields.newValue")}
             <input
               required
@@ -81,15 +96,15 @@ function SecretRow({ secret }: { secret: SecretSummary }) {
               onChange={(e) => setDraft(e.target.value)}
             />
           </label>
-          <button type="submit">{t("secrets.save")}</button>
-          <button type="button" onClick={() => open("idle")}>
+          <button type="submit" className="btn btn-primary">{t("secrets.save")}</button>
+          <button type="button" className="btn btn-secondary" onClick={() => open("idle")}>
             {t("secrets.cancel")}
           </button>
         </form>
       )}
-      {failed && <p role="alert">{t(mutationErrorKey(failed))}</p>}
+      {failed && <p className="alert" role="alert">{t(mutationErrorKey(failed))}</p>}
       {blockers !== null && (
-        <div role="alert">
+        <div className="alert" role="alert">
           <p>{t("secrets.errors.inUse")}</p>
           <ul>
             {blockers.map((c) => (
@@ -101,7 +116,7 @@ function SecretRow({ secret }: { secret: SecretSummary }) {
         </div>
       )}
       {remove.isError && blockers === null && (
-        <p role="alert">{t("secrets.errors.unexpected")}</p>
+        <p className="alert" role="alert">{t("secrets.errors.unexpected")}</p>
       )}
     </li>
   );
@@ -115,20 +130,26 @@ export function SecretsScreen() {
 
   return (
     <section aria-labelledby="secrets-title">
-      <h2 id="secrets-title">{t("secrets.title")}</h2>
-      <p>{t("secrets.intro")}</p>
-      {creating ? (
+      <PageHead
+        id="secrets-title"
+        title={t("secrets.title")}
+        lead={t("secrets.intro")}
+        action={
+          !creating && (
+            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+              {t("secrets.create.open")}
+            </button>
+          )
+        }
+      />
+      {creating && (
         <SecretCreateForm onCreated={() => setCreating(false)} onCancel={() => setCreating(false)} />
-      ) : (
-        <button type="button" onClick={() => setCreating(true)}>
-          {t("secrets.create.open")}
-        </button>
       )}
-      {secrets.isPending && <p role="status">{t("secrets.list.loading")}</p>}
-      {secrets.isError && <p role="alert">{t("secrets.errors.unreachable")}</p>}
+      {secrets.isPending && <p className="muted" role="status">{t("secrets.list.loading")}</p>}
+      {secrets.isError && <p className="alert" role="alert">{t("secrets.errors.unreachable")}</p>}
       {secrets.isSuccess && secrets.data.length === 0 && <p>{t("secrets.list.empty")}</p>}
       {secrets.isSuccess && secrets.data.length > 0 && (
-        <ul>
+        <ul className="card-list plain-list">
           {secrets.data.map((secret) => (
             <SecretRow key={secret.slug} secret={secret} />
           ))}

@@ -1,16 +1,17 @@
 import { useTranslation } from "react-i18next";
 
 import { useHealth } from "../api/health";
+import { PageHead } from "../layout/PageHead";
 
 export function HealthStatus() {
   const { t } = useTranslation();
   const { data, isPending, isError } = useHealth();
 
   if (isPending) {
-    return <p role="status">{t("health.loading")}</p>;
+    return <p className="muted" role="status">{t("health.loading")}</p>;
   }
   if (isError) {
-    return <p role="alert">{t("health.unreachable")}</p>;
+    return <p className="alert" role="alert">{t("health.unreachable")}</p>;
   }
   const schema =
     data.schema_version === null
@@ -21,14 +22,18 @@ export function HealthStatus() {
         });
   return (
     <section aria-labelledby="health-title">
-      <h2 id="health-title">{t("health.title")}</h2>
-      <p role={data.status === "ok" ? "status" : "alert"}>
-        {t(data.status === "ok" ? "health.ok" : "health.degraded")}
-      </p>
-      <ul>
-        <li>{t(data.database === "up" ? "health.databaseUp" : "health.databaseDown")}</li>
-        <li>{schema}</li>
-      </ul>
+      <PageHead id="health-title" title={t("health.title")} lead={t("health.intro")} />
+      <div className="card">
+        <p className={data.status === "ok" ? "notice" : "alert"} role={data.status === "ok" ? "status" : "alert"}>
+          {t(data.status === "ok" ? "health.ok" : "health.degraded")}
+        </p>
+        <ul className="checks">
+          <li className={data.database === "up" ? "ok" : "ko"}>
+            {t(data.database === "up" ? "health.databaseUp" : "health.databaseDown")}
+          </li>
+          <li className={data.schema_version === data.expected_schema_version ? "ok" : "ko"}>{schema}</li>
+        </ul>
+      </div>
     </section>
   );
 }

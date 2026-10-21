@@ -36,7 +36,7 @@ export function WorkBranchPanel({ workspace }: { workspace: Workspace }) {
   const diagnosis = diagnosisOf(open.error);
 
   if (workspace.work_branch !== null) {
-    return <p>{t("workspaces.work.current", { branch: workspace.work_branch })}</p>;
+    return <p className="muted">{t("workspaces.work.current", { branch: workspace.work_branch })}</p>;
   }
 
   function submit(event: FormEvent) {
@@ -45,19 +45,20 @@ export function WorkBranchPanel({ workspace }: { workspace: Workspace }) {
   }
 
   return (
-    <form onSubmit={submit} aria-label={t("workspaces.work.title")}>
-      <p>{t("workspaces.work.none")}</p>
-      <label>
+    <form className="panel" onSubmit={submit} aria-label={t("workspaces.work.title")}>
+      <h3>{t("workspaces.work.title")}</h3>
+      <p className="muted">{t("workspaces.work.none")}</p>
+      <label className="field">
         {t("workspaces.work.name")}
         <input required value={name} onChange={(e) => setName(e.target.value)} />
       </label>
-      <button type="submit" disabled={open.isPending}>
+      <button type="submit" className="btn btn-primary" disabled={open.isPending}>
         {t("workspaces.work.open")}
       </button>
-      {open.data?.outcome && <p role="status">{t(`workspaces.work.outcome.${open.data.outcome}`)}</p>}
-      {open.isError && <p role="alert">{t(errorKey(open.error))}</p>}
+      {open.data?.outcome && <p className="muted" role="status">{t(`workspaces.work.outcome.${open.data.outcome}`)}</p>}
+      {open.isError && <p className="alert" role="alert">{t(errorKey(open.error))}</p>}
       {diagnosis && (
-        <ul>
+        <ul className="alert">
           {diagnosis.manifest !== "valide" && (
             <li>{t(`workspaces.work.manifest.${diagnosis.manifest}`)}</li>
           )}

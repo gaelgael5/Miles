@@ -27,7 +27,7 @@ export function CertificateFields({
   const { t } = useTranslation();
   return (
     <>
-      <label>
+      <label className="field">
         {t("workspaces.cert.pem")}
         <textarea rows={4} value={certPem} onChange={(e) => onCertPem(e.target.value)} />
       </label>
@@ -75,11 +75,12 @@ export function CertificatePanel({ workspace }: { workspace: Workspace }) {
   }
 
   return (
-    <div>
+    <div className="panel">
+      <h3>{t("workspaces.cert.legend")}</h3>
       {expiry === null || days === null ? (
-        <p>{t("workspaces.cert.none")}</p>
+        <p className="muted">{t("workspaces.cert.none")}</p>
       ) : (
-        <p role={days < WARNING_DAYS ? "alert" : undefined}>
+        <p className={days < WARNING_DAYS ? "alert" : "muted"} role={days < WARNING_DAYS ? "alert" : undefined}>
           {t(days < 0 ? "workspaces.cert.expired" : "workspaces.cert.expires", {
             date: new Date(expiry).toLocaleDateString(),
             count: Math.max(days, 0),
@@ -94,14 +95,14 @@ export function CertificatePanel({ workspace }: { workspace: Workspace }) {
             onCertPem={setCertPem}
             onKeySlug={setKeySlug}
           />
-          <p>{t("workspaces.cert.testedFirst")}</p>
-          {replace.isError && <p role="alert">{t(errorKey(replace.error))}</p>}
-          <button type="submit" disabled={replace.isPending || keySlug === null || certPem === ""}>
+          <p className="help">{t("workspaces.cert.testedFirst")}</p>
+          {replace.isError && <p className="alert" role="alert">{t(errorKey(replace.error))}</p>}
+          <button type="submit" className="btn btn-primary" disabled={replace.isPending || keySlug === null || certPem === ""}>
             {t("workspaces.cert.save")}
           </button>
         </form>
       ) : (
-        <button type="button" onClick={() => setEditing(true)}>
+        <button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>
           {t(expiry ? "workspaces.cert.replace" : "workspaces.cert.add")}
         </button>
       )}

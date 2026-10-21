@@ -49,11 +49,11 @@ export function SecretPicker({ label, secretType, value, onChange }: SecretPicke
         ))}
         {orphan && <option value={value}>{t("secrets.picker.orphanOption", { slug: value })}</option>}
       </select>
-      <button type="button" onClick={() => setCreating(true)}>
+      <button type="button" className="btn btn-secondary" onClick={() => setCreating(true)}>
         {t("secrets.picker.createInline")}
       </button>
-      {secrets.isError && <p role="alert">{t("secrets.errors.unreachable")}</p>}
-      {orphan && <p role="alert">{t("secrets.picker.orphan", { slug: value })}</p>}
+      {secrets.isError && <p className="alert" role="alert">{t("secrets.errors.unreachable")}</p>}
+      {orphan && <p className="alert" role="alert">{t("secrets.picker.orphan", { slug: value })}</p>}
       {creating &&
         createPortal(
           <div role="dialog" aria-modal="true" aria-label={t("secrets.create.title")}>

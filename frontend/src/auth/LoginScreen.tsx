@@ -59,9 +59,9 @@ export function LoginScreen() {
   }
 
   return (
-    <form onSubmit={submit} aria-labelledby="login-title">
-      <h2 id="login-title">{t("login.title")}</h2>
-      <label>
+    <form className="card" onSubmit={submit} aria-labelledby="login-title">
+      <h1 id="login-title">{t("login.title")}</h1>
+      <label className="field">
         {t("login.username")}
         <input
           required
@@ -70,7 +70,7 @@ export function LoginScreen() {
           onChange={(e) => setUsername(e.target.value)}
         />
       </label>
-      <label>
+      <label className="field">
         {t("login.password")}
         <input
           type="password"
@@ -80,12 +80,12 @@ export function LoginScreen() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </label>
-      {login.isError && <p role="alert">{t(errorKey(login.error))}</p>}
-      <button type="submit" disabled={login.isPending}>
+      {login.isError && <p className="alert" role="alert">{t(errorKey(login.error))}</p>}
+      <button type="submit" className="btn btn-primary btn-block" disabled={login.isPending}>
         {t("login.submit")}
       </button>
       {oidcError && (
-        <p role="alert">
+        <p className="alert" role="alert">
           {t(`login.oidcErrors.${oidcError.code}`, {
             connector: failedLabel ?? oidcError.connector ?? "",
           })}
@@ -93,10 +93,10 @@ export function LoginScreen() {
       )}
       {/* Sans connecteur actif, la connexion locale reste seule : l'OIDC ne ferme rien. */}
       {connectors.isSuccess && connectors.data.length > 0 && (
-        <nav aria-label={t("login.oidcTitle")}>
-          <p>{t("login.oidcTitle")}</p>
+        <nav className="panel" aria-label={t("login.oidcTitle")}>
+          <h3>{t("login.oidcTitle")}</h3>
           {(activeCultures.data?.length ?? 0) > 1 && (
-            <label>
+            <label className="field">
               {t("login.culture")}
               <select
                 value={culture}
@@ -114,7 +114,11 @@ export function LoginScreen() {
             </label>
           )}
           {connectors.data.map((connector) => (
-            <a key={connector.id} href={startLoginUrl(connector.id)}>
+            <a
+              key={connector.id}
+              className="btn btn-secondary btn-block"
+              href={startLoginUrl(connector.id)}
+            >
               {connector.label}
             </a>
           ))}
