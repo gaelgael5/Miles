@@ -185,3 +185,5 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
   padding: 24px 26px; width: 100%; max-width: 480px; font-size: 14px;
 }
 .dialog-actions { justify-content: flex-end; }
+/* Retour d'un sous-écran vers sa liste. */
+.back { margin-bottom: 20px; }

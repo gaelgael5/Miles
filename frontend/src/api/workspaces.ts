@@ -18,11 +18,9 @@ export interface AccessReport {
 export interface Workspace {
   id: string;
   name: string;
-  repo_url: string;
-  git_secret_slug: string | null;
-  client_key_secret_slug: string | null;
-  /** Échéance du certificat client : un certificat expiré coupe l'accès sans autre signal. */
-  client_cert_not_after: string | null;
+  /** Absents tant que le dépôt n'est pas paramétré : un workspace se crée par son seul nom. */
+  repo_url: string | null;
+  git_connection_id: string | null;
   security_service_id: string | null;
   last_check: AccessReport | null;
   last_check_at: string | null;
@@ -38,18 +36,9 @@ export interface TreeDiagnosis {
   manifest: "absent" | "invalide" | "valide";
 }
 
-export interface CertificateInput {
-  cert_pem: string;
-  key_secret_slug: string;
-}
-
-export interface WorkspaceInput {
-  id: string;
-  name: string;
+export interface RepositoryInput {
+  git_connection_id: string;
   repo_url: string;
-  git_secret_slug: string | null;
-  client_certificate: CertificateInput | null;
-  security_service_id: string | null;
   verification_suffix: string;
 }
 
@@ -76,7 +65,7 @@ export function useWorkspaces() {
 export function useCreateWorkspace() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: WorkspaceInput) =>
+    mutationFn: (input: { id: string; name: string }) =>
       request<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify(input) }),
     onSuccess: () => client.invalidateQueries({ queryKey: KEY }),
   });
@@ -106,13 +95,33 @@ export function useOpenWorkBranch(id: string) {
   });
 }
 
-export function useReplaceCertificate(id: string) {
+function workspacePath(id: string, tail: string) {
+  return `/api/workspaces/${encodeURIComponent(id)}/${tail}`;
+}
+
+export function useSetRepository(id: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: CertificateInput & { verification_suffix: string }) =>
-      request<Workspace>(`/api/workspaces/${encodeURIComponent(id)}/client-certificate`, {
+    mutationFn: (input: RepositoryInput) =>
+      request<Workspace>(workspacePath(id, "repository"), {
         method: "PUT",
         body: JSON.stringify(input),
+      }),
+    // La connexion compte désormais ce workspace parmi ses utilisateurs.
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: KEY });
+      await client.invalidateQueries({ queryKey: ["git-connections"] });
+    },
+  });
+}
+
+export function useSetSecurityService(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (serviceId: string | null) =>
+      request<Workspace>(workspacePath(id, "security-service"), {
+        method: "PUT",
+        body: JSON.stringify({ security_service_id: serviceId }),
       }),
     onSuccess: () => client.invalidateQueries({ queryKey: KEY }),
   });

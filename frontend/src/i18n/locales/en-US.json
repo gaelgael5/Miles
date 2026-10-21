@@ -8,7 +8,9 @@
       "oidc": "OIDC connectors",
       "cultures": "Cultures",
       "secrets": "Secrets",
-      "health": "Service status"
+      "health": "Service status",
+      "gitConnections": "Git connections",
+      "certificates": "Certificates"
     },
     "noRights": "You are signed in through {{directory}}, but no right is granted to you yet.",
     "brand": "Miles",
@@ -266,33 +268,30 @@
   },
   "workspaces": {
     "title": "Workspaces",
-    "intro": "One workspace per business application, with its git repository. Before creating it, Miles really tries the five rights it needs on the repository.",
+    "intro": "One workspace per business application. It is created by its name; its git repository, access and security service are set afterwards in its settings.",
     "add": "Create a workspace",
     "empty": "No workspace yet.",
     "fields": {
       "id": "Identifier",
       "name": "Name",
-      "repoUrl": "GitHub repository",
-      "gitSecret": "Repository access token",
       "securityService": "Root security service",
       "noSecurityService": "— None for now —"
     },
     "form": {
       "title": "New workspace",
-      "submit": "Test access and create",
+      "submit": "Create the workspace",
       "cancel": "Cancel",
-      "writesForReal": "The test writes for real: it creates the branch and tag {{branch}}, pushes a commit, then removes both. On an empty repository, Miles first creates the branch main.",
-      "testing": "Testing the five rights with the branch {{branch}}…",
-      "stepIdentity": "Identity",
-      "stepAccess": "Repository access",
-      "stepSecurity": "Security service"
+      "idHelp": "Derived from the name; editable before creation.",
+      "writesForReal": "The test really writes: it creates the branch and tag {{branch}}, pushes a commit, then removes both. On an empty repository, Miles first creates the main branch.",
+      "testing": "Testing the five rights with branch {{branch}}…"
     },
     "card": {
       "recheck": "Test access again",
-      "securityService": "Security service: {{id}}",
-      "noSecurityService": "No root security service referenced: screens that need it will say so.",
+      "captionRepository": "Repository",
+      "noRepository": "Repository to set up",
       "captionSecurity": "Security",
-      "captionWorkBranch": "Work branch"
+      "captionWorkBranch": "Work branch",
+      "settings": "Settings"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -323,18 +322,22 @@
         "id": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes.",
         "name": "Name: 1 to 200 characters.",
         "repo_url": "Repository: an address like https://github.com/organisation/repository.",
-        "git_secret_slug": "Choose an access token: at least one means of access is required.",
+        "git_connection_id": "This connection does not exist, or its access is unusable.",
         "security_service_id": "This security service does not exist.",
-        "suffix": "Invalid verification name."
+        "verification_suffix": "Invalid verification name."
       },
       "conflict": {
         "identifiant_pris": "This identifier is already used by another workspace.",
         "depot_deja_associe": "This repository already belongs to another workspace.",
-        "identifiant_ou_depot_pris": "The identifier or the repository was taken meanwhile."
+        "depot_non_configure": "Save a repository first.",
+        "branche_de_travail_existante": "A work branch is open: the repository can no longer change."
       },
-      "accessRefused": "Access to the repository is insufficient: the workspace was not created.",
+      "accessRefused": "Repository access is insufficient: nothing was saved.",
       "unreachable": "Workspaces could not be loaded.",
-      "unexpected": "The operation failed. See the back-office logs."
+      "unexpected": "The operation failed. See the back-office logs.",
+      "reasons": {
+        "hors_connexion": "This repository is not under the chosen connection's address."
+      }
     },
     "work": {
       "title": "Work branch",
@@ -366,25 +369,147 @@
         "echec": "The repository refused the operation."
       }
     },
-    "cert": {
-      "legend": "Client certificate (when the forge requires mTLS)",
+    "settings": {
+      "title": "Settings — {{name}}",
+      "back": "← Back to workspaces",
+      "repoTitle": "Git repository",
+      "connection": "Git connection",
+      "noConnection": "— Pick a connection —",
+      "noConnections": "No git connection declared: declare one in the Git connections menu.",
+      "repoUrl": "Repository",
+      "repoHelp": "The repository must live under {{base}}.",
+      "saveRepo": "Test access and save",
+      "current": "Repository saved: {{url}} (connection {{connection}}).",
+      "lockedByWorkBranch": "The repository can no longer change: a work branch is open in it.",
+      "securityTitle": "Security service",
+      "saveSecurity": "Save",
+      "saved": "Saved.",
+      "needsRepository": "Save a repository first: the work branch opens in it."
+    }
+  },
+  "certificates": {
+    "title": "Client certificates",
+    "intro": "Certificates Miles presents to git forges that require mTLS. The private key is an instance secret, never shown again; git connections pick their certificate here.",
+    "add": "Add a certificate",
+    "empty": "No certificate declared.",
+    "loading": "Loading certificates…",
+    "fields": {
+      "label": "Label",
+      "id": "Identifier",
       "pem": "Certificate (PEM)",
-      "key": "Certificate private key",
-      "none": "No client certificate.",
-      "add": "Add a client certificate",
-      "replace": "Replace the client certificate",
-      "save": "Test and replace",
-      "testedFirst": "The new certificate replaces the old one only if the five rights pass with it.",
-      "expires_one": "Client certificate expires on {{date}} ({{count}} day left).",
-      "expires_other": "Client certificate expires on {{date}} ({{count}} days left).",
-      "expired": "The client certificate expired on {{date}}: the repository refuses access.",
-      "errors": {
+      "key": "Certificate private key"
+    },
+    "form": {
+      "newTitle": "New certificate",
+      "replaceTitle": "Replace certificate “{{label}}”",
+      "submit": "Save the certificate",
+      "replaceSubmit": "Test and replace",
+      "cancel": "Cancel",
+      "testedFirst": "The new certificate replaces the old one only if every workspace using it keeps its five rights."
+    },
+    "list": {
+      "captionExpiry": "Expiry",
+      "captionUsage": "Usage",
+      "usedBy_one": "{{count}} connection",
+      "usedBy_other": "{{count}} connections",
+      "expires_one": "{{date}} ({{count}} day left)",
+      "expires_other": "{{date}} ({{count}} days left)",
+      "expired": "Expired on {{date}}",
+      "replace": "Replace",
+      "delete": "Delete"
+    },
+    "deleteConfirm": {
+      "title": "Delete this certificate?",
+      "body": "The certificate “{{label}}” will be deleted; its private key remains an instance secret.",
+      "confirm": "Delete permanently"
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes.",
+        "label": "Label: 1 to 200 characters.",
+        "cert_pem": "Unreadable certificate (PEM expected).",
+        "key_secret_slug": "Pick a private key of type “git client certificate private key”.",
+        "verification_suffix": "Invalid verification name."
+      },
+      "reasons": {
         "expire": "This certificate has already expired.",
         "ne_correspond_pas": "The chosen key does not match this certificate.",
-        "illisible": "The certificate or its key cannot be read (PEM expected).",
-        "au_moins_un_acces": "Give an access token, a client certificate, or both.",
-        "access": "Access with this certificate fails: the old certificate is kept."
-      }
+        "illisible": "The certificate or its key is unreadable (PEM expected)."
+      },
+      "conflict": {
+        "identifiant_pris": "This identifier is already used by another certificate."
+      },
+      "inUse": "This certificate is used by the connections: {{list}}. Change them first.",
+      "access": "Workspace {{workspace}} would lose access to its repository ({{reason}}): nothing was replaced.",
+      "outside": "The repository of workspace {{workspace}} would no longer be reachable.",
+      "unreachable": "Unable to load certificates.",
+      "unexpected": "The operation failed. See the back-office logs."
+    }
+  },
+  "gitConnections": {
+    "title": "Git connections",
+    "intro": "Connections to git forges: the address of the forge or of an organisation, and the means of access — a PAT, a client certificate, or both. Each workspace picks its own in its settings.",
+    "add": "Add a connection",
+    "empty": "No connection declared.",
+    "loading": "Loading connections…",
+    "fields": {
+      "label": "Label",
+      "id": "Identifier",
+      "baseUrl": "Forge or organisation address",
+      "token": "PAT (access token)",
+      "certificate": "Client certificate",
+      "noCertificate": "— No certificate —"
+    },
+    "form": {
+      "newTitle": "New connection",
+      "editTitle": "Edit connection “{{label}}”",
+      "submit": "Save the connection",
+      "saveEdit": "Save",
+      "cancel": "Cancel",
+      "access": "Means of access",
+      "atLeastOne": "A PAT, a certificate, or both: at least one of them.",
+      "baseUrlHelp": "Workspace repositories must live under this address.",
+      "testedFirst_one": "{{count}} workspace uses this connection: an address or access change is tested on it first, and applied only if it keeps its five rights.",
+      "testedFirst_other": "{{count}} workspaces use this connection: an address or access change is tested on each first, and applied only if they all keep their five rights."
+    },
+    "list": {
+      "captionAccess": "Access",
+      "captionUsage": "Workspaces",
+      "pat": "PAT",
+      "certificate": "Certificate",
+      "usedBy_one": "{{count}} workspace",
+      "usedBy_other": "{{count}} workspaces",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "deleteConfirm": {
+      "title": "Delete this connection?",
+      "body": "The connection “{{label}}” will be deleted; its PAT and certificate remain declared.",
+      "confirm": "Delete permanently"
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes.",
+        "label": "Label: 1 to 200 characters.",
+        "base_url": "Address: https://github.com or https://github.com/organisation, without a repository.",
+        "token_secret_slug": "This PAT does not exist or is not a git token.",
+        "certificate_id": "This certificate does not exist.",
+        "verification_suffix": "Invalid verification name."
+      },
+      "reasons": {
+        "au_moins_un_acces": "Pick a PAT, a certificate, or both.",
+        "expire": "The chosen certificate has expired.",
+        "ne_correspond_pas": "The certificate key no longer matches it.",
+        "illisible": "The chosen certificate is unreadable."
+      },
+      "conflict": {
+        "identifiant_pris": "This identifier is already used by another connection."
+      },
+      "inUse": "This connection is used by the workspaces: {{list}}.",
+      "access": "Workspace {{workspace}} would lose access to its repository ({{reason}}): nothing was changed.",
+      "outside": "The repository of workspace {{workspace}} would no longer be under this address: nothing was changed.",
+      "unreachable": "Unable to load connections.",
+      "unexpected": "The operation failed. See the back-office logs."
     }
   }
 }

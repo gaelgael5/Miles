@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 
 import { type Me, useLogout } from "./api/auth";
 import { AuthGate } from "./auth/AuthGate";
+import { CertificatesScreen } from "./certificates/CertificatesScreen";
 import { CulturesScreen } from "./cultures/CulturesScreen";
+import { GitConnectionsScreen } from "./gitConnections/GitConnectionsScreen";
 import { HealthStatus } from "./health/HealthStatus";
 import { Topbar } from "./layout/Topbar";
 import { ConnectorsScreen } from "./oidc/ConnectorsScreen";
@@ -11,16 +13,35 @@ import { SecretsScreen } from "./secrets/SecretsScreen";
 import { SecurityServiceScreen } from "./security/SecurityServiceScreen";
 import { WorkspacesScreen } from "./workspaces/WorkspacesScreen";
 
-type Page = "workspaces" | "security" | "oidc" | "cultures" | "secrets" | "health";
+type Page =
+  | "workspaces"
+  | "security"
+  | "gitConnections"
+  | "certificates"
+  | "oidc"
+  | "cultures"
+  | "secrets"
+  | "health";
 // Sections de la navigation des maquettes : l'organisation d'abord, les réglages ensuite.
 // Seuls figurent les écrans livrés ; parc, comptes et environnements viendront avec leurs tickets.
 const SECTIONS: { title: string; pages: Page[] }[] = [
   { title: "organisation", pages: ["workspaces"] },
-  { title: "settings", pages: ["security", "oidc", "cultures", "secrets", "health"] },
+  { title: "settings", pages: [
+      "security",
+      "gitConnections",
+      "certificates",
+      "oidc",
+      "cultures",
+      "secrets",
+      "health",
+    ],
+   },
 ];
 const SCREENS: Record<Page, () => JSX.Element> = {
   workspaces: WorkspacesScreen,
   security: SecurityServiceScreen,
+  gitConnections: GitConnectionsScreen,
+  certificates: CertificatesScreen,
   oidc: ConnectorsScreen,
   cultures: CulturesScreen,
   secrets: SecretsScreen,

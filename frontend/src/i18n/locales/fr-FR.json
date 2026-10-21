@@ -8,7 +8,9 @@
       "oidc": "Connecteurs OIDC",
       "cultures": "Cultures",
       "secrets": "Secrets",
-      "health": "État du service"
+      "health": "État du service",
+      "gitConnections": "Connexions git",
+      "certificates": "Certificats"
     },
     "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé.",
     "brand": "Miles",
@@ -266,33 +268,30 @@
   },
   "workspaces": {
     "title": "Workspaces",
-    "intro": "Un workspace par application métier, avec son dépôt git. Avant de le créer, Miles éprouve réellement sur le dépôt les cinq droits dont il a besoin.",
+    "intro": "Un workspace par application métier. Il se crée par son nom ; son dépôt git, son accès et son service de sécurité se règlent ensuite dans son paramétrage.",
     "add": "Créer un workspace",
     "empty": "Aucun workspace pour l'instant.",
     "fields": {
       "id": "Identifiant",
       "name": "Nom",
-      "repoUrl": "Dépôt GitHub",
-      "gitSecret": "Jeton d'accès au dépôt",
       "securityService": "Service de sécurité racine",
       "noSecurityService": "— Aucun pour l'instant —"
     },
     "form": {
       "title": "Nouveau workspace",
-      "submit": "Tester les accès et créer",
+      "submit": "Créer le workspace",
       "cancel": "Annuler",
+      "idHelp": "Déduit du nom ; modifiable avant la création.",
       "writesForReal": "Le test écrit vraiment : il crée la branche et le tag {{branch}}, pousse un commit, puis retire les deux. Sur un dépôt vide, Miles crée d'abord la branche main.",
-      "testing": "Essai des cinq droits avec la branche {{branch}}…",
-      "stepIdentity": "Identité",
-      "stepAccess": "Accès au dépôt",
-      "stepSecurity": "Service de sécurité"
+      "testing": "Essai des cinq droits avec la branche {{branch}}…"
     },
     "card": {
       "recheck": "Retester les accès",
-      "securityService": "Service de sécurité : {{id}}",
-      "noSecurityService": "Aucun service de sécurité racine référencé : les écrans qui en ont besoin le diront.",
+      "captionRepository": "Dépôt",
+      "noRepository": "Dépôt à paramétrer",
       "captionSecurity": "Sécurité",
-      "captionWorkBranch": "Branche de travail"
+      "captionWorkBranch": "Branche de travail",
+      "settings": "Paramétrer"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -323,18 +322,22 @@
         "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
         "name": "Nom : 1 à 200 caractères.",
         "repo_url": "Dépôt : une adresse de la forme https://github.com/organisation/depot.",
-        "git_secret_slug": "Choisissez un jeton d'accès : au moins un moyen d'accès est requis.",
+        "git_connection_id": "Cette connexion n'existe pas, ou son accès est inutilisable.",
         "security_service_id": "Ce service de sécurité n'existe pas.",
-        "suffix": "Nom de vérification invalide."
+        "verification_suffix": "Nom de vérification invalide."
       },
       "conflict": {
         "identifiant_pris": "Cet identifiant est déjà pris par un autre workspace.",
         "depot_deja_associe": "Ce dépôt appartient déjà à un autre workspace.",
-        "identifiant_ou_depot_pris": "L'identifiant ou le dépôt a été pris entre-temps."
+        "depot_non_configure": "Enregistrez d'abord un dépôt.",
+        "branche_de_travail_existante": "Une branche de travail est ouverte : le dépôt ne peut plus changer."
       },
-      "accessRefused": "L'accès au dépôt est insuffisant : le workspace n'a pas été créé.",
+      "accessRefused": "L'accès au dépôt est insuffisant : rien n'a été enregistré.",
       "unreachable": "Impossible de charger les workspaces.",
-      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office.",
+      "reasons": {
+        "hors_connexion": "Ce dépôt n'est pas sous l'adresse de la connexion choisie."
+      }
     },
     "work": {
       "title": "Branche de travail",
@@ -366,25 +369,147 @@
         "echec": "Le dépôt a refusé l'opération."
       }
     },
-    "cert": {
-      "legend": "Certificat client (quand la forge exige le mTLS)",
+    "settings": {
+      "title": "Paramétrage — {{name}}",
+      "back": "← Retour aux workspaces",
+      "repoTitle": "Dépôt git",
+      "connection": "Connexion git",
+      "noConnection": "— Choisir une connexion —",
+      "noConnections": "Aucune connexion git déclarée : déclarez-en une dans le menu Connexions git.",
+      "repoUrl": "Dépôt",
+      "repoHelp": "Le dépôt doit se trouver sous {{base}}.",
+      "saveRepo": "Tester les accès et enregistrer",
+      "current": "Dépôt enregistré : {{url}} (connexion {{connection}}).",
+      "lockedByWorkBranch": "Le dépôt ne peut plus changer : une branche de travail y est ouverte.",
+      "securityTitle": "Service de sécurité",
+      "saveSecurity": "Enregistrer",
+      "saved": "Enregistré.",
+      "needsRepository": "Enregistrez d'abord un dépôt : la branche de travail s'y ouvre."
+    }
+  },
+  "certificates": {
+    "title": "Certificats clients",
+    "intro": "Certificats que Miles présente aux forges git qui exigent le mTLS. La clé privée est un secret de l'instance, jamais restituée ; les connexions git choisissent ici leur certificat.",
+    "add": "Ajouter un certificat",
+    "empty": "Aucun certificat déclaré.",
+    "loading": "Chargement des certificats…",
+    "fields": {
+      "label": "Libellé",
+      "id": "Identifiant",
       "pem": "Certificat (PEM)",
-      "key": "Clé privée du certificat",
-      "none": "Pas de certificat client.",
-      "add": "Ajouter un certificat client",
-      "replace": "Remplacer le certificat client",
-      "save": "Tester et remplacer",
-      "testedFirst": "Le nouveau certificat ne remplace l'ancien que si les cinq droits passent avec lui.",
-      "expires_one": "Le certificat client expire le {{date}} (encore {{count}} jour).",
-      "expires_other": "Le certificat client expire le {{date}} (encore {{count}} jours).",
-      "expired": "Le certificat client a expiré le {{date}} : le dépôt refuse l'accès.",
-      "errors": {
+      "key": "Clé privée du certificat"
+    },
+    "form": {
+      "newTitle": "Nouveau certificat",
+      "replaceTitle": "Remplacer le certificat « {{label}} »",
+      "submit": "Enregistrer le certificat",
+      "replaceSubmit": "Tester et remplacer",
+      "cancel": "Annuler",
+      "testedFirst": "Le nouveau certificat ne remplace l'ancien que si chaque workspace qui s'en sert garde ses cinq droits avec lui."
+    },
+    "list": {
+      "captionExpiry": "Échéance",
+      "captionUsage": "Utilisation",
+      "usedBy_one": "{{count}} connexion",
+      "usedBy_other": "{{count}} connexions",
+      "expires_one": "{{date}} (encore {{count}} jour)",
+      "expires_other": "{{date}} (encore {{count}} jours)",
+      "expired": "Expiré le {{date}}",
+      "replace": "Remplacer",
+      "delete": "Supprimer"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer ce certificat ?",
+      "body": "Le certificat « {{label}} » sera supprimé ; sa clé privée reste un secret de l'instance.",
+      "confirm": "Supprimer définitivement"
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
+        "label": "Libellé : 1 à 200 caractères.",
+        "cert_pem": "Certificat illisible (PEM attendu).",
+        "key_secret_slug": "Choisissez une clé privée de type « clé privée du certificat client git ».",
+        "verification_suffix": "Nom de vérification invalide."
+      },
+      "reasons": {
         "expire": "Ce certificat a déjà expiré.",
         "ne_correspond_pas": "La clé choisie ne va pas avec ce certificat.",
-        "illisible": "Le certificat ou sa clé est illisible (PEM attendu).",
-        "au_moins_un_acces": "Donnez un jeton d'accès, un certificat client, ou les deux.",
-        "access": "L'accès avec ce certificat échoue : l'ancien certificat est conservé."
-      }
+        "illisible": "Le certificat ou sa clé est illisible (PEM attendu)."
+      },
+      "conflict": {
+        "identifiant_pris": "Cet identifiant est déjà pris par un autre certificat."
+      },
+      "inUse": "Ce certificat est utilisé par les connexions : {{list}}. Changez-les d'abord.",
+      "access": "Le workspace {{workspace}} perdrait l'accès à son dépôt ({{reason}}) : rien n'a été remplacé.",
+      "outside": "Le dépôt du workspace {{workspace}} ne serait plus accessible.",
+      "unreachable": "Impossible de charger les certificats.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    }
+  },
+  "gitConnections": {
+    "title": "Connexions git",
+    "intro": "Connexions aux forges git : l'adresse de la forge ou d'une organisation, et le moyen d'accès — un PAT, un certificat client, ou les deux. Chaque workspace choisit la sienne dans son paramétrage.",
+    "add": "Ajouter une connexion",
+    "empty": "Aucune connexion déclarée.",
+    "loading": "Chargement des connexions…",
+    "fields": {
+      "label": "Libellé",
+      "id": "Identifiant",
+      "baseUrl": "Adresse de la forge ou de l'organisation",
+      "token": "PAT (jeton d'accès)",
+      "certificate": "Certificat client",
+      "noCertificate": "— Aucun certificat —"
+    },
+    "form": {
+      "newTitle": "Nouvelle connexion",
+      "editTitle": "Modifier la connexion « {{label}} »",
+      "submit": "Enregistrer la connexion",
+      "saveEdit": "Enregistrer",
+      "cancel": "Annuler",
+      "access": "Moyen d'accès",
+      "atLeastOne": "Un PAT, un certificat, ou les deux : au moins l'un des deux.",
+      "baseUrlHelp": "Les dépôts des workspaces devront se trouver sous cette adresse.",
+      "testedFirst_one": "{{count}} workspace utilise cette connexion : un changement d'adresse ou d'accès y est d'abord éprouvé, et n'est appliqué que s'il garde ses cinq droits.",
+      "testedFirst_other": "{{count}} workspaces utilisent cette connexion : un changement d'adresse ou d'accès est d'abord éprouvé sur chacun, et n'est appliqué que s'ils gardent tous leurs cinq droits."
+    },
+    "list": {
+      "captionAccess": "Accès",
+      "captionUsage": "Workspaces",
+      "pat": "PAT",
+      "certificate": "Certificat",
+      "usedBy_one": "{{count}} workspace",
+      "usedBy_other": "{{count}} workspaces",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer cette connexion ?",
+      "body": "La connexion « {{label}} » sera supprimée ; son PAT et son certificat restent déclarés.",
+      "confirm": "Supprimer définitivement"
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
+        "label": "Libellé : 1 à 200 caractères.",
+        "base_url": "Adresse : https://github.com ou https://github.com/organisation, sans dépôt.",
+        "token_secret_slug": "Ce PAT n'existe pas ou n'est pas un jeton git.",
+        "certificate_id": "Ce certificat n'existe pas.",
+        "verification_suffix": "Nom de vérification invalide."
+      },
+      "reasons": {
+        "au_moins_un_acces": "Choisissez un PAT, un certificat, ou les deux.",
+        "expire": "Le certificat choisi a expiré.",
+        "ne_correspond_pas": "La clé du certificat ne lui correspond plus.",
+        "illisible": "Le certificat choisi est illisible."
+      },
+      "conflict": {
+        "identifiant_pris": "Cet identifiant est déjà pris par une autre connexion."
+      },
+      "inUse": "Cette connexion est utilisée par les workspaces : {{list}}.",
+      "access": "Le workspace {{workspace}} perdrait l'accès à son dépôt ({{reason}}) : rien n'a été modifié.",
+      "outside": "Le dépôt du workspace {{workspace}} ne serait plus sous cette adresse : rien n'a été modifié.",
+      "unreachable": "Impossible de charger les connexions.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }
   }
 }

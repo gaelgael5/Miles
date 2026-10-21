@@ -26,6 +26,12 @@ from miles.cultures.service import CulturesService
 from miles.db.migration_files import file_load_migrations
 from miles.db.pool import db_create_pool
 from miles.events.model import EventTypeCatalog
+from miles.gitaccess import model as gitaccess_events
+from miles.gitaccess.api_gitaccess import certificates_router, connections_router
+from miles.gitaccess.certificates import CertificatesService
+from miles.gitaccess.connections import ConnectionsService
+from miles.gitaccess.dependents import DependentsVerifier
+from miles.gitaccess.resolver import AccessResolver
 from miles.health import resolve_health
 from miles.log_config import configure_logging
 from miles.mqtt.protocol import BUILTIN_HANDLERS
@@ -72,6 +78,7 @@ def create_app() -> FastAPI:
         | oidc_events.EVENT_TYPES
         | security_events.EVENT_TYPES
         | workspace_events.EVENT_TYPES
+        | gitaccess_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -105,14 +112,14 @@ def create_app() -> FastAPI:
         app.state.security = SecurityServices(
             pool, http, app.state.secrets, catalog, utc_now, settings.allow_http_identity_providers
         )
-        app.state.workspaces = WorkspacesService(
-            pool,
-            app.state.secrets,
-            catalog,
-            utc_now,
-            tuple(settings.git_test_hosts),
-            settings.git_test_ca_file,
+        git_hosts = tuple(settings.git_test_hosts)
+        resolver = AccessResolver(app.state.secrets, utc_now, settings.git_test_ca_file)
+        verifier = DependentsVerifier(pool, catalog, utc_now, git_hosts)
+        app.state.certificates = CertificatesService(pool, resolver, verifier, catalog, utc_now)
+        app.state.git_connections = ConnectionsService(
+            pool, resolver, verifier, catalog, utc_now, git_hosts
         )
+        app.state.workspaces = WorkspacesService(pool, resolver, catalog, utc_now, git_hosts)
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -166,4 +173,6 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(oidc_login_router)
     app.include_router(security_router)
     app.include_router(workspaces_router)
+    app.include_router(certificates_router)
+    app.include_router(connections_router)
     return app

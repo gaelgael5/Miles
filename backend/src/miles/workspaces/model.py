@@ -12,13 +12,16 @@ from miles.git.rights import AccessReport
 CREATED_EVENT = "workspace.created"
 CHECKED_EVENT = "workspace.access_checked"
 WORK_BRANCH_EVENT = "workspace.work_branch_opened"
-CERTIFICATE_EVENT = "workspace.client_certificate_replaced"
-EVENT_TYPES = frozenset({CREATED_EVENT, CHECKED_EVENT, WORK_BRANCH_EVENT, CERTIFICATE_EVENT})
+REPOSITORY_EVENT = "workspace.repository_set"
+SECURITY_SERVICE_EVENT = "workspace.security_service_set"
+EVENT_TYPES = frozenset(
+    {CREATED_EVENT, CHECKED_EVENT, WORK_BRANCH_EVENT, REPOSITORY_EVENT, SECURITY_SERVICE_EVENT}
+)
 NAME_MAX = 200
 SELECT = (
-    "SELECT w.id, w.name, w.repo_url, w.git_secret_slug, w.client_key_secret_slug,"
-    " w.client_cert_pem, w.client_cert_not_after, w.security_service_id, w.last_check,"
-    " w.last_check_at, w.created_at, w.updated_at, b.branch AS work_branch FROM workspaces w"
+    "SELECT w.id, w.name, w.repo_url, w.git_connection_id, w.security_service_id,"
+    " w.last_check, w.last_check_at, w.created_at, w.updated_at, b.branch AS work_branch"
+    " FROM workspaces w"
     " LEFT JOIN workspace_work_branches b ON b.workspace_id = w.id"
 )
 _COMMIT_IDENTITY_RE = re.compile(r"[^A-Za-z0-9._-]")
@@ -64,12 +67,10 @@ class AccessCheckFailedError(WorkspaceError):
 class Workspace:
     id: str
     name: str
-    repo_url: str
-    # Jeton, certificat, ou les deux ; jamais aucun (contrainte de la table).
-    git_secret_slug: str | None
-    client_key_secret_slug: str | None
-    client_cert_pem: str | None
-    client_cert_not_after: datetime | None
+    # Absents tant que le dépôt n'est pas paramétré : un workspace se crée par son seul
+    # nom (21/10/2026), et les deux vont ensemble (contrainte de la table).
+    repo_url: str | None
+    git_connection_id: str | None
     security_service_id: str | None
     last_check: dict[str, Any] | None
     last_check_at: datetime | None
@@ -77,22 +78,6 @@ class Workspace:
     updated_at: datetime
     # Aucune à la création : elle s'ouvre quand on commence à travailler (e2719a5c).
     work_branch: str | None = None
-
-
-@dataclass(frozen=True)
-class CertificateInput:
-    cert_pem: str
-    key_secret_slug: str
-
-
-@dataclass(frozen=True)
-class WorkspaceInput:
-    id: str
-    name: str
-    repo_url: str
-    git_secret_slug: str | None
-    security_service_id: str | None
-    certificate: CertificateInput | None = None
 
 
 def workspace_from_row(row: Any) -> Workspace:

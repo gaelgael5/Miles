@@ -11,11 +11,9 @@ from miles.auth.author import request_author
 from miles.git.worktree import NonConformTreeError, diagnosis_json
 from miles.workspaces.model import (
     AccessCheckFailedError,
-    CertificateInput,
     RepositoryUnavailableError,
     Workspace,
     WorkspaceConflictError,
-    WorkspaceInput,
     WorkspaceInputError,
     WorkspaceNotFoundError,
     report_json,
@@ -39,13 +37,10 @@ class WorkspaceOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     name: str
-    repo_url: str
-    git_secret_slug: str | None
-    client_key_secret_slug: str | None
-    # Échéance du certificat client, affichée sur la fiche : un certificat expiré coupe
-    # l'accès au dépôt sans autre signal (ticket 63ecbec8).
-    client_cert_not_after: datetime | None
-    # Absent : le workspace le dit explicitement, au lieu d'échouer à l'usage.
+    # Absents tant que le dépôt n'est pas paramétré : l'écran le signale au lieu
+    # d'échouer à l'usage.
+    repo_url: str | None
+    git_connection_id: str | None
     security_service_id: str | None
     last_check: dict[str, Any] | None
     last_check_at: datetime | None
@@ -53,31 +48,25 @@ class WorkspaceOut(BaseModel):
     work_branch: str | None
 
 
-class CertificateBody(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    # Certificat public, en PEM ; la clé privée est un secret du socle, désigné par son slug.
-    cert_pem: str
-    key_secret_slug: str
-
-    def to_input(self) -> CertificateInput:
-        return CertificateInput(self.cert_pem, self.key_secret_slug)
-
-
-class CertificateReplace(CertificateBody):
-    verification_suffix: str
-
-
 class WorkspaceCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    # Le nom seul (21/10/2026) ; l'identifiant est proposé par l'écran à partir du nom.
     id: str
     name: str
+
+
+class RepositoryBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    git_connection_id: str
     repo_url: str
-    git_secret_slug: str | None = None
-    client_certificate: CertificateBody | None = None
-    security_service_id: str | None = None
     # Choisi par l'écran, pour afficher le nom de la branche de vérification PENDANT
-    # l'essai (critère 5), pas seulement en cas d'échec.
+    # l'essai, pas seulement en cas d'échec.
     verification_suffix: str
+
+
+class SecurityServiceBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    security_service_id: str | None
 
 
 class WorkBranchBody(BaseModel):
@@ -95,15 +84,20 @@ def _out(w: Workspace) -> WorkspaceOut:
         id=w.id,
         name=w.name,
         repo_url=w.repo_url,
-        git_secret_slug=w.git_secret_slug,
-        client_key_secret_slug=w.client_key_secret_slug,
-        client_cert_not_after=w.client_cert_not_after,
+        git_connection_id=w.git_connection_id,
         security_service_id=w.security_service_id,
         last_check=w.last_check,
         last_check_at=w.last_check_at,
         created_at=w.created_at,
         work_branch=w.work_branch,
     )
+
+
+def _replayed(response: Response, existed: bool) -> None:
+    if existed:
+        # Rejeu à l'identique : rien de modifié, et la réponse le dit.
+        response.status_code = status.HTTP_200_OK
+        response.headers["X-Miles-Already-Exists"] = "true"
 
 
 def _error(code: int, detail: object) -> JSONResponse:
@@ -165,25 +159,44 @@ async def get_workspace(workspace_id: str, service: Service) -> object:
 async def create_workspace(
     body: WorkspaceCreate, request: Request, response: Response, service: Service
 ) -> object:
-    certificate = body.client_certificate.to_input() if body.client_certificate else None
-    data = WorkspaceInput(
-        body.id,
-        body.name,
-        body.repo_url,
-        body.git_secret_slug,
-        body.security_service_id,
-        certificate,
-    )
     try:
         workspace, existed = await service.resolve_create(
-            request_author(request), data, body.verification_suffix
+            request_author(request), body.id, body.name
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    if existed:
-        # Rejeu à l'identique : rien de créé, et la réponse le dit.
-        response.status_code = status.HTTP_200_OK
-        response.headers["X-Miles-Already-Exists"] = "true"
+    _replayed(response, existed)
+    return _out(workspace)
+
+
+@router.put("/{workspace_id}/repository", response_model=WorkspaceOut)
+async def set_repository(
+    workspace_id: str, body: RepositoryBody, request: Request, response: Response, service: Service
+) -> object:
+    try:
+        workspace, existed = await service.resolve_set_repository(
+            request_author(request),
+            workspace_id,
+            body.git_connection_id,
+            body.repo_url,
+            body.verification_suffix,
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    _replayed(response, existed)
+    return _out(workspace)
+
+
+@router.put("/{workspace_id}/security-service", response_model=WorkspaceOut)
+async def set_security_service(
+    workspace_id: str, body: SecurityServiceBody, request: Request, service: Service
+) -> object:
+    try:
+        workspace = await service.resolve_set_security_service(
+            request_author(request), workspace_id, body.security_service_id
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
     return _out(workspace)
 
 
@@ -214,16 +227,3 @@ async def open_work_branch(
         # Rejeu : ni seconde branche ni second commit (critère 9).
         response.status_code = status.HTTP_200_OK
     return {"workspace": _out(workspace).model_dump(mode="json"), "outcome": outcome}
-
-
-@router.put("/{workspace_id}/client-certificate", response_model=WorkspaceOut)
-async def replace_client_certificate(
-    workspace_id: str, body: CertificateReplace, request: Request, service: Service
-) -> object:
-    try:
-        workspace = await service.resolve_replace_certificate(
-            request_author(request), workspace_id, body.to_input(), body.verification_suffix
-        )
-    except _REFUSALS as exc:
-        return _refusal(exc)
-    return _out(workspace)
