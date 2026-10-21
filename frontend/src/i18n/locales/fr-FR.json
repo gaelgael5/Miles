@@ -8,7 +8,8 @@
       "secrets": "Secrets",
       "cultures": "Cultures",
       "oidc": "OIDC",
-      "security": "Sécurité"
+      "security": "Sécurité",
+      "workspaces": "Workspaces"
     },
     "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé."
   },
@@ -242,6 +243,73 @@
         "client_secret_slug": "Choisissez un secret déclaré de type « Secret client du service de sécurité racine »."
       },
       "unreachable": "Impossible de charger le service de sécurité.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    }
+  },
+  "workspaces": {
+    "title": "Workspaces",
+    "intro": "Un workspace par application métier, avec son dépôt git. Avant de le créer, Miles éprouve réellement sur le dépôt les cinq droits dont il a besoin.",
+    "add": "Créer un workspace",
+    "empty": "Aucun workspace pour l'instant.",
+    "fields": {
+      "id": "Identifiant",
+      "name": "Nom",
+      "repoUrl": "Dépôt GitHub",
+      "gitSecret": "Jeton d'accès au dépôt",
+      "securityService": "Service de sécurité racine",
+      "noSecurityService": "— Aucun pour l'instant —"
+    },
+    "form": {
+      "title": "Nouveau workspace",
+      "submit": "Tester les accès et créer",
+      "cancel": "Annuler",
+      "writesForReal": "Le test écrit vraiment : il crée la branche et le tag {{branch}}, pousse un commit, puis retire les deux. Sur un dépôt vide, Miles crée d'abord la branche main.",
+      "testing": "Essai des cinq droits avec la branche {{branch}}…"
+    },
+    "card": {
+      "recheck": "Retester les accès",
+      "securityService": "Service de sécurité : {{id}}",
+      "noSecurityService": "Aucun service de sécurité racine référencé : les écrans qui en ont besoin le diront."
+    },
+    "rights": {
+      "lire": "Lire et récupérer",
+      "creer_branche": "Créer une branche",
+      "pousser": "Pousser un commit",
+      "poser_tag": "Poser un tag de version",
+      "supprimer_branche": "Supprimer une branche"
+    },
+    "reasons": {
+      "identifiants": "refusé : les identifiants sont invalides",
+      "depot_inexistant": "refusé : le dépôt n'existe pas",
+      "injoignable": "la forge est injoignable",
+      "protection": "refusé par une règle de protection couvrant miles-verification-* : ajustez la protection de branche ou de tag",
+      "droit_refuse": "refusé : le jeton n'a pas le droit d'écrire sur ce dépôt",
+      "echec": "échec"
+    },
+    "check": {
+      "ok": "OK",
+      "initialized": "Le dépôt était vide : Miles a créé la branche {{branch}}.",
+      "existing_one": "Le dépôt a déjà {{count}} branche ; rien n'a été écrasé.",
+      "existing_other": "Le dépôt a déjà {{count}} branches ; rien n'a été écrasé.",
+      "residualBranch": "La branche {{name}} n'a pas pu être retirée : supprimez-la à la main, puis retestez.",
+      "residualTag": "Le tag {{name}} n'a pas pu être retiré : supprimez-le à la main."
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
+        "name": "Nom : 1 à 200 caractères.",
+        "repo_url": "Dépôt : une adresse de la forme https://github.com/organisation/depot.",
+        "git_secret_slug": "Choisissez un jeton d'accès : au moins un moyen d'accès est requis.",
+        "security_service_id": "Ce service de sécurité n'existe pas.",
+        "suffix": "Nom de vérification invalide."
+      },
+      "conflict": {
+        "identifiant_pris": "Cet identifiant est déjà pris par un autre workspace.",
+        "depot_deja_associe": "Ce dépôt appartient déjà à un autre workspace.",
+        "identifiant_ou_depot_pris": "L'identifiant ou le dépôt a été pris entre-temps."
+      },
+      "accessRefused": "L'accès au dépôt est insuffisant : le workspace n'a pas été créé.",
+      "unreachable": "Impossible de charger les workspaces.",
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }
   }

@@ -8,7 +8,8 @@
       "secrets": "Secrets",
       "cultures": "Cultures",
       "oidc": "OIDC",
-      "security": "Security"
+      "security": "Security",
+      "workspaces": "Workspaces"
     },
     "noRights": "You are signed in through {{directory}}, but no right is granted to you yet."
   },
@@ -242,6 +243,73 @@
         "client_secret_slug": "Choose a declared secret of type “Root security service client secret”."
       },
       "unreachable": "The security service could not be loaded.",
+      "unexpected": "The operation failed. See the back-office logs."
+    }
+  },
+  "workspaces": {
+    "title": "Workspaces",
+    "intro": "One workspace per business application, with its git repository. Before creating it, Miles really tries the five rights it needs on the repository.",
+    "add": "Create a workspace",
+    "empty": "No workspace yet.",
+    "fields": {
+      "id": "Identifier",
+      "name": "Name",
+      "repoUrl": "GitHub repository",
+      "gitSecret": "Repository access token",
+      "securityService": "Root security service",
+      "noSecurityService": "— None for now —"
+    },
+    "form": {
+      "title": "New workspace",
+      "submit": "Test access and create",
+      "cancel": "Cancel",
+      "writesForReal": "The test writes for real: it creates the branch and tag {{branch}}, pushes a commit, then removes both. On an empty repository, Miles first creates the branch main.",
+      "testing": "Testing the five rights with the branch {{branch}}…"
+    },
+    "card": {
+      "recheck": "Test access again",
+      "securityService": "Security service: {{id}}",
+      "noSecurityService": "No root security service referenced: screens that need it will say so."
+    },
+    "rights": {
+      "lire": "Read and fetch",
+      "creer_branche": "Create a branch",
+      "pousser": "Push a commit",
+      "poser_tag": "Set a version tag",
+      "supprimer_branche": "Delete a branch"
+    },
+    "reasons": {
+      "identifiants": "refused: the credentials are invalid",
+      "depot_inexistant": "refused: the repository does not exist",
+      "injoignable": "the forge cannot be reached",
+      "protection": "refused by a protection rule covering miles-verification-*: adjust the branch or tag protection",
+      "droit_refuse": "refused: the token has no write right on this repository",
+      "echec": "failed"
+    },
+    "check": {
+      "ok": "OK",
+      "initialized": "The repository was empty: Miles created the branch {{branch}}.",
+      "existing_one": "The repository already has {{count}} branch; nothing was overwritten.",
+      "existing_other": "The repository already has {{count}} branches; nothing was overwritten.",
+      "residualBranch": "The branch {{name}} could not be removed: delete it by hand, then test again.",
+      "residualTag": "The tag {{name}} could not be removed: delete it by hand."
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes.",
+        "name": "Name: 1 to 200 characters.",
+        "repo_url": "Repository: an address like https://github.com/organisation/repository.",
+        "git_secret_slug": "Choose an access token: at least one means of access is required.",
+        "security_service_id": "This security service does not exist.",
+        "suffix": "Invalid verification name."
+      },
+      "conflict": {
+        "identifiant_pris": "This identifier is already used by another workspace.",
+        "depot_deja_associe": "This repository already belongs to another workspace.",
+        "identifiant_ou_depot_pris": "The identifier or the repository was taken meanwhile."
+      },
+      "accessRefused": "Access to the repository is insufficient: the workspace was not created.",
+      "unreachable": "Workspaces could not be loaded.",
       "unexpected": "The operation failed. See the back-office logs."
     }
   }
