@@ -13,6 +13,7 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "pyjwt[crypto]>=2.9",
+    "pyyaml>=6.0",
     "structlog>=24.4",
     "uvicorn[standard]>=0.32",
 ]
@@ -30,6 +31,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-cov>=6.0",
     "ruff>=0.8",
+    "types-pyyaml>=6.0",
 ]
 
 [build-system]

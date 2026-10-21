@@ -292,7 +292,8 @@
       "noRepository": "Repository to set up",
       "captionSecurity": "Security",
       "captionWorkBranch": "Work branch",
-      "settings": "Settings"
+      "settings": "Settings",
+      "dataModels": "Data models"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -439,6 +440,76 @@
       "outside": "The repository of workspace {{workspace}} would no longer be under this address: nothing was changed.",
       "unreachable": "Unable to load connections.",
       "unexpected": "The operation failed. See the back-office logs."
+    }
+  },
+  "dataModels": {
+    "back": "← Back to workspaces",
+    "title": "Data models — {{name}}",
+    "intro": "YAML object descriptions, written to the work branch",
+    "add": "Add a model",
+    "loading": "Reading the work branch…",
+    "empty": "No data model on the work branch.",
+    "fields": {
+      "domain": "Domain",
+      "content": "Model (YAML)"
+    },
+    "form": {
+      "title": "New data model",
+      "domainHelp": "Leave empty for a shared model (shared/messages). Move a model to shared only once a second domain really uses it.",
+      "submit": "Write to the work branch",
+      "cancel": "Cancel"
+    },
+    "list": {
+      "captionScope": "Location",
+      "shared": "Shared",
+      "show": "Show",
+      "hide": "Hide",
+      "delete": "Delete"
+    },
+    "deleteConfirm": {
+      "title": "Delete this model?",
+      "body": "{{path}} will be removed from the work branch by a commit.",
+      "confirm": "Delete"
+    },
+    "errors": {
+      "syntax": "Invalid YAML, line {{line}}, column {{column}}: {{message}}",
+      "grammar": "The model does not follow the grammar:",
+      "inUse": "Other models use this one: {{list}}.",
+      "access": "The repository no longer accepts this operation ({{reason}}). The work branch is unchanged.",
+      "invalid": {
+        "scope": "Domain: lowercase letters, digits, dashes and underscores.",
+        "name": "Invalid model name.",
+        "git_connection_id": "The workspace's git connection is unusable.",
+        "repo_url": "The workspace's repository address is invalid."
+      },
+      "conflict": {
+        "nom_pris": "A different model with this name already exists at this location.",
+        "branche_de_travail_absente": "Open a work branch first.",
+        "branche_de_travail_introuvable": "The work branch no longer exists in the repository. It is not recreated automatically.",
+        "branche_modifiee": "The work branch changed meanwhile: nothing was written. Try again.",
+        "depot_non_configure": "This workspace has no repository yet.",
+        "modele_inconnu": "This model no longer exists."
+      },
+      "unexpected": "The operation failed. See the back-office logs."
+    },
+    "problems": {
+      "cle_inconnue": "unknown key",
+      "obligatoire": "required",
+      "nom_invalide": "invalid name (lowercase letters, digits, - and _)",
+      "version_invalide": "version: an integer from 1",
+      "texte_attendu": "text expected",
+      "document_non_objet": "the document must be a mapping",
+      "proprietes_vides": "at least one property",
+      "objet_attendu": "a mapping is expected",
+      "nom_de_propriete_invalide": "invalid property name (lowercase letters, digits and _)",
+      "booleen_attendu": "true or false expected",
+      "type_inconnu": "unknown type “{{detail}}”",
+      "cle_hors_type": "only allowed for type {{detail}}",
+      "liste_non_vide_attendue": "a non-empty list is expected",
+      "valeurs_textuelles_attendues": "values must be text (quote on, off, yes, no)",
+      "valeurs_en_double": "duplicate values",
+      "imbrication_trop_profonde": "lists nested deeper than {{detail}} levels",
+      "modele_inconnu": "model “{{detail}}” does not exist"
     }
   }
 }

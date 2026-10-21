@@ -292,7 +292,8 @@
       "noRepository": "Dépôt à paramétrer",
       "captionSecurity": "Sécurité",
       "captionWorkBranch": "Branche de travail",
-      "settings": "Paramétrer"
+      "settings": "Paramétrer",
+      "dataModels": "Modèles de données"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -439,6 +440,76 @@
       "outside": "Le dépôt du workspace {{workspace}} ne serait plus sous cette adresse : rien n'a été modifié.",
       "unreachable": "Impossible de charger les connexions.",
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    }
+  },
+  "dataModels": {
+    "back": "← Retour aux workspaces",
+    "title": "Modèles de données — {{name}}",
+    "intro": "Descriptions d'objets en YAML, écrites dans la branche de travail",
+    "add": "Ajouter un modèle",
+    "loading": "Lecture de la branche de travail…",
+    "empty": "Aucun modèle de données dans la branche de travail.",
+    "fields": {
+      "domain": "Domaine",
+      "content": "Modèle (YAML)"
+    },
+    "form": {
+      "title": "Nouveau modèle de données",
+      "domainHelp": "Laissez vide pour un modèle transverse (shared/messages). On ne promeut au transverse qu'au second usage réel par un autre domaine.",
+      "submit": "Écrire dans la branche de travail",
+      "cancel": "Annuler"
+    },
+    "list": {
+      "captionScope": "Emplacement",
+      "shared": "Transverse",
+      "show": "Afficher",
+      "hide": "Masquer",
+      "delete": "Supprimer"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer ce modèle ?",
+      "body": "{{path}} sera retiré de la branche de travail par un commit.",
+      "confirm": "Supprimer"
+    },
+    "errors": {
+      "syntax": "YAML invalide, ligne {{line}}, colonne {{column}} : {{message}}",
+      "grammar": "Le modèle ne respecte pas la grammaire :",
+      "inUse": "D'autres modèles utilisent celui-ci : {{list}}.",
+      "access": "Le dépôt n'accepte plus cette opération ({{reason}}). La branche de travail est intacte.",
+      "invalid": {
+        "scope": "Domaine : lettres minuscules, chiffres, tirets et soulignés.",
+        "name": "Nom de modèle invalide.",
+        "git_connection_id": "La connexion git du workspace est inutilisable.",
+        "repo_url": "L'adresse du dépôt du workspace est invalide."
+      },
+      "conflict": {
+        "nom_pris": "Un autre modèle porte déjà ce nom à cet emplacement.",
+        "branche_de_travail_absente": "Ouvrez d'abord une branche de travail.",
+        "branche_de_travail_introuvable": "La branche de travail n'existe plus dans le dépôt. Elle n'est pas recréée d'office.",
+        "branche_modifiee": "La branche de travail a changé entre-temps : rien n'a été écrit. Réessayez.",
+        "depot_non_configure": "Ce workspace n'a pas encore de dépôt.",
+        "modele_inconnu": "Ce modèle n'existe plus."
+      },
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    },
+    "problems": {
+      "cle_inconnue": "clé inconnue",
+      "obligatoire": "obligatoire",
+      "nom_invalide": "nom invalide (lettres minuscules, chiffres, - et _)",
+      "version_invalide": "version : un entier à partir de 1",
+      "texte_attendu": "texte attendu",
+      "document_non_objet": "le document doit être un objet",
+      "proprietes_vides": "au moins une propriété",
+      "objet_attendu": "un objet est attendu",
+      "nom_de_propriete_invalide": "nom de propriété invalide (lettres minuscules, chiffres et _)",
+      "booleen_attendu": "true ou false attendu",
+      "type_inconnu": "type « {{detail}} » inconnu",
+      "cle_hors_type": "réservé au type {{detail}}",
+      "liste_non_vide_attendue": "une liste non vide est attendue",
+      "valeurs_textuelles_attendues": "les valeurs doivent être du texte (mettez on, off, yes, no entre guillemets)",
+      "valeurs_en_double": "valeurs en double",
+      "imbrication_trop_profonde": "listes imbriquées sur plus de {{detail}} niveaux",
+      "modele_inconnu": "le modèle « {{detail}} » n'existe pas"
     }
   }
 }

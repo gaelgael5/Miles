@@ -23,6 +23,9 @@ from miles.cultures import service as cultures_events
 from miles.cultures.api_cultures import public_router as login_cultures_router
 from miles.cultures.api_cultures import router as cultures_router
 from miles.cultures.service import CulturesService
+from miles.datamodels import service as datamodels_events
+from miles.datamodels.api_datamodels import router as data_models_router
+from miles.datamodels.service import DataModelsService
 from miles.db.migration_files import file_load_migrations
 from miles.db.pool import db_create_pool
 from miles.events.model import EventTypeCatalog
@@ -78,6 +81,7 @@ def create_app() -> FastAPI:
         | security_events.EVENT_TYPES
         | workspace_events.EVENT_TYPES
         | gitaccess_events.EVENT_TYPES
+        | datamodels_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -118,6 +122,9 @@ def create_app() -> FastAPI:
             pool, resolver, verifier, catalog, utc_now, git_hosts
         )
         app.state.workspaces = WorkspacesService(pool, resolver, catalog, utc_now, git_hosts)
+        app.state.data_models = DataModelsService(
+            pool, app.state.workspaces, resolver, catalog, utc_now, git_hosts
+        )
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -172,4 +179,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(security_router)
     app.include_router(workspaces_router)
     app.include_router(connections_router)
+    app.include_router(data_models_router)
     return app

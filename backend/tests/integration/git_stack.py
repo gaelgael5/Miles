@@ -6,6 +6,8 @@ import secrets as random
 import httpx
 import pytest
 
+from miles.datamodels.service import EVENT_TYPES as DATA_MODEL_EVENTS
+from miles.datamodels.service import DataModelsService
 from miles.events.model import EventTypeCatalog
 from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
@@ -29,8 +31,10 @@ def env(name: str) -> str:
 
 
 def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
-    """Branche secrets, connexions et workspaces comme le fait app.py."""
-    catalog = EventTypeCatalog(SECRET_EVENTS | WORKSPACE_EVENTS | GITACCESS_EVENTS)
+    """Branche secrets, connexions, workspaces et modèles comme le fait app.py."""
+    catalog = EventTypeCatalog(
+        SECRET_EVENTS | WORKSPACE_EVENTS | GITACCESS_EVENTS | DATA_MODEL_EVENTS
+    )
     secrets = SecretsService(portal.pool, SecretCipher(os.urandom(32)), catalog, utc_now)
     resolver = AccessResolver(secrets)
     verifier = DependentsVerifier(portal.pool, catalog, utc_now, hosts)
@@ -40,6 +44,9 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         portal.pool, resolver, verifier, catalog, utc_now, hosts
     )
     state.workspaces = WorkspacesService(portal.pool, resolver, catalog, utc_now, hosts)
+    state.data_models = DataModelsService(
+        portal.pool, state.workspaces, resolver, catalog, utc_now, hosts
+    )
 
 
 async def add_secret(client: httpx.AsyncClient, slug: str, kind: str, value: str) -> None:

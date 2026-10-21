@@ -210,3 +210,9 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 /* Fenêtre qui porte un formulaire entier : plus large, et la carte n'y redouble pas le cadre. */
 .dialog-wide { max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 0; }
 .dialog-wide .card { margin: 0; border: none; }
+
+/* YAML d'un modèle relu : montré tel qu'il est dans le dépôt, espaces et retours compris. */
+.code-block {
+  margin: 0; padding: 14px 16px; background: var(--surface-douce); border: 1px solid var(--bordure-carte);
+  border-radius: 6px; font-family: var(--police-mono); font-size: 12.5px; white-space: pre; overflow-x: auto;
+}

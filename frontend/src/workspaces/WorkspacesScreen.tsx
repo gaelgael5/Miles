@@ -5,6 +5,7 @@ import { ApiError, invalidField } from "../api/http";
 import { slugFromLabel } from "../api/secrets";
 import { type Workspace, useCreateWorkspace, useWorkspaces } from "../api/workspaces";
 import { PageHead } from "../layout/PageHead";
+import { DataModelsScreen } from "./DataModelsScreen";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
 function errorKey(error: unknown): string {
@@ -68,7 +69,15 @@ function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   );
 }
 
-function WorkspaceRow({ workspace, onSettings }: { workspace: Workspace; onSettings: () => void }) {
+type View = "settings" | "dataModels";
+
+function WorkspaceRow({
+  workspace,
+  onOpen,
+}: {
+  workspace: Workspace;
+  onOpen: (view: View) => void;
+}) {
   const { t } = useTranslation();
   return (
     <li className="row">
@@ -95,7 +104,13 @@ function WorkspaceRow({ workspace, onSettings }: { workspace: Workspace; onSetti
         <div className="value mono">{workspace.work_branch ?? "—"}</div>
       </div>
       <div className="actions row-actions">
-        <button type="button" className="btn btn-secondary" onClick={onSettings}>
+        {/* Les modèles s'écrivent dans la branche de travail : sans elle, rien à ouvrir. */}
+        {workspace.work_branch !== null && (
+          <button type="button" className="btn btn-secondary" onClick={() => onOpen("dataModels")}>
+            {t("workspaces.card.dataModels")}
+          </button>
+        )}
+        <button type="button" className="btn btn-secondary" onClick={() => onOpen("settings")}>
           {t("workspaces.card.settings")}
         </button>
       </div>
@@ -108,10 +123,13 @@ export function WorkspacesScreen() {
   const { t } = useTranslation();
   const workspaces = useWorkspaces();
   const [creating, setCreating] = useState(false);
-  // Sous-écran ouvert : l'identifiant du workspace paramétré, sinon la liste.
-  const [selected, setSelected] = useState<string | null>(null);
-  const current = workspaces.data?.find((w) => w.id === selected);
+  // Sous-écran ouvert : le workspace et la vue choisie, sinon la liste.
+  const [selected, setSelected] = useState<{ id: string; view: View } | null>(null);
+  const current = workspaces.data?.find((w) => w.id === selected?.id);
 
+  if (current && selected?.view === "dataModels") {
+    return <DataModelsScreen workspace={current} onBack={() => setSelected(null)} />;
+  }
   if (current) {
     return <WorkspaceSettings workspace={current} onBack={() => setSelected(null)} />;
   }
@@ -135,7 +153,7 @@ export function WorkspacesScreen() {
             setCreating(false);
             // Juste créé, il n'a pas de dépôt : on enchaîne sur son paramétrage.
             if (id) {
-              setSelected(id);
+              setSelected({ id, view: "settings" });
             }
           }}
         />
@@ -147,7 +165,7 @@ export function WorkspacesScreen() {
       {(workspaces.data?.length ?? 0) > 0 && (
         <ul className="card-list plain-list">
           {workspaces.data?.map((w) => (
-            <WorkspaceRow key={w.id} workspace={w} onSettings={() => setSelected(w.id)} />
+            <WorkspaceRow key={w.id} workspace={w} onOpen={(view) => setSelected({ id: w.id, view })} />
           ))}
         </ul>
       )}
