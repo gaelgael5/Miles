@@ -24,6 +24,15 @@ export interface Workspace {
   last_check: AccessReport | null;
   last_check_at: string | null;
   created_at: string;
+  /** Aucune à la création : elle s'ouvre quand on commence à travailler. */
+  work_branch: string | null;
+}
+
+export interface TreeDiagnosis {
+  code: "arborescence_non_conforme";
+  unexpected: string[];
+  environment_dirs: string[];
+  manifest: "absent" | "invalide" | "valide";
 }
 
 export interface WorkspaceInput {
@@ -72,6 +81,18 @@ export function useRecheckWorkspace(id: string) {
         method: "POST",
         body: JSON.stringify({ verification_suffix: suffix }),
       }),
+    onSuccess: () => client.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useOpenWorkBranch(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      request<{ workspace: Workspace; outcome: "initialisee" | "conforme" | null }>(
+        `/api/workspaces/${encodeURIComponent(id)}/work-branch`,
+        { method: "POST", body: JSON.stringify({ name }) },
+      ),
     onSuccess: () => client.invalidateQueries({ queryKey: KEY }),
   });
 }

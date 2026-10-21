@@ -311,6 +311,36 @@
       "accessRefused": "L'accès au dépôt est insuffisant : le workspace n'a pas été créé.",
       "unreachable": "Impossible de charger les workspaces.",
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    },
+    "work": {
+      "title": "Branche de travail",
+      "none": "Pas encore de branche de travail : ouvrez-la quand vous commencez à fabriquer le paramétrage.",
+      "name": "Nom de la branche de travail (work/…)",
+      "open": "Ouvrir la branche de travail",
+      "current": "Branche de travail : {{branch}}",
+      "outcome": {
+        "initialisee": "La branche de travail est ouverte et a reçu l'arborescence de paramétrage et son manifest.json.",
+        "conforme": "La branche de travail est ouverte ; le dépôt avait déjà une arborescence conforme, rien n'a été écrasé."
+      },
+      "nonConform": "L'arborescence du dépôt n'est pas conforme : rien n'a été modifié.",
+      "manifest": {
+        "absent": "manifest.json est absent.",
+        "invalide": "manifest.json est invalide."
+      },
+      "environmentDir": "{{dir}}/ ressemble à un dossier d'environnement : un environnement est une branche, pas un dossier.",
+      "unexpected": "Inattendu : {{path}}",
+      "conflict": {
+        "branche_de_travail_existante": "Ce workspace a déjà une branche de travail.",
+        "branche_existante": "Une branche de ce nom existe déjà dans le dépôt ; elle n'a pas été touchée."
+      },
+      "access": {
+        "identifiants": "Le dépôt refuse les identifiants : vérifiez le jeton d'accès, puis recommencez.",
+        "depot_inexistant": "Le dépôt n'existe plus.",
+        "injoignable": "La forge est injoignable.",
+        "protection": "Une règle de protection refuse la branche de travail.",
+        "droit_refuse": "Le jeton ne peut plus écrire sur le dépôt.",
+        "echec": "Le dépôt a refusé l'opération."
+      }
     }
   }
 }

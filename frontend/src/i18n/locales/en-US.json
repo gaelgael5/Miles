@@ -311,6 +311,36 @@
       "accessRefused": "Access to the repository is insufficient: the workspace was not created.",
       "unreachable": "Workspaces could not be loaded.",
       "unexpected": "The operation failed. See the back-office logs."
+    },
+    "work": {
+      "title": "Work branch",
+      "none": "No work branch yet: open one when you start building the configuration.",
+      "name": "Work branch name (work/…)",
+      "open": "Open the work branch",
+      "current": "Work branch: {{branch}}",
+      "outcome": {
+        "initialisee": "The work branch was opened and received the configuration tree with its manifest.json.",
+        "conforme": "The work branch was opened; the repository already had a conforming tree, nothing was overwritten."
+      },
+      "nonConform": "The repository tree does not conform: nothing was changed.",
+      "manifest": {
+        "absent": "manifest.json is missing.",
+        "invalide": "manifest.json is invalid."
+      },
+      "environmentDir": "{{dir}}/ looks like an environment folder: an environment is a branch, not a folder.",
+      "unexpected": "Unexpected: {{path}}",
+      "conflict": {
+        "branche_de_travail_existante": "This workspace already has a work branch.",
+        "branche_existante": "A branch with this name already exists in the repository; it was not touched."
+      },
+      "access": {
+        "identifiants": "The repository refuses the credentials: check the access token, then try again.",
+        "depot_inexistant": "The repository no longer exists.",
+        "injoignable": "The forge cannot be reached.",
+        "protection": "A protection rule refuses the work branch.",
+        "droit_refuse": "The token can no longer write on the repository.",
+        "echec": "The repository refused the operation."
+      }
     }
   }
 }

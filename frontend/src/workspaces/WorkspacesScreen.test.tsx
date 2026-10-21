@@ -39,6 +39,7 @@ const WORKSPACE = {
   last_check: { ...REPORT, all_passed: true, residual_branch: null, checks: REPORT.checks.map((c) => ({ ...c, ok: true, reason: null })) },
   last_check_at: "2026-10-20T10:00:00Z",
   created_at: "2026-10-20T10:00:00Z",
+  work_branch: null,
 };
 
 function renderScreen() {
@@ -149,5 +150,53 @@ describe("WorkspacesScreen", () => {
       verification_suffix: string;
     };
     expect(body.verification_suffix).toMatch(/^[0-9a-f]{8}$/);
+  });
+});
+
+describe("WorkBranchPanel", () => {
+  it("opens the work branch from the workspace card", async () => {
+    const calls = mockApi({
+      "GET /api/workspaces": [
+        { status: 200, body: [WORKSPACE] },
+        { status: 200, body: [{ ...WORKSPACE, work_branch: "work/atelier" }] },
+      ],
+      "POST /api/workspaces/retrait/work-branch": {
+        status: 201,
+        body: { workspace: { ...WORKSPACE, work_branch: "work/atelier" }, outcome: "initialisee" },
+      },
+    });
+    renderScreen();
+
+    fireEvent.click(await screen.findByText("Open the work branch"));
+
+    expect(await screen.findByText("Work branch: work/atelier")).toBeInTheDocument();
+    expect(calls.find((c) => c.key === "POST /api/workspaces/retrait/work-branch")?.body).toEqual({
+      name: "atelier",
+    });
+  });
+
+  it("lists what does not conform and changes nothing", async () => {
+    mockApi({
+      "GET /api/workspaces": { status: 200, body: [WORKSPACE] },
+      "POST /api/workspaces/retrait/work-branch": {
+        status: 422,
+        body: {
+          detail: {
+            code: "arborescence_non_conforme",
+            unexpected: ["src/app.py"],
+            environment_dirs: ["prod"],
+            manifest: "absent",
+          },
+        },
+      },
+    });
+    renderScreen();
+
+    fireEvent.click(await screen.findByText("Open the work branch"));
+
+    expect(await screen.findByText(/nothing was changed/)).toBeInTheDocument();
+    expect(screen.getByText("manifest.json is missing.")).toBeInTheDocument();
+    expect(screen.getByText(/prod\/ looks like an environment folder/)).toBeInTheDocument();
+    expect(screen.getByText("Unexpected: src/app.py")).toBeInTheDocument();
   });
 });

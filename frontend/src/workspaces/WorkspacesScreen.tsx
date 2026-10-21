@@ -14,6 +14,7 @@ import {
 } from "../api/workspaces";
 import { SecretPicker } from "../secrets/SecretPicker";
 import { AccessReportView } from "./AccessReportView";
+import { WorkBranchPanel } from "./WorkBranchPanel";
 
 function failedReport(error: unknown): AccessReport | null {
   if (error instanceof ApiError && error.status === 422) {
@@ -142,6 +143,7 @@ function WorkspaceCard({ workspace }: { workspace: Workspace }) {
         <p role="status">{t("workspaces.form.testing", { branch: verificationBranch(suffix) })}</p>
       )}
       {report && <AccessReportView report={report} />}
+      <WorkBranchPanel workspace={workspace} />
     </li>
   );
 }
