@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import os
 import secrets as random
-from pathlib import Path
 
 import httpx
 import pytest
 
 from miles.events.model import EventTypeCatalog
-from miles.gitaccess.certificates import CertificatesService
 from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.model import EVENT_TYPES as GITACCESS_EVENTS
@@ -22,23 +20,22 @@ from tests.integration.portal_stack import PortalStack, utc_now
 
 
 def env(name: str) -> str:
-    # Posés par scripts/run-integration-tests.sh, qui lance une forge Gitea jetable et un
-    # proxy mTLS : les droits s'éprouvent par de vrais push, sur de vrais dépôts privés.
+    # Posés par scripts/run-integration-tests.sh, qui lance une forge Gitea jetable : les
+    # droits s'éprouvent par de vrais push, sur de vrais dépôts privés.
     value = os.environ.get(name)
     if not value:
         pytest.fail(f"{name} absent : lancer via scripts/run-integration-tests.sh")
     return value
 
 
-def wire_git(portal: PortalStack, hosts: tuple[str, ...], ca_file: Path | None = None) -> None:
-    """Branche secrets, certificats, connexions et workspaces comme le fait app.py."""
+def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
+    """Branche secrets, connexions et workspaces comme le fait app.py."""
     catalog = EventTypeCatalog(SECRET_EVENTS | WORKSPACE_EVENTS | GITACCESS_EVENTS)
     secrets = SecretsService(portal.pool, SecretCipher(os.urandom(32)), catalog, utc_now)
-    resolver = AccessResolver(secrets, utc_now, ca_file)
+    resolver = AccessResolver(secrets)
     verifier = DependentsVerifier(portal.pool, catalog, utc_now, hosts)
     state = portal.app.state
     state.secrets = secrets
-    state.certificates = CertificatesService(portal.pool, resolver, verifier, catalog, utc_now)
     state.git_connections = ConnectionsService(
         portal.pool, resolver, verifier, catalog, utc_now, hosts
     )

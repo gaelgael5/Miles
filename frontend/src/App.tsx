@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import { type Me, useLogout } from "./api/auth";
 import { AuthGate } from "./auth/AuthGate";
-import { CertificatesScreen } from "./certificates/CertificatesScreen";
 import { CulturesScreen } from "./cultures/CulturesScreen";
 import { GitConnectionsScreen } from "./gitConnections/GitConnectionsScreen";
 import { HealthStatus } from "./health/HealthStatus";
@@ -17,7 +16,6 @@ type Page =
   | "workspaces"
   | "security"
   | "gitConnections"
-  | "certificates"
   | "oidc"
   | "cultures"
   | "secrets"
@@ -29,7 +27,6 @@ const SECTIONS: { title: string; pages: Page[] }[] = [
   { title: "settings", pages: [
       "security",
       "gitConnections",
-      "certificates",
       "oidc",
       "cultures",
       "secrets",
@@ -41,7 +38,6 @@ const SCREENS: Record<Page, () => JSX.Element> = {
   workspaces: WorkspacesScreen,
   security: SecurityServiceScreen,
   gitConnections: GitConnectionsScreen,
-  certificates: CertificatesScreen,
   oidc: ConnectorsScreen,
   cultures: CulturesScreen,
   secrets: SecretsScreen,

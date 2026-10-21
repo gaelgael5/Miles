@@ -30,12 +30,11 @@ export function usedBy(error: unknown): string[] | null {
   return detail?.code === "utilise" ? (detail.by as string[]) : null;
 }
 
-/** Message d'un refus du menu `ns` (« certificates » ou « gitConnections »). */
+/** Message d'un refus du menu `ns` (« gitConnections »). */
 export function errorMessage(t: TFunction, ns: string, error: unknown): string {
   const detail = detailOf(error, 422);
   if (detail && typeof detail.field === "string") {
-    const reason = typeof detail.reason === "string" ? detail.reason : null;
-    return t(reason ? `${ns}.errors.reasons.${reason}` : `${ns}.errors.invalid.${detail.field}`);
+    return t(`${ns}.errors.invalid.${detail.field}`);
   }
   const failure = dependentFailure(error);
   if (failure) {

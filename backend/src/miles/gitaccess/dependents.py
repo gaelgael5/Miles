@@ -23,7 +23,7 @@ AccessFor = Callable[[str], Awaitable[GitAccess]]
 class DependentsVerifier:
     """Éprouve les cinq droits de chaque workspace touché par un changement d'accès.
 
-    Remplacer un certificat ou changer le PAT d'une connexion vaut pour TOUS les
+    Changer le PAT ou l'adresse d'une connexion vaut pour TOUS les
     workspaces qui s'en servent : le changement n'est appliqué que si chacun garde ses
     cinq droits (décision du 18/10/2026, étendue le 21/10). Sinon un workspace qui
     fonctionnait casserait plus tard, au milieu d'une opération sans rapport apparent.

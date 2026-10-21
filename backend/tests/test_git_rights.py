@@ -118,8 +118,7 @@ async def test_existing_branches_are_counted_not_overwritten(tmp_path: Path) -> 
         ("remote: Permission to a/b.git denied to bot.", Reason.FORBIDDEN),
         ("The requested URL returned error: 403", Reason.FORBIDDEN),
         ("fatal: unable to access 'x': Could not resolve host: github.com", Reason.UNREACHABLE),
-        ("The requested URL returned error: 400", Reason.CERTIFICATE),
-        ("error:0A000418:SSL routines::tlsv1 alert unknown ca", Reason.CERTIFICATE),
+        ("The requested URL returned error: 400", Reason.FAILED),
         ("quelque chose d'imprévu", Reason.FAILED),
     ],
 )

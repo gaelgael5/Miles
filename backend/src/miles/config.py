@@ -69,8 +69,6 @@ class Settings(DatabaseSettings):
     # Hôtes git admis en plus de github.com (GitHub seul au premier lot). Vide en
     # production ; seuls les tests d'intégration y mettent leur forge jetable.
     git_test_hosts: list[str] = Field(default_factory=list)
-    # Autorité de confiance de cette forge jetable (mTLS) ; None : celles du système.
-    git_test_ca_file: Path | None = None
 
     @field_validator("public_url")
     @classmethod

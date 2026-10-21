@@ -19,8 +19,6 @@ OIDC_IMAGE="ghcr.io/navikt/mock-oauth2-server:2.1.10"
 KEYCLOAK_IMAGE="quay.io/keycloak/keycloak:26.0.7"
 # Forge git jetable : les cinq droits du workspace s'éprouvent par de vrais push.
 GITEA_IMAGE="gitea/gitea:1.22.6"
-# Proxy TLS mutuel devant la forge : une forge qui exige un certificat client.
-NGINX_IMAGE="nginx:1.27-alpine"
 KEYCLOAK_SECRET="$(openssl rand -hex 16)"
 OIDC_CONFIG='{"interactiveLogin":false,"tokenCallbacks":[{"issuerId":"miles","requestMappings":[{"requestParam":"code","match":"*","claims":{"sub":"alice-sub","name":"Alice","email":"alice@example.org","aud":["miles-client"]}}]}]}'
 MOSQUITTO_UID=1883
@@ -29,7 +27,7 @@ MOUNT_DIR="$(mktemp -d)"
 command -v docker >/dev/null || { echo "docker introuvable : voir https://docs.docker.com/engine/install/" >&2; exit 1; }
 
 cleanup() {
-  docker rm -f "$RUN_ID-db" "$RUN_ID-mqtt" "$RUN_ID-oidc" "$RUN_ID-kc" "$RUN_ID-gitea" "$RUN_ID-mtls" >/dev/null 2>&1 || true
+  docker rm -f "$RUN_ID-db" "$RUN_ID-mqtt" "$RUN_ID-oidc" "$RUN_ID-kc" "$RUN_ID-gitea" >/dev/null 2>&1 || true
   docker network rm "$RUN_ID" >/dev/null 2>&1 || true
   docker image rm "$RUN_ID-backend" >/dev/null 2>&1 || true
   rm -rf "$MOUNT_DIR"
@@ -110,48 +108,6 @@ GITEA_TOKEN="$(docker exec -u git "$RUN_ID-gitea" gitea admin user generate-acce
 GITEA_READ_TOKEN="$(docker exec -u git "$RUN_ID-gitea" gitea admin user generate-access-token \
   --username miles --token-name lecture --scopes read:repository --raw | tail -1)"
 
-# PKI jetable : une autorité de test, le certificat du proxy, deux certificats clients
-# qu'elle signe (le second sert au remplacement), et un certificat d'une autre autorité.
-PKI="$MOUNT_DIR/pki"
-mkdir -p "$PKI"
-newkey=(-newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes)
-openssl req -x509 "${newkey[@]}" -keyout "$PKI/ca.key" -out "$PKI/ca.crt" -days 2 \
-  -subj "/CN=miles-test-ca" 2>/dev/null
-openssl req -x509 "${newkey[@]}" -keyout "$PKI/foreign.key" -out "$PKI/foreign.crt" -days 2 \
-  -subj "/CN=autre-autorite" 2>/dev/null
-sign() {
-  openssl req "${newkey[@]}" -keyout "$PKI/$1.key" -out "$PKI/$1.csr" -subj "/CN=$2" 2>/dev/null
-  openssl x509 -req -in "$PKI/$1.csr" -CA "$PKI/ca.crt" -CAkey "$PKI/ca.key" -CAcreateserial \
-    -out "$PKI/$1.crt" -days "$3" -extfile <(printf '%s' "$4") 2>/dev/null
-}
-sign server "$RUN_ID-mtls" 2 "subjectAltName=DNS:$RUN_ID-mtls"
-sign client miles-client 2 "extendedKeyUsage=clientAuth"
-sign client2 miles-client 1 "extendedKeyUsage=clientAuth"
-# Clés et certificats jetables, lus par le proxy et par le conteneur de test.
-chmod 755 "$PKI" && chmod 644 "$PKI"/*
-# Certificat vérifié : le proxy présente l'identité du compte à la forge, comme une forge
-# d'entreprise qui reconnaît la machine à son certificat.
-GITEA_BASIC="$(printf 'miles:%s' "$GITEA_TOKEN" | base64 -w0)"
-cat > "$PKI/nginx.conf" <<NGINX
-events {}
-http {
-  server {
-    listen 443 ssl;
-    ssl_certificate /pki/server.crt;
-    ssl_certificate_key /pki/server.key;
-    ssl_client_certificate /pki/ca.crt;
-    ssl_verify_client on;
-    client_max_body_size 50m;
-    location / {
-      proxy_pass http://$RUN_ID-gitea:3000;
-      proxy_set_header Authorization "Basic $GITEA_BASIC";
-    }
-  }
-}
-NGINX
-docker run -d --name "$RUN_ID-mtls" --network "$RUN_ID" -v "$PKI:/pki:ro" \
-  -v "$PKI/nginx.conf:/etc/nginx/nginx.conf:ro" "$NGINX_IMAGE" >/dev/null
-
 echo "==> [1/3] tests contre PostgreSQL"
 docker run --rm --network "$RUN_ID" \
   -e MILES_TEST_DATABASE_URL="postgresql://postgres:$PG_PASSWORD@$RUN_ID-db:5432/postgres" \
@@ -159,7 +115,6 @@ docker run --rm --network "$RUN_ID" \
   -e MILES_TEST_KEYCLOAK_URL="http://$RUN_ID-kc:8080" -e MILES_TEST_KEYCLOAK_SECRET="$KEYCLOAK_SECRET" \
   -e MILES_TEST_GITEA_URL="http://$RUN_ID-gitea:3000" -e MILES_TEST_GITEA_TOKEN="$GITEA_TOKEN" \
   -e MILES_TEST_GITEA_READ_TOKEN="$GITEA_READ_TOKEN" \
-  -e MILES_TEST_MTLS_URL="https://$RUN_ID-mtls" -e MILES_TEST_PKI=/pki -v "$PKI:/pki:ro" \
   "$RUN_ID-backend" -m integration -v --ignore=tests/integration/test_env_mount.py \
   --ignore=tests/integration/test_mqtt_broker.py "$@"
 

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from miles.git.access import GitAccess, GitFiles, write_git_files
+from miles.git.access import GitAccess
 from miles.git.forge import Repository
 from miles.git.rights import Reason, classify
 from miles.git.runner import GitResult, run_git
@@ -161,8 +161,7 @@ async def open_work_branch(
     branch = work_branch_name(name)
     workdir = Path(await asyncio.to_thread(tempfile.mkdtemp, prefix="miles-work-"))
     try:
-        files = await asyncio.to_thread(write_git_files, access, workdir)
-        return await _Opener(repo, access, files, workdir, branch, author).run()
+        return await _Opener(repo, access, workdir, branch, author).run()
     finally:
         await asyncio.to_thread(shutil.rmtree, workdir, True)
 
@@ -171,13 +170,12 @@ async def open_work_branch(
 class _Opener:
     repo: Repository
     access: GitAccess
-    files: GitFiles
     workdir: Path
     branch: str
     author: str
 
     async def git(self, *args: str, cwd: Path | None = None) -> GitResult:
-        return await run_git(list(args), cwd or self.workdir, self.access, self.files)
+        return await run_git(list(args), cwd or self.workdir, self.access)
 
     async def run(self) -> WorkBranch:
         heads = await self.git("ls-remote", "--symref", self.repo.url, "HEAD", "refs/heads/*")

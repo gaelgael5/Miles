@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from miles.git.access import GitAccess, GitFiles
+from miles.git.access import GitAccess
 from miles.git.forge import TOKEN_USERNAME
 
 # Une forge lente ne doit pas retenir l'administrateur indéfiniment sur le test.
@@ -30,11 +30,8 @@ class GitResult:
         return self.returncode == 0
 
 
-async def run_git(
-    args: list[str], cwd: Path, access: GitAccess, files: GitFiles | None = None
-) -> GitResult:
+async def run_git(args: list[str], cwd: Path, access: GitAccess) -> GitResult:
     """Lance git sans terminal, sans configuration de la machine, jeton par l'environnement."""
-    files = files or GitFiles()
     env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": str(cwd),
@@ -43,16 +40,10 @@ async def run_git(
         "GIT_CONFIG_GLOBAL": os.devnull,
         "LC_ALL": "C",
     }
-    # Vide d'abord tout helper hérité ; sans jeton (certificat seul), aucun helper.
-    options = ["-c", "credential.helper="]
-    if access.token is not None:
-        # Point d'injection du jeton : déballé ici seulement.
-        env["MILES_GIT_TOKEN"] = access.token.reveal()
-        options += ["-c", f"credential.helper={_CREDENTIAL_HELPER}"]
-    if files.cert is not None and files.key is not None:
-        options += ["-c", f"http.sslCert={files.cert}", "-c", f"http.sslKey={files.key}"]
-    if access.ca_file is not None:
-        options += ["-c", f"http.sslCAInfo={access.ca_file}"]
+    # Point d'injection du jeton : déballé ici seulement.
+    env["MILES_GIT_TOKEN"] = access.token.reveal()
+    # Vide d'abord tout helper hérité, puis pose le seul qui lit le jeton.
+    options = ["-c", "credential.helper=", "-c", f"credential.helper={_CREDENTIAL_HELPER}"]
     command = [
         "git",
         *options,
@@ -86,5 +77,5 @@ def _scrub(output: bytes, access: GitAccess) -> str:
     # git ne recopie pas le mot de passe, mais une forge pourrait le renvoyer en écho :
     # il ne doit jamais remonter vers un message ou un journal.
     text = output.decode("utf-8", "replace")
-    secret = access.token.reveal() if access.token is not None else ""
+    secret = access.token.reveal()
     return text.replace(secret, "********") if secret else text

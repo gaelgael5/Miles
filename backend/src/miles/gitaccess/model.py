@@ -8,26 +8,12 @@ from miles.git.rights import AccessReport
 
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 LABEL_MAX = 200
-CERT_PEM_MAX = 16384
 TOKEN_TYPE = "GIT_TOKEN"  # noqa: S105  # nom du type, pas une valeur
-CLIENT_KEY_TYPE = "GIT_CLIENT_KEY"
 
-CERTIFICATE_CREATED = "client_certificate.created"
-CERTIFICATE_REPLACED = "client_certificate.replaced"
-CERTIFICATE_DELETED = "client_certificate.deleted"
 CONNECTION_CREATED = "git_connection.created"
 CONNECTION_UPDATED = "git_connection.updated"
 CONNECTION_DELETED = "git_connection.deleted"
-EVENT_TYPES = frozenset(
-    {
-        CERTIFICATE_CREATED,
-        CERTIFICATE_REPLACED,
-        CERTIFICATE_DELETED,
-        CONNECTION_CREATED,
-        CONNECTION_UPDATED,
-        CONNECTION_DELETED,
-    }
-)
+EVENT_TYPES = frozenset({CONNECTION_CREATED, CONNECTION_UPDATED, CONNECTION_DELETED})
 
 
 class GitAccessError(Exception):
@@ -35,9 +21,9 @@ class GitAccessError(Exception):
 
 
 class GitAccessInputError(GitAccessError):
-    def __init__(self, field: str, reason: str | None = None) -> None:
+    def __init__(self, field: str) -> None:
         super().__init__(f"champ invalide : {field}")
-        self.field, self.reason = field, reason
+        self.field = field
 
 
 class GitAccessConflictError(GitAccessError):
@@ -77,34 +63,11 @@ class DependentOutsideError(GitAccessError):
 
 
 @dataclass(frozen=True)
-class CertificateRef:
-    """Certificat public et désignation de sa clé privée, secret du socle."""
-
-    cert_pem: str
-    key_secret_slug: str
-
-
-@dataclass(frozen=True)
-class ClientCertificateRecord:
-    id: str
-    label: str
-    cert_pem: str
-    key_secret_slug: str
-    not_after: datetime
-    created_at: datetime
-    updated_at: datetime
-    # Connexions qui s'en servent : affichées, et motif du refus de suppression.
-    connections: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
 class GitConnection:
     id: str
     label: str
     base_url: str
-    # PAT, certificat, ou les deux ; jamais aucun (contrainte de la table).
-    token_secret_slug: str | None
-    certificate_id: str | None
+    token_secret_slug: str
     created_at: datetime
     updated_at: datetime
     workspaces: tuple[str, ...] = ()

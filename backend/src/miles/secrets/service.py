@@ -68,32 +68,15 @@ class SecretsService:
     async def resolve_create(
         self, author: EventAuthor, slug: str, label: str, secret_type: str, value: str
     ) -> SecretSummary:
-        secret = validate_value(value)
-        async with self.pool.acquire() as conn, conn.transaction():
-            summary = await self.db_create(conn, author, slug, label, secret_type, secret)
-        log.info("secret_cree", slug=summary.slug, secret_type=summary.secret_type)
-        return summary
-
-    async def db_create(
-        self,
-        conn: Any,
-        author: EventAuthor,
-        slug: str,
-        label: str,
-        secret_type: str,
-        secret: Secret,
-    ) -> SecretSummary:
-        """Crée le secret dans la transaction de l'appelant.
-
-        Pour un objet qui naît avec son secret (certificat généré) : les deux s'écrivent
-        ensemble, ou aucun, sans secret orphelin après un refus.
-        """
         slug, label = validate_slug(slug), validate_label(label)
-        secret_type = validate_secret_type(secret_type)
+        secret_type, secret = validate_secret_type(secret_type), validate_value(value)
         sealed = self.cipher.seal(slug, secret)
-        await db_insert_secret(conn, slug, label, secret_type, sealed, self.now())
-        await self._write_event(conn, CREATED_EVENT, slug, author, {"secret_type": secret_type})
-        return _found(await db_get_secret(conn, slug), slug)
+        async with self.pool.acquire() as conn, conn.transaction():
+            await db_insert_secret(conn, slug, label, secret_type, sealed, self.now())
+            await self._write_event(conn, CREATED_EVENT, slug, author, {"secret_type": secret_type})
+            summary = await db_get_secret(conn, slug)
+        log.info("secret_cree", slug=slug, secret_type=secret_type)
+        return _found(summary, slug)
 
     async def resolve_replace_value(self, author: EventAuthor, slug: str, value: str) -> None:
         secret = validate_value(value)

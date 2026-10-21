@@ -9,8 +9,7 @@
       "cultures": "Cultures",
       "secrets": "Secrets",
       "health": "Service status",
-      "gitConnections": "Git connections",
-      "certificates": "Certificates"
+      "gitConnections": "Git connections"
     },
     "noRights": "You are signed in through {{directory}}, but no right is granted to you yet.",
     "brand": "Miles",
@@ -135,15 +134,13 @@
       "orphan": "The selected secret ({{slug}}) no longer exists. Choose another one.",
       "orphanOption": "Missing secret: {{slug}}",
       "createFor": {
-        "GIT_CLIENT_KEY": "Add the private key",
         "GIT_TOKEN": "Add a PAT"
       }
     },
     "types": {
       "OIDC_CLIENT_SECRET": "OIDC connector client secret",
       "SECURITY_SERVICE_CLIENT_SECRET": "Root security service client secret",
-      "GIT_TOKEN": "Git service account token",
-      "GIT_CLIENT_KEY": "Git client certificate private key"
+      "GIT_TOKEN": "Git service account token"
     },
     "deleteConfirm": {
       "title": "Delete this secret?",
@@ -310,8 +307,7 @@
       "injoignable": "the forge cannot be reached",
       "protection": "refused by a protection rule covering miles-verification-*: adjust the branch or tag protection",
       "droit_refuse": "refused: the token has no write right on this repository",
-      "echec": "failed",
-      "certificat": "refused at TLS: client certificate missing, from another authority, or expired"
+      "echec": "failed"
     },
     "check": {
       "ok": "OK",
@@ -391,91 +387,9 @@
       "needsRepository": "Save a repository first: the work branch opens in it."
     }
   },
-  "certificates": {
-    "title": "Client certificates",
-    "intro": "Certificates Miles presents to git forges that require mTLS. The private key is an instance secret, never shown again; git connections pick their certificate here.",
-    "add": "Import a certificate",
-    "empty": "No certificate declared.",
-    "loading": "Loading certificates…",
-    "fields": {
-      "label": "Label",
-      "id": "Identifier",
-      "pem": "Certificate (PEM)",
-      "key": "Certificate private key",
-      "days": "Validity (days)"
-    },
-    "form": {
-      "newTitle": "New certificate",
-      "replaceTitle": "Replace certificate “{{label}}”",
-      "submit": "Save the certificate",
-      "replaceSubmit": "Test and replace",
-      "cancel": "Cancel",
-      "testedFirst": "The new certificate replaces the old one only if every workspace using it keeps its five rights."
-    },
-    "list": {
-      "captionExpiry": "Expiry",
-      "captionUsage": "Usage",
-      "usedBy_one": "{{count}} connection",
-      "usedBy_other": "{{count}} connections",
-      "expires_one": "{{date}} ({{count}} day left)",
-      "expires_other": "{{date}} ({{count}} days left)",
-      "expired": "Expired on {{date}}",
-      "replace": "Replace",
-      "delete": "Delete"
-    },
-    "deleteConfirm": {
-      "title": "Delete this certificate?",
-      "body": "The certificate “{{label}}” will be deleted; its private key remains an instance secret.",
-      "confirm": "Delete permanently"
-    },
-    "errors": {
-      "invalid": {
-        "id": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes.",
-        "label": "Label: 1 to 200 characters.",
-        "cert_pem": "Unreadable certificate (PEM expected).",
-        "key_secret_slug": "Pick a private key of type “git client certificate private key”.",
-        "verification_suffix": "Invalid verification name.",
-        "validity_days": "Validity: 1 to 3650 days."
-      },
-      "reasons": {
-        "expire": "This certificate has already expired.",
-        "ne_correspond_pas": "The chosen key does not match this certificate.",
-        "illisible": "The certificate or its key is unreadable (PEM expected)."
-      },
-      "conflict": {
-        "identifiant_pris": "This identifier is already used by another certificate.",
-        "cle_existante": "A secret already has this certificate's key name (identifier followed by “-cle”). Choose another identifier."
-      },
-      "inUse": "This certificate is used by the connections: {{list}}. Change them first.",
-      "access": "Workspace {{workspace}} would lose access to its repository ({{reason}}): nothing was replaced.",
-      "outside": "The repository of workspace {{workspace}} would no longer be reachable.",
-      "unreachable": "Unable to load certificates.",
-      "unexpected": "The operation failed. See the back-office logs."
-    },
-    "generate": "Generate a certificate",
-    "generateForm": {
-      "title": "Generate a certificate",
-      "help": "Miles creates the key pair and a self-signed certificate, usable right away. The private key goes straight into the instance secrets and is never shown.",
-      "submit": "Generate",
-      "resultTitle": "Certificate “{{label}}” generated",
-      "resultHelp": "Declare its public key, or its certificate, on the forge or mTLS proxy side.",
-      "done": "Done"
-    },
-    "publicKey": {
-      "show": "Public key",
-      "hide": "Hide the public key",
-      "publicKey": "Public key",
-      "certificate": "Certificate (PEM)",
-      "copy": "Copy",
-      "copied": "Copied",
-      "copyManually": "Copy is unavailable on this page: the text is selected, press Ctrl+C.",
-      "help": "An mTLS proxy usually expects the certificate; some forges expect the public key.",
-      "unreadable": "Unreadable certificate: no public key to show."
-    }
-  },
   "gitConnections": {
     "title": "Git connections",
-    "intro": "Connections to git forges: the address of the forge or of an organisation, and the means of access — a PAT, a client certificate, or both. Each workspace picks its own in its settings.",
+    "intro": "Connections to git forges: the address of the forge or of an organisation, and the PAT Miles uses to reach it. Each workspace picks its own in its settings.",
     "add": "Add a connection",
     "empty": "No connection declared.",
     "loading": "Loading connections…",
@@ -483,11 +397,7 @@
       "label": "Label",
       "id": "Identifier",
       "baseUrl": "Forge or organisation address",
-      "token": "PAT (access token)",
-      "certificate": "Client certificate",
-      "noCertificate": "— No certificate —",
-      "createCertificate": "Import a certificate",
-      "generateCertificate": "Generate a certificate"
+      "token": "PAT (access token)"
     },
     "form": {
       "newTitle": "New connection",
@@ -495,17 +405,14 @@
       "submit": "Save the connection",
       "saveEdit": "Save",
       "cancel": "Cancel",
-      "access": "Means of access",
-      "atLeastOne": "A PAT, a certificate, or both: at least one of them.",
       "baseUrlHelp": "Workspace repositories must live under this address.",
       "testedFirst_one": "{{count}} workspace uses this connection: an address or access change is tested on it first, and applied only if it keeps its five rights.",
-      "testedFirst_other": "{{count}} workspaces use this connection: an address or access change is tested on each first, and applied only if they all keep their five rights."
+      "testedFirst_other": "{{count}} workspaces use this connection: an address or access change is tested on each first, and applied only if they all keep their five rights.",
+      "tokenHelp": "Miles accesses git over HTTPS with this PAT only. On GitHub: a fine-grained token with Contents read and write on the repository, or a classic token with the repo scope."
     },
     "list": {
-      "captionAccess": "Access",
+      "captionAccess": "PAT",
       "captionUsage": "Workspaces",
-      "pat": "PAT",
-      "certificate": "Certificate",
       "usedBy_one": "{{count}} workspace",
       "usedBy_other": "{{count}} workspaces",
       "edit": "Edit",
@@ -513,7 +420,7 @@
     },
     "deleteConfirm": {
       "title": "Delete this connection?",
-      "body": "The connection “{{label}}” will be deleted; its PAT and certificate remain declared.",
+      "body": "The connection “{{label}}” will be deleted; its PAT remains declared.",
       "confirm": "Delete permanently"
     },
     "errors": {
@@ -521,15 +428,8 @@
         "id": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes.",
         "label": "Label: 1 to 200 characters.",
         "base_url": "Address: https://github.com or https://github.com/organisation, without a repository.",
-        "token_secret_slug": "This PAT does not exist or is not a git token.",
-        "certificate_id": "This certificate does not exist.",
+        "token_secret_slug": "Pick a PAT: it must exist and be a git token.",
         "verification_suffix": "Invalid verification name."
-      },
-      "reasons": {
-        "au_moins_un_acces": "Pick a PAT, a certificate, or both.",
-        "expire": "The chosen certificate has expired.",
-        "ne_correspond_pas": "The certificate key no longer matches it.",
-        "illisible": "The chosen certificate is unreadable."
       },
       "conflict": {
         "identifiant_pris": "This identifier is already used by another connection."

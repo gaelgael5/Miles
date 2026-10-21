@@ -27,8 +27,7 @@ from miles.db.migration_files import file_load_migrations
 from miles.db.pool import db_create_pool
 from miles.events.model import EventTypeCatalog
 from miles.gitaccess import model as gitaccess_events
-from miles.gitaccess.api_gitaccess import certificates_router, connections_router
-from miles.gitaccess.certificates import CertificatesService
+from miles.gitaccess.api_gitaccess import connections_router
 from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.resolver import AccessResolver
@@ -113,9 +112,8 @@ def create_app() -> FastAPI:
             pool, http, app.state.secrets, catalog, utc_now, settings.allow_http_identity_providers
         )
         git_hosts = tuple(settings.git_test_hosts)
-        resolver = AccessResolver(app.state.secrets, utc_now, settings.git_test_ca_file)
+        resolver = AccessResolver(app.state.secrets)
         verifier = DependentsVerifier(pool, catalog, utc_now, git_hosts)
-        app.state.certificates = CertificatesService(pool, resolver, verifier, catalog, utc_now)
         app.state.git_connections = ConnectionsService(
             pool, resolver, verifier, catalog, utc_now, git_hosts
         )
@@ -173,6 +171,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(oidc_login_router)
     app.include_router(security_router)
     app.include_router(workspaces_router)
-    app.include_router(certificates_router)
     app.include_router(connections_router)
     return app

@@ -1,10 +1,8 @@
-import { type FormEvent, useId, useState } from "react";
-import { createPortal } from "react-dom";
+import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
   type GitConnection,
-  useCertificates,
   useConnections,
   useCreateConnection,
   useDeleteConnection,
@@ -13,8 +11,6 @@ import {
 import { dependentFailure, errorMessage, usedBy } from "../api/gitAccessErrors";
 import { slugFromLabel } from "../api/secrets";
 import { newVerificationSuffix } from "../api/workspaces";
-import { CertificateForm } from "../certificates/CertificatesScreen";
-import { GenerateCertificateForm } from "../certificates/GenerateCertificateForm";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { PageHead } from "../layout/PageHead";
 import { SecretPicker } from "../secrets/SecretPicker";
@@ -23,7 +19,6 @@ import { AccessReportView } from "../workspaces/AccessReportView";
 /** Déclaration (sans `connection`) ou modification (avec), remontée par `key` à chaque ouverture. */
 function ConnectionForm({ connection, onDone }: { connection?: GitConnection; onDone: () => void }) {
   const { t } = useTranslation();
-  const certificates = useCertificates();
   const create = useCreateConnection();
   const update = useUpdateConnection(connection?.id ?? "");
   const save = connection ? update : create;
@@ -32,33 +27,17 @@ function ConnectionForm({ connection, onDone }: { connection?: GitConnection; on
   const [idTouched, setIdTouched] = useState(false);
   const [baseUrl, setBaseUrl] = useState(connection?.base_url ?? "");
   const [token, setToken] = useState<string | null>(connection?.token_secret_slug ?? null);
-  const [certificate, setCertificate] = useState(connection?.certificate_id ?? "");
-  // Certificat créé sans quitter la connexion : généré par Miles, ou importé.
-  const [creatingCertificate, setCreatingCertificate] = useState<"generate" | "import" | null>(
-    null,
-  );
   const failure = dependentFailure(save.error);
-  const certificateFieldId = useId();
   // L'identifiant suit le libellé tant qu'on ne l'a pas saisi soi-même.
   const shownId = idTouched ? id : slugFromLabel(label);
-  // PAT, certificat ou les deux (21/10/2026) : jamais aucun.
-  const noAccess = token === null && certificate === "";
-
-  function certificateCreated(saved?: { id: string }) {
-    setCreatingCertificate(null);
-    if (saved) {
-      setCertificate(saved.id);
-    }
-  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const input = {
-      label,
-      base_url: baseUrl,
-      token_secret_slug: token,
-      certificate_id: certificate || null,
-    };
+    // Le PAT est le seul accès depuis le retrait du mTLS (21/10/2026) : sans lui, rien à envoyer.
+    if (token === null) {
+      return;
+    }
+    const input = { label, base_url: baseUrl, token_secret_slug: token };
     if (connection) {
       update.mutate({ ...input, verification_suffix: newVerificationSuffix() }, { onSuccess: onDone });
     } else {
@@ -100,71 +79,13 @@ function ConnectionForm({ connection, onDone }: { connection?: GitConnection; on
         />
       </label>
       <p className="help">{t("gitConnections.form.baseUrlHelp")}</p>
-      <fieldset>
-        <legend>{t("gitConnections.form.access")}</legend>
-        <SecretPicker
-          label={t("gitConnections.fields.token")}
-          secretType="GIT_TOKEN"
-          value={token}
-          onChange={setToken}
-        />
-        <div className="field">
-          <label htmlFor={certificateFieldId}>{t("gitConnections.fields.certificate")}</label>
-          <div className="field-row">
-            <select
-              id={certificateFieldId}
-              value={certificate}
-              onChange={(e) => setCertificate(e.target.value)}
-            >
-              <option value="">{t("gitConnections.fields.noCertificate")}</option>
-              {certificates.data?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setCreatingCertificate("generate")}
-            >
-              {t("gitConnections.fields.generateCertificate")}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setCreatingCertificate("import")}
-            >
-              {t("gitConnections.fields.createCertificate")}
-            </button>
-          </div>
-        </div>
-        {/* Hors du formulaire dans le DOM (un formulaire ne s'imbrique pas), au-dessus
-            de l'écran : la saisie de la connexion en cours n'est pas perdue. */}
-        {creatingCertificate !== null &&
-          createPortal(
-            <div className="overlay">
-              <div
-                className="dialog dialog-wide"
-                role="dialog"
-                aria-modal="true"
-                aria-label={t(
-                  creatingCertificate === "generate"
-                    ? "certificates.generateForm.title"
-                    : "certificates.form.newTitle",
-                )}
-              >
-                {creatingCertificate === "generate" ? (
-                  <GenerateCertificateForm onDone={certificateCreated} />
-                ) : (
-                  <CertificateForm onDone={certificateCreated} />
-                )}
-              </div>
-            </div>,
-            document.body,
-          )}
-        <p className="help">{t("gitConnections.form.atLeastOne")}</p>
-      </fieldset>
+      <SecretPicker
+        label={t("gitConnections.fields.token")}
+        secretType="GIT_TOKEN"
+        value={token}
+        onChange={setToken}
+      />
+      <p className="help">{t("gitConnections.form.tokenHelp")}</p>
       {connection && connection.workspaces.length > 0 && (
         <p className="alert">
           {t("gitConnections.form.testedFirst", { count: connection.workspaces.length })}
@@ -175,7 +96,7 @@ function ConnectionForm({ connection, onDone }: { connection?: GitConnection; on
       )}
       {failure?.report && <AccessReportView report={failure.report} />}
       <div className="actions">
-        <button type="submit" className="btn btn-primary" disabled={save.isPending || noAccess}>
+        <button type="submit" className="btn btn-primary" disabled={save.isPending || token === null}>
           {t(connection ? "gitConnections.form.saveEdit" : "gitConnections.form.submit")}
         </button>
         <button type="button" className="btn btn-secondary" onClick={onDone}>
@@ -202,12 +123,7 @@ function ConnectionRow({ connection }: { connection: GitConnection }) {
       <div className="cell">
         <div className="caption">{t("gitConnections.list.captionAccess")}</div>
         <div className="value">
-          {connection.token_secret_slug && (
-            <span className="badge badge-accent">{t("gitConnections.list.pat")}</span>
-          )}{" "}
-          {connection.certificate_id && (
-            <span className="badge badge-accent">{t("gitConnections.list.certificate")}</span>
-          )}
+          <span className="mono">{connection.token_secret_slug}</span>
         </div>
       </div>
       <div className="cell">

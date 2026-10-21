@@ -61,7 +61,8 @@ async def test_existing_workspaces_keep_their_access_through_a_connection(blank_
         await _workspace(conn, "retrait", "https://github.com/acme/cfg.git", token="jeton")
         await _workspace(conn, "caisse", "https://github.com/acme/caisse.git", pem="PEM", key="cle")
 
-        applied = await resolve_apply_migrations(conn, migrations)
+        # Arrêt à 0012 : 0013 retire les certificats, et a sa propre épreuve.
+        applied = await resolve_apply_migrations(conn, [m for m in migrations if m.version <= 12])
 
         connections = await conn.fetch(
             "SELECT id, label, base_url, token_secret_slug, certificate_id FROM git_connections"

@@ -50,7 +50,6 @@ export const CONNECTION = {
   label: "GitHub Acme",
   base_url: "https://github.com/acme",
   token_secret_slug: "gh",
-  certificate_id: null,
   workspaces: [],
   created_at: "2026-10-21T09:00:00Z",
   updated_at: "2026-10-21T09:00:00Z",

@@ -3,7 +3,6 @@ from __future__ import annotations
 import secrets as random
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -22,16 +21,11 @@ from tests.integration.portal_stack import PortalStack, open_portal_stack
 
 pytestmark = pytest.mark.integration
 
-CERTS = "/api/client-certificates"
 CONNECTIONS = "/api/git-connections"
 
 
-def _pki(name: str) -> str:
-    return (Path(env("MILES_TEST_PKI")) / name).read_text()
-
-
 @dataclass
-class Mtls:
+class Forge:
     portal: PortalStack
     api: httpx.AsyncClient
     base: str
@@ -48,218 +42,126 @@ class Mtls:
 
 
 @pytest.fixture
-async def mtls(blank_db: str, tmp_path: Path) -> AsyncIterator[Mtls]:
-    # Forge Gitea derrière un proxy qui exige un certificat client signé par une
-    # autorité de test jetable (scripts/run-integration-tests.sh).
-    base = env("MILES_TEST_MTLS_URL")
-    headers = {"Authorization": f"token {env('MILES_TEST_GITEA_TOKEN')}"}
+async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
+    base = env("MILES_TEST_GITEA_URL")
+    write = env("MILES_TEST_GITEA_TOKEN")
+    headers = {"Authorization": f"token {write}"}
     async with (
         open_portal_stack(blank_db, tmp_path) as portal,
-        httpx.AsyncClient(base_url=env("MILES_TEST_GITEA_URL"), headers=headers) as api,
+        httpx.AsyncClient(base_url=base, headers=headers) as api,
     ):
-        wire_git(portal, (base.split("://", 1)[1],), Path(env("MILES_TEST_PKI")) / "ca.crt")
+        wire_git(portal, (base.split("://", 1)[1],))
+        # Deux slugs pour le même jeton d'écriture : un remplacement de PAT qui garde
+        # les droits, sans dépendre d'un second compte sur la forge.
         for slug, kind, value in (
-            ("cle-client", "GIT_CLIENT_KEY", _pki("client.key")),
-            ("cle-client2", "GIT_CLIENT_KEY", _pki("client2.key")),
-            ("cle-etrangere", "GIT_CLIENT_KEY", _pki("foreign.key")),
-            ("jeton", "GIT_TOKEN", env("MILES_TEST_GITEA_TOKEN")),
+            ("jeton", "GIT_TOKEN", write),
+            ("jeton-neuf", "GIT_TOKEN", write),
+            ("jeton-lecture", "GIT_TOKEN", env("MILES_TEST_GITEA_READ_TOKEN")),
+            ("secret-oidc", "OIDC_CLIENT_SECRET", "s"),
         ):
             await add_secret(portal.client, slug, kind, value)
-        yield Mtls(portal, api, base)
+        yield Forge(portal, api, base)
 
 
-async def _certificate(mtls: Mtls, cid: str, name: str, key: str) -> httpx.Response:
-    body = {"id": cid, "label": cid, "cert_pem": _pki(f"{name}.crt"), "key_secret_slug": key}
-    return await mtls.client.post(CERTS, json=body)
+async def _workspace(forge: Forge, wid: str, connection: str) -> httpx.Response:
+    await create_workspace(forge.client, wid)
+    return await set_repository(forge.client, await forge.repo(), connection, wid)
 
 
-async def _replace(mtls: Mtls, cid: str, name: str, key: str) -> httpx.Response:
-    body = {
-        "label": cid,
-        "cert_pem": _pki(f"{name}.crt"),
-        "key_secret_slug": key,
-        "verification_suffix": suffix(),
-    }
-    return await mtls.client.put(f"{CERTS}/{cid}", json=body, timeout=180)
+async def test_connection_is_declared_with_its_pat_and_replayed_without_effect(
+    forge: Forge,
+) -> None:
+    body = {"id": "forge", "label": "Forge", "base_url": forge.base, "token_secret_slug": "jeton"}
 
-
-async def _workspace(mtls: Mtls, wid: str, connection: str) -> httpx.Response:
-    await create_workspace(mtls.client, wid)
-    return await set_repository(mtls.client, await mtls.repo(), connection, wid)
-
-
-async def test_certificate_is_declared_with_its_expiry(mtls: Mtls) -> None:
-    created = await _certificate(mtls, "machine", "client", "cle-client")
-    replay = await _certificate(mtls, "machine", "client", "cle-client")
+    created = await forge.client.post(CONNECTIONS, json=body)
+    replay = await forge.client.post(CONNECTIONS, json=body)
 
     assert created.status_code == 201, created.text
-    expiry = datetime.fromisoformat(created.json()["not_after"])
-    assert timedelta(days=1) < expiry - datetime.now(UTC) <= timedelta(days=2)
+    assert created.json()["token_secret_slug"] == "jeton"
     assert (replay.status_code, replay.headers["x-miles-already-exists"]) == (200, "true")
 
 
 @pytest.mark.parametrize(
-    ("cert", "key", "expected"),
-    [
-        ("client", "cle-client2", {"field": "key_secret_slug", "reason": "ne_correspond_pas"}),
-        ("client", "jeton", {"field": "key_secret_slug"}),
-    ],
-    ids=["cle-d-un-autre-certificat", "secret-d-un-autre-type"],
+    "access",
+    [{}, {"token_secret_slug": "absent"}, {"token_secret_slug": "secret-oidc"}],
+    ids=["sans-pat", "pat-inconnu", "secret-d-un-autre-type"],
 )
-async def test_certificate_with_a_wrong_key_is_refused_naming_the_field(
-    mtls: Mtls, cert: str, key: str, expected: dict[str, str]
+async def test_connection_without_a_usable_pat_is_refused_naming_it(
+    forge: Forge, access: dict[str, str]
 ) -> None:
-    refused = await _certificate(mtls, "machine", cert, key)
+    body = {"id": "vide", "label": "vide", "base_url": forge.base} | access
 
-    assert (refused.status_code, refused.json()["detail"]) == (422, expected)
+    refused = await forge.client.post(CONNECTIONS, json=body)
 
-
-async def test_unreadable_certificate_is_refused(mtls: Mtls) -> None:
-    body = {
-        "id": "machine",
-        "label": "m",
-        "cert_pem": "pas un PEM",
-        "key_secret_slug": "cle-client",
-    }
-
-    refused = await mtls.client.post(CERTS, json=body)
-
-    assert refused.json()["detail"] == {"field": "cert_pem", "reason": "illisible"}
+    assert (refused.status_code, refused.json()["detail"]) == (422, {"field": "token_secret_slug"})
+    assert (await forge.client.get(CONNECTIONS)).json() == []
 
 
-async def test_certificate_alone_gives_access_through_a_connection(mtls: Mtls) -> None:
-    await _certificate(mtls, "machine", "client", "cle-client")
-    await add_connection(mtls.client, "mtls", mtls.base, certificate_id="machine")
+async def test_certificate_is_no_longer_a_means_of_access(forge: Forge) -> None:
+    body = {"id": "x", "label": "x", "base_url": forge.base, "token_secret_slug": "jeton"}
 
-    recorded = await _workspace(mtls, "retrait", "mtls")
+    refused = await forge.client.post(CONNECTIONS, json=body | {"certificate_id": "machine"})
+    gone = await forge.client.get("/api/client-certificates")
 
-    assert recorded.status_code == 200, recorded.text
-    assert recorded.json()["last_check"]["all_passed"] is True
-
-
-@pytest.mark.parametrize("access", ["jeton-seul", "autre-autorite"])
-async def test_forge_requiring_mtls_refuses_a_missing_or_foreign_certificate(
-    mtls: Mtls, access: str
-) -> None:
-    if access == "jeton-seul":
-        await add_connection(mtls.client, "mtls", mtls.base, token_secret_slug="jeton")
-    else:
-        await _certificate(mtls, "etranger", "foreign", "cle-etrangere")
-        await add_connection(mtls.client, "mtls", mtls.base, certificate_id="etranger")
-
-    refused = await _workspace(mtls, "retrait", "mtls")
-
-    detail = refused.json()["detail"]
-    assert (detail["code"], detail["right"], detail["reason"]) == (
-        "acces_insuffisant",
-        "lire",
-        "certificat",
-    )
+    assert refused.status_code == 422
+    assert gone.status_code == 404
 
 
-async def test_connection_needs_a_token_or_a_certificate_or_both(mtls: Mtls) -> None:
-    await _certificate(mtls, "machine", "client", "cle-client")
-    body = {"id": "vide", "label": "vide", "base_url": mtls.base}
-
-    neither = await mtls.client.post(CONNECTIONS, json=body)
-    both = await mtls.client.post(
-        CONNECTIONS, json=body | {"token_secret_slug": "jeton", "certificate_id": "machine"}
-    )
-    unknown = await mtls.client.post(
-        CONNECTIONS, json=body | {"id": "inconnu", "certificate_id": "absent"}
-    )
-
-    assert neither.json()["detail"] == {"field": "token_secret_slug", "reason": "au_moins_un_acces"}
-    assert both.status_code == 201, both.text
-    assert unknown.json()["detail"] == {"field": "certificate_id"}
-
-
-async def test_connection_address_must_be_a_forge_or_an_organisation(mtls: Mtls) -> None:
+async def test_connection_address_must_be_a_forge_or_an_organisation(forge: Forge) -> None:
     body = {"id": "x", "label": "x", "token_secret_slug": "jeton"}
 
-    repo = await mtls.client.post(CONNECTIONS, json=body | {"base_url": f"{mtls.base}/a/b"})
-    other = await mtls.client.post(CONNECTIONS, json=body | {"base_url": "https://gitlab.com"})
+    repo = await forge.client.post(CONNECTIONS, json=body | {"base_url": f"{forge.base}/a/b"})
+    other = await forge.client.post(CONNECTIONS, json=body | {"base_url": "https://gitlab.com"})
 
     assert repo.json()["detail"] == {"field": "base_url"}
     assert other.json()["detail"] == {"field": "base_url"}
 
 
-async def test_certificate_used_by_a_connection_cannot_be_deleted(mtls: Mtls) -> None:
-    await _certificate(mtls, "machine", "client", "cle-client")
-    await _certificate(mtls, "libre", "client2", "cle-client2")
-    await add_connection(mtls.client, "mtls", mtls.base, certificate_id="machine")
+async def test_pat_replacement_is_tested_on_every_workspace_then_applied(forge: Forge) -> None:
+    await add_connection(forge.client, "forge", forge.base, token_secret_slug="jeton")
+    await _workspace(forge, "retrait", "forge")
+    await _workspace(forge, "caisse", "forge")
+    update = {"label": "forge", "base_url": forge.base, "verification_suffix": suffix()}
 
-    refused = await mtls.client.delete(f"{CERTS}/machine")
-    deleted = await mtls.client.delete(f"{CERTS}/libre")
-    key_freed = await mtls.client.delete("/api/secrets/cle-client2")
-
-    assert refused.json()["detail"] == {"code": "utilise", "by": ["mtls"]}
-    assert (deleted.status_code, key_freed.status_code) == (204, 204)
-
-
-async def test_replacement_is_tested_on_every_workspace_then_applied(mtls: Mtls) -> None:
-    await _certificate(mtls, "machine", "client", "cle-client")
-    await add_connection(mtls.client, "mtls", mtls.base, certificate_id="machine")
-    await _workspace(mtls, "retrait", "mtls")
-    await _workspace(mtls, "caisse", "mtls")
-
-    replaced = await _replace(mtls, "machine", "client2", "cle-client2")
-    old_key_freed = await mtls.client.delete("/api/secrets/cle-client")
-    tested = await mtls.portal.pool.fetchval(
+    replaced = await forge.client.put(
+        f"{CONNECTIONS}/forge", json=update | {"token_secret_slug": "jeton-neuf"}, timeout=180
+    )
+    old_pat_freed = await forge.client.delete("/api/secrets/jeton")
+    tested = await forge.portal.pool.fetchval(
         "SELECT count(*) FROM events WHERE type = 'workspace.access_checked'"
     )
 
     assert replaced.status_code == 200, replaced.text
-    assert replaced.json()["key_secret_slug"] == "cle-client2"
-    assert old_key_freed.status_code == 204
+    assert replaced.json()["token_secret_slug"] == "jeton-neuf"
+    assert old_pat_freed.status_code == 204
     # Deux enregistrements de dépôt, puis un essai par workspace pour le remplacement.
     assert tested == 4
 
 
-async def test_replacement_that_would_cut_one_workspace_is_refused_and_keeps_the_old(
-    mtls: Mtls,
+async def test_connection_change_is_refused_when_a_workspace_would_lose_access(
+    forge: Forge,
 ) -> None:
-    created = (await _certificate(mtls, "machine", "client", "cle-client")).json()
-    await add_connection(mtls.client, "mtls", mtls.base, certificate_id="machine")
-    await _workspace(mtls, "retrait", "mtls")
+    await add_connection(forge.client, "forge", forge.base, token_secret_slug="jeton")
+    await _workspace(forge, "retrait", "forge")
+    update = {"label": "forge", "base_url": forge.base, "verification_suffix": suffix()}
 
-    refused = await _replace(mtls, "machine", "foreign", "cle-etrangere")
-    kept = (await mtls.client.get(CERTS)).json()[0]
+    read_only = await forge.client.put(
+        f"{CONNECTIONS}/forge", json=update | {"token_secret_slug": "jeton-lecture"}, timeout=120
+    )
+    moved = await forge.client.put(
+        f"{CONNECTIONS}/forge",
+        json=update | {"base_url": f"{forge.base}/ailleurs", "token_secret_slug": "jeton"},
+    )
+    relabeled = await forge.client.put(
+        f"{CONNECTIONS}/forge", json=update | {"label": "Forge", "token_secret_slug": "jeton"}
+    )
 
-    detail = refused.json()["detail"]
-    assert (detail["code"], detail["workspace"], detail["reason"]) == (
+    detail = read_only.json()["detail"]
+    assert (detail["code"], detail["workspace"], detail["right"]) == (
         "acces_insuffisant",
         "retrait",
-        "certificat",
+        "creer_branche",
     )
-    assert (kept["key_secret_slug"], kept["not_after"]) == ("cle-client", created["not_after"])
-
-
-async def test_connection_change_is_refused_when_a_workspace_would_lose_access(
-    mtls: Mtls,
-) -> None:
-    await _certificate(mtls, "machine", "client", "cle-client")
-    await add_connection(mtls.client, "mtls", mtls.base, certificate_id="machine")
-    await _workspace(mtls, "retrait", "mtls")
-    update = {"label": "mtls", "base_url": mtls.base, "verification_suffix": suffix()}
-
-    token_only = await mtls.client.put(
-        f"{CONNECTIONS}/mtls", json=update | {"token_secret_slug": "jeton"}, timeout=120
-    )
-    moved = await mtls.client.put(
-        f"{CONNECTIONS}/mtls",
-        json=update | {"base_url": f"{mtls.base}/ailleurs", "certificate_id": "machine"},
-    )
-    relabeled = await mtls.client.put(
-        f"{CONNECTIONS}/mtls", json=update | {"label": "Forge mTLS", "certificate_id": "machine"}
-    )
-
-    assert token_only.json()["detail"]["workspace"] == "retrait"
     assert moved.json()["detail"] == {"code": "depot_hors_adresse", "workspace": "retrait"}
     assert relabeled.status_code == 200
-    kept = relabeled.json()
-    assert (kept["label"], kept["certificate_id"], kept["token_secret_slug"]) == (
-        "Forge mTLS",
-        "machine",
-        None,
-    )
+    assert (relabeled.json()["label"], relabeled.json()["token_secret_slug"]) == ("Forge", "jeton")

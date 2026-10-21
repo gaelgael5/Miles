@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
-from miles.git.access import GitAccess, GitFiles, write_git_files
+from miles.git.access import GitAccess
 from miles.git.forge import Repository
 from miles.git.runner import GitResult, run_git
 
@@ -35,8 +35,6 @@ class Reason(StrEnum):
     UNREACHABLE = "injoignable"
     PROTECTED = "protection"
     FORBIDDEN = "droit_refuse"
-    # Refus au niveau TLS : certificat client absent, d'une autre autorité, ou expiré.
-    CERTIFICATE = "certificat"
     FAILED = "echec"
 
 
@@ -89,14 +87,6 @@ _REASONS: tuple[tuple[Reason, re.Pattern[str]], ...] = (
         re.compile(r"permission to .* denied|write access|returned error: 403|denied", re.I),
     ),
     (
-        Reason.CERTIFICATE,
-        re.compile(
-            r"ssl certificate|certificate verify|alert (bad|unknown|handshake)|returned error: 400"
-            r"|ssl_|tlsv1 alert",
-            re.I,
-        ),
-    ),
-    (
         Reason.UNREACHABLE,
         re.compile(
             r"could not resolve host|failed to connect|timed out|délai dépassé|unable to access",
@@ -130,8 +120,7 @@ async def run_access_check(repo: Repository, access: GitAccess, suffix: str) -> 
     report = AccessReport(name, name)
     workdir = Path(await asyncio.to_thread(tempfile.mkdtemp, prefix="miles-git-"))
     try:
-        files = await asyncio.to_thread(write_git_files, access, workdir)
-        await _Probe(repo, access, files, workdir / "probe", report).run()
+        await _Probe(repo, access, workdir, report).run()
     finally:
         await asyncio.to_thread(shutil.rmtree, workdir, True)
     return report
@@ -141,14 +130,11 @@ async def run_access_check(repo: Repository, access: GitAccess, suffix: str) -> 
 class _Probe:
     repo: Repository
     access: GitAccess
-    files: GitFiles
     workdir: Path
     report: AccessReport
 
     async def git(self, *args: str) -> GitResult:
-        # Le dépôt local vit dans un sous-dossier : les fichiers TLS restent hors de lui.
-        await asyncio.to_thread(self.workdir.mkdir, exist_ok=True)
-        return await run_git(list(args), self.workdir, self.access, self.files)
+        return await run_git(list(args), self.workdir, self.access)
 
     def record(self, right: Right, result: GitResult) -> bool:
         reason = None if result.ok else classify(result)

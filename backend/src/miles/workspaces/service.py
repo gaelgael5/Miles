@@ -246,7 +246,7 @@ class WorkspacesService:
             raise WorkspaceInputError("repo_url") from None
 
     async def _access(self, connection_id: str) -> GitAccess:
-        # L'accès est relu à chaque geste : un PAT ou un certificat remplacé vaut aussitôt.
+        # L'accès est relu à chaque geste : un PAT remplacé vaut aussitôt.
         try:
             return await self.resolver.for_connection(self.pool, connection_id)
         except GitAccessError:

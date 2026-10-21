@@ -62,7 +62,9 @@ def test_validate_secret_type_accepts_every_catalogued_type(secret_type: str) ->
 
 
 @pytest.mark.parametrize(
-    "secret_type", ["", "git_token", "GIT-TOKEN", "GITHUB_TOKEN", "API_KEY", " GIT_TOKEN"]
+    "secret_type",
+    # GIT_CLIENT_KEY : retiré avec les certificats clients (21/10/2026).
+    ["", "git_token", "GIT-TOKEN", "GITHUB_TOKEN", "API_KEY", " GIT_TOKEN", "GIT_CLIENT_KEY"],
 )
 def test_validate_secret_type_rejects_types_outside_the_catalogue(secret_type: str) -> None:
     with pytest.raises(SecretInputError) as caught:

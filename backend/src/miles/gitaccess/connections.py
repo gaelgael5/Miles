@@ -19,7 +19,6 @@ from miles.gitaccess.model import (
     CONNECTION_DELETED,
     CONNECTION_UPDATED,
     TOKEN_TYPE,
-    CertificateRef,
     GitAccessConflictError,
     GitAccessInputError,
     GitAccessInUseError,
@@ -36,7 +35,7 @@ log = structlog.get_logger(__name__)
 
 _CONSUMER_KIND = "git_connection"
 _SELECT = (
-    "SELECT c.id, c.label, c.base_url, c.token_secret_slug, c.certificate_id, c.created_at,"
+    "SELECT c.id, c.label, c.base_url, c.token_secret_slug, c.created_at,"
     " c.updated_at, coalesce(array_agg(w.id ORDER BY w.id) FILTER (WHERE w.id IS NOT NULL),"
     " '{}') AS workspaces FROM git_connections c"
     " LEFT JOIN workspaces w ON w.git_connection_id = c.id"
@@ -48,8 +47,9 @@ class ConnectionInput:
     id: str
     label: str
     base_url: str
+    # Optionnel à la saisie pour que l'absence se refuse en nommant le champ, comme
+    # les autres refus ; une connexion enregistrée a toujours son PAT.
     token_secret_slug: str | None
-    certificate_id: str | None
 
 
 def _connection(row: Any) -> GitConnection:
@@ -62,8 +62,8 @@ def _connection(row: Any) -> GitConnection:
 class ConnectionsService:
     """Connexions aux forges git, déclarées à la racine (story 738f4b26).
 
-    Une connexion porte l'adresse de la forge ou d'une organisation et le moyen d'accès
-    — PAT, certificat, ou les deux (21/10/2026) ; les workspaces y choisissent la leur.
+    Une connexion porte l'adresse de la forge ou d'une organisation et son PAT ; les
+    workspaces y choisissent la leur.
     """
 
     pool: asyncpg.Pool
@@ -89,28 +89,26 @@ class ConnectionsService:
         """Déclare une connexion ; rend (connexion, déjà_là). Rejeu à l'identique : sans effet."""
         data = self._validate(data)
         existing = await self.pool.fetchrow(
-            "SELECT label, base_url, token_secret_slug, certificate_id FROM git_connections"
-            " WHERE id = $1",
+            "SELECT label, base_url, token_secret_slug FROM git_connections WHERE id = $1",
             data.id,
         )
         if existing is not None:
-            wanted = (data.label, data.base_url, data.token_secret_slug, data.certificate_id)
+            wanted = (data.label, data.base_url, data.token_secret_slug)
             if tuple(existing) == wanted:
                 return await self.resolve_get(data.id), True
             raise GitAccessConflictError("identifiant_pris")
-        # Accès vérifié à la déclaration (secret du bon type, certificat valide) : une
-        # connexion inutilisable ne doit pas se découvrir au premier workspace.
-        await self.resolver.access(data.token_secret_slug, await self._certificate(data))
+        # Accès vérifié à la déclaration (secret du bon type) : une connexion inutilisable
+        # ne doit pas se découvrir au premier workspace.
+        await self.resolver.access(data.token_secret_slug)
         try:
             async with self.pool.acquire() as conn, conn.transaction():
                 await conn.execute(
                     "INSERT INTO git_connections (id, label, base_url, token_secret_slug,"
-                    " certificate_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $6)",
+                    " created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $5)",
                     data.id,
                     data.label,
                     data.base_url,
                     data.token_secret_slug,
-                    data.certificate_id,
                     self.now(),
                 )
                 await _attach_token(conn, data.token_secret_slug, data.id)
@@ -128,12 +126,11 @@ class ConnectionsService:
             raise GitAccessInputError("verification_suffix")
         data = self._validate(data)
         current = await self.resolve_get(data.id)
-        access = await self.resolver.access(data.token_secret_slug, await self._certificate(data))
+        access = await self.resolver.access(data.token_secret_slug)
         reports: list[Any] = []
-        changed = (data.base_url, data.token_secret_slug, data.certificate_id) != (
+        changed = (data.base_url, data.token_secret_slug) != (
             current.base_url,
             current.token_secret_slug,
-            current.certificate_id,
         )
         if changed:
 
@@ -144,18 +141,16 @@ class ConnectionsService:
                 author, (data.id,), access_for, suffix, base_url=data.base_url
             )
         async with self.pool.acquire() as conn, conn.transaction():
-            if current.token_secret_slug:
-                consumer = Consumer(_CONSUMER_KIND, data.id)
-                await resolve_detach_secret(conn, current.token_secret_slug, consumer)
+            consumer = Consumer(_CONSUMER_KIND, data.id)
+            await resolve_detach_secret(conn, current.token_secret_slug, consumer)
             await _attach_token(conn, data.token_secret_slug, data.id)
             await conn.execute(
                 "UPDATE git_connections SET label = $2, base_url = $3, token_secret_slug = $4,"
-                " certificate_id = $5, updated_at = $6 WHERE id = $1",
+                " updated_at = $5 WHERE id = $1",
                 data.id,
                 data.label,
                 data.base_url,
                 data.token_secret_slug,
-                data.certificate_id,
                 self.now(),
             )
             await self.verifier.db_store_reports(conn, reports)
@@ -179,9 +174,8 @@ class ConnectionsService:
             if users:
                 raise GitAccessInUseError(tuple(r["id"] for r in users))
             await conn.execute("DELETE FROM git_connections WHERE id = $1", connection_id)
-            if row["token_secret_slug"]:
-                consumer = Consumer(_CONSUMER_KIND, connection_id)
-                await resolve_detach_secret(conn, row["token_secret_slug"], consumer)
+            consumer = Consumer(_CONSUMER_KIND, connection_id)
+            await resolve_detach_secret(conn, row["token_secret_slug"], consumer)
             await self._event(conn, CONNECTION_DELETED, connection_id, author, {})
         log.info("connexion_git_supprimee", connection=connection_id)
 
@@ -195,19 +189,7 @@ class ConnectionsService:
             validate_label(data.label),
             base_url,
             data.token_secret_slug or None,
-            data.certificate_id or None,
         )
-
-    async def _certificate(self, data: ConnectionInput) -> CertificateRef | None:
-        if data.certificate_id is None:
-            return None
-        row = await self.pool.fetchrow(
-            "SELECT cert_pem, key_secret_slug FROM client_certificates WHERE id = $1",
-            data.certificate_id,
-        )
-        if row is None:
-            raise GitAccessInputError("certificate_id")
-        return CertificateRef(row["cert_pem"], row["key_secret_slug"])
 
     async def _event(
         self,
@@ -224,17 +206,13 @@ class ConnectionsService:
 
 
 def _summary(data: ConnectionInput) -> dict[str, Any]:
-    # Le slug du PAT et l'identifiant du certificat désignent, ils ne révèlent rien.
-    return {
-        "base_url": data.base_url,
-        "token_secret_slug": data.token_secret_slug,
-        "certificate_id": data.certificate_id,
-    }
+    # Le slug du PAT désigne, il ne révèle rien.
+    return {"base_url": data.base_url, "token_secret_slug": data.token_secret_slug}
 
 
 async def _attach_token(conn: Any, slug: str | None, connection_id: str) -> None:
     if not slug:
-        return
+        raise GitAccessInputError("token_secret_slug")
     try:
         await resolve_attach_secret(conn, slug, TOKEN_TYPE, Consumer(_CONSUMER_KIND, connection_id))
     except SecretError:

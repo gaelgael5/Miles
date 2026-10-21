@@ -14,11 +14,10 @@ SECRET_TYPES = (
     "OIDC_CLIENT_SECRET",  # secret client d'un connecteur OIDC
     "SECURITY_SERVICE_CLIENT_SECRET",  # accès au service de sécurité racine (Keycloak)
     "GIT_TOKEN",  # jeton ou mot de passe du compte de service git
-    "GIT_CLIENT_KEY",  # clé privée du certificat client mTLS d'accès au dépôt
 )
 CONSUMER_KIND_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,99}$")
 MAX_LABEL_LENGTH = 200
-# Large : une clé privée de certificat client tient dans un secret.
+# Large : un jeton ou un secret client OIDC y tient sans contrainte de format.
 MAX_VALUE_LENGTH = 16 * 1024
 MAX_CONSUMER_ID_LENGTH = 200
 _MASK = "********"

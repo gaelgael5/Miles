@@ -51,8 +51,8 @@ export function SecretPicker({ label, secretType, value, onChange }: SecretPicke
           {orphan && <option value={value}>{t("secrets.picker.orphanOption", { slug: value })}</option>}
         </select>
         <button type="button" className="btn btn-secondary" onClick={() => setCreating(true)}>
-          {/* Le bouton dit ce qu'il crée : une clé privée n'est pas « un secret » pour
-              qui déclare un certificat. Repli voulu sur le libellé générique pour les
+          {/* Le bouton dit ce qu'il crée : un PAT n'est pas « un secret » pour qui
+              déclare une connexion. Repli voulu sur le libellé générique pour les
               types qui n'ont pas de libellé propre. */}
           {t(`secrets.picker.createFor.${secretType}`, {
             defaultValue: t("secrets.picker.createInline"),

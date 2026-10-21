@@ -9,8 +9,7 @@
       "cultures": "Cultures",
       "secrets": "Secrets",
       "health": "État du service",
-      "gitConnections": "Connexions git",
-      "certificates": "Certificats"
+      "gitConnections": "Connexions git"
     },
     "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé.",
     "brand": "Miles",
@@ -135,15 +134,13 @@
       "orphan": "Le secret choisi ({{slug}}) n'existe plus. Choisissez-en un autre.",
       "orphanOption": "Secret introuvable : {{slug}}",
       "createFor": {
-        "GIT_CLIENT_KEY": "Ajouter la clé privée",
         "GIT_TOKEN": "Ajouter un PAT"
       }
     },
     "types": {
       "OIDC_CLIENT_SECRET": "Secret client d'un connecteur OIDC",
       "SECURITY_SERVICE_CLIENT_SECRET": "Secret client du service de sécurité racine",
-      "GIT_TOKEN": "Jeton du compte de service git",
-      "GIT_CLIENT_KEY": "Clé privée du certificat client git"
+      "GIT_TOKEN": "Jeton du compte de service git"
     },
     "deleteConfirm": {
       "title": "Supprimer ce secret ?",
@@ -310,8 +307,7 @@
       "injoignable": "la forge est injoignable",
       "protection": "refusé par une règle de protection couvrant miles-verification-* : ajustez la protection de branche ou de tag",
       "droit_refuse": "refusé : le jeton n'a pas le droit d'écrire sur ce dépôt",
-      "echec": "échec",
-      "certificat": "refusé au niveau TLS : certificat client absent, d'une autre autorité, ou expiré"
+      "echec": "échec"
     },
     "check": {
       "ok": "OK",
@@ -391,91 +387,9 @@
       "needsRepository": "Enregistrez d'abord un dépôt : la branche de travail s'y ouvre."
     }
   },
-  "certificates": {
-    "title": "Certificats clients",
-    "intro": "Certificats que Miles présente aux forges git qui exigent le mTLS. La clé privée est un secret de l'instance, jamais restituée ; les connexions git choisissent ici leur certificat.",
-    "add": "Importer un certificat",
-    "empty": "Aucun certificat déclaré.",
-    "loading": "Chargement des certificats…",
-    "fields": {
-      "label": "Libellé",
-      "id": "Identifiant",
-      "pem": "Certificat (PEM)",
-      "key": "Clé privée du certificat",
-      "days": "Validité (jours)"
-    },
-    "form": {
-      "newTitle": "Nouveau certificat",
-      "replaceTitle": "Remplacer le certificat « {{label}} »",
-      "submit": "Enregistrer le certificat",
-      "replaceSubmit": "Tester et remplacer",
-      "cancel": "Annuler",
-      "testedFirst": "Le nouveau certificat ne remplace l'ancien que si chaque workspace qui s'en sert garde ses cinq droits avec lui."
-    },
-    "list": {
-      "captionExpiry": "Échéance",
-      "captionUsage": "Utilisation",
-      "usedBy_one": "{{count}} connexion",
-      "usedBy_other": "{{count}} connexions",
-      "expires_one": "{{date}} (encore {{count}} jour)",
-      "expires_other": "{{date}} (encore {{count}} jours)",
-      "expired": "Expiré le {{date}}",
-      "replace": "Remplacer",
-      "delete": "Supprimer"
-    },
-    "deleteConfirm": {
-      "title": "Supprimer ce certificat ?",
-      "body": "Le certificat « {{label}} » sera supprimé ; sa clé privée reste un secret de l'instance.",
-      "confirm": "Supprimer définitivement"
-    },
-    "errors": {
-      "invalid": {
-        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
-        "label": "Libellé : 1 à 200 caractères.",
-        "cert_pem": "Certificat illisible (PEM attendu).",
-        "key_secret_slug": "Choisissez une clé privée de type « clé privée du certificat client git ».",
-        "verification_suffix": "Nom de vérification invalide.",
-        "validity_days": "Validité : de 1 à 3650 jours."
-      },
-      "reasons": {
-        "expire": "Ce certificat a déjà expiré.",
-        "ne_correspond_pas": "La clé choisie ne va pas avec ce certificat.",
-        "illisible": "Le certificat ou sa clé est illisible (PEM attendu)."
-      },
-      "conflict": {
-        "identifiant_pris": "Cet identifiant est déjà pris par un autre certificat.",
-        "cle_existante": "Un secret porte déjà le nom de la clé de ce certificat (identifiant suivi de « -cle »). Choisissez un autre identifiant."
-      },
-      "inUse": "Ce certificat est utilisé par les connexions : {{list}}. Changez-les d'abord.",
-      "access": "Le workspace {{workspace}} perdrait l'accès à son dépôt ({{reason}}) : rien n'a été remplacé.",
-      "outside": "Le dépôt du workspace {{workspace}} ne serait plus accessible.",
-      "unreachable": "Impossible de charger les certificats.",
-      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
-    },
-    "generate": "Générer un certificat",
-    "generateForm": {
-      "title": "Générer un certificat",
-      "help": "Miles crée la paire de clés et un certificat auto-signé, utilisable tout de suite. La clé privée va directement dans les secrets de l'instance et n'est jamais affichée.",
-      "submit": "Générer",
-      "resultTitle": "Certificat « {{label}} » généré",
-      "resultHelp": "Déclarez sa clé publique, ou son certificat, côté forge ou proxy mTLS.",
-      "done": "Terminé"
-    },
-    "publicKey": {
-      "show": "Clé publique",
-      "hide": "Masquer la clé publique",
-      "publicKey": "Clé publique",
-      "certificate": "Certificat (PEM)",
-      "copy": "Copier",
-      "copied": "Copié",
-      "copyManually": "La copie n'est pas disponible sur cette page : le texte est sélectionné, faites Ctrl+C.",
-      "help": "Un proxy mTLS attend en général le certificat ; certaines forges attendent la clé publique.",
-      "unreadable": "Certificat illisible : aucune clé publique à afficher."
-    }
-  },
   "gitConnections": {
     "title": "Connexions git",
-    "intro": "Connexions aux forges git : l'adresse de la forge ou d'une organisation, et le moyen d'accès — un PAT, un certificat client, ou les deux. Chaque workspace choisit la sienne dans son paramétrage.",
+    "intro": "Connexions aux forges git : l'adresse de la forge ou d'une organisation, et le PAT par lequel Miles y accède. Chaque workspace choisit la sienne dans son paramétrage.",
     "add": "Ajouter une connexion",
     "empty": "Aucune connexion déclarée.",
     "loading": "Chargement des connexions…",
@@ -483,11 +397,7 @@
       "label": "Libellé",
       "id": "Identifiant",
       "baseUrl": "Adresse de la forge ou de l'organisation",
-      "token": "PAT (jeton d'accès)",
-      "certificate": "Certificat client",
-      "noCertificate": "— Aucun certificat —",
-      "createCertificate": "Importer un certificat",
-      "generateCertificate": "Générer un certificat"
+      "token": "PAT (jeton d'accès)"
     },
     "form": {
       "newTitle": "Nouvelle connexion",
@@ -495,17 +405,14 @@
       "submit": "Enregistrer la connexion",
       "saveEdit": "Enregistrer",
       "cancel": "Annuler",
-      "access": "Moyen d'accès",
-      "atLeastOne": "Un PAT, un certificat, ou les deux : au moins l'un des deux.",
       "baseUrlHelp": "Les dépôts des workspaces devront se trouver sous cette adresse.",
       "testedFirst_one": "{{count}} workspace utilise cette connexion : un changement d'adresse ou d'accès y est d'abord éprouvé, et n'est appliqué que s'il garde ses cinq droits.",
-      "testedFirst_other": "{{count}} workspaces utilisent cette connexion : un changement d'adresse ou d'accès est d'abord éprouvé sur chacun, et n'est appliqué que s'ils gardent tous leurs cinq droits."
+      "testedFirst_other": "{{count}} workspaces utilisent cette connexion : un changement d'adresse ou d'accès est d'abord éprouvé sur chacun, et n'est appliqué que s'ils gardent tous leurs cinq droits.",
+      "tokenHelp": "Miles accède à git en HTTPS par ce seul PAT. Sur GitHub : un jeton fine-grained avec Contents en lecture et écriture sur le dépôt, ou un jeton classic avec la portée repo."
     },
     "list": {
-      "captionAccess": "Accès",
+      "captionAccess": "PAT",
       "captionUsage": "Workspaces",
-      "pat": "PAT",
-      "certificate": "Certificat",
       "usedBy_one": "{{count}} workspace",
       "usedBy_other": "{{count}} workspaces",
       "edit": "Modifier",
@@ -513,7 +420,7 @@
     },
     "deleteConfirm": {
       "title": "Supprimer cette connexion ?",
-      "body": "La connexion « {{label}} » sera supprimée ; son PAT et son certificat restent déclarés.",
+      "body": "La connexion « {{label}} » sera supprimée ; son PAT reste déclaré.",
       "confirm": "Supprimer définitivement"
     },
     "errors": {
@@ -521,15 +428,8 @@
         "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
         "label": "Libellé : 1 à 200 caractères.",
         "base_url": "Adresse : https://github.com ou https://github.com/organisation, sans dépôt.",
-        "token_secret_slug": "Ce PAT n'existe pas ou n'est pas un jeton git.",
-        "certificate_id": "Ce certificat n'existe pas.",
+        "token_secret_slug": "Choisissez un PAT : il doit exister et être un jeton git.",
         "verification_suffix": "Nom de vérification invalide."
-      },
-      "reasons": {
-        "au_moins_un_acces": "Choisissez un PAT, un certificat, ou les deux.",
-        "expire": "Le certificat choisi a expiré.",
-        "ne_correspond_pas": "La clé du certificat ne lui correspond plus.",
-        "illisible": "Le certificat choisi est illisible."
       },
       "conflict": {
         "identifiant_pris": "Cet identifiant est déjà pris par une autre connexion."
