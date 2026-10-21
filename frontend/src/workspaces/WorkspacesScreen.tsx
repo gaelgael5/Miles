@@ -5,6 +5,7 @@ import { ApiError, invalidField } from "../api/http";
 import { slugFromLabel } from "../api/secrets";
 import { type Workspace, useCreateWorkspace, useWorkspaces } from "../api/workspaces";
 import { PageHead } from "../layout/PageHead";
+import { type WorkspaceSelection, type WorkspaceView, viewsOf } from "../layout/WorkspacesNav";
 import { ContractsScreen } from "./ContractsScreen";
 import { DataModelsScreen } from "./DataModelsScreen";
 import { WorkspaceSettings } from "./WorkspaceSettings";
@@ -70,14 +71,12 @@ function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   );
 }
 
-type View = "settings" | "dataModels" | "contracts";
-
 function WorkspaceRow({
   workspace,
   onOpen,
 }: {
   workspace: Workspace;
-  onOpen: (view: View) => void;
+  onOpen: (view: WorkspaceView) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -105,42 +104,37 @@ function WorkspaceRow({
         <div className="value mono">{workspace.work_branch ?? "—"}</div>
       </div>
       <div className="actions row-actions">
-        {/* Les modèles s'écrivent dans la branche de travail : sans elle, rien à ouvrir. */}
-        {workspace.work_branch !== null && (
-          <>
-            <button type="button" className="btn btn-secondary" onClick={() => onOpen("dataModels")}>
-              {t("workspaces.card.dataModels")}
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => onOpen("contracts")}>
-              {t("workspaces.card.contracts")}
-            </button>
-          </>
-        )}
-        <button type="button" className="btn btn-secondary" onClick={() => onOpen("settings")}>
-          {t("workspaces.card.settings")}
-        </button>
+        {viewsOf(workspace).map((view) => (
+          <button key={view} type="button" className="btn btn-secondary" onClick={() => onOpen(view)}>
+            {t(`workspaces.card.${view}`)}
+          </button>
+        ))}
       </div>
     </li>
   );
 }
 
 /** Workspaces : une application métier chacun, avec son dépôt et ses cinq droits éprouvés. */
-export function WorkspacesScreen() {
+export function WorkspacesScreen({
+  selection,
+  onSelect,
+}: {
+  selection: WorkspaceSelection;
+  onSelect: (selection: WorkspaceSelection) => void;
+}) {
   const { t } = useTranslation();
   const workspaces = useWorkspaces();
   const [creating, setCreating] = useState(false);
-  // Sous-écran ouvert : le workspace et la vue choisie, sinon la liste.
-  const [selected, setSelected] = useState<{ id: string; view: View } | null>(null);
-  const current = workspaces.data?.find((w) => w.id === selected?.id);
+  const current = workspaces.data?.find((w) => w.id === selection?.id);
 
-  if (current && selected?.view === "contracts") {
-    return <ContractsScreen workspace={current} onBack={() => setSelected(null)} />;
+  if (current && selection?.view === "contracts") {
+    return <ContractsScreen workspace={current} onBack={() => onSelect(null)} />;
   }
-  if (current && selected?.view === "dataModels") {
-    return <DataModelsScreen workspace={current} onBack={() => setSelected(null)} />;
+  if (current && selection?.view === "dataModels") {
+    return <DataModelsScreen workspace={current} onBack={() => onSelect(null)} />;
   }
   if (current) {
-    return <WorkspaceSettings workspace={current} onBack={() => setSelected(null)} />;
+    return <WorkspaceSettings workspace={current} onBack={() => onSelect(null)} />;
   }
   return (
     <section aria-labelledby="workspaces-title">
@@ -162,7 +156,7 @@ export function WorkspacesScreen() {
             setCreating(false);
             // Juste créé, il n'a pas de dépôt : on enchaîne sur son paramétrage.
             if (id) {
-              setSelected({ id, view: "settings" });
+              onSelect({ id, view: "settings" });
             }
           }}
         />
@@ -174,7 +168,7 @@ export function WorkspacesScreen() {
       {(workspaces.data?.length ?? 0) > 0 && (
         <ul className="card-list plain-list">
           {workspaces.data?.map((w) => (
-            <WorkspaceRow key={w.id} workspace={w} onOpen={(view) => setSelected({ id: w.id, view })} />
+            <WorkspaceRow key={w.id} workspace={w} onOpen={(view) => onSelect({ id: w.id, view })} />
           ))}
         </ul>
       )}

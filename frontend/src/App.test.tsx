@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import { App } from "./App";
 import "./i18n/i18n";
 import { mockApi } from "./test/mockApi";
+import { BARE, CONFIGURED } from "./workspaces/workspaceFixtures";
 
 function renderApp() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -27,6 +28,7 @@ const ADMIN = {
     },
   },
   "GET /api/health": { status: 200, body: {} },
+  "GET /api/workspaces": { status: 200, body: [] },
 };
 
 afterEach(() => {
@@ -83,10 +85,11 @@ describe("App", () => {
       "OIDC connectors",
       "Service status",
       "Workspaces",
+      "All workspaces",
     ]);
   });
 
-  it("collapses a main menu and opens a menu without sub-menu as a page", async () => {
+  it("collapses a main menu, the workspace list being the page shown first", async () => {
     mockApi(ADMIN);
     renderApp();
     const global = await screen.findByRole("button", { name: "Global" });
@@ -97,8 +100,49 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "Cultures" })).not.toBeInTheDocument();
     fireEvent.click(global);
     expect(screen.getByRole("button", { name: "Cultures" })).toBeVisible();
-    const workspaces = screen.getByRole("button", { name: "Workspaces" });
-    expect(workspaces).toHaveAttribute("aria-current", "page");
-    expect(workspaces).not.toHaveAttribute("aria-expanded");
+    expect(screen.getByRole("button", { name: "All workspaces" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("lists each workspace under Workspaces, whose sub-menu opens its views", async () => {
+    mockApi({
+      ...ADMIN,
+      "GET /api/workspaces": {
+        status: 200,
+        body: [
+          { ...CONFIGURED, work_branch: "work/atelier" },
+          { ...BARE, id: "caisse", name: "Caisse" },
+        ],
+      },
+      "GET /api/workspaces/retrait/data-models": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/versions": { status: 200, body: [] },
+    });
+    renderApp();
+    const nav = await screen.findByRole("navigation");
+    const retrait = await within(nav).findByRole("button", { name: "Retrait de colis" });
+    // Replié par défaut : avec beaucoup de workspaces, tout déplier noierait le menu.
+    expect(retrait).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(retrait);
+    fireEvent.click(within(nav).getByRole("button", { name: "Caisse" }));
+
+    expect(within(nav).getAllByRole("button", { name: "Data models" })).toHaveLength(1);
+    expect(within(nav).getAllByRole("button", { name: "Settings" })).toHaveLength(2);
+    fireEvent.click(within(nav).getByRole("button", { name: "Data models" }));
+    expect(
+      await screen.findByRole("heading", { name: "Data models — Retrait de colis" }),
+    ).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: "Data models" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    // Le retour de l'écran ramène aussi le menu sur la liste.
+    fireEvent.click(screen.getByText("← Back to workspaces"));
+    expect(within(nav).getByRole("button", { name: "All workspaces" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });

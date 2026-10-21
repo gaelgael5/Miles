@@ -9,7 +9,8 @@
       "cultures": "Cultures",
       "secrets": "Secrets",
       "health": "Service status",
-      "gitConnections": "Git connections"
+      "gitConnections": "Git connections",
+      "allWorkspaces": "All workspaces"
     },
     "noRights": "You are signed in through {{directory}}, but no right is granted to you yet.",
     "brand": "Miles",

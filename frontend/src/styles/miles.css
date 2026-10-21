@@ -74,12 +74,6 @@ code, .mono { font-family: var(--police-mono); font-size: 12.5px; }
 }
 .sidebar-section[aria-expanded="false"]::before { transform: rotate(-45deg); }
 .sidebar-section:hover { color: var(--encre-douce); }
-/* Menu sans sous-menu : pas de chevron, mais le même repère que le lien courant. */
-.sidebar-section-link::before { content: none; }
-.sidebar-section-link { padding: 10px 20px 10px 31px; border-left: 3px solid transparent; }
-.sidebar-section-link[aria-current="page"] {
-  color: var(--encre); background: var(--accent-fond); border-left-color: var(--accent);
-}
 /* Sous-menus nettement décalés sous leur titre, pour qu'on les lise comme ses éléments. */
 .sidebar-link {
   display: block; width: 100%; text-align: left; padding: 9px 20px 9px 48px; font: inherit; font-size: 14px;
@@ -221,3 +215,11 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 .card-head h2 { margin: 0; }
 /* Choix exclusif (bouton radio) sur sa ligne, libellé cliquable. */
 .choice { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 14px; cursor: pointer; }
+/* Un workspace du menu : son nom se déplie sur ses vues, nettement décalées dessous. */
+.sidebar-workspace { display: flex; align-items: center; gap: 8px; }
+.sidebar-workspace::after {
+  content: ""; width: 5px; height: 5px; margin-left: auto; border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s;
+}
+.sidebar-workspace[aria-expanded="true"]::after { transform: rotate(45deg); }
+.sidebar-sublink { padding-left: 64px; font-size: 13.5px; }

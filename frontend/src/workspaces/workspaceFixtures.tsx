@@ -1,5 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+
+import type { WorkspaceSelection } from "../layout/WorkspacesNav";
 
 import type { Routes } from "../test/mockApi";
 import { WorkspacesScreen } from "./WorkspacesScreen";
@@ -59,11 +62,17 @@ export const SETTINGS: Routes = {
   "GET /api/security-services": { status: 200, body: [] },
 };
 
+/** L'écran avec la sélection que lui tient le portail, ici tenue localement. */
+function Workspaces() {
+  const [selection, setSelection] = useState<WorkspaceSelection>(null);
+  return <WorkspacesScreen selection={selection} onSelect={setSelection} />;
+}
+
 export function renderWorkspaces() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <WorkspacesScreen />
+      <Workspaces />
     </QueryClientProvider>,
   );
 }
