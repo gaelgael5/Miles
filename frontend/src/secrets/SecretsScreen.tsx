@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { PageHead } from "../layout/PageHead";
 import { ApiError, invalidField } from "../api/http";
 import {
@@ -32,6 +33,7 @@ function SecretRow({ secret }: { secret: SecretSummary }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>("idle");
   const [draft, setDraft] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const relabel = useRelabelSecret();
   const replace = useReplaceSecretValue();
   const remove = useDeleteSecret();
@@ -80,10 +82,31 @@ function SecretRow({ secret }: { secret: SecretSummary }) {
       <button type="button" className="btn btn-secondary" onClick={() => open("replace")}>
         {t("secrets.list.replaceValue")}
       </button>
-      <button type="button" className="btn btn-danger" onClick={() => remove.mutate(secret.slug)}>
+      <button type="button" className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>
         {t("secrets.list.delete")}
       </button>
       </div>
+      {/* La suppression détruit la valeur chiffrée sans retour possible : un clic isolé
+          ne doit pas suffire, d'où une validation explicite. */}
+      {confirmingDelete && (
+        <ConfirmDialog
+          title={t("secrets.deleteConfirm.title")}
+          confirmLabel={t("secrets.deleteConfirm.confirm")}
+          cancelLabel={t("secrets.cancel")}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            remove.mutate(secret.slug);
+          }}
+        >
+          <p>{t("secrets.deleteConfirm.body", { label: secret.label, slug: secret.slug })}</p>
+          {secret.consumers.length > 0 && (
+            <p className="alert">
+              {t("secrets.deleteConfirm.inUse", { count: secret.consumers.length })}
+            </p>
+          )}
+        </ConfirmDialog>
+      )}
       {mode !== "idle" && (
         <form className="row-detail" onSubmit={submit} aria-label={t(`secrets.list.${mode}`)}>
           <label className="field">

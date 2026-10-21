@@ -138,6 +138,13 @@
       "SECURITY_SERVICE_CLIENT_SECRET": "Secret client du service de sécurité racine",
       "GIT_TOKEN": "Jeton du compte de service git",
       "GIT_CLIENT_KEY": "Clé privée du certificat client git"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer ce secret ?",
+      "body": "Le secret « {{label}} » ({{slug}}) et sa valeur chiffrée seront supprimés définitivement. Cette action est irréversible.",
+      "confirm": "Supprimer définitivement",
+      "inUse_one": "Il est utilisé par {{count}} objet : la suppression sera refusée tant qu'il n'en est pas détaché.",
+      "inUse_other": "Il est utilisé par {{count}} objets : la suppression sera refusée tant qu'il n'en est pas détaché."
     }
   },
   "cultures": {

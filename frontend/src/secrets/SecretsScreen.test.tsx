@@ -128,10 +128,59 @@ describe("SecretsScreen", () => {
     renderScreen();
 
     fireEvent.click(await screen.findByText("Delete"));
+    fireEvent.click(within(screen.getByRole("dialog")).getByText("Delete permanently"));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("still used");
     expect(within(alert).getByText("workspace ws-1")).toBeInTheDocument();
+  });
+
+  it("asks for confirmation before deleting, and deletes nothing on cancel", async () => {
+    const calls = mockApi({
+      "GET /api/secrets": { status: 200, body: [GIT] },
+      "DELETE /api/secrets/git-token": { status: 204 },
+    });
+    renderScreen();
+
+    fireEvent.click(await screen.findByText("Delete"));
+    const dialog = screen.getByRole("dialog", { name: "Delete this secret?" });
+    expect(dialog).toHaveTextContent("Jeton GitHub");
+    expect(dialog).toHaveTextContent("git-token");
+    expect(within(dialog).getByText("Cancel")).toHaveFocus();
+    fireEvent.click(within(dialog).getByText("Cancel"));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(calls.some((c) => c.key === "DELETE /api/secrets/git-token")).toBe(false);
+  });
+
+  it("deletes the secret once the deletion is confirmed", async () => {
+    const calls = mockApi({
+      "GET /api/secrets": { status: 200, body: [GIT] },
+      "DELETE /api/secrets/git-token": { status: 204 },
+    });
+    renderScreen();
+
+    fireEvent.click(await screen.findByText("Delete"));
+    fireEvent.click(within(screen.getByRole("dialog")).getByText("Delete permanently"));
+
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.key === "DELETE /api/secrets/git-token")).toBe(true),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("warns in the confirmation that a secret in use will be refused", async () => {
+    mockApi({
+      "GET /api/secrets": { status: 200, body: [{ ...GIT, consumers: [{ kind: "workspace", id: "ws-1" }] }] },
+    });
+    renderScreen();
+
+    fireEvent.click(await screen.findByText("Delete"));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("used by 1 object");
   });
 
   it("replaces a value without ever displaying the old one", async () => {

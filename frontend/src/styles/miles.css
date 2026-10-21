@@ -174,3 +174,14 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 .row-actions { margin-top: 0; }
 /* Ce qui se déplie sous une ligne (formulaire, compte rendu, panneaux) prend toute la largeur. */
 .row-detail { flex: 1 1 100%; min-width: 0; }
+
+/* Fenêtre de confirmation. */
+.overlay {
+  position: fixed; inset: 0; background: rgba(27, 31, 38, 0.45); z-index: 10;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.dialog {
+  background: var(--surface); border: 1px solid var(--bordure); border-radius: 8px;
+  padding: 24px 26px; width: 100%; max-width: 480px; font-size: 14px;
+}
+.dialog-actions { justify-content: flex-end; }

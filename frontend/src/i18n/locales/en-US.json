@@ -138,6 +138,13 @@
       "SECURITY_SERVICE_CLIENT_SECRET": "Root security service client secret",
       "GIT_TOKEN": "Git service account token",
       "GIT_CLIENT_KEY": "Git client certificate private key"
+    },
+    "deleteConfirm": {
+      "title": "Delete this secret?",
+      "body": "The secret “{{label}}” ({{slug}}) and its encrypted value will be deleted permanently. This cannot be undone.",
+      "confirm": "Delete permanently",
+      "inUse_one": "It is used by {{count}} object: the deletion will be refused until it is detached.",
+      "inUse_other": "It is used by {{count}} objects: the deletion will be refused until they are detached."
     }
   },
   "cultures": {
