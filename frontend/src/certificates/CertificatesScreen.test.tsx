@@ -58,6 +58,8 @@ describe("CertificatesScreen", () => {
     });
     renderScreen();
     fireEvent.click(await screen.findByText("Add a certificate"));
+    // Le bouton dit ce qu'il crée : la clé privée, pas « un secret ».
+    expect(screen.getByText("Add the private key")).toBeInTheDocument();
     fill("Label", "Machine de prod");
     fill("Certificate (PEM)", PEM);
     await screen.findByRole("option", { name: "Clé machine" });

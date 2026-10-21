@@ -1,4 +1,5 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -12,6 +13,7 @@ import {
 import { dependentFailure, errorMessage, usedBy } from "../api/gitAccessErrors";
 import { slugFromLabel } from "../api/secrets";
 import { newVerificationSuffix } from "../api/workspaces";
+import { CertificateForm } from "../certificates/CertificatesScreen";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { PageHead } from "../layout/PageHead";
 import { SecretPicker } from "../secrets/SecretPicker";
@@ -30,7 +32,9 @@ function ConnectionForm({ connection, onDone }: { connection?: GitConnection; on
   const [baseUrl, setBaseUrl] = useState(connection?.base_url ?? "");
   const [token, setToken] = useState<string | null>(connection?.token_secret_slug ?? null);
   const [certificate, setCertificate] = useState(connection?.certificate_id ?? "");
+  const [creatingCertificate, setCreatingCertificate] = useState(false);
   const failure = dependentFailure(save.error);
+  const certificateFieldId = useId();
   // L'identifiant suit le libellé tant qu'on ne l'a pas saisi soi-même.
   const shownId = idTouched ? id : slugFromLabel(label);
   // PAT, certificat ou les deux (21/10/2026) : jamais aucun.
@@ -93,17 +97,53 @@ function ConnectionForm({ connection, onDone }: { connection?: GitConnection; on
           value={token}
           onChange={setToken}
         />
-        <label className="field">
-          {t("gitConnections.fields.certificate")}
-          <select value={certificate} onChange={(e) => setCertificate(e.target.value)}>
-            <option value="">{t("gitConnections.fields.noCertificate")}</option>
-            {certificates.data?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="field">
+          <label htmlFor={certificateFieldId}>{t("gitConnections.fields.certificate")}</label>
+          <div className="field-row">
+            <select
+              id={certificateFieldId}
+              value={certificate}
+              onChange={(e) => setCertificate(e.target.value)}
+            >
+              <option value="">{t("gitConnections.fields.noCertificate")}</option>
+              {certificates.data?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setCreatingCertificate(true)}
+            >
+              {t("gitConnections.fields.createCertificate")}
+            </button>
+          </div>
+        </div>
+        {/* Hors du formulaire dans le DOM (un formulaire ne s'imbrique pas), au-dessus
+            de l'écran : la saisie de la connexion en cours n'est pas perdue. */}
+        {creatingCertificate &&
+          createPortal(
+            <div className="overlay">
+              <div
+                className="dialog dialog-wide"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t("certificates.form.newTitle")}
+              >
+                <CertificateForm
+                  onDone={(saved) => {
+                    setCreatingCertificate(false);
+                    if (saved) {
+                      setCertificate(saved.id);
+                    }
+                  }}
+                />
+              </div>
+            </div>,
+            document.body,
+          )}
         <p className="help">{t("gitConnections.form.atLeastOne")}</p>
       </fieldset>
       {connection && connection.workspaces.length > 0 && (

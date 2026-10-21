@@ -14,6 +14,14 @@ const TOKEN = {
   updated_at: "2026-10-21T09:00:00Z",
   consumers: [],
 };
+const KEY = {
+  slug: "cle",
+  label: "Clé machine",
+  secret_type: "GIT_CLIENT_KEY",
+  created_at: "2026-10-21T09:00:00Z",
+  updated_at: "2026-10-21T09:00:00Z",
+  consumers: [],
+};
 const CERTIFICATE = {
   id: "machine",
   label: "Machine de prod",
@@ -85,6 +93,40 @@ describe("GitConnectionsScreen", () => {
       token_secret_slug: "gh",
       certificate_id: null,
     });
+  });
+
+  it("creates a certificate from the connection form, selects it and keeps the input", async () => {
+    const calls = mockApi({
+      "GET /api/git-connections": { status: 200, body: [] },
+      [TOKENS]: { status: 200, body: [TOKEN] },
+      "GET /api/secrets?secret_type=GIT_CLIENT_KEY": { status: 200, body: [KEY] },
+      "GET /api/client-certificates": [
+        { status: 200, body: [] },
+        { status: 200, body: [CERTIFICATE] },
+      ],
+      "POST /api/client-certificates": { status: 201, body: CERTIFICATE },
+    });
+    renderScreen();
+    fireEvent.click(await screen.findByText("Add a connection"));
+    fill("Label", "GitHub Acme");
+    expect(screen.getByText("Add a PAT")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Create a certificate"));
+    const dialog = screen.getByRole("dialog", { name: "New certificate" });
+    fireEvent.change(within(dialog).getByLabelText("Label"), { target: { value: "Machine de prod" } });
+    fireEvent.change(within(dialog).getByLabelText("Certificate (PEM)"), { target: { value: "PEM" } });
+    await within(dialog).findByRole("option", { name: "Clé machine" });
+    fireEvent.change(within(dialog).getByLabelText("Certificate private key"), {
+      target: { value: "cle" },
+    });
+    fireEvent.click(within(dialog).getByText("Save the certificate"));
+
+    await screen.findByRole("option", { name: "Machine de prod" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Client certificate")).toHaveValue("machine");
+    expect(screen.getByLabelText("Label")).toHaveValue("GitHub Acme");
+    // La validation du certificat n'a pas soumis la connexion.
+    expect(calls.some((c) => c.key === "POST /api/git-connections")).toBe(false);
   });
 
   it("shows the means of access and how many workspaces use each connection", async () => {

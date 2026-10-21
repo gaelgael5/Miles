@@ -133,7 +133,11 @@
       "none": "— No secret —",
       "createInline": "Create a secret",
       "orphan": "The selected secret ({{slug}}) no longer exists. Choose another one.",
-      "orphanOption": "Missing secret: {{slug}}"
+      "orphanOption": "Missing secret: {{slug}}",
+      "createFor": {
+        "GIT_CLIENT_KEY": "Add the private key",
+        "GIT_TOKEN": "Add a PAT"
+      }
     },
     "types": {
       "OIDC_CLIENT_SECRET": "OIDC connector client secret",
@@ -458,7 +462,8 @@
       "baseUrl": "Forge or organisation address",
       "token": "PAT (access token)",
       "certificate": "Client certificate",
-      "noCertificate": "— No certificate —"
+      "noCertificate": "— No certificate —",
+      "createCertificate": "Create a certificate"
     },
     "form": {
       "newTitle": "New connection",

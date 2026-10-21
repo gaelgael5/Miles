@@ -34,12 +34,13 @@ function Expiry({ notAfter }: { notAfter: string }) {
 }
 
 /** Déclaration (sans `certificate`) ou remplacement éprouvé (avec). */
-function CertificateForm({
+export function CertificateForm({
   certificate,
   onDone,
 }: {
   certificate?: ClientCertificate;
-  onDone: () => void;
+  /** Rend le certificat déclaré ou remplacé ; rien sur une annulation. */
+  onDone: (saved?: ClientCertificate) => void;
 }) {
   const { t } = useTranslation();
   const create = useCreateCertificate();
@@ -56,14 +57,20 @@ function CertificateForm({
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    // Ouvert depuis le formulaire d'une connexion, par un portail : sans cet arrêt, la
+    // validation remonterait l'arbre React et soumettrait aussi la connexion.
+    event.stopPropagation();
     if (keySlug === null) {
       return;
     }
     const input = { label, cert_pem: certPem, key_secret_slug: keySlug };
     if (certificate) {
-      replace.mutate({ ...input, verification_suffix: newVerificationSuffix() }, { onSuccess: onDone });
+      replace.mutate(
+        { ...input, verification_suffix: newVerificationSuffix() },
+        { onSuccess: (saved) => onDone(saved) },
+      );
     } else {
-      create.mutate({ ...input, id: shownId }, { onSuccess: onDone });
+      create.mutate({ ...input, id: shownId }, { onSuccess: (saved) => onDone(saved) });
     }
   }
 
@@ -113,7 +120,7 @@ function CertificateForm({
         >
           {t(certificate ? "certificates.form.replaceSubmit" : "certificates.form.submit")}
         </button>
-        <button type="button" className="btn btn-secondary" onClick={onDone}>
+        <button type="button" className="btn btn-secondary" onClick={() => onDone()}>
           {t("certificates.form.cancel")}
         </button>
       </div>
