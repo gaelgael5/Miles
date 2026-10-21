@@ -13,6 +13,9 @@ from miles.git.runner import GitResult, run_git
 from miles.secrets.model import Secret
 
 VERIFICATION_PREFIX = "miles-verification-"
+# Branche posée d'abord sur un dépôt vide (décision du 20/10/2026) : la première branche
+# poussée devient la branche par défaut, que ni GitHub ni Gitea ne laissent supprimer.
+DEFAULT_BRANCH = "main"
 SUFFIX_RE = re.compile(r"^[0-9a-f]{8}$")
 
 
@@ -52,6 +55,8 @@ class AccessReport:
     residual_branch: str | None = None
     residual_tag: str | None = None
     existing_branches: int = 0
+    # Seul effet durable admis hors vérification : la branche initiale d'un dépôt vide.
+    initialized_branch: str | None = None
 
     @property
     def all_passed(self) -> bool:
@@ -141,9 +146,11 @@ class _Probe:
         if not self.record(Right.READ, listed):
             return
         self.report.existing_branches = len([line for line in listed.stdout.splitlines() if line])
-        # Branche orpheline à commits vides : rien du contenu du dépôt n'est touché, et
-        # un dépôt vide (cas nominal, critère 11) s'éprouve comme un autre.
-        await self.git("init", "-q", "-b", self.report.branch)
+        await self.git("init", "-q", "-b", DEFAULT_BRANCH)
+        if self.report.existing_branches == 0 and not await self._initialize_empty():
+            return
+        # Branche orpheline à commits vides : rien du contenu du dépôt n'est touché.
+        await self.git("checkout", "-q", "--orphan", self.report.branch)
         await self.git("commit", "-q", "--allow-empty", "-m", "Vérification des droits (1/2)")
         target = f"HEAD:refs/heads/{self.report.branch}"
         if not self.record(
@@ -154,6 +161,20 @@ class _Probe:
         if self.record(Right.PUSH, await self.git("push", "-q", self.repo.url, target)):
             await self._tag()
         await self._delete_branch()
+
+    async def _initialize_empty(self) -> bool:
+        """Dépôt vide (cas nominal, critère 11) : pose main avant d'éprouver quoi que ce soit.
+
+        Sans elle, la branche de vérification deviendrait la branche par défaut et ne
+        pourrait plus être supprimée. Un refus ici se lit comme un refus de créer une branche.
+        """
+        await self.git("commit", "-q", "--allow-empty", "-m", "Initialisation du dépôt par Miles")
+        pushed = await self.git("push", "-q", self.repo.url, f"HEAD:refs/heads/{DEFAULT_BRANCH}")
+        if not pushed.ok:
+            self.record(Right.CREATE_BRANCH, pushed)
+            return False
+        self.report.initialized_branch = DEFAULT_BRANCH
+        return True
 
     async def _tag(self) -> None:
         ref = f"refs/tags/{self.report.tag}"

@@ -94,7 +94,7 @@ async def _create(forge: Forge, url: str, **overrides: object) -> httpx.Response
     return await forge.portal.client.post(ROUTE, json=_body(url, **overrides), timeout=120)
 
 
-async def test_empty_repository_passes_the_five_rights_and_is_left_untouched(forge: Forge) -> None:
+async def test_empty_repository_gets_main_then_passes_the_five_rights(forge: Forge) -> None:
     url = await forge.repo()
 
     created = await _create(forge, url)
@@ -110,7 +110,8 @@ async def test_empty_repository_passes_the_five_rights_and_is_left_untouched(for
         "supprimer_branche",
     ]
     assert body["security_service_id"] is None
-    assert await forge.branches(url) == [] and await forge.tags(url) == []
+    assert body["last_check"]["initialized_branch"] == "main"
+    assert await forge.branches(url) == ["main"] and await forge.tags(url) == []
 
 
 async def test_repository_with_content_is_accepted_and_counted(forge: Forge) -> None:

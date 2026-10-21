@@ -34,7 +34,7 @@ def _refs(repo: Repository) -> str:
     return out.stdout
 
 
-async def test_all_five_rights_pass_and_leave_the_repository_as_it_was(tmp_path: Path) -> None:
+async def test_empty_repository_gets_main_first_then_all_rights_pass(tmp_path: Path) -> None:
     repo = _bare(tmp_path)
 
     report = await run_access_check(repo, TOKEN, SUFFIX)
@@ -42,7 +42,9 @@ async def test_all_five_rights_pass_and_leave_the_repository_as_it_was(tmp_path:
     assert [c.right for c in report.checks] == list(Right)
     assert report.all_passed
     assert (report.branch, report.residual_branch, report.residual_tag) == (BRANCH, None, None)
-    assert _refs(repo) == ""
+    # Seul effet durable : main, posée pour que la vérification reste supprimable.
+    assert report.initialized_branch == "main"
+    assert [line.split()[-1] for line in _refs(repo).splitlines()] == ["refs/heads/main"]
 
 
 async def test_protected_verification_branch_is_named_as_protection(tmp_path: Path) -> None:
@@ -101,6 +103,7 @@ async def test_existing_branches_are_counted_not_overwritten(tmp_path: Path) -> 
 
     assert report.all_passed
     assert report.existing_branches == 1
+    assert report.initialized_branch is None
     assert "refs/heads/main" in _refs(repo) and BRANCH not in _refs(repo)
 
 
