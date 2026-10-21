@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { App } from "./App";
 import "./i18n/i18n";
@@ -13,6 +13,21 @@ function renderApp() {
     </QueryClientProvider>,
   );
 }
+
+const ADMIN = {
+  "GET /api/bootstrap/status": { status: 200, body: { admin_declared: true } },
+  "GET /api/auth/me": {
+    status: 200,
+    body: {
+      kind: "local_admin",
+      username: "admin",
+      email: "a@b.c",
+      directory: null,
+      root_admin: true,
+    },
+  },
+  "GET /api/health": { status: 200, body: {} },
+};
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -52,20 +67,7 @@ describe("App", () => {
   });
 
   it("gives the bootstrap administrator the portal navigation", async () => {
-    mockApi({
-      "GET /api/bootstrap/status": { status: 200, body: { admin_declared: true } },
-      "GET /api/auth/me": {
-        status: 200,
-        body: {
-          kind: "local_admin",
-          username: "admin",
-          email: "a@b.c",
-          directory: null,
-          root_admin: true,
-        },
-      },
-      "GET /api/health": { status: 200, body: {} },
-    });
+    mockApi(ADMIN);
 
     renderApp();
 
@@ -81,7 +83,22 @@ describe("App", () => {
       "OIDC connectors",
       "Service status",
       "Workspaces",
-      "Workspaces",
     ]);
+  });
+
+  it("collapses a main menu and opens a menu without sub-menu as a page", async () => {
+    mockApi(ADMIN);
+    renderApp();
+    const global = await screen.findByRole("button", { name: "Global" });
+
+    fireEvent.click(global);
+
+    expect(global).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Cultures" })).not.toBeInTheDocument();
+    fireEvent.click(global);
+    expect(screen.getByRole("button", { name: "Cultures" })).toBeVisible();
+    const workspaces = screen.getByRole("button", { name: "Workspaces" });
+    expect(workspaces).toHaveAttribute("aria-current", "page");
+    expect(workspaces).not.toHaveAttribute("aria-expanded");
   });
 });
