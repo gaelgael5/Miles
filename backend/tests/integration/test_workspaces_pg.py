@@ -194,7 +194,10 @@ async def test_protection_on_the_verification_pattern_is_explained(forge: Forge)
 async def test_no_secret_is_refused_before_any_attempt(forge: Forge) -> None:
     refused = await _create(forge, await forge.repo(), git_secret_slug=None)
 
-    assert (refused.status_code, refused.json()["detail"]) == (422, {"field": "git_secret_slug"})
+    assert (refused.status_code, refused.json()["detail"]) == (
+        422,
+        {"field": "git_secret_slug", "reason": "au_moins_un_acces"},
+    )
     assert (
         await forge.portal.pool.fetchval(
             "SELECT count(*) FROM events WHERE type LIKE 'workspace.%'"
