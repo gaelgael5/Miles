@@ -20,19 +20,15 @@ type Page =
   | "cultures"
   | "secrets"
   | "health";
-// Sections de la navigation des maquettes : l'organisation d'abord, les réglages ensuite.
+// Deux menus, dans cet ordre (Gael, 21/10/2026) : le global d'abord, ce que partagent tous
+// les workspaces, puis les workspaces. L'ordre des écrans dans le global est voulu.
 // Seuls figurent les écrans livrés ; parc, comptes et environnements viendront avec leurs tickets.
 const SECTIONS: { title: string; pages: Page[] }[] = [
-  { title: "organisation", pages: ["workspaces"] },
-  { title: "settings", pages: [
-      "security",
-      "gitConnections",
-      "oidc",
-      "cultures",
-      "secrets",
-      "health",
-    ],
-   },
+  {
+    title: "global",
+    pages: ["cultures", "secrets", "gitConnections", "security", "oidc", "health"],
+  },
+  { title: "workspaces", pages: ["workspaces"] },
 ];
 const SCREENS: Record<Page, () => JSX.Element> = {
   workspaces: WorkspacesScreen,

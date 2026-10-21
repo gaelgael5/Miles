@@ -4,7 +4,7 @@
     "logout": "Sign out",
     "nav": {
       "workspaces": "Workspaces",
-      "security": "Security service",
+      "security": "Security services",
       "oidc": "OIDC connectors",
       "cultures": "Cultures",
       "secrets": "Secrets",
@@ -17,8 +17,8 @@
     "freshInstall": "Fresh installation",
     "navigation": "Main navigation",
     "sections": {
-      "organisation": "Organisation",
-      "settings": "Settings"
+      "global": "Global",
+      "workspaces": "Workspaces"
     }
   },
   "health": {

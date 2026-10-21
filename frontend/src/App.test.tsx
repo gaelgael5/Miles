@@ -69,6 +69,19 @@ describe("App", () => {
 
     renderApp();
 
-    expect(await screen.findByRole("button", { name: "OIDC connectors" })).toBeInTheDocument();
+    const nav = await screen.findByRole("navigation");
+    await screen.findByRole("button", { name: "OIDC connectors" });
+    // Le menu global d'abord, dans l'ordre voulu, puis les workspaces (21/10/2026).
+    expect(Array.from(nav.querySelectorAll(".sidebar-section, .sidebar-link"), (e) => e.textContent)).toEqual([
+      "Global",
+      "Cultures",
+      "Secrets",
+      "Git connections",
+      "Security services",
+      "OIDC connectors",
+      "Service status",
+      "Workspaces",
+      "Workspaces",
+    ]);
   });
 });
