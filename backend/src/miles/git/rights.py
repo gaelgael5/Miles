@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from miles.git.access import GitAccess, GitFiles, write_git_files
 from miles.git.forge import Repository
 from miles.git.runner import GitResult, run_git
-from miles.secrets.model import Secret
 
 VERIFICATION_PREFIX = "miles-verification-"
 # Branche posée d'abord sur un dépôt vide (décision du 20/10/2026) : la première branche
@@ -35,6 +35,8 @@ class Reason(StrEnum):
     UNREACHABLE = "injoignable"
     PROTECTED = "protection"
     FORBIDDEN = "droit_refuse"
+    # Refus au niveau TLS : certificat client absent, d'une autre autorité, ou expiré.
+    CERTIFICATE = "certificat"
     FAILED = "echec"
 
 
@@ -87,6 +89,14 @@ _REASONS: tuple[tuple[Reason, re.Pattern[str]], ...] = (
         re.compile(r"permission to .* denied|write access|returned error: 403|denied", re.I),
     ),
     (
+        Reason.CERTIFICATE,
+        re.compile(
+            r"ssl certificate|certificate verify|alert (bad|unknown|handshake)|returned error: 400"
+            r"|ssl_|tlsv1 alert",
+            re.I,
+        ),
+    ),
+    (
         Reason.UNREACHABLE,
         re.compile(
             r"could not resolve host|failed to connect|timed out|délai dépassé|unable to access",
@@ -110,7 +120,7 @@ def verification_name(suffix: str) -> str:
     return f"{VERIFICATION_PREFIX}{suffix}"
 
 
-async def run_access_check(repo: Repository, token: Secret, suffix: str) -> AccessReport:
+async def run_access_check(repo: Repository, access: GitAccess, suffix: str) -> AccessReport:
     """Éprouve réellement les cinq droits, en écrivant (décision du 18/10/2026).
 
     Lire les permissions déclarées par la forge ne prouverait rien : une protection de
@@ -120,7 +130,8 @@ async def run_access_check(repo: Repository, token: Secret, suffix: str) -> Acce
     report = AccessReport(name, name)
     workdir = Path(await asyncio.to_thread(tempfile.mkdtemp, prefix="miles-git-"))
     try:
-        await _Probe(repo, token, workdir, report).run()
+        files = await asyncio.to_thread(write_git_files, access, workdir)
+        await _Probe(repo, access, files, workdir / "probe", report).run()
     finally:
         await asyncio.to_thread(shutil.rmtree, workdir, True)
     return report
@@ -129,12 +140,15 @@ async def run_access_check(repo: Repository, token: Secret, suffix: str) -> Acce
 @dataclass
 class _Probe:
     repo: Repository
-    token: Secret
+    access: GitAccess
+    files: GitFiles
     workdir: Path
     report: AccessReport
 
     async def git(self, *args: str) -> GitResult:
-        return await run_git(list(args), self.workdir, self.token)
+        # Le dépôt local vit dans un sous-dossier : les fichiers TLS restent hors de lui.
+        await asyncio.to_thread(self.workdir.mkdir, exist_ok=True)
+        return await run_git(list(args), self.workdir, self.access, self.files)
 
     def record(self, right: Right, result: GitResult) -> bool:
         reason = None if result.ok else classify(result)

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from miles.git.access import GitAccess
 from miles.git.forge import Repository
 from miles.git.worktree import (
     BranchExistsError,
@@ -17,7 +18,7 @@ from miles.git.worktree import (
 )
 from miles.secrets.model import Secret
 
-TOKEN = Secret("jeton-local")
+TOKEN = GitAccess(token=Secret("jeton-local"))
 AUTHOR = "admin via Miles <admin@local.miles.invalid>"
 VALID_MANIFEST = json.dumps({"format_version": 1, "min_app_version": None, "capabilities": []})
 

@@ -5,8 +5,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from miles.git.access import GitAccess, GitFiles
 from miles.git.forge import TOKEN_USERNAME
-from miles.secrets.model import Secret
 
 # Une forge lente ne doit pas retenir l'administrateur indéfiniment sur le test.
 GIT_TIMEOUT_S = 60.0
@@ -30,8 +30,11 @@ class GitResult:
         return self.returncode == 0
 
 
-async def run_git(args: list[str], cwd: Path, token: Secret) -> GitResult:
+async def run_git(
+    args: list[str], cwd: Path, access: GitAccess, files: GitFiles | None = None
+) -> GitResult:
     """Lance git sans terminal, sans configuration de la machine, jeton par l'environnement."""
+    files = files or GitFiles()
     env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": str(cwd),
@@ -39,16 +42,20 @@ async def run_git(args: list[str], cwd: Path, token: Secret) -> GitResult:
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": os.devnull,
         "LC_ALL": "C",
-        # Point d'injection du jeton : déballé ici seulement.
-        "MILES_GIT_TOKEN": token.reveal(),
     }
+    # Vide d'abord tout helper hérité ; sans jeton (certificat seul), aucun helper.
+    options = ["-c", "credential.helper="]
+    if access.token is not None:
+        # Point d'injection du jeton : déballé ici seulement.
+        env["MILES_GIT_TOKEN"] = access.token.reveal()
+        options += ["-c", f"credential.helper={_CREDENTIAL_HELPER}"]
+    if files.cert is not None and files.key is not None:
+        options += ["-c", f"http.sslCert={files.cert}", "-c", f"http.sslKey={files.key}"]
+    if access.ca_file is not None:
+        options += ["-c", f"http.sslCAInfo={access.ca_file}"]
     command = [
         "git",
-        # Vide d'abord tout helper hérité, puis pose le nôtre.
-        "-c",
-        "credential.helper=",
-        "-c",
-        f"credential.helper={_CREDENTIAL_HELPER}",
+        *options,
         # git 2.39 (Debian bookworm) échoue par intermittence contre GitHub en HTTP/2 :
         # défaut mesuré, consigné dans la skill test-machine-deployment.
         "-c",
@@ -72,12 +79,12 @@ async def run_git(args: list[str], cwd: Path, token: Secret) -> GitResult:
         process.kill()
         await process.wait()
         return GitResult(124, "", "délai dépassé")
-    return GitResult(process.returncode or 0, _scrub(stdout, token), _scrub(stderr, token))
+    return GitResult(process.returncode or 0, _scrub(stdout, access), _scrub(stderr, access))
 
 
-def _scrub(output: bytes, token: Secret) -> str:
+def _scrub(output: bytes, access: GitAccess) -> str:
     # git ne recopie pas le mot de passe, mais une forge pourrait le renvoyer en écho :
     # il ne doit jamais remonter vers un message ou un journal.
     text = output.decode("utf-8", "replace")
-    secret = token.reveal()
+    secret = access.token.reveal() if access.token is not None else ""
     return text.replace(secret, "********") if secret else text

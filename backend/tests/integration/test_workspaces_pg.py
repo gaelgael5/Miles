@@ -13,7 +13,7 @@ from miles.events.model import EventTypeCatalog
 from miles.secrets.crypto import SecretCipher
 from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles.secrets.service import SecretsService
-from miles.workspaces.service import EVENT_TYPES as WORKSPACE_EVENTS
+from miles.workspaces.model import EVENT_TYPES as WORKSPACE_EVENTS
 from miles.workspaces.service import WorkspacesService
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
 

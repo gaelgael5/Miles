@@ -5,12 +5,13 @@ from pathlib import Path
 
 import pytest
 
+from miles.git.access import GitAccess
 from miles.git.forge import Repository
 from miles.git.rights import Reason, Right, classify, run_access_check, verification_name
 from miles.git.runner import GitResult
 from miles.secrets.model import Secret
 
-TOKEN = Secret("jeton-sans-usage-en-local")
+TOKEN = GitAccess(token=Secret("jeton-sans-usage-en-local"))
 SUFFIX = "0a1b2c3d"
 BRANCH = f"miles-verification-{SUFFIX}"
 
@@ -117,6 +118,8 @@ async def test_existing_branches_are_counted_not_overwritten(tmp_path: Path) -> 
         ("remote: Permission to a/b.git denied to bot.", Reason.FORBIDDEN),
         ("The requested URL returned error: 403", Reason.FORBIDDEN),
         ("fatal: unable to access 'x': Could not resolve host: github.com", Reason.UNREACHABLE),
+        ("The requested URL returned error: 400", Reason.CERTIFICATE),
+        ("error:0A000418:SSL routines::tlsv1 alert unknown ca", Reason.CERTIFICATE),
         ("quelque chose d'imprévu", Reason.FAILED),
     ],
 )

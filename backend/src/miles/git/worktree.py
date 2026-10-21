@@ -9,10 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from miles.git.access import GitAccess, GitFiles, write_git_files
 from miles.git.forge import Repository
 from miles.git.rights import Reason, classify
 from miles.git.runner import GitResult, run_git
-from miles.secrets.model import Secret
 
 WORK_BRANCH_PREFIX = "work/"
 WORK_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
@@ -155,11 +155,14 @@ def _allowed_in_domain(rest: list[str]) -> bool:
     return True
 
 
-async def open_work_branch(repo: Repository, token: Secret, name: str, author: str) -> WorkBranch:
+async def open_work_branch(
+    repo: Repository, access: GitAccess, name: str, author: str
+) -> WorkBranch:
     branch = work_branch_name(name)
     workdir = Path(await asyncio.to_thread(tempfile.mkdtemp, prefix="miles-work-"))
     try:
-        return await _Opener(repo, token, workdir, branch, author).run()
+        files = await asyncio.to_thread(write_git_files, access, workdir)
+        return await _Opener(repo, access, files, workdir, branch, author).run()
     finally:
         await asyncio.to_thread(shutil.rmtree, workdir, True)
 
@@ -167,13 +170,14 @@ async def open_work_branch(repo: Repository, token: Secret, name: str, author: s
 @dataclass
 class _Opener:
     repo: Repository
-    token: Secret
+    access: GitAccess
+    files: GitFiles
     workdir: Path
     branch: str
     author: str
 
     async def git(self, *args: str, cwd: Path | None = None) -> GitResult:
-        return await run_git(list(args), cwd or self.workdir, self.token)
+        return await run_git(list(args), cwd or self.workdir, self.access, self.files)
 
     async def run(self) -> WorkBranch:
         heads = await self.git("ls-remote", "--symref", self.repo.url, "HEAD", "refs/heads/*")
