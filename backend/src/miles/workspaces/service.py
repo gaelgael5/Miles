@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -13,6 +14,12 @@ from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.forge import Repository, RepositoryUrlError, parse_repository
 from miles.git.rights import SUFFIX_RE, AccessReport, run_access_check
+from miles.git.worktree import (
+    BranchExistsError,
+    RepositoryAccessError,
+    open_work_branch,
+    work_branch_name,
+)
 from miles.oidc.model import CONNECTOR_ID_RE
 from miles.secrets.model import Consumer, Secret, SecretError
 from miles.secrets.service import SecretsService, resolve_attach_secret
@@ -21,13 +28,16 @@ log = structlog.get_logger(__name__)
 
 CREATED_EVENT = "workspace.created"
 CHECKED_EVENT = "workspace.access_checked"
-EVENT_TYPES = frozenset({CREATED_EVENT, CHECKED_EVENT})
+WORK_BRANCH_EVENT = "workspace.work_branch_opened"
+EVENT_TYPES = frozenset({CREATED_EVENT, CHECKED_EVENT, WORK_BRANCH_EVENT})
 GIT_SECRET_TYPE = "GIT_TOKEN"  # noqa: S105  # nom du type, pas une valeur
 _NAME_MAX = 200
 _SELECT = (
-    "SELECT id, name, repo_url, git_secret_slug, security_service_id, last_check,"
-    " last_check_at, created_at, updated_at FROM workspaces"
+    "SELECT w.id, w.name, w.repo_url, w.git_secret_slug, w.security_service_id, w.last_check,"
+    " w.last_check_at, w.created_at, w.updated_at, b.branch AS work_branch FROM workspaces w"
+    " LEFT JOIN workspace_work_branches b ON b.workspace_id = w.id"
 )
+_COMMIT_IDENTITY_RE = re.compile(r"[^A-Za-z0-9._-]")
 
 
 class WorkspaceError(Exception):
@@ -50,6 +60,14 @@ class WorkspaceNotFoundError(WorkspaceError):
     pass
 
 
+class RepositoryUnavailableError(WorkspaceError):
+    """Le dépôt a cessé de répondre ou de nous laisser faire : on désigne l'accès (critère 10)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 class AccessCheckFailedError(WorkspaceError):
     """Un des cinq droits manque : le workspace n'est pas créé (décision du 18/10/2026)."""
 
@@ -69,6 +87,8 @@ class Workspace:
     last_check_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    # Aucune à la création : elle s'ouvre quand on commence à travailler (critère 2).
+    work_branch: str | None = None
 
 
 @dataclass(frozen=True)
@@ -101,10 +121,10 @@ class WorkspacesService:
     extra_git_hosts: Sequence[str] = ()
 
     async def resolve_list(self) -> list[Workspace]:
-        return [_workspace(r) for r in await self.pool.fetch(_SELECT + " ORDER BY name, id")]
+        return [_workspace(r) for r in await self.pool.fetch(_SELECT + " ORDER BY w.name, w.id")]
 
     async def resolve_get(self, workspace_id: str) -> Workspace:
-        row = await self.pool.fetchrow(_SELECT + " WHERE id = $1", workspace_id)
+        row = await self.pool.fetchrow(_SELECT + " WHERE w.id = $1", workspace_id)
         if row is None:
             raise WorkspaceNotFoundError(workspace_id)
         return _workspace(row)
@@ -117,7 +137,7 @@ class WorkspacesService:
         Rejeu à l'identique : sans effet, et signalé (critère 16).
         """
         repo, name, secret_slug = self._validate(data, suffix)
-        existing = await self.pool.fetchrow(_SELECT + " WHERE id = $1", data.id)
+        existing = await self.pool.fetchrow(_SELECT + " WHERE w.id = $1", data.id)
         if existing is not None:
             if existing["repo_url"] == repo.url:
                 return _workspace(existing), True
@@ -181,6 +201,49 @@ class WorkspacesService:
             )
         return report
 
+    async def resolve_open_work_branch(
+        self, author: EventAuthor, workspace_id: str, name: str
+    ) -> tuple[Workspace, str | None]:
+        """Ouvre LA branche de travail du workspace ; rend (workspace, issue ou None si rejeu).
+
+        Une seule par workspace (choix du 21/10/2026) : la seconde demande, sous le même
+        nom, est un rejeu sans effet ; sous un autre nom, un refus.
+        """
+        try:
+            branch = work_branch_name(name)
+        except ValueError:
+            raise WorkspaceInputError("name") from None
+        workspace = await self.resolve_get(workspace_id)
+        if workspace.work_branch is not None:
+            if workspace.work_branch == branch:
+                return workspace, None
+            raise WorkspaceConflictError("branche_de_travail_existante")
+        repo = parse_repository(workspace.repo_url, self.extra_git_hosts)
+        try:
+            token = await self.secrets.resolve_secret(workspace.git_secret_slug, GIT_SECRET_TYPE)
+            opened = await open_work_branch(repo, token, name, _commit_author(author))
+        except SecretError:
+            raise WorkspaceInputError("git_secret_slug") from None
+        except RepositoryAccessError as exc:
+            raise RepositoryUnavailableError(exc.reason.value) from None
+        except BranchExistsError:
+            raise WorkspaceConflictError("branche_existante") from None
+        async with self.pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "INSERT INTO workspace_work_branches (workspace_id, branch, outcome, created_at,"
+                " created_by_directory, created_by_subject) VALUES ($1, $2, $3, $4, $5, $6)",
+                workspace_id,
+                opened.branch,
+                opened.outcome,
+                self.now(),
+                author.directory,
+                author.subject,
+            )
+            properties = {"branch": opened.branch, "outcome": opened.outcome}
+            await self._event(conn, WORK_BRANCH_EVENT, workspace_id, author, properties)
+        log.info("branche_de_travail_ouverte", workspace=workspace_id, outcome=opened.outcome)
+        return await self.resolve_get(workspace_id), opened.outcome
+
     def _validate(self, data: WorkspaceInput, suffix: str) -> tuple[Repository, str, str]:
         if not CONNECTOR_ID_RE.match(data.id):
             raise WorkspaceInputError("id")
@@ -228,6 +291,13 @@ class WorkspacesService:
     ) -> None:
         event = NewEvent(event_type, (ObjectRef("workspace", workspace_id),), author, properties)
         await db_write_event(conn, event, self.catalog, self.now)
+
+
+def _commit_author(author: EventAuthor) -> str:
+    """Auteur du commit d'initialisation : la personne, et par où elle est entrée (critère 11)."""
+    subject = _COMMIT_IDENTITY_RE.sub("-", author.subject)[:60] or "inconnu"
+    directory = _COMMIT_IDENTITY_RE.sub("-", author.directory)[:60] or "inconnu"
+    return f"{subject} via Miles <{subject}@{directory}.miles.invalid>"
 
 
 def _check_summary(repo_url: str, report: AccessReport) -> dict[str, Any]:

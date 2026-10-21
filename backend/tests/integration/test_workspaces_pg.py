@@ -237,3 +237,56 @@ async def test_git_secret_in_use_by_a_workspace_cannot_be_deleted(forge: Forge) 
     refused = await forge.portal.client.delete("/api/secrets/git-ecriture")
 
     assert refused.json()["detail"]["consumers"] == [{"kind": "workspace", "id": "retrait"}]
+
+
+async def _open(forge: Forge, name: str = "atelier") -> httpx.Response:
+    return await forge.portal.client.post(
+        f"{ROUTE}/retrait/work-branch", json={"name": name}, timeout=120
+    )
+
+
+async def test_fresh_workspace_has_no_work_branch_until_one_is_opened(forge: Forge) -> None:
+    url = await forge.repo()
+    created = (await _create(forge, url)).json()
+
+    opened = await _open(forge)
+
+    assert created["work_branch"] is None
+    assert opened.status_code == 201
+    assert (opened.json()["outcome"], opened.json()["workspace"]["work_branch"]) == (
+        "initialisee",
+        "work/atelier",
+    )
+    assert set(await forge.branches(url)) == {"main", "work/atelier"}
+    name = url.rsplit("/", 1)[1].removesuffix(".git")
+    manifest = await forge.api.get(
+        f"/api/v1/repos/miles/{name}/contents/manifest.json?ref=work/atelier"
+    )
+    assert manifest.status_code == 200
+    absent = await forge.api.get(f"/api/v1/repos/miles/{name}/contents/manifest.json?ref=main")
+    assert absent.status_code == 404
+
+
+async def test_one_work_branch_per_workspace_and_replay_is_harmless(forge: Forge) -> None:
+    url = await forge.repo()
+    await _create(forge, url)
+    await _open(forge)
+
+    replay = await _open(forge)
+    other = await _open(forge, "autre")
+
+    assert (replay.status_code, replay.json()["outcome"]) == (200, None)
+    assert (other.status_code, other.json()["detail"]) == (409, "branche_de_travail_existante")
+    assert set(await forge.branches(url)) == {"main", "work/atelier"}
+
+
+async def test_repository_that_became_inaccessible_designates_access(forge: Forge) -> None:
+    await _create(forge, await forge.repo())
+    await forge.portal.client.put("/api/secrets/git-ecriture/value", json={"value": "jeton-perime"})
+
+    refused = await _open(forge)
+
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == {"code": "acces_depot", "reason": "identifiants"}
+    workspace = (await forge.portal.client.get(f"{ROUTE}/retrait")).json()
+    assert workspace["work_branch"] is None

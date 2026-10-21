@@ -8,8 +8,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from miles.auth.author import request_author
+from miles.git.worktree import NonConformTreeError, diagnosis_json
 from miles.workspaces.service import (
     AccessCheckFailedError,
+    RepositoryUnavailableError,
     Workspace,
     WorkspaceConflictError,
     WorkspaceInput,
@@ -43,6 +45,7 @@ class WorkspaceOut(BaseModel):
     last_check: dict[str, Any] | None
     last_check_at: datetime | None
     created_at: datetime
+    work_branch: str | None
 
 
 class WorkspaceCreate(BaseModel):
@@ -55,6 +58,11 @@ class WorkspaceCreate(BaseModel):
     # Choisi par l'écran, pour afficher le nom de la branche de vérification PENDANT
     # l'essai (critère 5), pas seulement en cas d'échec.
     verification_suffix: str
+
+
+class WorkBranchBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str
 
 
 class RecheckBody(BaseModel):
@@ -72,6 +80,7 @@ def _out(w: Workspace) -> WorkspaceOut:
         last_check=w.last_check,
         last_check_at=w.last_check_at,
         created_at=w.created_at,
+        work_branch=w.work_branch,
     )
 
 
@@ -80,6 +89,8 @@ def _error(code: int, detail: object) -> JSONResponse:
 
 
 _REFUSALS = (
+    NonConformTreeError,
+    RepositoryUnavailableError,
     WorkspaceInputError,
     WorkspaceConflictError,
     WorkspaceNotFoundError,
@@ -88,6 +99,12 @@ _REFUSALS = (
 
 
 def _refusal(exc: Exception) -> JSONResponse:
+    if isinstance(exc, NonConformTreeError):
+        detail = {"code": "arborescence_non_conforme", **diagnosis_json(exc.diagnosis)}
+        return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
+    if isinstance(exc, RepositoryUnavailableError):
+        detail = {"code": "acces_depot", "reason": exc.reason}
+        return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
     if isinstance(exc, WorkspaceInputError):
         return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, {"field": exc.field})
     if isinstance(exc, AccessCheckFailedError):
@@ -150,3 +167,19 @@ async def recheck_access(
     except _REFUSALS as exc:
         return _refusal(exc)
     return report_json(report)
+
+
+@router.post("/{workspace_id}/work-branch", status_code=status.HTTP_201_CREATED)
+async def open_work_branch(
+    workspace_id: str, body: WorkBranchBody, request: Request, response: Response, service: Service
+) -> object:
+    try:
+        workspace, outcome = await service.resolve_open_work_branch(
+            request_author(request), workspace_id, body.name
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    if outcome is None:
+        # Rejeu : ni seconde branche ni second commit (critère 9).
+        response.status_code = status.HTTP_200_OK
+    return {"workspace": _out(workspace).model_dump(mode="json"), "outcome": outcome}
