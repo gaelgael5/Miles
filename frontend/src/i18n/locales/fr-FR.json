@@ -394,14 +394,15 @@
   "certificates": {
     "title": "Certificats clients",
     "intro": "Certificats que Miles présente aux forges git qui exigent le mTLS. La clé privée est un secret de l'instance, jamais restituée ; les connexions git choisissent ici leur certificat.",
-    "add": "Ajouter un certificat",
+    "add": "Importer un certificat",
     "empty": "Aucun certificat déclaré.",
     "loading": "Chargement des certificats…",
     "fields": {
       "label": "Libellé",
       "id": "Identifiant",
       "pem": "Certificat (PEM)",
-      "key": "Clé privée du certificat"
+      "key": "Clé privée du certificat",
+      "days": "Validité (jours)"
     },
     "form": {
       "newTitle": "Nouveau certificat",
@@ -433,7 +434,8 @@
         "label": "Libellé : 1 à 200 caractères.",
         "cert_pem": "Certificat illisible (PEM attendu).",
         "key_secret_slug": "Choisissez une clé privée de type « clé privée du certificat client git ».",
-        "verification_suffix": "Nom de vérification invalide."
+        "verification_suffix": "Nom de vérification invalide.",
+        "validity_days": "Validité : de 1 à 3650 jours."
       },
       "reasons": {
         "expire": "Ce certificat a déjà expiré.",
@@ -441,13 +443,34 @@
         "illisible": "Le certificat ou sa clé est illisible (PEM attendu)."
       },
       "conflict": {
-        "identifiant_pris": "Cet identifiant est déjà pris par un autre certificat."
+        "identifiant_pris": "Cet identifiant est déjà pris par un autre certificat.",
+        "cle_existante": "Un secret porte déjà le nom de la clé de ce certificat (identifiant suivi de « -cle »). Choisissez un autre identifiant."
       },
       "inUse": "Ce certificat est utilisé par les connexions : {{list}}. Changez-les d'abord.",
       "access": "Le workspace {{workspace}} perdrait l'accès à son dépôt ({{reason}}) : rien n'a été remplacé.",
       "outside": "Le dépôt du workspace {{workspace}} ne serait plus accessible.",
       "unreachable": "Impossible de charger les certificats.",
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    },
+    "generate": "Générer un certificat",
+    "generateForm": {
+      "title": "Générer un certificat",
+      "help": "Miles crée la paire de clés et un certificat auto-signé, utilisable tout de suite. La clé privée va directement dans les secrets de l'instance et n'est jamais affichée.",
+      "submit": "Générer",
+      "resultTitle": "Certificat « {{label}} » généré",
+      "resultHelp": "Déclarez sa clé publique, ou son certificat, côté forge ou proxy mTLS.",
+      "done": "Terminé"
+    },
+    "publicKey": {
+      "show": "Clé publique",
+      "hide": "Masquer la clé publique",
+      "publicKey": "Clé publique",
+      "certificate": "Certificat (PEM)",
+      "copy": "Copier",
+      "copied": "Copié",
+      "copyManually": "La copie n'est pas disponible sur cette page : le texte est sélectionné, faites Ctrl+C.",
+      "help": "Un proxy mTLS attend en général le certificat ; certaines forges attendent la clé publique.",
+      "unreadable": "Certificat illisible : aucune clé publique à afficher."
     }
   },
   "gitConnections": {
@@ -463,7 +486,8 @@
       "token": "PAT (jeton d'accès)",
       "certificate": "Certificat client",
       "noCertificate": "— Aucun certificat —",
-      "createCertificate": "Créer un certificat"
+      "createCertificate": "Importer un certificat",
+      "generateCertificate": "Générer un certificat"
     },
     "form": {
       "newTitle": "Nouvelle connexion",

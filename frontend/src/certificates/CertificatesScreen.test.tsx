@@ -57,7 +57,7 @@ describe("CertificatesScreen", () => {
       "POST /api/client-certificates": { status: 201, body: certificate(200) },
     });
     renderScreen();
-    fireEvent.click(await screen.findByText("Add a certificate"));
+    fireEvent.click(await screen.findByText("Import a certificate"));
     // Le bouton dit ce qu'il crée : la clé privée, pas « un secret ».
     expect(screen.getByText("Add the private key")).toBeInTheDocument();
     fill("Label", "Machine de prod");
@@ -86,7 +86,7 @@ describe("CertificatesScreen", () => {
       },
     });
     renderScreen();
-    fireEvent.click(await screen.findByText("Add a certificate"));
+    fireEvent.click(await screen.findByText("Import a certificate"));
     fill("Label", "Machine");
     fill("Certificate (PEM)", PEM);
     await screen.findByRole("option", { name: "Clé machine" });

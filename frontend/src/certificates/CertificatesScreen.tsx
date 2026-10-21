@@ -15,6 +15,8 @@ import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { PageHead } from "../layout/PageHead";
 import { SecretPicker } from "../secrets/SecretPicker";
 import { AccessReportView } from "../workspaces/AccessReportView";
+import { PublicParts } from "./CopyField";
+import { GenerateCertificateForm } from "./GenerateCertificateForm";
 
 // Au-delà, l'échéance s'annonce sans alarme ; en deçà, elle devient une alerte.
 const WARNING_DAYS = 30;
@@ -133,6 +135,7 @@ function CertificateRow({ certificate }: { certificate: ClientCertificate }) {
   const remove = useDeleteCertificate();
   const [replacing, setReplacing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [showingPublic, setShowingPublic] = useState(false);
   const blockers = usedBy(remove.error);
 
   return (
@@ -154,6 +157,14 @@ function CertificateRow({ certificate }: { certificate: ClientCertificate }) {
         </div>
       </div>
       <div className="actions row-actions">
+        <button
+          type="button"
+          className="btn btn-secondary"
+          aria-expanded={showingPublic}
+          onClick={() => setShowingPublic(!showingPublic)}
+        >
+          {t(showingPublic ? "certificates.publicKey.hide" : "certificates.publicKey.show")}
+        </button>
         <button type="button" className="btn btn-secondary" onClick={() => setReplacing(true)}>
           {t("certificates.list.replace")}
         </button>
@@ -161,6 +172,11 @@ function CertificateRow({ certificate }: { certificate: ClientCertificate }) {
           {t("certificates.list.delete")}
         </button>
       </div>
+      {showingPublic && (
+        <div className="row-detail">
+          <PublicParts publicKey={certificate.public_key_pem} certificate={certificate.cert_pem} />
+        </div>
+      )}
       {replacing && (
         <div className="row-detail">
           <CertificateForm certificate={certificate} onDone={() => setReplacing(false)} />
@@ -196,7 +212,8 @@ function CertificateRow({ certificate }: { certificate: ClientCertificate }) {
 export function CertificatesScreen() {
   const { t } = useTranslation();
   const certificates = useCertificates();
-  const [creating, setCreating] = useState(false);
+  // Un seul formulaire ouvert à la fois : générer, ou importer un certificat existant.
+  const [opened, setOpened] = useState<"generate" | "import" | null>(null);
 
   return (
     <section aria-labelledby="certificates-title">
@@ -205,14 +222,20 @@ export function CertificatesScreen() {
         title={t("certificates.title")}
         lead={t("certificates.intro")}
         action={
-          !creating && (
-            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
-              {t("certificates.add")}
-            </button>
+          opened === null && (
+            <div className="actions">
+              <button type="button" className="btn btn-primary" onClick={() => setOpened("generate")}>
+                {t("certificates.generate")}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setOpened("import")}>
+                {t("certificates.add")}
+              </button>
+            </div>
           )
         }
       />
-      {creating && <CertificateForm onDone={() => setCreating(false)} />}
+      {opened === "generate" && <GenerateCertificateForm onDone={() => setOpened(null)} />}
+      {opened === "import" && <CertificateForm onDone={() => setOpened(null)} />}
       {certificates.isPending && <p className="muted" role="status">{t("certificates.loading")}</p>}
       {certificates.isError && (
         <p className="alert" role="alert">{t("certificates.errors.unreachable")}</p>

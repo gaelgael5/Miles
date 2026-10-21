@@ -12,6 +12,7 @@ from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.access import GitAccess
 from miles.git.rights import SUFFIX_RE
+from miles.git.selfsigned import VALIDITY_MAX_DAYS, VALIDITY_MIN_DAYS, generate_self_signed
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.model import (
     CERT_PEM_MAX,
@@ -29,7 +30,7 @@ from miles.gitaccess.model import (
     validate_label,
 )
 from miles.gitaccess.resolver import AccessResolver
-from miles.secrets.model import Consumer, SecretError
+from miles.secrets.model import Consumer, SecretError, SecretSlugTakenError
 from miles.secrets.service import resolve_attach_secret, resolve_detach_secret
 
 log = structlog.get_logger(__name__)
@@ -103,6 +104,51 @@ class CertificatesService:
             raise GitAccessConflictError("identifiant_pris") from None
         log.info("certificat_client_declare", certificate=certificate_id)
         return await self.resolve_get(certificate_id), False
+
+    async def resolve_generate(
+        self, author: EventAuthor, certificate_id: str, label: str, days: int
+    ) -> ClientCertificateRecord:
+        """Génère clé et certificat auto-signé (décision du 21/10/2026, story 9265f111).
+
+        La clé naît dans Miles et va droit au socle des secrets : elle ne passe par aucun
+        copier-coller. Secret et certificat s'écrivent dans une seule transaction, pour
+        qu'un identifiant déjà pris ne laisse pas de clé orpheline.
+        Pas de rejeu « sans effet » : deux générations ne produisent jamais la même clé.
+        """
+        certificate_id, label = validate_id(certificate_id), validate_label(label)
+        if not VALIDITY_MIN_DAYS <= days <= VALIDITY_MAX_DAYS:
+            raise GitAccessInputError("validity_days")
+        generated = generate_self_signed(label, days, self.now())
+        key_slug = _generated_key_slug(certificate_id)
+        try:
+            async with self.pool.acquire() as conn, conn.transaction():
+                await self.resolver.secrets.db_create(
+                    conn, author, key_slug, f"Clé de {label}", CLIENT_KEY_TYPE, generated.key
+                )
+                await _attach_key(conn, key_slug, certificate_id)
+                await conn.execute(
+                    "INSERT INTO client_certificates (id, label, cert_pem, key_secret_slug,"
+                    " not_after, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $6)",
+                    certificate_id,
+                    label,
+                    generated.cert_pem,
+                    key_slug,
+                    generated.not_after,
+                    self.now(),
+                )
+                properties = {"not_after": generated.not_after.isoformat(), "generated": True}
+                await self._event(conn, CERTIFICATE_CREATED, certificate_id, author, properties)
+        except asyncpg.UniqueViolationError:
+            raise GitAccessConflictError("identifiant_pris") from None
+        except SecretSlugTakenError:
+            # Le secret s'écrit avant le certificat (clé étrangère) : regénérer sous un
+            # identifiant pris bute d'abord sur le slug de sa clé. On nomme la vraie cause.
+            taken = await self.pool.fetchval(
+                "SELECT 1 FROM client_certificates WHERE id = $1", certificate_id
+            )
+            raise GitAccessConflictError("identifiant_pris" if taken else "cle_existante") from None
+        log.info("certificat_client_genere", certificate=certificate_id, days=days)
+        return await self.resolve_get(certificate_id)
 
     async def resolve_replace(
         self,
@@ -186,6 +232,12 @@ class CertificatesService:
         objects = (ObjectRef(_CONSUMER_KIND, certificate_id),)
         event = NewEvent(event_type, objects, author, properties)
         await db_write_event(conn, event, self.catalog, self.now)
+
+
+def _generated_key_slug(certificate_id: str) -> str:
+    # Le slug d'un secret est borné à 63 caractères comme l'identifiant : on tronque
+    # l'identifiant pour garder le suffixe qui dit à quoi sert le secret.
+    return f"{certificate_id[:59]}-cle"
 
 
 def _check_pem_size(ref: CertificateRef) -> None:

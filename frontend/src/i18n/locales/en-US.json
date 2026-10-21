@@ -394,14 +394,15 @@
   "certificates": {
     "title": "Client certificates",
     "intro": "Certificates Miles presents to git forges that require mTLS. The private key is an instance secret, never shown again; git connections pick their certificate here.",
-    "add": "Add a certificate",
+    "add": "Import a certificate",
     "empty": "No certificate declared.",
     "loading": "Loading certificates…",
     "fields": {
       "label": "Label",
       "id": "Identifier",
       "pem": "Certificate (PEM)",
-      "key": "Certificate private key"
+      "key": "Certificate private key",
+      "days": "Validity (days)"
     },
     "form": {
       "newTitle": "New certificate",
@@ -433,7 +434,8 @@
         "label": "Label: 1 to 200 characters.",
         "cert_pem": "Unreadable certificate (PEM expected).",
         "key_secret_slug": "Pick a private key of type “git client certificate private key”.",
-        "verification_suffix": "Invalid verification name."
+        "verification_suffix": "Invalid verification name.",
+        "validity_days": "Validity: 1 to 3650 days."
       },
       "reasons": {
         "expire": "This certificate has already expired.",
@@ -441,13 +443,34 @@
         "illisible": "The certificate or its key is unreadable (PEM expected)."
       },
       "conflict": {
-        "identifiant_pris": "This identifier is already used by another certificate."
+        "identifiant_pris": "This identifier is already used by another certificate.",
+        "cle_existante": "A secret already has this certificate's key name (identifier followed by “-cle”). Choose another identifier."
       },
       "inUse": "This certificate is used by the connections: {{list}}. Change them first.",
       "access": "Workspace {{workspace}} would lose access to its repository ({{reason}}): nothing was replaced.",
       "outside": "The repository of workspace {{workspace}} would no longer be reachable.",
       "unreachable": "Unable to load certificates.",
       "unexpected": "The operation failed. See the back-office logs."
+    },
+    "generate": "Generate a certificate",
+    "generateForm": {
+      "title": "Generate a certificate",
+      "help": "Miles creates the key pair and a self-signed certificate, usable right away. The private key goes straight into the instance secrets and is never shown.",
+      "submit": "Generate",
+      "resultTitle": "Certificate “{{label}}” generated",
+      "resultHelp": "Declare its public key, or its certificate, on the forge or mTLS proxy side.",
+      "done": "Done"
+    },
+    "publicKey": {
+      "show": "Public key",
+      "hide": "Hide the public key",
+      "publicKey": "Public key",
+      "certificate": "Certificate (PEM)",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyManually": "Copy is unavailable on this page: the text is selected, press Ctrl+C.",
+      "help": "An mTLS proxy usually expects the certificate; some forges expect the public key.",
+      "unreadable": "Unreadable certificate: no public key to show."
     }
   },
   "gitConnections": {
@@ -463,7 +486,8 @@
       "token": "PAT (access token)",
       "certificate": "Client certificate",
       "noCertificate": "— No certificate —",
-      "createCertificate": "Create a certificate"
+      "createCertificate": "Import a certificate",
+      "generateCertificate": "Generate a certificate"
     },
     "form": {
       "newTitle": "New connection",

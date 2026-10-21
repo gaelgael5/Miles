@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from miles.auth.author import request_author
+from miles.git.selfsigned import public_key_pem
 from miles.gitaccess.certificates import CertificatesService
 from miles.gitaccess.connections import ConnectionInput, ConnectionsService
 from miles.gitaccess.model import (
@@ -49,6 +50,8 @@ class CertificateOut(BaseModel):
     label: str
     # Le certificat est public et se montre ; la clé privée n'est désignée que par son slug.
     cert_pem: str
+    # Lue dans le certificat, à copier côté forge ou proxy mTLS (story 9265f111).
+    public_key_pem: str | None
     key_secret_slug: str
     not_after: datetime
     connections: list[str]
@@ -62,6 +65,13 @@ class CertificateCreate(BaseModel):
     label: str
     cert_pem: str
     key_secret_slug: str
+
+
+class CertificateGenerate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    label: str
+    validity_days: int
 
 
 class CertificateReplace(BaseModel):
@@ -108,6 +118,7 @@ def _certificate(c: ClientCertificateRecord) -> CertificateOut:
         id=c.id,
         label=c.label,
         cert_pem=c.cert_pem,
+        public_key_pem=public_key_pem(c.cert_pem),
         key_secret_slug=c.key_secret_slug,
         not_after=c.not_after,
         connections=list(c.connections),
@@ -194,6 +205,21 @@ async def create_certificate(
         return _refusal(exc)
     _replayed(response, existed)
     return _certificate(created)
+
+
+@certificates_router.post(
+    "/generate", status_code=status.HTTP_201_CREATED, response_model=CertificateOut
+)
+async def generate_certificate(
+    body: CertificateGenerate, request: Request, service: Certificates
+) -> object:
+    try:
+        generated = await service.resolve_generate(
+            request_author(request), body.id, body.label, body.validity_days
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return _certificate(generated)
 
 
 @certificates_router.put("/{certificate_id}", response_model=CertificateOut)

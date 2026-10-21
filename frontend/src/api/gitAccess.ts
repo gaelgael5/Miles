@@ -7,6 +7,8 @@ export interface ClientCertificate {
   id: string;
   label: string;
   cert_pem: string;
+  /** Lue dans le certificat par le serveur ; null s'il ne se lit pas. */
+  public_key_pem: string | null;
   key_secret_slug: string;
   not_after: string;
   /** Connexions qui s'en servent : un certificat utilisé ne se supprime pas. */
@@ -19,6 +21,13 @@ export interface CertificateInput {
   label: string;
   cert_pem: string;
   key_secret_slug: string;
+}
+
+/** Miles génère la clé (rangée en secret) et un certificat auto-signé. */
+export interface CertificateGeneration {
+  id: string;
+  label: string;
+  validity_days: number;
 }
 
 /** Une forge ou une organisation, et son accès : PAT, certificat, ou les deux. */
@@ -73,6 +82,15 @@ export function useCertificates() {
 export function useCreateCertificate() {
   return useInvalidating((input: CertificateInput & { id: string }) =>
     request<ClientCertificate>("/api/client-certificates", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export function useGenerateCertificate() {
+  return useInvalidating((input: CertificateGeneration) =>
+    request<ClientCertificate>("/api/client-certificates/generate", {
       method: "POST",
       body: JSON.stringify(input),
     }),

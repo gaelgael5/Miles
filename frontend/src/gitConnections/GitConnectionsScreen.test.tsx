@@ -111,7 +111,7 @@ describe("GitConnectionsScreen", () => {
     fill("Label", "GitHub Acme");
     expect(screen.getByText("Add a PAT")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Create a certificate"));
+    fireEvent.click(screen.getByText("Import a certificate"));
     const dialog = screen.getByRole("dialog", { name: "New certificate" });
     fireEvent.change(within(dialog).getByLabelText("Label"), { target: { value: "Machine de prod" } });
     fireEvent.change(within(dialog).getByLabelText("Certificate (PEM)"), { target: { value: "PEM" } });

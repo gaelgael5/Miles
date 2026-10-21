@@ -14,6 +14,7 @@ import { dependentFailure, errorMessage, usedBy } from "../api/gitAccessErrors";
 import { slugFromLabel } from "../api/secrets";
 import { newVerificationSuffix } from "../api/workspaces";
 import { CertificateForm } from "../certificates/CertificatesScreen";
+import { GenerateCertificateForm } from "../certificates/GenerateCertificateForm";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { PageHead } from "../layout/PageHead";
 import { SecretPicker } from "../secrets/SecretPicker";
@@ -32,13 +33,23 @@ function ConnectionForm({ connection, onDone }: { connection?: GitConnection; on
   const [baseUrl, setBaseUrl] = useState(connection?.base_url ?? "");
   const [token, setToken] = useState<string | null>(connection?.token_secret_slug ?? null);
   const [certificate, setCertificate] = useState(connection?.certificate_id ?? "");
-  const [creatingCertificate, setCreatingCertificate] = useState(false);
+  // Certificat créé sans quitter la connexion : généré par Miles, ou importé.
+  const [creatingCertificate, setCreatingCertificate] = useState<"generate" | "import" | null>(
+    null,
+  );
   const failure = dependentFailure(save.error);
   const certificateFieldId = useId();
   // L'identifiant suit le libellé tant qu'on ne l'a pas saisi soi-même.
   const shownId = idTouched ? id : slugFromLabel(label);
   // PAT, certificat ou les deux (21/10/2026) : jamais aucun.
   const noAccess = token === null && certificate === "";
+
+  function certificateCreated(saved?: { id: string }) {
+    setCreatingCertificate(null);
+    if (saved) {
+      setCertificate(saved.id);
+    }
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -115,7 +126,14 @@ function ConnectionForm({ connection, onDone }: { connection?: GitConnection; on
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => setCreatingCertificate(true)}
+              onClick={() => setCreatingCertificate("generate")}
+            >
+              {t("gitConnections.fields.generateCertificate")}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setCreatingCertificate("import")}
             >
               {t("gitConnections.fields.createCertificate")}
             </button>
@@ -123,23 +141,24 @@ function ConnectionForm({ connection, onDone }: { connection?: GitConnection; on
         </div>
         {/* Hors du formulaire dans le DOM (un formulaire ne s'imbrique pas), au-dessus
             de l'écran : la saisie de la connexion en cours n'est pas perdue. */}
-        {creatingCertificate &&
+        {creatingCertificate !== null &&
           createPortal(
             <div className="overlay">
               <div
                 className="dialog dialog-wide"
                 role="dialog"
                 aria-modal="true"
-                aria-label={t("certificates.form.newTitle")}
+                aria-label={t(
+                  creatingCertificate === "generate"
+                    ? "certificates.generateForm.title"
+                    : "certificates.form.newTitle",
+                )}
               >
-                <CertificateForm
-                  onDone={(saved) => {
-                    setCreatingCertificate(false);
-                    if (saved) {
-                      setCertificate(saved.id);
-                    }
-                  }}
-                />
+                {creatingCertificate === "generate" ? (
+                  <GenerateCertificateForm onDone={certificateCreated} />
+                ) : (
+                  <CertificateForm onDone={certificateCreated} />
+                )}
               </div>
             </div>,
             document.body,
