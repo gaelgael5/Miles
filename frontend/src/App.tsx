@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Me, useLogout } from "./api/auth";
+import { usePreferences } from "./api/preferences";
 import { AuthGate } from "./auth/AuthGate";
+import { readStoredCulture } from "./auth/visitorCulture";
 import { CulturesScreen } from "./cultures/CulturesScreen";
 import { GitConnectionsScreen } from "./gitConnections/GitConnectionsScreen";
 import { HealthStatus } from "./health/HealthStatus";
+import { applyLanguage } from "./i18n/i18n";
 import { Topbar } from "./layout/Topbar";
 import { type WorkspaceSelection, WorkspacesNav } from "./layout/WorkspacesNav";
 import { ConnectorsScreen } from "./oidc/ConnectorsScreen";
+import { ProfileScreen } from "./profile/ProfileScreen";
 import { SecretsScreen } from "./secrets/SecretsScreen";
 import { SecurityServiceScreen } from "./security/SecurityServiceScreen";
 import { WorkspacesScreen } from "./workspaces/WorkspacesScreen";
@@ -43,15 +47,21 @@ const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
 };
 
 /** Le portail de l'administrateur : seul compte qui ait des droits tant que les rôles manquent. */
-function AdminPortal() {
+function AdminPortal({ profile, onLeave }: { profile: ReactNode; onLeave: () => void }) {
   const { t } = useTranslation();
-  const [page, setPage] = useState<Page>("workspaces");
+  const [page, setPageState] = useState<Page>("workspaces");
   // Tenue ici et non dans l'écran : le menu et l'écran montrent le même workspace.
   const [selection, setSelection] = useState<WorkspaceSelection>(null);
   // Menus repliés : tous ouverts au départ, pour que chaque écran reste en vue.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
 
   const Screen = page === "workspaces" ? null : SCREENS[page];
+
+  // Le profil s'ouvre depuis la barre du haut ; tout choix dans le menu le referme.
+  function setPage(next: Page) {
+    onLeave();
+    setPageState(next);
+  }
 
   function openWorkspaces(next: WorkspaceSelection) {
     setPage("workspaces");
@@ -111,11 +121,11 @@ function AdminPortal() {
         })}
       </nav>
       <main className="content">
-        {Screen === null ? (
+        {profile ?? (Screen === null ? (
           <WorkspacesScreen selection={selection} onSelect={openWorkspaces} />
         ) : (
           <Screen />
-        )}
+        ))}
       </main>
     </div>
   );
@@ -124,22 +134,44 @@ function AdminPortal() {
 function SignedIn({ me }: { me: Me }) {
   const { t } = useTranslation();
   const logout = useLogout();
+  const preferences = usePreferences();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const language = preferences.data?.language;
+
+  // La langue retenue pour le compte l'emporte ; sans choix, celle de l'écran de connexion.
+  // Effet sur i18next, système extérieur à React : rien n'est recopié dans un état.
+  useEffect(() => {
+    if (preferences.isSuccess) {
+      applyLanguage(language ?? readStoredCulture());
+    }
+  }, [preferences.isSuccess, language]);
+
+  const profile = profileOpen ? <ProfileScreen me={me} /> : null;
   return (
     <>
       <Topbar>
-        <span className="topbar-user">{me.email ?? me.username}</span>
+        <button
+          type="button"
+          className="topbar-user topbar-button"
+          aria-pressed={profileOpen}
+          onClick={() => setProfileOpen(true)}
+        >
+          {me.email ?? me.username}
+        </button>
         <button type="button" className="topbar-button" onClick={() => logout.mutate()}>
           {t("app.logout")}
         </button>
       </Topbar>
       {me.root_admin ? (
-        <AdminPortal />
+        <AdminPortal profile={profile} onLeave={() => setProfileOpen(false)} />
       ) : (
-        // Authentifié n'est pas autorisé : sans rôle, rien d'autre ne s'ouvre.
+        // Authentifié n'est pas autorisé : sans rôle, rien d'autre que son profil ne s'ouvre.
         <div className="narrow">
-          <p className="alert" role="status">
-            {t("app.noRights", { directory: me.directory ?? "" })}
-          </p>
+          {profile ?? (
+            <p className="alert" role="status">
+              {t("app.noRights", { directory: me.directory ?? "" })}
+            </p>
+          )}
         </div>
       )}
     </>

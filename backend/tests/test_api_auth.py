@@ -75,6 +75,7 @@ def test_bootstrap_declares_account_logs_in_and_closes(harness: _Harness) -> Non
     assert response.json() == {
         "kind": "local_admin",
         "username": "admin",
+        "subject": "admin",
         "email": BOOTSTRAP["email"],
         "directory": None,
         "root_admin": True,

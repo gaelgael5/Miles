@@ -11,6 +11,8 @@ export interface BootstrapStatus {
 export interface Me {
   kind: "local_admin" | "oidc";
   username: string;
+  /** Identifiant stable : le sub OIDC, ou le nom du compte d'amorçage. */
+  subject: string;
   email: string | null;
   /** Connecteur OIDC de la session ; null pour le compte d'amorçage. */
   directory: string | null;

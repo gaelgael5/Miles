@@ -41,6 +41,9 @@ class Me(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["local_admin", "oidc"]
     username: str
+    # Identifiant stable : le sub OIDC, ou le nom du compte d'amorçage. Montré dans le
+    # profil, c'est lui qu'on recopie pour lier deux identités.
+    subject: str
     email: str | None
     # Connecteur OIDC de la session ; absent pour le compte d'amorçage.
     directory: str | None = None
@@ -85,7 +88,13 @@ async def post_bootstrap(
         return _error(status.HTTP_500_INTERNAL_SERVER_ERROR, "env_ecriture_impossible")
     await ctx.resolve_open_admin_session(response, account.username)
     log.info("amorcage_session_ouverte", username=account.username, origin=origin)
-    return Me(kind="local_admin", username=account.username, email=account.email, root_admin=True)
+    return Me(
+        kind="local_admin",
+        username=account.username,
+        subject=account.username,
+        email=account.email,
+        root_admin=True,
+    )
 
 
 @router.post("/api/auth/login", response_model=Me)
@@ -113,7 +122,13 @@ async def post_login(
         return _error(status.HTTP_401_UNAUTHORIZED, "identifiants_invalides")
     await ctx.resolve_open_admin_session(response, account.username)
     log.info("connexion_locale_reussie", username=account.username, origin=origin)
-    return Me(kind="local_admin", username=account.username, email=account.email, root_admin=True)
+    return Me(
+        kind="local_admin",
+        username=account.username,
+        subject=account.username,
+        email=account.email,
+        root_admin=True,
+    )
 
 
 @router.get("/api/auth/me", response_model=Me)
@@ -124,6 +139,7 @@ async def get_me(request: Request, ctx: Ctx) -> Me:
         return Me(
             kind="oidc",
             username=session.display_name or session.subject,
+            subject=session.subject,
             email=session.email,
             directory=session.directory,
             root_admin=session.root_admin,
@@ -132,7 +148,13 @@ async def get_me(request: Request, ctx: Ctx) -> Me:
     if account is None:
         # La passerelle refuse déjà toute session sans compte : arriver ici est un défaut.
         raise RuntimeError("route protégée atteinte sans compte d'amorçage")
-    return Me(kind="local_admin", username=session.subject, email=account.email, root_admin=True)
+    return Me(
+        kind="local_admin",
+        username=session.subject,
+        subject=session.subject,
+        email=account.email,
+        root_admin=True,
+    )
 
 
 @router.post("/api/auth/logout", status_code=status.HTTP_204_NO_CONTENT)

@@ -15,6 +15,8 @@ from fastapi import FastAPI
 from miles.api_health import router as health_router
 from miles.auth.admin_store import AdminAccountStore
 from miles.auth.api_auth import router as auth_router
+from miles.auth.api_preferences import PreferencesService
+from miles.auth.api_preferences import router as preferences_router
 from miles.auth.context import AuthContext, utc_now
 from miles.auth.gate import auth_gate
 from miles.auth.throttle import LoginThrottle
@@ -115,6 +117,7 @@ def create_app() -> FastAPI:
         )
         app.state.secrets = SecretsService(pool, cipher, catalog, utc_now)
         app.state.cultures = CulturesService(pool, catalog, utc_now)
+        app.state.preferences = PreferencesService(pool, app.state.cultures, utc_now)
         # Pas de redirection suivie : un fournisseur qui redirige la découverte ou
         # l'échange de code ne doit pas nous emmener ailleurs sans qu'on le voie.
         http = httpx.AsyncClient(timeout=OIDC_HTTP_TIMEOUT_S, follow_redirects=False)
@@ -204,4 +207,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(contracts_router)
     app.include_router(branches_router)
     app.include_router(branch_views_router)
+    app.include_router(preferences_router)
     return app

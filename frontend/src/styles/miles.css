@@ -224,3 +224,9 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 .sidebar-workspace[aria-expanded="true"]::after { transform: rotate(45deg); }
 .sidebar-sublink { padding-left: 64px; font-size: 13.5px; }
 .sidebar-subsublink { padding-left: 80px; font-size: 13px; }
+
+/* Fiche « Mon profil » : libellé et valeur sur une ligne. */
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 12px; }
+.facts > div { display: contents; }
+.facts dt { color: var(--encre-faible); }
+.facts dd { margin: 0; }

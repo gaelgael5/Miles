@@ -662,5 +662,30 @@
       "view": "La branche à afficher n'a pas pu être choisie."
     },
     "viewed": "Branche affichée"
+  },
+  "profile": {
+    "title": "Mon profil",
+    "intro": "Qui vous êtes pour le portail, et vos préférences personnelles.",
+    "identity": "Identité",
+    "fields": {
+      "kind": "Session",
+      "name": "Nom",
+      "email": "E-mail",
+      "directory": "Connecteur OIDC",
+      "subject": "Identifiant stable (sub)",
+      "language": "Langue du portail"
+    },
+    "kind": {
+      "local_admin": "Compte d'amorçage",
+      "oidc": "Annuaire OIDC"
+    },
+    "rootAdmin": "Administrateur racine",
+    "language": "Langue",
+    "languageHelp": "Retenue pour votre compte : vous la retrouvez après connexion, sur tout navigateur.",
+    "branches": "Branche affichée par workspace",
+    "noBranch": "Aucun workspace n'a encore de branche de travail.",
+    "errors": {
+      "language": "La langue n'a pas pu être enregistrée."
+    }
   }
 }

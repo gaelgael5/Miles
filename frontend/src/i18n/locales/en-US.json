@@ -662,5 +662,30 @@
       "view": "The branch to view could not be chosen."
     },
     "viewed": "Branch viewed"
+  },
+  "profile": {
+    "title": "My profile",
+    "intro": "Who you are for the portal, and your personal preferences.",
+    "identity": "Identity",
+    "fields": {
+      "kind": "Session",
+      "name": "Name",
+      "email": "E-mail",
+      "directory": "OIDC connector",
+      "subject": "Stable identifier (sub)",
+      "language": "Portal language"
+    },
+    "kind": {
+      "local_admin": "Bootstrap account",
+      "oidc": "OIDC directory"
+    },
+    "rootAdmin": "Root administrator",
+    "language": "Language",
+    "languageHelp": "Kept for your account: you will find it again after signing in, on any browser.",
+    "branches": "Branch viewed per workspace",
+    "noBranch": "No workspace has a work branch yet.",
+    "errors": {
+      "language": "The language could not be saved."
+    }
   }
 }

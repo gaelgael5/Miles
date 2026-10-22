@@ -1,9 +1,10 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ApiError, useLogin } from "../api/auth";
 import { usePublicCultures } from "../api/cultures";
 import { startLoginUrl, usePublicConnectors } from "../api/oidc";
+import { applyLanguage } from "../i18n/i18n";
 import { readStoredCulture, resolveVisitorCulture, storeCulture } from "./visitorCulture";
 
 const OIDC_ERRORS = new Set([
@@ -50,6 +51,11 @@ export function LoginScreen() {
     chosen,
   );
   const connectors = usePublicConnectors(culture);
+  // Avant la connexion, la culture choisie ici règle aussi la langue de l'écran, quand le
+  // portail la sait afficher (ticket 0a52596d). Effet sur i18next, rien n'est recopié.
+  useEffect(() => {
+    applyLanguage(culture);
+  }, [culture]);
   const oidcError = oidcErrorFromUrl();
   const failedLabel = connectors.data?.find((c) => c.id === oidcError?.connector)?.label;
 

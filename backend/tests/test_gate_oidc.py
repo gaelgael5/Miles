@@ -83,10 +83,23 @@ def test_oidc_session_sees_itself_connected(oidc_client: TestClient) -> None:
     assert me.json() == {
         "kind": "oidc",
         "username": "Alice",
+        "subject": "alice-sub",
         "email": None,
         "directory": "kc",
         "root_admin": False,
     }
+
+
+def test_oidc_session_without_rights_reaches_its_own_preferences(
+    oidc_client: TestClient,
+) -> None:
+    # Un corps invalide est refusé par la route elle-même (422), donc après la passerelle :
+    # c'est la preuve que celle-ci l'a laissé passer, sans toucher la base.
+    oidc_client.app.state.preferences = object()  # type: ignore[attr-defined]
+    reached = oidc_client.put("/api/auth/me/preferences", json={})
+
+    assert reached.status_code == 422
+    assert oidc_client.put("/api/workspaces/x/branches/view", json={}).status_code == 403
 
 
 @pytest.mark.parametrize(

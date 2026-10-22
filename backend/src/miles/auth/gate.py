@@ -38,7 +38,9 @@ PUBLIC_API_PATHS = frozenset(
 # Une session OIDC authentifie, elle n'autorise pas (ticket e9fc9b9b) : tant que les
 # rôles n'existent pas, elle ne sert qu'à se voir connecté et à se déconnecter.
 # Aucun accès par défaut : toute autre route lui est refusée.
-OIDC_SESSION_PATHS = frozenset({"/api/auth/me", "/api/auth/logout"})
+# Les préférences (langue du portail) sont personnelles : les ouvrir n'atteint que la
+# personne elle-même (ticket 0a52596d), et rien d'autre ne s'ouvre avec elles.
+OIDC_SESSION_PATHS = frozenset({"/api/auth/me", "/api/auth/logout", "/api/auth/me/preferences"})
 
 CallNext = Callable[[Request], Awaitable[Response]]
 
