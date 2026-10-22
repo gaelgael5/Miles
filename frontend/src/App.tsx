@@ -5,6 +5,7 @@ import { type Me, useLogout } from "./api/auth";
 import { usePreferences } from "./api/preferences";
 import { AuthGate } from "./auth/AuthGate";
 import { readStoredCulture } from "./auth/visitorCulture";
+import { ApiKeysScreen } from "./apiKeys/ApiKeysScreen";
 import { CulturesScreen } from "./cultures/CulturesScreen";
 import { GitConnectionsScreen } from "./gitConnections/GitConnectionsScreen";
 import { HealthStatus } from "./health/HealthStatus";
@@ -24,6 +25,7 @@ type Page =
   | "oidc"
   | "cultures"
   | "secrets"
+  | "apiKeys"
   | "health";
 // Deux menus, dans cet ordre (Gael, 21/10/2026) : le global d'abord, ce que partagent tous
 // les workspaces, puis les workspaces. L'ordre des écrans dans le global est voulu.
@@ -33,7 +35,7 @@ type Section = { title: string; pages: Page[] };
 const SECTIONS: Section[] = [
   {
     title: "global",
-    pages: ["cultures", "secrets", "gitConnections", "security", "oidc", "health"],
+    pages: ["cultures", "secrets", "gitConnections", "security", "oidc", "apiKeys", "health"],
   },
   { title: "workspaces", pages: ["workspaces"] },
 ];
@@ -43,6 +45,7 @@ const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
   oidc: ConnectorsScreen,
   cultures: CulturesScreen,
   secrets: SecretsScreen,
+  apiKeys: ApiKeysScreen,
   health: HealthStatus,
 };
 

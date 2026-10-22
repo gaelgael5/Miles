@@ -11,7 +11,8 @@
       "health": "Service status",
       "gitConnections": "Git connections",
       "allWorkspaces": "All workspaces",
-      "workspaceOnBranch": "{{name}} ({{branch}})"
+      "workspaceOnBranch": "{{name}} ({{branch}})",
+      "apiKeys": "API keys"
     },
     "noRights": "You are signed in through {{directory}}, but no right is granted to you yet.",
     "brand": "Miles",
@@ -843,6 +844,54 @@
       "nom_fige": "A source cannot be renamed.",
       "unexpected": "The source could not be saved. See the back-office logs.",
       "unreadable": "This source cannot be read."
+    }
+  },
+  "apiKeys": {
+    "title": "API keys",
+    "intro": "Service keys that the portal's MCP gateway presents to reach Miles at /mcp/. A key opens nothing by default: give it read or write access, workspace by workspace. Miles keeps only a fingerprint of each key.",
+    "add": "Issue a key",
+    "empty": "No API key yet.",
+    "form": {
+      "title": "New API key",
+      "submit": "Issue the key",
+      "grantsHelp": "Without access, the key does not see the workspace. Write access lets the agent change what the workspace's child branches hold; the base branch stays read-only."
+    },
+    "fields": {
+      "label": "Label",
+      "grants": "Access"
+    },
+    "access": {
+      "none": "No access",
+      "lecture": "read",
+      "ecriture": "write"
+    },
+    "issued": {
+      "title": "Key “{{label}}” issued",
+      "once": "Copy it now: it is shown only this once. Miles keeps only its fingerprint; a lost key is revoked and replaced, never read again.",
+      "secret": "API key",
+      "copy": "Copy the key",
+      "done": "I have copied it"
+    },
+    "list": {
+      "revoked": "revoked",
+      "issued": "issued {{date}} by {{by}}",
+      "noGrant": "none",
+      "lastUsed": "Last used",
+      "never": "never",
+      "editGrants": "Change access",
+      "saveGrants": "Save access",
+      "revoke": "Revoke"
+    },
+    "revokeConfirm": {
+      "title": "Revoke “{{label}}”?",
+      "body": "Every call presenting this key will be refused from now on. This cannot be undone: issue a new key if needed."
+    },
+    "errors": {
+      "invalid": {
+        "label": "Label: required, at most 120 characters, on one line.",
+        "grants": "Access: a workspace is unknown or listed twice."
+      },
+      "unexpected": "The API keys could not be handled. See the back-office logs."
     }
   }
 }

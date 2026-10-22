@@ -88,6 +88,7 @@ describe("App", () => {
       "Git connections",
       "Security services",
       "OIDC connectors",
+      "API keys",
       "Service status",
       "Workspaces",
       "All workspaces",

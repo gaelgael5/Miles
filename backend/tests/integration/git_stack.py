@@ -8,6 +8,8 @@ from pathlib import Path
 import httpx
 import pytest
 
+from miles.apikeys.service import EVENT_TYPES as API_KEY_EVENTS
+from miles.apikeys.service import ApiKeysService
 from miles.chains.service import EVENT_TYPES as CHAIN_EVENTS
 from miles.chains.service import ChainsService
 from miles.contracts.remote import RemoteContracts
@@ -61,6 +63,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | IDENTITY_EVENTS
         | CHAIN_EVENTS
         | SOURCE_EVENTS
+        | API_KEY_EVENTS
     )
     cipher = SecretCipher(os.urandom(32))
     secrets = SecretsService(portal.pool, cipher, catalog, utc_now)
@@ -85,6 +88,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.template_catalog = CatalogService(branches)
     state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
     state.sources = SourcesService(portal.pool, branches, catalog, utc_now)
+    state.api_keys = ApiKeysService(portal.pool, catalog, utc_now)
     state.git_identities = GitIdentitiesService(
         portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts
     )

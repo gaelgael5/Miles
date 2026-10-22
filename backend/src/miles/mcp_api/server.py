@@ -1,0 +1,96 @@
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from mcp.server.mcpserver import Context, MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.transport_security import TransportSecuritySettings
+from starlette.requests import Request
+from starlette.types import ASGIApp
+
+from miles.apikeys.model import KeyPrincipal
+from miles.mcp_api.auth import PRINCIPAL_STATE, SERVICES_STATE, ApiKeyAuth
+from miles.workshop.target import base_slug
+from miles.workspaces.service import WorkspacesService
+
+INSTRUCTIONS = (
+    "Miles : back-office du terminal point relais. Le paramétrage (modèles de données,"
+    " chaînes de transformations…) vit dans des branches de travail d'un workspace."
+    " Commencez par list_workspaces : seuls les workspaces ouverts à votre clé y figurent."
+    " Une modification exige une branche enfant ; la branche de base est en lecture seule."
+)
+
+
+def _request(ctx: Context[Any, Request]) -> Request:
+    request = ctx.request_context.request
+    if request is None:
+        # Seul le transport HTTP porte une requête, et Miles n'en sert pas d'autre.
+        raise ToolError(refusal("cle_requise"))
+    return request
+
+
+def principal_of(ctx: Context[Any, Request]) -> KeyPrincipal:
+    principal: KeyPrincipal | None = getattr(_request(ctx).state, PRINCIPAL_STATE, None)
+    if principal is None:
+        # Inatteignable derrière ApiKeyAuth : fermé quand même, si la garde venait à manquer.
+        raise ToolError(refusal("cle_requise"))
+    return principal
+
+
+def services_of(ctx: Context[Any, Request]) -> Any:
+    """L'état de l'app Miles (ses services), posé par la garde sur la requête."""
+    return getattr(_request(ctx).state, SERVICES_STATE)
+
+
+def refusal(code: str, **detail: Any) -> str:
+    """Erreur exploitable par l'agent : un code stable, et ce qui permet de se corriger."""
+    return json.dumps({"code": code, **detail}, ensure_ascii=False)
+
+
+def build_server() -> MCPServer:
+    server = MCPServer("miles", instructions=INSTRUCTIONS)
+
+    @server.tool(
+        description=(
+            "Liste les workspaces ouverts à cette clé, avec le droit qu'elle y a"
+            " (lecture ou ecriture) et le slug de leur branche de base (lecture seule)."
+        )
+    )
+    async def list_workspaces(ctx: Context[Any, Request]) -> list[dict[str, Any]]:
+        principal = principal_of(ctx)
+        workspaces: WorkspacesService = services_of(ctx).workspaces
+        visible = []
+        # Seuls les workspaces où la clé a un droit : un autre n'existe pas pour elle
+        # (critère 7), il n'apparaît ni ici ni dans un refus.
+        for workspace in await workspaces.resolve_list():
+            access = principal.access_to(workspace.id)
+            if access is not None:
+                visible.append(
+                    {
+                        "id": workspace.id,
+                        "name": workspace.name,
+                        "access": access.value,
+                        "base_branch": base_slug(workspace),
+                    }
+                )
+        return visible
+
+    return server
+
+
+def mcp_app(server: MCPServer) -> ASGIApp:
+    """Surface MCP montée sous /mcp/, derrière la garde par clé."""
+    app = server.streamable_http_app(
+        streamable_http_path="/",
+        # Sans état : la gateway ouvre une session par appel, et une réponse JSON unique
+        # suffit à des outils qui ne rappellent jamais le client.
+        stateless_http=True,
+        json_response=True,
+        # Protection DNS rebinding coupée, volontairement : elle protège des appels
+        # qu'un navigateur fait avec des droits ambiants (cookie). Ici le seul droit
+        # est une clé en en-tête, qu'une page tierce n'a pas ; et le Host vu derrière
+        # nginx et la gateway n'est pas connu d'avance.
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    )
+    return ApiKeyAuth(app)

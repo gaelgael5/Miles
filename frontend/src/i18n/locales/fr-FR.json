@@ -11,7 +11,8 @@
       "health": "État du service",
       "gitConnections": "Connexions git",
       "allWorkspaces": "Tous les workspaces",
-      "workspaceOnBranch": "{{name}} ({{branch}})"
+      "workspaceOnBranch": "{{name}} ({{branch}})",
+      "apiKeys": "Clés d'API"
     },
     "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé.",
     "brand": "Miles",
@@ -843,6 +844,54 @@
       "nom_fige": "Une source ne se renomme pas.",
       "unexpected": "La source n'a pas pu être enregistrée. Voir les journaux du back-office.",
       "unreadable": "Cette source ne peut pas être lue."
+    }
+  },
+  "apiKeys": {
+    "title": "Clés d'API",
+    "intro": "Clés de service que la gateway MCP du portail présente pour atteindre Miles sur /mcp/. Une clé n'ouvre rien par défaut : donnez-lui la lecture ou l'écriture, workspace par workspace. Miles ne garde que l'empreinte de chaque clé.",
+    "add": "Émettre une clé",
+    "empty": "Aucune clé d'API pour l'instant.",
+    "form": {
+      "title": "Nouvelle clé d'API",
+      "submit": "Émettre la clé",
+      "grantsHelp": "Sans droit, la clé ne voit pas le workspace. L'écriture permet à l'agent de modifier les branches enfants du workspace ; la branche de base reste en lecture seule."
+    },
+    "fields": {
+      "label": "Libellé",
+      "grants": "Droits"
+    },
+    "access": {
+      "none": "Aucun droit",
+      "lecture": "lecture",
+      "ecriture": "écriture"
+    },
+    "issued": {
+      "title": "Clé « {{label}} » émise",
+      "once": "Copiez-la maintenant : elle n'est montrée que cette fois. Miles n'en garde que l'empreinte ; une clé perdue se révoque et se remplace, elle ne se relit jamais.",
+      "secret": "Clé d'API",
+      "copy": "Copier la clé",
+      "done": "Je l'ai copiée"
+    },
+    "list": {
+      "revoked": "révoquée",
+      "issued": "émise le {{date}} par {{by}}",
+      "noGrant": "aucun",
+      "lastUsed": "Dernier usage",
+      "never": "jamais",
+      "editGrants": "Modifier les droits",
+      "saveGrants": "Enregistrer les droits",
+      "revoke": "Révoquer"
+    },
+    "revokeConfirm": {
+      "title": "Révoquer « {{label}} » ?",
+      "body": "Tout appel qui présente cette clé sera refusé dès maintenant. C'est définitif : émettez une nouvelle clé si besoin."
+    },
+    "errors": {
+      "invalid": {
+        "label": "Libellé : obligatoire, 120 caractères au plus, sur une ligne.",
+        "grants": "Droits : un workspace est inconnu ou cité deux fois."
+      },
+      "unexpected": "Les clés d'API n'ont pas pu être traitées. Voir les journaux du back-office."
     }
   }
 }

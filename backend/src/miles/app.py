@@ -13,6 +13,9 @@ import structlog
 from fastapi import FastAPI
 
 from miles.api_health import router as health_router
+from miles.apikeys import service as apikeys_events
+from miles.apikeys.api_apikeys import router as api_keys_router
+from miles.apikeys.service import ApiKeysService
 from miles.auth.admin_store import AdminAccountStore
 from miles.auth.api_auth import router as auth_router
 from miles.auth.api_preferences import PreferencesService
@@ -49,6 +52,7 @@ from miles.identities import service as identities_events
 from miles.identities.api_identities import router as identities_router
 from miles.identities.service import GitIdentitiesService
 from miles.log_config import configure_logging
+from miles.mcp_api.server import build_server, mcp_app
 from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder
 from miles.oidc import service as oidc_events
@@ -116,6 +120,7 @@ def create_app() -> FastAPI:
         | identities_events.EVENT_TYPES
         | chains_events.EVENT_TYPES
         | sources_events.EVENT_TYPES
+        | apikeys_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -168,6 +173,7 @@ def create_app() -> FastAPI:
         app.state.template_catalog = CatalogService(branches)
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
+        app.state.api_keys = ApiKeysService(pool, catalog, utc_now)
         app.state.git_identities = GitIdentitiesService(
             pool, cipher, http, catalog, utc_now, git_hosts
         )
@@ -192,7 +198,10 @@ def create_app() -> FastAPI:
             admin_declared=store.account is not None,
         )
         try:
-            yield
+            # Le gestionnaire de sessions MCP vit avec l'app hôte : la durée de vie d'une
+            # sous-application montée ne s'exécute jamais.
+            async with app.state.mcp.session_manager.run():
+                yield
         finally:
             responder.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -237,4 +246,9 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(chains_api_router)
     app.include_router(sources_router)
+    app.include_router(api_keys_router)
+    # Surface MCP (story 0d4e4f75) : hors /api, donc hors de la passerelle des sessions ;
+    # gardée par sa propre clé. Adresse publiée : /mcp/.
+    app.state.mcp = build_server()
+    app.mount("/mcp", mcp_app(app.state.mcp))
     return app
