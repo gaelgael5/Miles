@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from datetime import datetime
 
 import structlog
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from miles.apikeys.model import KeyPrincipal
 from miles.apikeys.service import ApiKeysService
+from miles.obo.service import Actor, ActorIdentitiesService
+from miles.obo.signature import ACTOR_HEADER, signed_actor
 
 log = structlog.get_logger(__name__)
 
 PRINCIPAL_STATE = "miles_principal"
 # Les services de Miles : dans l'app MCP montée, `request.app` est l'app du SDK, pas Miles.
 SERVICES_STATE = "miles_services"
+# La personne derrière l'appel, si le portail l'a signée (OBO) ; None : la clé seule.
+ACTOR_STATE = "miles_actor"
 
 
 def presented_key(headers: dict[bytes, bytes]) -> str | None:
@@ -54,7 +60,7 @@ class ApiKeyAuth:
         principal: KeyPrincipal | None = None
         if raw is not None:
             principal = await service.resolve_authenticate(raw)
-        if principal is None:
+        if principal is None or raw is None:
             # Ni la clé ni son préfixe au journal : une clé mal saisie reste un secret.
             log.info("mcp_acces_refuse", presented=raw is not None)
             await _unauthorized(send)
@@ -62,7 +68,32 @@ class ApiKeyAuth:
         state = scope.setdefault("state", {})
         state[PRINCIPAL_STATE] = principal
         state[SERVICES_STATE] = scope["app"].state
+        state[ACTOR_STATE] = await _actor(scope, raw, principal)
         await self.app(scope, receive, send)
+
+
+async def _actor(scope: Scope, raw: str, principal: KeyPrincipal) -> Actor | None:
+    """La personne signée par le portail ; None si rien de valide (contrat OBO v6).
+
+    Attribution, jamais autorisation : les droits restent ceux de la clé, et quiconque
+    détient la clé peut signer n'importe quel acteur. Seuls les en-têtes comptent, jamais
+    un acteur lu dans le corps d'un appel.
+    """
+    headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope["headers"]}
+    if ACTOR_HEADER not in headers:
+        return None
+    now: Callable[[], datetime] = scope["app"].state.api_keys.now
+    actor = signed_actor(headers, raw, now().timestamp())
+    if actor is None:
+        log.info("obo_signature_ignoree", key=principal.key_id)
+        return None
+    identities: ActorIdentitiesService = scope["app"].state.actor_identities
+    found = await identities.resolve_find(actor)
+    if found is None:
+        # Décision journalisée (critère 3) : un acteur signé que Miles ne connaît pas,
+        # c'est presque toujours un GUID pas encore recopié dans le profil Miles.
+        log.info("obo_acteur_inconnu", key=principal.key_id, actor=actor)
+    return found
 
 
 async def _unauthorized(send: Send) -> None:

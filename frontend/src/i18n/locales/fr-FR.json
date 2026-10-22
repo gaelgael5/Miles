@@ -724,6 +724,21 @@
         "empty": "Saisissez un jeton.",
         "unexpected": "Le jeton n'a pas pu être enregistré. Voir les journaux du back-office."
       }
+    },
+    "actor": {
+      "title": "Identité pour le portail (OBO)",
+      "field": "Identifiant d'acteur (GUID)",
+      "help": "Collez ici le même identifiant que dans votre profil du portail, ou générez-en un et recopiez-le là-bas. Quand l'agent du portail travaille pour vous, Miles vous reconnaît par lui et signe vos modifications « via » la clé de l'agent.",
+      "generate": "Générer",
+      "copy": "Copier",
+      "save": "Enregistrer",
+      "saved": "Identifiant enregistré.",
+      "remove": "Retirer",
+      "errors": {
+        "taken": "Cet identifiant est déjà pris par quelqu'un d'autre.",
+        "invalid": "Lettres, chiffres, points, tirets, deux-points et soulignés seulement, 128 caractères au plus.",
+        "unexpected": "L'identifiant n'a pas pu être enregistré. Voir les journaux du back-office."
+      }
     }
   },
   "chains": {
@@ -893,5 +908,10 @@
       },
       "unexpected": "Les clés d'API n'ont pas pu être traitées. Voir les journaux du back-office."
     }
+  },
+  "copy": {
+    "done": "Copié",
+    "failed": "Copie impossible",
+    "failedHelp": "Le navigateur a refusé la copie : sélectionnez le texte et copiez-le à la main."
   }
 }

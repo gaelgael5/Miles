@@ -25,6 +25,7 @@ from miles.gitaccess.model import EVENT_TYPES as GITACCESS_EVENTS
 from miles.gitaccess.resolver import AccessResolver
 from miles.identities.service import EVENT_TYPES as IDENTITY_EVENTS
 from miles.identities.service import GitIdentitiesService
+from miles.obo.service import ActorIdentitiesService
 from miles.secrets.crypto import SecretCipher
 from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles.secrets.service import SecretsService
@@ -89,6 +90,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
     state.sources = SourcesService(portal.pool, branches, catalog, utc_now)
     state.api_keys = ApiKeysService(portal.pool, catalog, utc_now)
+    state.actor_identities = ActorIdentitiesService(portal.pool, utc_now)
     state.git_identities = GitIdentitiesService(
         portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts
     )

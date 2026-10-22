@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { type ApiKey, type Grant, type IssuedKey, useApiKeys, useIssueApiKey, useRevokeApiKey, useSetApiKeyGrants } from "../api/apiKeys";
 import { invalidField } from "../api/http";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
+import { CopyButton } from "../layout/CopyButton";
 import { PageHead } from "../layout/PageHead";
 import { GrantsEditor } from "./GrantsEditor";
 
@@ -21,9 +22,7 @@ function IssuedNotice({ issued, onDone }: { issued: IssuedKey; onDone: () => voi
       <p>{t("apiKeys.issued.once")}</p>
       <pre className="mono code-block" aria-label={t("apiKeys.issued.secret")}>{issued.secret}</pre>
       <div className="actions">
-        <button type="button" className="btn btn-secondary" onClick={() => void navigator.clipboard?.writeText(issued.secret)}>
-          {t("apiKeys.issued.copy")}
-        </button>
+        <CopyButton text={issued.secret} label={t("apiKeys.issued.copy")} />
         <button type="button" className="btn btn-primary" onClick={onDone}>
           {t("apiKeys.issued.done")}
         </button>

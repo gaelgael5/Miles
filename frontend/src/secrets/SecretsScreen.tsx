@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog } from "../layout/ConfirmDialog";
+import { CopyButton } from "../layout/CopyButton";
 import { PageHead } from "../layout/PageHead";
 import { ApiError, invalidField } from "../api/http";
 import {
@@ -73,9 +74,7 @@ function SecretRow({ secret }: { secret: SecretSummary }) {
       </div>
       <div className="actions row-actions">
       {/* « Copier » copie le slug, jamais la valeur : le navigateur ne l'a d'ailleurs pas. */}
-      <button type="button" className="btn btn-secondary" onClick={() => void navigator.clipboard?.writeText(secret.slug)}>
-        {t("secrets.list.copySlug")}
-      </button>
+      <CopyButton text={secret.slug} label={t("secrets.list.copySlug")} />
       <button type="button" className="btn btn-secondary" onClick={() => open("relabel")}>
         {t("secrets.list.relabel")}
       </button>

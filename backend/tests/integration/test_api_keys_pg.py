@@ -87,7 +87,10 @@ def _result(response: httpx.Response) -> Any:
     assert response.status_code == 200, response.text
     result = response.json()["result"]
     assert result.get("isError") is not True, result
-    return result["structuredContent"]["result"]
+    content = result["structuredContent"]
+    # Le SDK enveloppe un retour qui n'est pas un objet (une liste) sous « result » ; un
+    # objet est publié tel quel.
+    return content["result"] if list(content) == ["result"] else content
 
 
 def bearer(key: str) -> dict[str, str]:

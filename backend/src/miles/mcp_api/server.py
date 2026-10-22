@@ -10,7 +10,8 @@ from starlette.requests import Request
 from starlette.types import ASGIApp
 
 from miles.apikeys.model import KeyPrincipal
-from miles.mcp_api.auth import PRINCIPAL_STATE, SERVICES_STATE, ApiKeyAuth
+from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE, ApiKeyAuth
+from miles.obo.service import Actor
 from miles.workshop.target import base_slug
 from miles.workspaces.service import WorkspacesService
 
@@ -36,6 +37,12 @@ def principal_of(ctx: Context[Any, Request]) -> KeyPrincipal:
         # Inatteignable derrière ApiKeyAuth : fermé quand même, si la garde venait à manquer.
         raise ToolError(refusal("cle_requise"))
     return principal
+
+
+def actor_of(ctx: Context[Any, Request]) -> Actor | None:
+    """La personne pour qui le portail appelle, si sa signature OBO est valide."""
+    actor: Actor | None = getattr(_request(ctx).state, ACTOR_STATE, None)
+    return actor
 
 
 def services_of(ctx: Context[Any, Request]) -> Any:
@@ -75,6 +82,19 @@ def build_server() -> MCPServer:
                     }
                 )
         return visible
+
+    @server.tool(
+        description=(
+            "Dit sous quelle clé l'appel est servi, et pour quelle personne quand le portail"
+            " l'a signée (OBO) : c'est elle qui signera les modifications, « via » la clé."
+        )
+    )
+    async def whoami(ctx: Context[Any, Request]) -> dict[str, Any]:
+        principal, actor = principal_of(ctx), actor_of(ctx)
+        return {
+            "key": principal.label,
+            "acting_for": None if actor is None else actor.display_name,
+        }
 
     return server
 

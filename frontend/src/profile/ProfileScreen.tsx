@@ -7,6 +7,7 @@ import { useWorkspaces } from "../api/workspaces";
 import { PORTAL_LANGUAGES, applyLanguage } from "../i18n/i18n";
 import { PageHead } from "../layout/PageHead";
 import { BranchPicker } from "../workspaces/BranchPicker";
+import { ActorIdentitySection } from "./ActorIdentitySection";
 import { GitIdentitiesSection } from "./GitIdentitiesSection";
 
 function Identity({ me }: { me: Me }) {
@@ -108,6 +109,7 @@ export function ProfileScreen({ me }: { me: Me }) {
       <Identity me={me} />
       <Language />
       <GitIdentitiesSection />
+      <ActorIdentitySection />
       {/* Les workspaces sont réservés à l'administrateur tant que les rôles manquent. */}
       {me.root_admin && <BranchViews />}
     </section>

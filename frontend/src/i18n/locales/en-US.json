@@ -724,6 +724,21 @@
         "empty": "Enter a token.",
         "unexpected": "The token could not be saved. See the back-office logs."
       }
+    },
+    "actor": {
+      "title": "Identity for the portal (OBO)",
+      "field": "Actor identifier (GUID)",
+      "help": "Paste here the same identifier as in your portal profile, or generate one and copy it there. When the portal's agent works on your behalf, Miles recognises you by it and signs your changes “via” the agent's key.",
+      "generate": "Generate",
+      "copy": "Copy",
+      "save": "Save",
+      "saved": "Identifier saved.",
+      "remove": "Remove",
+      "errors": {
+        "taken": "This identifier is already used by someone else.",
+        "invalid": "Letters, digits, dots, dashes, colons and underscores only, 128 characters at most.",
+        "unexpected": "The identifier could not be saved. See the back-office logs."
+      }
     }
   },
   "chains": {
@@ -893,5 +908,10 @@
       },
       "unexpected": "The API keys could not be handled. See the back-office logs."
     }
+  },
+  "copy": {
+    "done": "Copied",
+    "failed": "Copy failed",
+    "failedHelp": "The browser refused to copy: select the text and copy it by hand."
   }
 }
