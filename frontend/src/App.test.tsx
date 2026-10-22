@@ -89,6 +89,7 @@ describe("App", () => {
       "Security services",
       "OIDC connectors",
       "API keys",
+      "OAuth clients",
       "Service status",
       "Workspaces",
       "All workspaces",

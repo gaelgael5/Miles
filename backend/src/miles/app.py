@@ -52,9 +52,16 @@ from miles.identities import service as identities_events
 from miles.identities.api_identities import router as identities_router
 from miles.identities.service import GitIdentitiesService
 from miles.log_config import configure_logging
-from miles.mcp_api.server import MCP_MOUNT, build_server, mcp_app
+from miles.mcp_api.server import MCP_MOUNT, MCP_PATH, build_server, mcp_app
 from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder
+from miles.oauth import clients as oauth_events
+from miles.oauth.access import OAuthAccess
+from miles.oauth.api_authorize import router as oauth_authorize_router
+from miles.oauth.api_clients import router as oauth_clients_router
+from miles.oauth.api_public import router as oauth_public_router
+from miles.oauth.clients import OAuthClientsService
+from miles.oauth.flow import OAuthFlow
 from miles.obo.api_identity import router as identity_router
 from miles.obo.service import ActorIdentitiesService
 from miles.oidc import service as oidc_events
@@ -123,6 +130,7 @@ def create_app() -> FastAPI:
         | chains_events.EVENT_TYPES
         | sources_events.EVENT_TYPES
         | apikeys_events.EVENT_TYPES
+        | oauth_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -177,6 +185,11 @@ def create_app() -> FastAPI:
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
         app.state.api_keys = ApiKeysService(pool, catalog, utc_now)
         app.state.public_url = settings.public_url
+        app.state.oauth_clients = OAuthClientsService(pool, catalog, utc_now)
+        # Ressource annoncée et exigée : l'adresse publique de /mcp/, ou rien si elle manque.
+        resource = None if settings.public_url is None else settings.public_url + MCP_PATH
+        app.state.oauth_flow = OAuthFlow(pool, app.state.oauth_clients, catalog, utc_now, resource)
+        app.state.oauth_access = OAuthAccess(pool, store, catalog, utc_now)
         app.state.actor_identities = ActorIdentitiesService(pool, utc_now)
         app.state.git_identities = GitIdentitiesService(
             pool, cipher, http, catalog, utc_now, git_hosts
@@ -252,6 +265,9 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(sources_router)
     app.include_router(api_keys_router)
     app.include_router(identity_router)
+    app.include_router(oauth_clients_router)
+    app.include_router(oauth_authorize_router)
+    app.include_router(oauth_public_router)
     # Surface MCP (story 0d4e4f75) : hors /api, donc hors de la passerelle des sessions ;
     # gardée par sa propre clé. Adresse publiée : /mcp/.
     app.state.mcp = build_server()

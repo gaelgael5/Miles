@@ -9,6 +9,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from miles.apikeys.model import KeyPrincipal
 from miles.apikeys.service import ApiKeysService
+from miles.oauth.access import OAuthAccess
+from miles.oauth.model import ACCESS_PREFIX as OAUTH_ACCESS_PREFIX
 from miles.obo.service import Actor, ActorIdentitiesService
 from miles.obo.signature import ACTOR_HEADER, signed_actor
 
@@ -55,20 +57,31 @@ class ApiKeyAuth:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        service: ApiKeysService = scope["app"].state.api_keys
+        app_state = scope["app"].state
         raw = presented_key(dict(scope["headers"]))
         principal: KeyPrincipal | None = None
-        if raw is not None:
-            principal = await service.resolve_authenticate(raw)
+        actor: Actor | None = None
+        if raw is not None and raw.startswith(OAUTH_ACCESS_PREFIX):
+            # Jeton OAuth (story 9f09cd8b) : la personne est celle qui a consenti, pas un
+            # acteur signé par un tiers ; l'en-tête OBO n'a donc rien à y ajouter.
+            oauth: OAuthAccess = app_state.oauth_access
+            resolved = await oauth.resolve_access(raw)
+            if resolved is not None:
+                principal, actor = resolved
+        elif raw is not None:
+            keys: ApiKeysService = app_state.api_keys
+            principal = await keys.resolve_authenticate(raw)
+            if principal is not None:
+                actor = await _actor(scope, raw, principal)
         if principal is None or raw is None:
             # Ni la clé ni son préfixe au journal : une clé mal saisie reste un secret.
             log.info("mcp_acces_refuse", presented=raw is not None)
-            await _unauthorized(send)
+            await _unauthorized(send, getattr(app_state, "public_url", None))
             return
         state = scope.setdefault("state", {})
         state[PRINCIPAL_STATE] = principal
-        state[SERVICES_STATE] = scope["app"].state
-        state[ACTOR_STATE] = await _actor(scope, raw, principal)
+        state[SERVICES_STATE] = app_state
+        state[ACTOR_STATE] = actor
         await self.app(scope, receive, send)
 
 
@@ -96,15 +109,21 @@ async def _actor(scope: Scope, raw: str, principal: KeyPrincipal) -> Actor | Non
     return found
 
 
-async def _unauthorized(send: Send) -> None:
+async def _unauthorized(send: Send, public_url: str | None) -> None:
     body = json.dumps({"detail": "cle_requise"}).encode()
+    challenge = 'Bearer realm="miles-mcp"'
+    if public_url is not None:
+        # RFC 9728 §5.1 : c'est par ce lien qu'un client MCP (claude.ai) découvre où
+        # obtenir un jeton. Sans adresse publique configurée, on ne l'invente pas.
+        metadata = f"{public_url}/.well-known/oauth-protected-resource"
+        challenge += f', resource_metadata="{metadata}"'
     await send(
         {
             "type": "http.response.start",
             "status": 401,
             "headers": [
                 (b"content-type", b"application/json"),
-                (b"www-authenticate", b'Bearer realm="miles-mcp"'),
+                (b"www-authenticate", challenge.encode()),
             ],
         }
     )

@@ -125,7 +125,8 @@ class WorkBranches:
         if isinstance(author, DelegatedAuthor):
             # « Les deux » (Gael, 22/10/2026) : l'auteur est la personne, le message dit
             # par quelle clé l'agent a écrit — seule trace git de qui a demandé quoi.
-            message = f"{message}\n\nVia la clé d'API « {author.via_key_label} »."
+            channel = "la clé d'API" if author.via_kind == "api_key" else "le client OAuth"
+            message = f"{message}\n\nVia {channel} « {author.via_key_label} »."
         try:
             return await copy.commit_push(message, commit_author(author))
         except BranchMovedError:

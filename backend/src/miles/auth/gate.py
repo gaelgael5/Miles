@@ -41,12 +41,21 @@ PUBLIC_API_PATHS = frozenset(
 # Les préférences (langue du portail) sont personnelles : les ouvrir n'atteint que la
 # personne elle-même (ticket 0a52596d), et rien d'autre ne s'ouvre avec elles.
 # Le GUID d'acteur (story 52ac5782) est de même nature : il ne désigne que la personne.
+# Le consentement OAuth (story 9f09cd8b) aussi : une personne ne délègue que ses propres
+# droits, recalculés par la route elle-même.
 OIDC_SESSION_PATHS = frozenset(
-    {"/api/auth/me", "/api/auth/logout", "/api/auth/me/preferences", "/api/auth/me/identity"}
+    {
+        "/api/auth/me",
+        "/api/auth/logout",
+        "/api/auth/me/preferences",
+        "/api/auth/me/identity",
+        "/api/oauth/authorize",
+        "/api/oauth/authorize/check",
+    }
 )
 # Identité git personnelle (ticket 033e5ff3) : même raison, la personne n'y atteint que
 # ses propres jetons. Préfixe, parce que la connexion git figure dans le chemin.
-OIDC_SESSION_PREFIXES = ("/api/auth/me/git-identities",)
+OIDC_SESSION_PREFIXES = ("/api/auth/me/git-identities", "/api/auth/me/oauth-grants")
 
 
 def _personal(path: str) -> bool:

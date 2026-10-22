@@ -26,6 +26,10 @@ from miles.gitaccess.model import EVENT_TYPES as GITACCESS_EVENTS
 from miles.gitaccess.resolver import AccessResolver
 from miles.identities.service import EVENT_TYPES as IDENTITY_EVENTS
 from miles.identities.service import GitIdentitiesService
+from miles.oauth.access import OAuthAccess
+from miles.oauth.clients import EVENT_TYPES as OAUTH_EVENTS
+from miles.oauth.clients import OAuthClientsService
+from miles.oauth.flow import OAuthFlow
 from miles.obo.service import ActorIdentitiesService
 from miles.secrets.crypto import SecretCipher
 from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
@@ -66,6 +70,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | CHAIN_EVENTS
         | SOURCE_EVENTS
         | API_KEY_EVENTS
+        | OAUTH_EVENTS
     )
     cipher = SecretCipher(os.urandom(32))
     secrets = SecretsService(portal.pool, cipher, catalog, utc_now)
@@ -94,6 +99,11 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     # Celui de la configuration par défaut : l'essai d'une chaîne s'évalue sous cette borne.
     state.transform_budget = Settings.model_fields["transform_budget"].default
     state.actor_identities = ActorIdentitiesService(portal.pool, utc_now)
+    state.public_url = None
+    state.oauth_clients = OAuthClientsService(portal.pool, catalog, utc_now)
+    # Sans adresse publique, comme une instance sans MILES_PUBLIC_URL : OAuth fermé.
+    state.oauth_flow = OAuthFlow(portal.pool, state.oauth_clients, catalog, utc_now, None)
+    state.oauth_access = OAuthAccess(portal.pool, state.auth.store, catalog, utc_now)
     state.git_identities = GitIdentitiesService(
         portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts
     )

@@ -8,6 +8,7 @@ import pytest
 
 from miles.obo.signature import sign_actor
 from tests.integration.mcp_stack import McpForge, issue_key, open_mcp_forge
+from tests.integration.oauth_helpers import obtain_tokens, open_oauth
 from tests.integration.test_datamodels_pg import COLIS, PERSONNE
 
 pytestmark = pytest.mark.integration
@@ -172,3 +173,26 @@ async def test_unknown_or_used_models_name_what_exists_and_who_uses_them(m: McpF
     }
     assert renamed == {"code": "nom_fige"}
     assert used == {"code": "modele_utilise", "par": ["domains/suivi/messages/colis.yaml"]}
+
+
+async def test_a_change_made_through_oauth_is_signed_by_the_person_via_the_client(
+    m: McpForge,
+) -> None:
+    open_oauth(m.forge.portal)
+    _, tokens = await obtain_tokens(m.forge.client, m.mcp, {"retrait": "ecriture"})
+    as_person = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    created = await m.ok(
+        "create_data_model", EDIT | {"scope": "shared", "content": PERSONNE}, headers=as_person
+    )
+
+    commit = await _commit(m, created["commit"])
+    event = await m.forge.portal.pool.fetchrow(
+        "SELECT author_directory, author_subject, properties FROM events"
+        " WHERE type = 'data_model.created'"
+    )
+    assert (commit["name"], commit["email"]) == ("admin", "admin@miles.invalid")
+    assert "Via le client OAuth « claude.ai »." in commit["message"]
+    assert event is not None
+    assert (event["author_directory"], event["author_subject"]) == ("local", "admin")
+    assert '"via_oauth_grant"' in event["properties"]

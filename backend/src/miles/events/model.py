@@ -57,6 +57,8 @@ class DelegatedAuthor(EventAuthor):
     via_key_label: str
     # « Nom <e-mail> » à inscrire comme auteur du commit.
     commit_identity: str
+    # « api_key » ou « oauth » : par où l'appel est passé, que l'event et le commit nomment.
+    via_kind: str = "api_key"
 
 
 @dataclass(frozen=True)

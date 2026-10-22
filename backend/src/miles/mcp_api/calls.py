@@ -86,7 +86,9 @@ class Caller:
             name = self.actor.display_name
             email = self.actor.email or f"{person.subject}@{person.directory}.miles.invalid"
         identity = f"{_clean(name)} <{_clean(email)}>"
-        return DelegatedAuthor(person.directory, person.subject, key.key_id, key.label, identity)
+        return DelegatedAuthor(
+            person.directory, person.subject, key.key_id, key.label, identity, key.kind
+        )
 
     async def write(
         self,

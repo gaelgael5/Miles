@@ -54,6 +54,9 @@ class KeyPrincipal:
     key_id: str
     label: str
     grants: tuple[Grant, ...]
+    # « api_key » : une clé de service ; « oauth » : une autorisation consentie à un client
+    # OAuth (story 9f09cd8b), dont key_id est alors l'identifiant d'autorisation.
+    kind: str = "api_key"
 
     def access_to(self, workspace_id: str) -> Access | None:
         for grant in self.grants:

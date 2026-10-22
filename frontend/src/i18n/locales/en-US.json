@@ -12,7 +12,8 @@
       "gitConnections": "Git connections",
       "allWorkspaces": "All workspaces",
       "workspaceOnBranch": "{{name}} ({{branch}})",
-      "apiKeys": "API keys"
+      "apiKeys": "API keys",
+      "oauthClients": "OAuth clients"
     },
     "noRights": "You are signed in through {{directory}}, but no right is granted to you yet.",
     "brand": "Miles",
@@ -920,5 +921,62 @@
     "done": "Copied",
     "failed": "Copy failed",
     "failedHelp": "The browser refused to copy: select the text and copy it by hand."
+  },
+  "oauth": {
+    "title": "OAuth clients",
+    "intro": "Clients allowed to connect to Miles' MCP service on behalf of a person, such as claude web. Each person chooses, at consent, what the client may do in their name.",
+    "add": "Declare a client",
+    "empty": "No OAuth client declared.",
+    "endpoints": {
+      "title": "Connect claude web",
+      "mcpUrl": "MCP server URL",
+      "help": "In claude.ai, add a custom connector with this URL, choose “Use your own OAuth client” and paste the client ID of a client below. Leave the secret blank: Miles' clients are public and use PKCE.",
+      "unset": "MILES_PUBLIC_URL is not configured on this instance: OAuth stays closed until Miles knows its public address."
+    },
+    "form": {
+      "title": "New OAuth client",
+      "submit": "Declare the client",
+      "redirectHelp": "One return address per line, exactly as the client sends it. HTTPS only (HTTP only towards localhost). claude.ai's addresses are proposed."
+    },
+    "fields": {
+      "label": "Label",
+      "redirectUris": "Return addresses"
+    },
+    "list": {
+      "copyId": "Copy the client ID",
+      "delete": "Delete"
+    },
+    "deleteConfirm": {
+      "title": "Delete “{{label}}”?",
+      "body": "Every authorization given to this client is revoked at once: its tokens stop working."
+    },
+    "grants": {
+      "title": "Authorized applications",
+      "empty": "You have not authorized any application.",
+      "revoke": "Revoke"
+    },
+    "consent": {
+      "title": "Authorize an application",
+      "intro": "“{{client}}” asks to use Miles on your behalf. Choose what it may do.",
+      "returnTo": "You will then be sent back to {{host}}.",
+      "grants": "Access granted",
+      "noRights": "You have no right in Miles to delegate: you can only refuse.",
+      "approve": "Authorize",
+      "deny": "Refuse",
+      "refused": {
+        "client_inconnu": "This application is not declared in Miles.",
+        "adresse_de_retour_inconnue": "This application's return address is not the one declared in Miles.",
+        "oauth_non_configure": "OAuth is not configured on this instance (MILES_PUBLIC_URL).",
+        "droit_excessif": "You cannot grant more than your own rights.",
+        "unexpected": "The authorization could not be handled. See the back-office logs."
+      }
+    },
+    "errors": {
+      "invalid": {
+        "label": "Label: required, at most 120 characters, on one line.",
+        "redirect_uris": "Return addresses: HTTPS without fragment (HTTP only towards localhost), at least one."
+      },
+      "unexpected": "The OAuth clients could not be handled. See the back-office logs."
+    }
   }
 }

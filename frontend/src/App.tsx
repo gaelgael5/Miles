@@ -12,6 +12,9 @@ import { HealthStatus } from "./health/HealthStatus";
 import { applyLanguage } from "./i18n/i18n";
 import { Topbar } from "./layout/Topbar";
 import { type WorkspaceSelection, WorkspacesNav } from "./layout/WorkspacesNav";
+import { ConsentScreen } from "./oauth/ConsentScreen";
+import { OAuthClientsScreen } from "./oauth/OAuthClientsScreen";
+import { AUTHORIZE_PATH, restorePendingAuthorize } from "./oauth/pendingAuthorize";
 import { ConnectorsScreen } from "./oidc/ConnectorsScreen";
 import { ProfileScreen } from "./profile/ProfileScreen";
 import { SecretsScreen } from "./secrets/SecretsScreen";
@@ -26,6 +29,7 @@ type Page =
   | "cultures"
   | "secrets"
   | "apiKeys"
+  | "oauthClients"
   | "health";
 // Deux menus, dans cet ordre (Gael, 21/10/2026) : le global d'abord, ce que partagent tous
 // les workspaces, puis les workspaces. L'ordre des écrans dans le global est voulu.
@@ -35,7 +39,7 @@ type Section = { title: string; pages: Page[] };
 const SECTIONS: Section[] = [
   {
     title: "global",
-    pages: ["cultures", "secrets", "gitConnections", "security", "oidc", "apiKeys", "health"],
+    pages: ["cultures", "secrets", "gitConnections", "security", "oidc", "apiKeys", "oauthClients", "health"],
   },
   { title: "workspaces", pages: ["workspaces"] },
 ];
@@ -46,6 +50,7 @@ const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
   cultures: CulturesScreen,
   secrets: SecretsScreen,
   apiKeys: ApiKeysScreen,
+  oauthClients: OAuthClientsScreen,
   health: HealthStatus,
 };
 
@@ -150,6 +155,12 @@ function SignedIn({ me }: { me: Me }) {
   }, [preferences.isSuccess, language]);
 
   const profile = profileOpen ? <ProfileScreen me={me} /> : null;
+  // Une demande d'autorisation OAuth (claude.ai) prend toute la page, connecté ou non admin :
+  // c'est l'écran de consentement, pas le portail.
+  const [authorizing] = useState(() => {
+    restorePendingAuthorize();
+    return window.location.pathname === AUTHORIZE_PATH;
+  });
   return (
     <>
       <Topbar>
@@ -165,7 +176,9 @@ function SignedIn({ me }: { me: Me }) {
           {t("app.logout")}
         </button>
       </Topbar>
-      {me.root_admin ? (
+      {authorizing ? (
+        <ConsentScreen />
+      ) : me.root_admin ? (
         <AdminPortal profile={profile} onLeave={() => setProfileOpen(false)} />
       ) : (
         // Authentifié n'est pas autorisé : sans rôle, rien d'autre que son profil ne s'ouvre.

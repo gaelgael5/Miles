@@ -54,7 +54,8 @@ def _properties(event: NewEvent) -> dict[str, Any]:
     if isinstance(event.author, DelegatedAuthor):
         # Ajouté ici, une fois pour tous les events : un module qui écrirait sans le dire
         # rendrait invisible la clé par laquelle une modification est passée.
-        properties["via_api_key"] = event.author.via_key_id
+        via = "via_api_key" if event.author.via_kind == "api_key" else "via_oauth_grant"
+        properties[via] = event.author.via_key_id
     return properties
 
 

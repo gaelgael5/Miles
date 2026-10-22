@@ -12,7 +12,8 @@
       "gitConnections": "Connexions git",
       "allWorkspaces": "Tous les workspaces",
       "workspaceOnBranch": "{{name}} ({{branch}})",
-      "apiKeys": "Clés d'API"
+      "apiKeys": "Clés d'API",
+      "oauthClients": "Clients OAuth"
     },
     "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé.",
     "brand": "Miles",
@@ -920,5 +921,62 @@
     "done": "Copié",
     "failed": "Copie impossible",
     "failedHelp": "Le navigateur a refusé la copie : sélectionnez le texte et copiez-le à la main."
+  },
+  "oauth": {
+    "title": "Clients OAuth",
+    "intro": "Clients autorisés à se connecter au service MCP de Miles au nom d'une personne, comme claude web. Chaque personne choisit, au consentement, ce que le client pourra faire en son nom.",
+    "add": "Déclarer un client",
+    "empty": "Aucun client OAuth déclaré.",
+    "endpoints": {
+      "title": "Connecter claude web",
+      "mcpUrl": "Adresse du serveur MCP",
+      "help": "Dans claude.ai, ajoutez un connecteur personnalisé avec cette adresse, choisissez « Use your own OAuth client » et collez le client ID d'un client ci-dessous. Laissez le secret vide : les clients de Miles sont publics et utilisent PKCE.",
+      "unset": "MILES_PUBLIC_URL n'est pas configurée sur cette instance : OAuth reste fermé tant que Miles ne connaît pas son adresse publique."
+    },
+    "form": {
+      "title": "Nouveau client OAuth",
+      "submit": "Déclarer le client",
+      "redirectHelp": "Une adresse de retour par ligne, exactement comme le client l'envoie. HTTPS seulement (HTTP seulement vers localhost). Les adresses de claude.ai sont proposées."
+    },
+    "fields": {
+      "label": "Libellé",
+      "redirectUris": "Adresses de retour"
+    },
+    "list": {
+      "copyId": "Copier le client ID",
+      "delete": "Supprimer"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer « {{label}} » ?",
+      "body": "Toutes les autorisations données à ce client sont révoquées aussitôt : ses jetons cessent de fonctionner."
+    },
+    "grants": {
+      "title": "Applications autorisées",
+      "empty": "Vous n'avez autorisé aucune application.",
+      "revoke": "Révoquer"
+    },
+    "consent": {
+      "title": "Autoriser une application",
+      "intro": "« {{client}} » demande à utiliser Miles en votre nom. Choisissez ce qu'il pourra faire.",
+      "returnTo": "Vous serez ensuite renvoyé vers {{host}}.",
+      "grants": "Droits accordés",
+      "noRights": "Vous n'avez aucun droit à déléguer dans Miles : vous ne pouvez que refuser.",
+      "approve": "Autoriser",
+      "deny": "Refuser",
+      "refused": {
+        "client_inconnu": "Cette application n'est pas déclarée dans Miles.",
+        "adresse_de_retour_inconnue": "L'adresse de retour de cette application n'est pas celle déclarée dans Miles.",
+        "oauth_non_configure": "OAuth n'est pas configuré sur cette instance (MILES_PUBLIC_URL).",
+        "droit_excessif": "Vous ne pouvez pas accorder plus que vos propres droits.",
+        "unexpected": "L'autorisation n'a pas pu être traitée. Voir les journaux du back-office."
+      }
+    },
+    "errors": {
+      "invalid": {
+        "label": "Libellé : obligatoire, 120 caractères au plus, sur une ligne.",
+        "redirect_uris": "Adresses de retour : HTTPS sans fragment (HTTP seulement vers localhost), au moins une."
+      },
+      "unexpected": "Les clients OAuth n'ont pas pu être traités. Voir les journaux du back-office."
+    }
   }
 }
