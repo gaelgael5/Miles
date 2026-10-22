@@ -48,7 +48,7 @@ describe("ApiKeysScreen", () => {
     });
     renderScreen();
 
-    expect(await screen.findByLabelText("Address to declare")).toHaveTextContent(
+    expect(await screen.findByLabelText("Address to declare")).toHaveValue(
       "https://svc-miles.exemple.invalid/mcp/",
     );
     expect(screen.getByText("Copy the address")).toBeInTheDocument();

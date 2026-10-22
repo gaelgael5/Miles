@@ -33,15 +33,21 @@ function EndpointCard() {
   return (
     <section className="card" aria-labelledby="mcp-endpoint-title">
       <h2 id="mcp-endpoint-title">{t("apiKeys.endpoint.title")}</h2>
+      {/* Même forme qu'un champ : l'aide suit un champ, jamais une rangée de boutons. */}
       {url !== null ? (
-        <div className="actions">
-          <code className="mono" aria-label={t("apiKeys.endpoint.url")}>{url}</code>
-          <CopyButton text={url} label={t("apiKeys.endpoint.copy")} />
-        </div>
+        <label className="field">
+          {t("apiKeys.endpoint.url")}
+          <input readOnly className="mono" value={url} onFocus={(e) => e.target.select()} />
+        </label>
       ) : (
         <p className="alert" role="alert">{t("apiKeys.endpoint.unset", { path })}</p>
       )}
       <p className="help">{t("apiKeys.endpoint.help")}</p>
+      {url !== null && (
+        <div className="actions">
+          <CopyButton text={url} label={t("apiKeys.endpoint.copy")} />
+        </div>
+      )}
     </section>
   );
 }
