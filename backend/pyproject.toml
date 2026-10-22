@@ -16,6 +16,7 @@ dependencies = [
     "pyjwt[crypto]>=2.9",
     "pyyaml>=6.0",
     "structlog>=24.4",
+    "urban-json==0.1.0",
     "uvicorn[standard]>=0.32",
 ]
 

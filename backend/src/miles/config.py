@@ -73,6 +73,10 @@ class Settings(DatabaseSettings):
     # Obligatoire : un dossier de secours dans le conteneur serait perdu au redéploiement
     # sans que rien ne le signale. Git fait foi, ce volume n'est qu'un cache.
     workcopies_dir: Path
+    # Nombre de nœuds qu'une évaluation de template peut parcourir (MILES_TRANSFORM_BUDGET).
+    # Le langage n'a pas de boucle, mais `$source` itère sur les données : la borne
+    # interrompt un template lancé sur un document démesuré (ticket 68cae2ff).
+    transform_budget: int = Field(default=100_000, gt=0)
 
     @field_validator("public_url")
     @classmethod
