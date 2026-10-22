@@ -129,12 +129,12 @@ async def create_model(
     branch: str | None = None,
 ) -> object:
     try:
-        entry, existed = await service.resolve_create(
+        entry, commit = await service.resolve_create(
             request_author(request), workspace_id, body.scope, body.content, branch=branch
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    if existed:
+    if commit is None:
         # Rejeu à l'identique : ni fichier ni commit de plus, et la réponse le dit.
         response.status_code = status.HTTP_200_OK
         response.headers["X-Miles-Already-Exists"] = "true"

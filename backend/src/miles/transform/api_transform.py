@@ -140,14 +140,23 @@ class ChainCheckOut(BaseModel):
 
 @chains_router.post("/check", response_model=ChainCheckOut)
 async def check_chain(body: ChainCheckIn, request: Request) -> ChainCheckOut:
-    specs = [StepSpec(s.template, s.target) for s in body.steps]
+    budget: int = request.app.state.transform_budget
+    return run_check(body.steps, body.sample, budget)
+
+
+def run_check(steps: list[StepIn], sample: Any, budget: int) -> ChainCheckOut:
+    """L'essai d'une chaîne sur un échantillon, sans rien écrire.
+
+    Partagé par l'écran et la surface MCP : un même essai doit rendre le même verdict
+    par les deux chemins, sinon l'agent et la personne ne parleraient pas de la même chose.
+    """
+    specs = [StepSpec(s.template, s.target) for s in steps]
     try:
         chain = compile_chain(specs)
     except ChainInvalidError as exc:
         return ChainCheckOut(valid=False, problems=[step_problem_out(p) for p in exc.problems])
-    budget: int = request.app.state.transform_budget
     try:
-        trace = run_chain(chain, body.sample, budget)
+        trace = run_chain(chain, sample, budget)
     except ChainFailedError as exc:
         cause = exc.cause
         evaluation = EvaluationOut(

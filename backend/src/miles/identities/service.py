@@ -150,6 +150,19 @@ class GitIdentitiesService:
         sealed = Sealed(row["key_version"], row["nonce"], row["ciphertext"])
         return self.cipher.open(_aad(viewer, connection_id), sealed)
 
+    async def resolve_signature(
+        self, viewer: EventAuthor, connection_id: str
+    ) -> tuple[str, str] | None:
+        """(nom, e-mail) lus sur le compte de la forge : l'auteur git de la personne."""
+        row = await self.pool.fetchrow(
+            "SELECT name, email FROM user_git_identities"
+            " WHERE viewer_directory = $1 AND viewer_subject = $2 AND connection_id = $3",
+            viewer.directory,
+            viewer.subject,
+            connection_id,
+        )
+        return None if row is None else (str(row["name"]), str(row["email"]))
+
     async def _checks(
         self, root: str, token: Secret, connection_id: str
     ) -> tuple[RepositoryCheck, ...]:

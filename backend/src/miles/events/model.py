@@ -45,6 +45,21 @@ class EventAuthor:
 
 
 @dataclass(frozen=True)
+class DelegatedAuthor(EventAuthor):
+    """Un auteur qui agit par une clé d'API (surface MCP, story 3429986c).
+
+    L'identité reste (annuaire, sub) : la personne signée par le portail (OBO), ou la
+    clé elle-même. S'y ajoutent la clé par laquelle l'appel est passé, que l'event et
+    le commit doivent dire (« les deux », Gael 22/10/2026), et l'identité git à signer.
+    """
+
+    via_key_id: str
+    via_key_label: str
+    # « Nom <e-mail> » à inscrire comme auteur du commit.
+    commit_identity: str
+
+
+@dataclass(frozen=True)
 class NewEvent:
     type: str
     objects: tuple[ObjectRef, ...]

@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
-from miles.events.model import EventAuthor
+from miles.events.model import DelegatedAuthor, EventAuthor
 from miles.git.rights import AccessReport
 
 CREATED_EVENT = "workspace.created"
@@ -113,6 +113,9 @@ def check_summary(repo_url: str, report: AccessReport) -> dict[str, Any]:
 
 def commit_author(author: EventAuthor) -> str:
     """Auteur du commit d'initialisation : la personne, et par où elle est entrée."""
+    if isinstance(author, DelegatedAuthor):
+        # Par MCP : la personne signée par le portail (ou la clé seule), résolue à l'appel.
+        return author.commit_identity
     subject = _COMMIT_IDENTITY_RE.sub("-", author.subject)[:60] or "inconnu"
     directory = _COMMIT_IDENTITY_RE.sub("-", author.directory)[:60] or "inconnu"
     return f"{subject} via Miles <{subject}@{directory}.miles.invalid>"

@@ -143,12 +143,12 @@ async def save_chain(
 ) -> object:
     steps = [StoredStep(s.name, s.template, s.target) for s in body.steps]
     try:
-        chain, existed = await service.resolve_save(
+        chain, commit = await service.resolve_save(
             request_author(request), workspace_id, slug, body.label, steps, branch=branch
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    if existed:
+    if commit is None:
         # Même chaîne à l'identique : aucun commit, et la réponse le dit.
         response.headers["X-Miles-Already-Exists"] = "true"
     return _out(chain)

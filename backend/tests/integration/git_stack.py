@@ -12,6 +12,7 @@ from miles.apikeys.service import EVENT_TYPES as API_KEY_EVENTS
 from miles.apikeys.service import ApiKeysService
 from miles.chains.service import EVENT_TYPES as CHAIN_EVENTS
 from miles.chains.service import ChainsService
+from miles.config import Settings
 from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import EVENT_TYPES as CONTRACT_EVENTS
 from miles.contracts.service import ContractsService
@@ -90,6 +91,8 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
     state.sources = SourcesService(portal.pool, branches, catalog, utc_now)
     state.api_keys = ApiKeysService(portal.pool, catalog, utc_now)
+    # Celui de la configuration par défaut : l'essai d'une chaîne s'évalue sous cette borne.
+    state.transform_budget = Settings.model_fields["transform_budget"].default
     state.actor_identities = ActorIdentitiesService(portal.pool, utc_now)
     state.git_identities = GitIdentitiesService(
         portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts

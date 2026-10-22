@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from mcp.server.mcpserver import Context, MCPServer
@@ -10,7 +9,9 @@ from starlette.requests import Request
 from starlette.types import ASGIApp
 
 from miles.apikeys.model import KeyPrincipal
+from miles.mcp_api import tools_chains, tools_models
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE, ApiKeyAuth
+from miles.mcp_api.errors import refusal
 from miles.obo.service import Actor
 from miles.workshop.target import base_slug
 from miles.workspaces.service import WorkspacesService
@@ -48,11 +49,6 @@ def actor_of(ctx: Context[Any, Request]) -> Actor | None:
 def services_of(ctx: Context[Any, Request]) -> Any:
     """L'état de l'app Miles (ses services), posé par la garde sur la requête."""
     return getattr(_request(ctx).state, SERVICES_STATE)
-
-
-def refusal(code: str, **detail: Any) -> str:
-    """Erreur exploitable par l'agent : un code stable, et ce qui permet de se corriger."""
-    return json.dumps({"code": code, **detail}, ensure_ascii=False)
 
 
 def build_server() -> MCPServer:
@@ -96,6 +92,8 @@ def build_server() -> MCPServer:
             "acting_for": None if actor is None else actor.display_name,
         }
 
+    tools_models.register(server)
+    tools_chains.register(server)
     return server
 
 

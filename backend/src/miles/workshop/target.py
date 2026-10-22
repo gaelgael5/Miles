@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 import asyncpg
 
-from miles.events.model import EventAuthor
+from miles.events.model import DelegatedAuthor, EventAuthor
 from miles.git.access import GitAccess
 from miles.git.forge import Repository, RepositoryUrlError, parse_repository
 from miles.git.workcopy import BranchMissingError, BranchMovedError, WorkCopy
@@ -122,6 +122,10 @@ class WorkBranches:
 
     @staticmethod
     async def push(copy: WorkCopy, message: str, author: EventAuthor) -> str:
+        if isinstance(author, DelegatedAuthor):
+            # « Les deux » (Gael, 22/10/2026) : l'auteur est la personne, le message dit
+            # par quelle clé l'agent a écrit — seule trace git de qui a demandé quoi.
+            message = f"{message}\n\nVia la clé d'API « {author.via_key_label} »."
         try:
             return await copy.commit_push(message, commit_author(author))
         except BranchMovedError:

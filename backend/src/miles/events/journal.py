@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Protocol
 
 from miles.events.model import (
+    DelegatedAuthor,
     EventAuthor,
     EventError,
     EventTypeCatalog,
@@ -48,6 +49,15 @@ SELECT kind, id, seq, $4 FROM unnest($1::text[], $2::text[], $3::bigint[]) AS t(
 """
 
 
+def _properties(event: NewEvent) -> dict[str, Any]:
+    properties = dict(event.properties)
+    if isinstance(event.author, DelegatedAuthor):
+        # Ajouté ici, une fois pour tous les events : un module qui écrirait sans le dire
+        # rendrait invisible la clé par laquelle une modification est passée.
+        properties["via_api_key"] = event.author.via_key_id
+    return properties
+
+
 async def db_write_event(
     db: EventDb,
     event: NewEvent,
@@ -69,6 +79,7 @@ async def db_write_event(
     rows = await db.fetch(_NEXT_SEQUENCES, [o.kind for o in objects], [o.id for o in objects])
     sequences = {ObjectRef(r["object_kind"], r["object_id"]): r["last_sequence"] for r in rows}
     event_id = uuid.uuid4()
+    properties = _properties(event)
     await db.execute(
         _INSERT_EVENT,
         event_id,
@@ -78,7 +89,7 @@ async def db_write_event(
         written_at,
         event.author.directory,
         event.author.subject,
-        json.dumps(dict(event.properties)),
+        json.dumps(properties),
     )
     await db.execute(
         _INSERT_EVENT_OBJECTS,
@@ -94,7 +105,7 @@ async def db_write_event(
         source,
         written_at,
         event.author,
-        dict(event.properties),
+        properties,
         sequences,
     )
 

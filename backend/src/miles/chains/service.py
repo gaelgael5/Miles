@@ -107,8 +107,8 @@ class ChainsService:
         steps: list[StoredStep],
         *,
         branch: str | None = None,
-    ) -> tuple[StoredChain, bool]:
-        """Crée ou remplace la chaîne ; rend (chaîne, déjà_là). Rejeu à l'identique : sans effet."""
+    ) -> tuple[StoredChain, str | None]:
+        """Crée ou remplace la chaîne ; rend (chaîne, commit). Rejeu à l'identique : None."""
         slug, label = checked_slug(slug), checked_label(label)
         docs = [StepDoc(s.name.strip(), (s.target or "").strip() or None) for s in steps]
         checked_steps(docs)
@@ -126,16 +126,16 @@ class ChainsService:
             await _write(copy, doc, stored)
             changed = await copy.git("status", "--porcelain", "--", chain_dir(slug))
             if not changed.stdout.strip():
-                return stored, True
+                return stored, None
             message = f"Chaîne de transformations {slug}"
             commit = await self.branches.push(copy, message, author)
         await self._journal(SAVED_EVENT, workspace_id, author, slug, commit, copy.branch)
         log.info("chaine_enregistree", workspace=workspace_id, slug=slug, steps=len(docs))
-        return stored, False
+        return stored, commit
 
     async def resolve_delete(
         self, author: EventAuthor, workspace_id: str, slug: str, *, branch: str | None = None
-    ) -> None:
+    ) -> str:
         slug = checked_slug(slug)
         async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
             paths = await copy.paths()
@@ -156,6 +156,7 @@ class ChainsService:
             commit = await self.branches.push(copy, f"Suppression de la chaîne {slug}", author)
         await self._journal(DELETED_EVENT, workspace_id, author, slug, commit, copy.branch)
         log.info("chaine_supprimee", workspace=workspace_id, slug=slug)
+        return commit
 
     async def _journal(
         self,
