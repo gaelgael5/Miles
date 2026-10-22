@@ -1,0 +1,507 @@
+{
+  "server": "miles",
+  "transport": "streamable-http, sans état, réponses JSON",
+  "path": "/mcp/",
+  "tools": [
+    {
+      "name": "list_workspaces",
+      "description": "Liste les workspaces ouverts à cette clé, avec le droit qu'elle y a (lecture ou ecriture) et le slug de leur branche de base (lecture seule).",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_workspacesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_branches",
+      "description": "Liste les branches d'un workspace : la branche de base (base: true, lecture seule) et ses branches enfants, seules cibles possibles d'une modification.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace.",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "list_branchesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "whoami",
+      "description": "Dit sous quelle clé l'appel est servi, et pour quelle personne quand le portail l'a signée (OBO) : c'est elle qui signera les modifications, « via » la clé.",
+      "inputSchema": {
+        "properties": {},
+        "title": "whoamiArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_data_models",
+      "description": "Liste les modèles de données d'une branche, avec leur emplacement.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "list_data_modelsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_data_model",
+      "description": "Lit un modèle de données : son emplacement et son YAML tel quel.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "« shared » pour un modèle transverse, sinon le nom du domaine.",
+            "title": "Scope",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom du modèle (celui de son fichier, sans extension).",
+            "title": "Name",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "scope",
+          "name"
+        ],
+        "title": "get_data_modelArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_data_model",
+      "description": "Crée un modèle de données dans une branche enfant. Le nom vient du YAML. Refus structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "« shared » pour un modèle transverse, sinon le nom du domaine.",
+            "title": "Scope",
+            "type": "string"
+          },
+          "content": {
+            "description": "Le modèle en YAML, selon la grammaire des modèles de Miles.",
+            "title": "Content",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "scope",
+          "content"
+        ],
+        "title": "create_data_modelArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "replace_data_model",
+      "description": "Remplace le YAML d'un modèle existant, dans une branche enfant. Le nom ne change pas par un remplacement (nom_fige) : renommer, c'est créer puis supprimer.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "« shared » pour un modèle transverse, sinon le nom du domaine.",
+            "title": "Scope",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom du modèle (celui de son fichier, sans extension).",
+            "title": "Name",
+            "type": "string"
+          },
+          "content": {
+            "description": "Le modèle en YAML, selon la grammaire des modèles de Miles.",
+            "title": "Content",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "scope",
+          "name",
+          "content"
+        ],
+        "title": "replace_data_modelArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_data_model",
+      "description": "Supprime un modèle d'une branche enfant. Refusé (modele_utilise) tant qu'un autre modèle le désigne : le refus nomme lesquels.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "« shared » pour un modèle transverse, sinon le nom du domaine.",
+            "title": "Scope",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom du modèle (celui de son fichier, sans extension).",
+            "title": "Name",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "scope",
+          "name"
+        ],
+        "title": "delete_data_modelArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_chains",
+      "description": "Liste les chaînes de transformations d'une branche. Une chaîne illisible (retouchée hors de Miles) apparaît avec label null.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "list_chainsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_chain",
+      "description": "Lit une chaîne : son libellé et ses étapes, templates compris.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Slug de la chaîne : son répertoire transformations/<slug>/, figé.",
+            "title": "Slug",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "slug"
+        ],
+        "title": "get_chainArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "save_chain",
+      "description": "Crée ou remplace une chaîne entière (libellé et étapes) dans une branche enfant, seulement si toutes ses étapes passent la vérification ; sinon chaine_invalide rend les écarts de chaque étape avec son rang (0 pour la première).",
+      "inputSchema": {
+        "$defs": {
+          "StepArg": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "description": "Nom de l'étape : celui du fichier de son template.",
+                "title": "Name",
+                "type": "string"
+              },
+              "template": {
+                "description": "Template JSLT de l'étape, dans le profil d'écriture.",
+                "title": "Template",
+                "type": "string"
+              },
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Vide : le résultat devient le message. Sinon, un chemin unique ($.a.b) où poser le résultat dans le message, objets intermédiaires créés.",
+                "title": "Target"
+              }
+            },
+            "required": [
+              "name",
+              "template"
+            ],
+            "title": "StepArg",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Slug de la chaîne : son répertoire transformations/<slug>/, figé.",
+            "title": "Slug",
+            "type": "string"
+          },
+          "label": {
+            "description": "Libellé affiché, sur une ligne.",
+            "title": "Label",
+            "type": "string"
+          },
+          "steps": {
+            "description": "Les étapes, dans l'ordre d'application.",
+            "items": {
+              "$ref": "#/$defs/StepArg"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "slug",
+          "label",
+          "steps"
+        ],
+        "title": "save_chainArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_chain",
+      "description": "Supprime une chaîne d'une branche enfant. Refusé (chaine_utilisee) tant qu'une source de données la désigne : le refus nomme lesquelles.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Slug de la chaîne : son répertoire transformations/<slug>/, figé.",
+            "title": "Slug",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "slug"
+        ],
+        "title": "delete_chainArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "try_chain",
+      "description": "Essaie des étapes sur un message d'exemple, sans rien écrire : rend les écarts de vérification, ou le message après chaque étape, ou l'étape qui échoue et pourquoi. Sans message, la source vaut {}.",
+      "inputSchema": {
+        "$defs": {
+          "StepArg": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "description": "Nom de l'étape : celui du fichier de son template.",
+                "title": "Name",
+                "type": "string"
+              },
+              "template": {
+                "description": "Template JSLT de l'étape, dans le profil d'écriture.",
+                "title": "Template",
+                "type": "string"
+              },
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Vide : le résultat devient le message. Sinon, un chemin unique ($.a.b) où poser le résultat dans le message, objets intermédiaires créés.",
+                "title": "Target"
+              }
+            },
+            "required": [
+              "name",
+              "template"
+            ],
+            "title": "StepArg",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "steps": {
+            "description": "Les étapes, dans l'ordre d'application.",
+            "items": {
+              "$ref": "#/$defs/StepArg"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "sample": {
+            "default": null,
+            "description": "Message d'entrée (JSON).",
+            "title": "Sample"
+          }
+        },
+        "required": [
+          "steps"
+        ],
+        "title": "try_chainArguments",
+        "type": "object"
+      }
+    }
+  ]
+}

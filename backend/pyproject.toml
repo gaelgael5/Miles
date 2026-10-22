@@ -24,6 +24,7 @@ dependencies = [
 [project.scripts]
 miles-migrate = "miles.cli:main"
 miles-admin = "miles.cli_admin:main"
+miles-contracts = "miles.published_contracts:main"
 
 [dependency-groups]
 dev = [
