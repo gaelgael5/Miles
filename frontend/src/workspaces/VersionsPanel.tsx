@@ -1,6 +1,8 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { WorkTarget } from "../api/workTarget";
+
 import {
   type ModelProblem,
   type SavedVersion,
@@ -54,9 +56,9 @@ function VersionRefusal({ error }: { error: unknown }) {
   );
 }
 
-function SaveForm({ workspaceId, onDone }: { workspaceId: string; onDone: () => void }) {
+function SaveForm({ target, onDone }: { target: WorkTarget; onDone: () => void }) {
   const { t } = useTranslation();
-  const save = useSaveVersion(workspaceId);
+  const save = useSaveVersion(target);
   const [label, setLabel] = useState("");
 
   function submit(event: FormEvent) {
@@ -84,9 +86,9 @@ function SaveForm({ workspaceId, onDone }: { workspaceId: string; onDone: () => 
   );
 }
 
-function VersionRow({ workspaceId, version }: { workspaceId: string; version: SavedVersion }) {
+function VersionRow({ target, version }: { target: WorkTarget; version: SavedVersion }) {
   const { t, i18n } = useTranslation();
-  const restore = useRestoreVersion(workspaceId);
+  const restore = useRestoreVersion(target);
   const [confirming, setConfirming] = useState(false);
   const date = new Date(version.saved_at).toLocaleString(i18n.language);
 
@@ -134,9 +136,9 @@ function VersionRow({ workspaceId, version }: { workspaceId: string; version: Sa
 }
 
 /** Versions de la branche de travail : enregistrées explicitement, jamais automatiquement. */
-export function VersionsPanel({ workspaceId }: { workspaceId: string }) {
+export function VersionsPanel({ target }: { target: WorkTarget }) {
   const { t } = useTranslation();
-  const versions = useVersions(workspaceId);
+  const versions = useVersions(target);
   const [saving, setSaving] = useState(false);
 
   return (
@@ -149,7 +151,7 @@ export function VersionsPanel({ workspaceId }: { workspaceId: string }) {
           </button>
         )}
       </div>
-      {saving && <SaveForm workspaceId={workspaceId} onDone={() => setSaving(false)} />}
+      {saving && <SaveForm target={target} onDone={() => setSaving(false)} />}
       {versions.isError && <VersionRefusal error={versions.error} />}
       {versions.isSuccess && versions.data.length === 0 && (
         <p className="muted">{t("versions.empty")}</p>
@@ -157,7 +159,7 @@ export function VersionsPanel({ workspaceId }: { workspaceId: string }) {
       {versions.isSuccess && versions.data.length > 0 && (
         <ul className="plain-list">
           {versions.data.map((v) => (
-            <VersionRow key={v.number} workspaceId={workspaceId} version={v} />
+            <VersionRow key={v.number} target={target} version={v} />
           ))}
         </ul>
       )}

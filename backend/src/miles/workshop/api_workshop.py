@@ -16,6 +16,7 @@ from miles.workshop.service import (
     WorkshopService,
 )
 from miles.workspaces.model import (
+    BranchNotFoundError,
     RepositoryUnavailableError,
     WorkspaceConflictError,
     WorkspaceInputError,
@@ -42,6 +43,8 @@ class VersionOut(BaseModel):
     commit: str
     author: str
     saved_at: datetime
+    # None : étiquette antérieure aux branches filles, comptée à la base.
+    branch: str | None
 
 
 class VersionCreate(BaseModel):
@@ -57,7 +60,12 @@ class RestoreOut(BaseModel):
 
 def _out(v: SavedVersion) -> VersionOut:
     return VersionOut(
-        number=v.number, label=v.label, commit=v.commit, author=v.author, saved_at=v.saved_at
+        number=v.number,
+        label=v.label,
+        commit=v.commit,
+        author=v.author,
+        saved_at=v.saved_at,
+        branch=v.branch,
     )
 
 
@@ -94,26 +102,33 @@ def _refusal(exc: Exception) -> JSONResponse:
         return _error(unprocessable, {"field": exc.field})
     if isinstance(exc, WorkspaceConflictError):
         return _error(status.HTTP_409_CONFLICT, exc.code)
+    if isinstance(exc, BranchNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "branche_inconnue")
     if isinstance(exc, WorkspaceNotFoundError):
         return _error(status.HTTP_404_NOT_FOUND, "workspace_inconnu")
     raise exc
 
 
 @router.get("", response_model=list[VersionOut])
-async def list_versions(workspace_id: str, service: Service) -> object:
+async def list_versions(workspace_id: str, service: Service, branch: str | None = None) -> object:
     try:
-        return [_out(v) for v in await service.resolve_list(workspace_id)]
+        return [_out(v) for v in await service.resolve_list(workspace_id, branch=branch)]
     except _REFUSALS as exc:
         return _refusal(exc)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=VersionOut)
 async def save_version(
-    workspace_id: str, body: VersionCreate, request: Request, response: Response, service: Service
+    workspace_id: str,
+    body: VersionCreate,
+    request: Request,
+    response: Response,
+    service: Service,
+    branch: str | None = None,
 ) -> object:
     try:
         saved, existed = await service.resolve_save(
-            request_author(request), workspace_id, body.label
+            request_author(request), workspace_id, body.label, branch=branch
         )
     except _REFUSALS as exc:
         return _refusal(exc)
@@ -126,10 +141,12 @@ async def save_version(
 
 @router.post("/{number}/restore", response_model=RestoreOut)
 async def restore_version(
-    workspace_id: str, number: int, request: Request, service: Service
+    workspace_id: str, number: int, request: Request, service: Service, branch: str | None = None
 ) -> object:
     try:
-        commit = await service.resolve_restore(request_author(request), workspace_id, number)
+        commit = await service.resolve_restore(
+            request_author(request), workspace_id, number, branch=branch
+        )
     except _REFUSALS as exc:
         return _refusal(exc)
     return RestoreOut(commit=commit)

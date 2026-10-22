@@ -5,7 +5,14 @@ import { ApiError, invalidField } from "../api/http";
 import { slugFromLabel } from "../api/secrets";
 import { type Workspace, useCreateWorkspace, useWorkspaces } from "../api/workspaces";
 import { PageHead } from "../layout/PageHead";
-import { type WorkspaceSelection, type WorkspaceView, viewsOf } from "../layout/WorkspacesNav";
+import {
+  type WorkspaceSelection,
+  type WorkspaceView,
+  baseBranchOf,
+  viewsOf,
+} from "../layout/WorkspacesNav";
+import { BranchForm } from "./BranchForm";
+import { BranchScreen } from "./BranchScreen";
 import { ContractScreen } from "./ContractScreen";
 import { ContractsScreen } from "./ContractsScreen";
 import { DataModelsScreen } from "./DataModelsScreen";
@@ -75,9 +82,11 @@ function CreateForm({ onDone }: { onDone: (id: string) => void }) {
 function WorkspaceRow({
   workspace,
   onOpen,
+  onBranch,
 }: {
   workspace: Workspace;
   onOpen: (view: WorkspaceView) => void;
+  onBranch: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -105,6 +114,11 @@ function WorkspaceRow({
         <div className="value mono">{workspace.work_branch ?? "—"}</div>
       </div>
       <div className="actions row-actions">
+        {workspace.work_branch !== null && (
+          <button type="button" className="btn btn-secondary" onClick={onBranch}>
+            {t("branches.add")}
+          </button>
+        )}
         {viewsOf(workspace).map((view) => (
           <button key={view} type="button" className="btn btn-secondary" onClick={() => onOpen(view)}>
             {t(`workspaces.card.${view}`)}
@@ -113,6 +127,48 @@ function WorkspaceRow({
       </div>
     </li>
   );
+}
+
+/** Écran d'une vue de branche ; null pour le paramétrage du workspace. */
+function branchScreen(
+  workspace: Workspace,
+  selection: NonNullable<WorkspaceSelection>,
+  onSelect: (selection: WorkspaceSelection) => void,
+) {
+  const branch = selection.branch ?? baseBranchOf(workspace);
+  if (selection.view === "settings" || branch === null) {
+    return null;
+  }
+  const target = { workspaceId: workspace.id, branch };
+  const back = () => onSelect(null);
+  // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
+  // autre branche (formulaire ouvert, aperçu) recopié par erreur.
+  const key = `${branch}/${selection.view}/${selection.contract ?? ""}`;
+  if (selection.view === "contracts" && selection.contract !== undefined) {
+    return (
+      <ContractScreen
+        key={key}
+        target={target}
+        slug={selection.contract}
+        onBack={() => onSelect({ id: workspace.id, view: "contracts", branch })}
+      />
+    );
+  }
+  if (selection.view === "contracts") {
+    return (
+      <ContractsScreen
+        key={key}
+        workspace={workspace}
+        target={target}
+        onBack={back}
+        onOpen={(contract) => onSelect({ id: workspace.id, view: "contracts", branch, contract })}
+      />
+    );
+  }
+  if (selection.view === "dataModels") {
+    return <DataModelsScreen key={key} workspace={workspace} target={target} onBack={back} />;
+  }
+  return <BranchScreen key={key} workspace={workspace} target={target} onBack={back} />;
 }
 
 /** Workspaces : une application métier chacun, avec son dépôt et ses cinq droits éprouvés. */
@@ -126,29 +182,12 @@ export function WorkspacesScreen({
   const { t } = useTranslation();
   const workspaces = useWorkspaces();
   const [creating, setCreating] = useState(false);
+  const [branching, setBranching] = useState<Workspace | null>(null);
   const current = workspaces.data?.find((w) => w.id === selection?.id);
+  const screen = current && selection ? branchScreen(current, selection, onSelect) : null;
 
-  if (current && selection?.view === "contracts" && selection.contract !== undefined) {
-    return (
-      <ContractScreen
-        key={selection.contract}
-        workspace={current}
-        slug={selection.contract}
-        onBack={() => onSelect({ id: current.id, view: "contracts" })}
-      />
-    );
-  }
-  if (current && selection?.view === "contracts") {
-    return (
-      <ContractsScreen
-        workspace={current}
-        onBack={() => onSelect(null)}
-        onOpen={(contract) => onSelect({ id: current.id, view: "contracts", contract })}
-      />
-    );
-  }
-  if (current && selection?.view === "dataModels") {
-    return <DataModelsScreen workspace={current} onBack={() => onSelect(null)} />;
+  if (screen) {
+    return screen;
   }
   if (current) {
     return <WorkspaceSettings workspace={current} onBack={() => onSelect(null)} />;
@@ -167,6 +206,17 @@ export function WorkspacesScreen({
           )
         }
       />
+      {branching && (
+        <BranchForm
+          workspace={branching}
+          onDone={(slug) => {
+            setBranching(null);
+            if (slug) {
+              onSelect({ id: branching.id, view: "branch", branch: slug });
+            }
+          }}
+        />
+      )}
       {creating && (
         <CreateForm
           onDone={(id) => {
@@ -185,7 +235,14 @@ export function WorkspacesScreen({
       {(workspaces.data?.length ?? 0) > 0 && (
         <ul className="card-list plain-list">
           {workspaces.data?.map((w) => (
-            <WorkspaceRow key={w.id} workspace={w} onOpen={(view) => onSelect({ id: w.id, view })} />
+            <WorkspaceRow
+              key={w.id}
+              workspace={w}
+              onOpen={(view) =>
+                onSelect({ id: w.id, view, branch: baseBranchOf(w) ?? undefined })
+              }
+              onBranch={() => setBranching(w)}
+            />
           ))}
         </ul>
       )}

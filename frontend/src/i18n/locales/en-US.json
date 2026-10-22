@@ -490,7 +490,8 @@
         "branche_de_travail_introuvable": "The work branch no longer exists in the repository. It is not recreated automatically.",
         "branche_modifiee": "The work branch changed meanwhile: nothing was written. Try again.",
         "depot_non_configure": "This workspace has no repository yet.",
-        "modele_inconnu": "This model no longer exists."
+        "modele_inconnu": "This model no longer exists.",
+        "branche_inconnue": "This branch is unknown to the workspace."
       },
       "unexpected": "The operation failed. See the back-office logs."
     },
@@ -633,6 +634,29 @@
       "title": "Versions",
       "empty": "No file integrated yet: a work version cannot be saved until this contract has one.",
       "unreadable": "unreadable file"
+    }
+  },
+  "branches": {
+    "add": "New branch",
+    "title": "{{name}} — branch {{branch}}",
+    "base": "Base branch",
+    "form": {
+      "title": "New work branch — {{name}}",
+      "from": "Drawn from the head of the base branch {{branch}}. What you change in it stays in it.",
+      "slugHelp": "Proposed from the label; frozen once created. Git branch: work/{{slug}}.",
+      "submit": "Create the branch"
+    },
+    "fields": {
+      "label": "Label",
+      "slug": "Slug"
+    },
+    "errors": {
+      "field": {
+        "label": "Label: required, at most 120 characters, on a single line.",
+        "slug": "Slug: lowercase letters, digits and dashes, at most 40 characters."
+      },
+      "taken": "This slug or branch is already taken by “{{by}}”.",
+      "unexpected": "The branch could not be created. See the back-office logs."
     }
   }
 }

@@ -20,7 +20,7 @@ afterEach(() => {
 function routes(extra: Record<string, unknown>) {
   return {
     "GET /api/workspaces": { status: 200, body: [WORKING] },
-    [`GET ${ROUTE}`]: { status: 200, body: [DECLARED] },
+    [`GET ${ROUTE}?branch=atelier`]: { status: 200, body: [DECLARED] },
     ...extra,
   } as Parameters<typeof mockApi>[0];
 }
@@ -36,12 +36,12 @@ describe("ContractScreen", () => {
   it("integrates a pasted file as a new version, after reading it", async () => {
     const calls = mockApi(
       routes({
-        [`GET ${ROUTE}/materiel`]: [
+        [`GET ${ROUTE}/materiel?branch=atelier`]: [
           { status: 200, body: DECLARED },
           { status: 200, body: { ...DECLARED, versions: [V1] } },
         ],
-        [`POST ${ROUTE}/preview`]: { status: 200, body: PREVIEW },
-        [`POST ${ROUTE}/materiel/versions`]: { status: 201, body: V1 },
+        [`POST ${ROUTE}/preview?branch=atelier`]: { status: 200, body: PREVIEW },
+        [`POST ${ROUTE}/materiel/versions?branch=atelier`]: { status: 201, body: V1 },
       }),
     );
     await openContract();
@@ -55,7 +55,7 @@ describe("ContractScreen", () => {
     const row = (await screen.findByText("v1 — Matériel")).closest("li") as HTMLElement;
     fireEvent.click(within(row).getByRole("button", { name: "Operations" }));
     expect(within(row).getByText("GET /demandes — lister")).toBeInTheDocument();
-    expect(calls.find((c) => c.key === `POST ${ROUTE}/materiel/versions`)?.body).toEqual({
+    expect(calls.find((c) => c.key === `POST ${ROUTE}/materiel/versions?branch=atelier`)?.body).toEqual({
       content: YAML,
     });
   });
@@ -63,8 +63,8 @@ describe("ContractScreen", () => {
   it("loads a chosen file into the contract text and reads it at once", async () => {
     const calls = mockApi(
       routes({
-        [`GET ${ROUTE}/materiel`]: { status: 200, body: DECLARED },
-        [`POST ${ROUTE}/preview`]: { status: 200, body: PREVIEW },
+        [`GET ${ROUTE}/materiel?branch=atelier`]: { status: 200, body: DECLARED },
+        [`POST ${ROUTE}/preview?branch=atelier`]: { status: 200, body: PREVIEW },
       }),
     );
     await openContract();
@@ -76,15 +76,15 @@ describe("ContractScreen", () => {
 
     expect(await screen.findByText("Integrate as a new version")).toBeInTheDocument();
     expect(screen.getByLabelText(CONTENT)).toHaveValue(YAML);
-    expect(calls.find((c) => c.key === `POST ${ROUTE}/preview`)?.body).toEqual({ content: YAML });
+    expect(calls.find((c) => c.key === `POST ${ROUTE}/preview?branch=atelier`)?.body).toEqual({ content: YAML });
   });
 
   it("fetches an address through the back-office, then shows what will be integrated", async () => {
     const calls = mockApi(
       routes({
-        [`GET ${ROUTE}/materiel`]: { status: 200, body: DECLARED },
-        [`POST ${ROUTE}/fetch`]: { status: 200, body: { content: YAML } },
-        [`POST ${ROUTE}/preview`]: { status: 200, body: PREVIEW },
+        [`GET ${ROUTE}/materiel?branch=atelier`]: { status: 200, body: DECLARED },
+        [`POST ${ROUTE}/fetch?branch=atelier`]: { status: 200, body: { content: YAML } },
+        [`POST ${ROUTE}/preview?branch=atelier`]: { status: 200, body: PREVIEW },
       }),
     );
     await openContract();
@@ -95,7 +95,7 @@ describe("ContractScreen", () => {
 
     expect(await screen.findByText("Integrate as a new version")).toBeInTheDocument();
     expect(screen.getByLabelText(CONTENT)).toHaveValue(YAML);
-    expect(calls.find((c) => c.key === `POST ${ROUTE}/fetch`)?.body).toEqual({
+    expect(calls.find((c) => c.key === `POST ${ROUTE}/fetch?branch=atelier`)?.body).toEqual({
       url: "https://tiers.example/openapi.yaml",
     });
   });
@@ -103,8 +103,8 @@ describe("ContractScreen", () => {
   it("says why an address was not read, without touching the contract text", async () => {
     mockApi(
       routes({
-        [`GET ${ROUTE}/materiel`]: { status: 200, body: DECLARED },
-        [`POST ${ROUTE}/fetch`]: [
+        [`GET ${ROUTE}/materiel?branch=atelier`]: { status: 200, body: DECLARED },
+        [`POST ${ROUTE}/fetch?branch=atelier`]: [
           { status: 422, body: { detail: { code: "lecture_distante", reason: "statut", status: 404 } } },
           { status: 422, body: { detail: { code: "lecture_distante", reason: "adresse_interdite" } } },
         ],
@@ -128,8 +128,8 @@ describe("ContractScreen", () => {
   it("names the unsupported version and goes back to the contract list", async () => {
     mockApi(
       routes({
-        [`GET ${ROUTE}/materiel`]: { status: 200, body: DECLARED },
-        [`POST ${ROUTE}/preview`]: {
+        [`GET ${ROUTE}/materiel?branch=atelier`]: { status: 200, body: DECLARED },
+        [`POST ${ROUTE}/preview?branch=atelier`]: {
           status: 422,
           body: { detail: { code: "version_non_prise_en_charge", found: "2.0", accepted: ["3.0", "3.1"] } },
         },

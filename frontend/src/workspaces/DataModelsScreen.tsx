@@ -11,9 +11,9 @@ import {
   useDeleteDataModel,
 } from "../api/dataModels";
 import { ApiError } from "../api/http";
+import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
-import { VersionsPanel } from "./VersionsPanel";
 
 type Detail = {
   code?: string;
@@ -79,9 +79,9 @@ function Refusal({ error }: { error: unknown }) {
   );
 }
 
-function CreateForm({ workspaceId, onDone }: { workspaceId: string; onDone: () => void }) {
+function CreateForm({ target, onDone }: { target: WorkTarget; onDone: () => void }) {
   const { t } = useTranslation();
-  const create = useCreateDataModel(workspaceId);
+  const create = useCreateDataModel(target);
   const [domain, setDomain] = useState("");
   const [content, setContent] = useState("");
 
@@ -122,12 +122,12 @@ function CreateForm({ workspaceId, onDone }: { workspaceId: string; onDone: () =
   );
 }
 
-function ModelRow({ workspaceId, model }: { workspaceId: string; model: DataModel }) {
+function ModelRow({ target, model }: { target: WorkTarget; model: DataModel }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const read = useDataModel(workspaceId, open ? model : null);
-  const remove = useDeleteDataModel(workspaceId);
+  const read = useDataModel(target, open ? model : null);
+  const remove = useDeleteDataModel(target);
 
   return (
     <li className="row">
@@ -188,9 +188,17 @@ function ModelRow({ workspaceId, model }: { workspaceId: string; model: DataMode
 }
 
 /** Modèles de données du workspace, lus et écrits dans sa branche de travail. */
-export function DataModelsScreen({ workspace, onBack }: { workspace: Workspace; onBack: () => void }) {
+export function DataModelsScreen({
+  workspace,
+  target,
+  onBack,
+}: {
+  workspace: Workspace;
+  target: WorkTarget;
+  onBack: () => void;
+}) {
   const { t } = useTranslation();
-  const models = useDataModels(workspace.id);
+  const models = useDataModels(target);
   const [creating, setCreating] = useState(false);
 
   return (
@@ -212,8 +220,7 @@ export function DataModelsScreen({ workspace, onBack }: { workspace: Workspace; 
         )}
       </div>
       {/* En haut de l'atelier, comme sur toutes ses maquettes : figer ce qu'on vient d'écrire. */}
-      <VersionsPanel workspaceId={workspace.id} />
-      {creating && <CreateForm workspaceId={workspace.id} onDone={() => setCreating(false)} />}
+      {creating && <CreateForm target={target} onDone={() => setCreating(false)} />}
       {models.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
       {models.isError && <Refusal error={models.error} />}
       {models.isSuccess && models.data.length === 0 && (
@@ -222,7 +229,7 @@ export function DataModelsScreen({ workspace, onBack }: { workspace: Workspace; 
       {models.isSuccess && models.data.length > 0 && (
         <ul className="card-list plain-list">
           {models.data.map((m) => (
-            <ModelRow key={m.path} workspaceId={workspace.id} model={m} />
+            <ModelRow key={m.path} target={target} model={m} />
           ))}
         </ul>
       )}

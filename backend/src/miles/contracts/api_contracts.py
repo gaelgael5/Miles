@@ -166,17 +166,19 @@ async def fetch_contract(workspace_id: str, body: FetchIn, remote: Remote) -> ob
 
 
 @router.get("", response_model=list[ContractOut])
-async def list_contracts(workspace_id: str, service: Service) -> object:
+async def list_contracts(workspace_id: str, service: Service, branch: str | None = None) -> object:
     try:
-        return [_out(c) for c in await service.resolve_list(workspace_id)]
+        return [_out(c) for c in await service.resolve_list(workspace_id, branch=branch)]
     except _REFUSALS as exc:
         return _refusal(exc)
 
 
 @router.get("/{slug}", response_model=ContractDetailOut)
-async def get_contract(workspace_id: str, slug: str, service: Service) -> object:
+async def get_contract(
+    workspace_id: str, slug: str, service: Service, branch: str | None = None
+) -> object:
     try:
-        contract = await service.resolve_get(workspace_id, slug)
+        contract = await service.resolve_get(workspace_id, slug, branch=branch)
     except _REFUSALS as exc:
         return _refusal(exc)
     versions = [_version(v) for v in contract.versions]
@@ -190,10 +192,16 @@ async def declare_contract(
     request: Request,
     response: Response,
     service: Service,
+    branch: str | None = None,
 ) -> object:
     try:
         contract, existed = await service.resolve_declare(
-            request_author(request), workspace_id, body.label, body.slug, body.sens or ""
+            request_author(request),
+            workspace_id,
+            body.label,
+            body.slug,
+            body.sens or "",
+            branch=branch,
         )
     except _REFUSALS as exc:
         return _refusal(exc)
@@ -214,10 +222,11 @@ async def import_version(
     request: Request,
     response: Response,
     service: Service,
+    branch: str | None = None,
 ) -> object:
     try:
         version, existed = await service.resolve_import(
-            request_author(request), workspace_id, slug, body.content
+            request_author(request), workspace_id, slug, body.content, branch=branch
         )
     except _REFUSALS as exc:
         return _refusal(exc)

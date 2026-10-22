@@ -59,6 +59,25 @@ async def test_version_is_an_annotated_tag_signed_by_the_person(tmp_path: Path) 
     assert version.author == "alice via Miles <alice@annuaire.miles.invalid>"
 
 
+async def test_version_names_its_branch_and_an_older_tag_names_none(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, {})
+    bare = repo.url.removeprefix("file://")
+    _git("-C", bare, "branch", "work/essai", BRANCH)
+    # Étiquette posée avant les branches filles : sans ligne de pied « Branche ».
+    identity = ["-c", "user.name=t", "-c", "user.email=t@t"]
+    _git("-C", bare, *identity, "tag", "-a", "version/1", BRANCH, "-m", "Ancienne")
+
+    async with checkout(repo, TOKEN, "work/essai") as copy:
+        await tag_head(copy, 2, "Depuis la branche", AUTHOR)
+    async with checkout(repo, TOKEN, BRANCH) as copy:
+        versions = await fetch_versions(copy)
+
+    assert [(v.number, v.label, v.branch) for v in versions] == [
+        (2, "Depuis la branche", "work/essai"),
+        (1, "Ancienne", None),
+    ]
+
+
 async def test_versions_are_listed_newest_first_ignoring_foreign_tags(tmp_path: Path) -> None:
     repo = _repo(tmp_path, {})
     bare = repo.url.removeprefix("file://")

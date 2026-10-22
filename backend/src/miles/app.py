@@ -54,8 +54,11 @@ from miles.secrets.service import SecretsService
 from miles.security import service as security_events
 from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
+from miles.workshop import branches as branches_events
 from miles.workshop import service as workshop_events
+from miles.workshop.api_branches import router as branches_router
 from miles.workshop.api_workshop import router as workshop_router
+from miles.workshop.branches import BranchesService
 from miles.workshop.service import WorkshopService
 from miles.workshop.target import WorkBranches
 from miles.workspaces import model as workspace_events
@@ -92,6 +95,7 @@ def create_app() -> FastAPI:
         | datamodels_events.EVENT_TYPES
         | workshop_events.EVENT_TYPES
         | contracts_events.EVENT_TYPES
+        | branches_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -137,6 +141,7 @@ def create_app() -> FastAPI:
         app.state.workshop = WorkshopService(pool, branches, catalog, utc_now)
         app.state.contracts = ContractsService(pool, branches, catalog, utc_now)
         app.state.remote_contracts = RemoteContracts(http)
+        app.state.branches = BranchesService(pool, branches, catalog, utc_now)
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -194,4 +199,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(data_models_router)
     app.include_router(workshop_router)
     app.include_router(contracts_router)
+    app.include_router(branches_router)
     return app

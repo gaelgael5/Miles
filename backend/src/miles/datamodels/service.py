@@ -93,27 +93,37 @@ class DataModelsService:
     catalog: EventTypeCatalog
     now: Callable[[], datetime]
 
-    async def resolve_list(self, workspace_id: str) -> list[ModelEntry]:
-        async with self.branches.checkout(workspace_id) as copy:
+    async def resolve_list(
+        self, workspace_id: str, *, branch: str | None = None
+    ) -> list[ModelEntry]:
+        async with self.branches.checkout(workspace_id, branch) as copy:
             return await _entries(copy)
 
-    async def resolve_get(self, workspace_id: str, scope: str, name: str) -> tuple[ModelEntry, str]:
+    async def resolve_get(
+        self, workspace_id: str, scope: str, name: str, *, branch: str | None = None
+    ) -> tuple[ModelEntry, str]:
         path = model_path(_scope(scope), _name(name))
-        async with self.branches.checkout(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id, branch) as copy:
             content = await copy.read(path)
         if content is None:
             raise ModelNotFoundError(path)
         return ModelEntry(scope, name, path), content
 
     async def resolve_create(
-        self, author: EventAuthor, workspace_id: str, scope: str, content: str
+        self,
+        author: EventAuthor,
+        workspace_id: str,
+        scope: str,
+        content: str,
+        *,
+        branch: str | None = None,
     ) -> tuple[ModelEntry, bool]:
         """Écrit un modèle ; rend (modèle, déjà_là). Rejeu du même contenu : sans effet."""
         scope = _scope(scope)
         # Vérifié avant tout accès au dépôt : un document refusé ne coûte aucun clone.
         model = parse_model(content)
         entry = ModelEntry(scope, model.name, model_path(scope, model.name))
-        async with self.branches.checkout(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id, branch) as copy:
             existing = await copy.read(entry.path)
             if existing is not None:
                 if existing == content:
@@ -129,16 +139,22 @@ class DataModelsService:
                 raise ModelGrammarError(missing)
             await copy.write(entry.path, content)
             commit = await self.branches.push(copy, f"Modèle de données {entry.path}", author)
-        await self._event(workspace_id, CREATED_EVENT, author, entry, commit)
+        await self._event(workspace_id, CREATED_EVENT, author, entry, commit, copy.branch)
         log.info("modele_de_donnees_cree", workspace=workspace_id, path=entry.path)
         return entry, False
 
     async def resolve_delete(
-        self, author: EventAuthor, workspace_id: str, scope: str, name: str
+        self,
+        author: EventAuthor,
+        workspace_id: str,
+        scope: str,
+        name: str,
+        *,
+        branch: str | None = None,
     ) -> None:
         scope, name = _scope(scope), _name(name)
         entry = ModelEntry(scope, name, model_path(scope, name))
-        async with self.branches.checkout(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id, branch) as copy:
             entries = await _entries(copy)
             if entry not in entries:
                 raise ModelNotFoundError(entry.path)
@@ -147,7 +163,7 @@ class DataModelsService:
                 raise ModelInUseError(users)
             await copy.remove(entry.path)
             commit = await self.branches.push(copy, f"Suppression du modèle {entry.path}", author)
-        await self._event(workspace_id, DELETED_EVENT, author, entry, commit)
+        await self._event(workspace_id, DELETED_EVENT, author, entry, commit, copy.branch)
         log.info("modele_de_donnees_supprime", workspace=workspace_id, path=entry.path)
 
     async def _event(
@@ -157,6 +173,7 @@ class DataModelsService:
         author: EventAuthor,
         entry: ModelEntry,
         commit: str,
+        branch: str,
     ) -> None:
         # Après le push : le journal dit ce qui est dans git. Le contenu n'y va pas, le
         # chemin et le commit suffisent à le retrouver.
@@ -164,7 +181,7 @@ class DataModelsService:
             event_type,
             (ObjectRef("workspace", workspace_id),),
             author,
-            {"path": entry.path, "commit": commit},
+            {"path": entry.path, "commit": commit, "branch": branch},
         )
         async with self.pool.acquire() as conn, conn.transaction():
             await db_write_event(conn, event, self.catalog, self.now)

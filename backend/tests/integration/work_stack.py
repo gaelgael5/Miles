@@ -33,16 +33,14 @@ class Forge:
     def name(self) -> str:
         return self.url.rsplit("/", 1)[1].removesuffix(".git")
 
-    async def file(self, path: str) -> str | None:
-        got = await self.api.get(
-            f"/api/v1/repos/miles/{self.name}/raw/{path}", params={"ref": "work/atelier"}
-        )
+    async def file(self, path: str, ref: str = "work/atelier") -> str | None:
+        got = await self.api.get(f"/api/v1/repos/miles/{self.name}/raw/{path}", params={"ref": ref})
         return got.text if got.status_code == 200 else None
 
-    async def commits(self) -> int:
+    async def commits(self, ref: str = "work/atelier") -> int:
         listed = await self.api.get(
             f"/api/v1/repos/miles/{self.name}/commits",
-            params={"sha": "work/atelier", "limit": 50, "stat": "false"},
+            params={"sha": ref, "limit": 50, "stat": "false"},
         )
         return len(listed.json())
 

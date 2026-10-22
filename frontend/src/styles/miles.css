@@ -222,5 +222,12 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
   border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s;
 }
 .sidebar-workspace[aria-expanded="true"]::after { transform: rotate(45deg); }
+.sidebar-branch { display: flex; align-items: center; gap: 8px; font-family: var(--police-mono); }
+.sidebar-branch::after {
+  content: ""; width: 5px; height: 5px; margin-left: auto; border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s;
+}
+.sidebar-branch[aria-expanded="true"]::after { transform: rotate(45deg); }
 .sidebar-sublink { padding-left: 64px; font-size: 13.5px; }
 .sidebar-subsublink { padding-left: 80px; font-size: 13px; }
+.sidebar-contractlink { padding-left: 96px; font-size: 12.5px; }

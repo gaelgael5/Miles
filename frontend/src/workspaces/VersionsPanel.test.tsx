@@ -6,7 +6,13 @@ import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const VERSIONS = "/api/workspaces/retrait/versions";
-const MODELS = "GET /api/workspaces/retrait/data-models";
+const MODELS = "GET /api/workspaces/retrait/data-models?branch=atelier";
+const BRANCHES = {
+  "GET /api/workspaces/retrait/branches": {
+    status: 200,
+    body: [{ slug: "atelier", label: "atelier", branch: "work/atelier", base: true }],
+  },
+};
 const V1 = {
   number: 1,
   label: "Recette du 21 octobre",
@@ -20,8 +26,11 @@ afterEach(() => {
 });
 
 async function openWorkshop() {
-  renderWorkspaces();
-  fireEvent.click(await screen.findByText("Data models"));
+  // Le panneau des versions est sur l'écran de la branche : une version la fige en entier.
+  renderWorkspaces({ id: "retrait", view: "branch", branch: "atelier" });
+  expect(
+    await screen.findByRole("heading", { name: "Retrait de colis — branch atelier" }),
+  ).toBeInTheDocument();
   return screen.findByRole("region", { name: "Versions of the work branch" });
 }
 
@@ -29,12 +38,13 @@ describe("VersionsPanel", () => {
   it("saves a version with its label, then lists it", async () => {
     const calls = mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
-      [`GET ${VERSIONS}`]: [
+      [`GET ${VERSIONS}?branch=atelier`]: [
         { status: 200, body: [] },
         { status: 200, body: [V1] },
       ],
-      [`POST ${VERSIONS}`]: { status: 201, body: V1 },
+      [`POST ${VERSIONS}?branch=atelier`]: { status: 201, body: V1 },
     });
     const panel = await openWorkshop();
     expect(await within(panel).findByText("No version saved yet.")).toBeInTheDocument();
@@ -45,7 +55,7 @@ describe("VersionsPanel", () => {
 
     expect(await within(panel).findByText("Version 1 — Recette du 21 octobre")).toBeInTheDocument();
     expect(within(panel).getByText("0123456789")).toBeInTheDocument();
-    expect(calls.find((c) => c.key === `POST ${VERSIONS}`)?.body).toEqual({
+    expect(calls.find((c) => c.key === `POST ${VERSIONS}?branch=atelier`)?.body).toEqual({
       label: "Recette du 21 octobre",
     });
   });
@@ -53,9 +63,10 @@ describe("VersionsPanel", () => {
   it("shows, file by file, why the configuration cannot be frozen", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
-      [`GET ${VERSIONS}`]: { status: 200, body: [] },
-      [`POST ${VERSIONS}`]: {
+      [`GET ${VERSIONS}?branch=atelier`]: { status: 200, body: [] },
+      [`POST ${VERSIONS}?branch=atelier`]: {
         status: 422,
         body: {
           detail: {
@@ -87,9 +98,10 @@ describe("VersionsPanel", () => {
   it("says there is nothing to freeze", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
-      [`GET ${VERSIONS}`]: { status: 200, body: [V1] },
-      [`POST ${VERSIONS}`]: { status: 409, body: { detail: "rien_a_figer" } },
+      [`GET ${VERSIONS}?branch=atelier`]: { status: 200, body: [V1] },
+      [`POST ${VERSIONS}?branch=atelier`]: { status: 409, body: { detail: "rien_a_figer" } },
     });
     const panel = await openWorkshop();
     fireEvent.click(within(panel).getByText("Save a version"));
@@ -104,9 +116,10 @@ describe("VersionsPanel", () => {
   it("returns to a version after confirmation, by a new commit", async () => {
     const calls = mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
-      [`GET ${VERSIONS}`]: { status: 200, body: [V1] },
-      [`POST ${VERSIONS}/1/restore`]: { status: 200, body: { commit: "fedcba98765432100000" } },
+      [`GET ${VERSIONS}?branch=atelier`]: { status: 200, body: [V1] },
+      [`POST ${VERSIONS}/1/restore?branch=atelier`]: { status: 200, body: { commit: "fedcba98765432100000" } },
     });
     const panel = await openWorkshop();
     fireEvent.click(await within(panel).findByText("Return to this version"));
@@ -118,6 +131,6 @@ describe("VersionsPanel", () => {
     expect(
       await within(panel).findByText("Back to this version, by a new commit fedcba9876."),
     ).toBeInTheDocument();
-    expect(calls.some((c) => c.key === `POST ${VERSIONS}/1/restore`)).toBe(true);
+    expect(calls.some((c) => c.key === `POST ${VERSIONS}/1/restore?branch=atelier`)).toBe(true);
   });
 });

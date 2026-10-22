@@ -61,7 +61,8 @@ async def test_connections_keep_their_pat_and_certificates_leave_with_their_keys
 ) -> None:
     await _connection(at_0012, "forge", "jeton")
 
-    applied = await resolve_apply_migrations(at_0012, MIGRATIONS)
+    # Arrêt à 0013 : les suivantes ont leur propre épreuve.
+    applied = await resolve_apply_migrations(at_0012, [m for m in MIGRATIONS if m.version <= 13])
 
     columns = await at_0012.fetch(
         "SELECT column_name, is_nullable FROM information_schema.columns"

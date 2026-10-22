@@ -10,7 +10,6 @@ import structlog
 from miles.contracts.layout import (
     DIRECTIONS,
     ContractMeta,
-    checked_label,
     checked_slug,
     meta_path,
     meta_text,
@@ -24,7 +23,7 @@ from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
 from miles.workshop.target import WorkBranches
-from miles.workspaces.model import WorkspaceInputError
+from miles.workspaces.model import WorkspaceInputError, checked_label
 
 log = structlog.get_logger(__name__)
 
@@ -78,29 +77,38 @@ class ContractsService:
         """Lecture du fichier sans rien écrire : l'écran la montre avant l'intégration."""
         return parse_contract(content)
 
-    async def resolve_list(self, workspace_id: str) -> list[Contract]:
-        async with self.branches.checkout(workspace_id) as copy:
+    async def resolve_list(self, workspace_id: str, *, branch: str | None = None) -> list[Contract]:
+        async with self.branches.checkout(workspace_id, branch) as copy:
             paths = await copy.paths()
             found = [await _contract(copy, paths, slug) for slug in slugs_in(paths)]
         return [c for c in found if c is not None]
 
-    async def resolve_get(self, workspace_id: str, slug: str) -> Contract:
+    async def resolve_get(
+        self, workspace_id: str, slug: str, *, branch: str | None = None
+    ) -> Contract:
         slug = checked_slug(slug)
-        async with self.branches.checkout(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id, branch) as copy:
             contract = await _contract(copy, await copy.paths(), slug)
         if contract is None:
             raise ContractNotFoundError(slug)
         return contract
 
     async def resolve_declare(
-        self, author: EventAuthor, workspace_id: str, label: str, slug: str, direction: str
+        self,
+        author: EventAuthor,
+        workspace_id: str,
+        label: str,
+        slug: str,
+        direction: str,
+        *,
+        branch: str | None = None,
     ) -> tuple[Contract, bool]:
         """Déclare le contrat, sans fichier ; rend (contrat, déjà_là).
 
         Rejeu à l'identique : sans effet. Le fichier vient ensuite, par `resolve_import`.
         """
         meta = ContractMeta(checked_slug(slug), checked_label(label), _direction(direction))
-        async with self.branches.checkout(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id, branch) as copy:
             paths = await copy.paths()
             existing = await _contract(copy, paths, meta.slug)
             if existing is not None:
@@ -116,19 +124,25 @@ class ContractsService:
             DECLARED_EVENT,
             workspace_id,
             author,
-            {"slug": meta.slug, "sens": meta.direction, "commit": commit},
+            {"slug": meta.slug, "sens": meta.direction, "commit": commit, "branch": copy.branch},
         )
         log.info("contrat_declare", workspace=workspace_id, slug=meta.slug, sens=meta.direction)
         return Contract(meta, ()), False
 
     async def resolve_import(
-        self, author: EventAuthor, workspace_id: str, slug: str, content: str
+        self,
+        author: EventAuthor,
+        workspace_id: str,
+        slug: str,
+        content: str,
+        *,
+        branch: str | None = None,
     ) -> tuple[ContractVersion, bool]:
         """Intègre un fichier en version suivante ; rend (version, déjà_là)."""
         slug = checked_slug(slug)
         # Vérifié avant tout accès au dépôt : un fichier refusé ne coûte aucun clone.
         parsed = parse_contract(content)
-        async with self.branches.checkout(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id, branch) as copy:
             paths = await copy.paths()
             if read_meta(await copy.read(meta_path(slug))) is None:
                 raise ContractNotFoundError(slug)
@@ -142,7 +156,7 @@ class ContractsService:
             await copy.write(version_path(slug, number), content)
             message = f"Intégration du contrat {slug} (v{number})"
             commit = await self.branches.push(copy, message, author)
-        properties = {"slug": slug, "version": number, "commit": commit}
+        properties = {"slug": slug, "version": number, "commit": commit, "branch": copy.branch}
         await self._journal(VERSION_EVENT, workspace_id, author, properties)
         log.info("contrat_integre", workspace=workspace_id, slug=slug, version=number)
         return ContractVersion(number, parsed), False

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "./http";
+import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
 /** Emplacement d'un modèle : « shared » pour un transverse, sinon le nom du domaine. */
 export interface DataModel {
@@ -22,104 +23,103 @@ export interface ModelProblem {
 
 export const SHARED_SCOPE = "shared";
 
-function root(workspaceId: string) {
-  return `/api/workspaces/${encodeURIComponent(workspaceId)}/data-models`;
+function root(target: WorkTarget) {
+  return atBranch(target, "data-models");
 }
 
-function one(workspaceId: string, scope: string, name: string) {
-  return `${root(workspaceId)}/${encodeURIComponent(scope)}/${encodeURIComponent(name)}`;
+function one(target: WorkTarget, scope: string, name: string) {
+  return atBranch(target, "data-models", scope, name);
 }
 
-function key(workspaceId: string) {
-  return ["data-models", workspaceId] as const;
+function key(target: WorkTarget) {
+  return branchKey("data-models", target);
 }
 
-export function useDataModels(workspaceId: string) {
+export function useDataModels(target: WorkTarget) {
   return useQuery({
-    queryKey: key(workspaceId),
-    queryFn: ({ signal }) => request<DataModel[]>(root(workspaceId), { signal }),
+    queryKey: key(target),
+    queryFn: ({ signal }) => request<DataModel[]>(root(target), { signal }),
   });
 }
 
-export function useDataModel(workspaceId: string, model: DataModel | null) {
+export function useDataModel(target: WorkTarget, model: DataModel | null) {
   return useQuery({
-    queryKey: [...key(workspaceId), model?.path],
+    queryKey: [...key(target), model?.path],
     enabled: model !== null,
     queryFn: ({ signal }) =>
-      request<DataModelContent>(one(workspaceId, model?.scope ?? "", model?.name ?? ""), {
+      request<DataModelContent>(one(target, model?.scope ?? "", model?.name ?? ""), {
         signal,
       }),
   });
 }
 
-function useInvalidating<I, O>(workspaceId: string, mutationFn: (input: I) => Promise<O>) {
+function useInvalidating<I, O>(target: WorkTarget, mutationFn: (input: I) => Promise<O>) {
   const client = useQueryClient();
   return useMutation({
     mutationFn,
-    onSuccess: () => client.invalidateQueries({ queryKey: key(workspaceId) }),
+    onSuccess: () => client.invalidateQueries({ queryKey: key(target) }),
   });
 }
 
-export function useCreateDataModel(workspaceId: string) {
-  return useInvalidating(workspaceId, (input: { scope: string; content: string }) =>
-    request<DataModel>(root(workspaceId), { method: "POST", body: JSON.stringify(input) }),
+export function useCreateDataModel(target: WorkTarget) {
+  return useInvalidating(target, (input: { scope: string; content: string }) =>
+    request<DataModel>(root(target), { method: "POST", body: JSON.stringify(input) }),
   );
 }
 
-export function useDeleteDataModel(workspaceId: string) {
-  return useInvalidating(workspaceId, (model: DataModel) =>
-    request<undefined>(one(workspaceId, model.scope, model.name), { method: "DELETE" }),
+export function useDeleteDataModel(target: WorkTarget) {
+  return useInvalidating(target, (model: DataModel) =>
+    request<undefined>(one(target, model.scope, model.name), { method: "DELETE" }),
   );
 }
 
-/** Version enregistrée : une étiquette `version/<n>` sur un commit de la branche de travail. */
+/** Version enregistrée : une étiquette `version/<n>`, numéro unique au dépôt. */
 export interface SavedVersion {
   number: number;
   label: string;
   commit: string;
   author: string;
   saved_at: string;
+  /** Branche git d'où vient la version ; null : posée avant les branches filles. */
+  branch: string | null;
 }
 
-function versionsRoot(workspaceId: string) {
-  return `/api/workspaces/${encodeURIComponent(workspaceId)}/versions`;
+function versionsKey(target: WorkTarget) {
+  return branchKey("versions", target);
 }
 
-function versionsKey(workspaceId: string) {
-  return ["versions", workspaceId] as const;
-}
-
-export function useVersions(workspaceId: string) {
+export function useVersions(target: WorkTarget) {
   return useQuery({
-    queryKey: versionsKey(workspaceId),
-    queryFn: ({ signal }) => request<SavedVersion[]>(versionsRoot(workspaceId), { signal }),
+    queryKey: versionsKey(target),
+    queryFn: ({ signal }) => request<SavedVersion[]>(atBranch(target, "versions"), { signal }),
   });
 }
 
-export function useSaveVersion(workspaceId: string) {
+export function useSaveVersion(target: WorkTarget) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (label: string) =>
-      request<SavedVersion>(versionsRoot(workspaceId), {
+      request<SavedVersion>(atBranch(target, "versions"), {
         method: "POST",
         body: JSON.stringify({ label }),
       }),
-    onSuccess: () => client.invalidateQueries({ queryKey: versionsKey(workspaceId) }),
+    onSuccess: () => client.invalidateQueries({ queryKey: versionsKey(target) }),
   });
 }
 
-export function useRestoreVersion(workspaceId: string) {
+export function useRestoreVersion(target: WorkTarget) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (number: number) =>
-      request<{ commit: string }>(`${versionsRoot(workspaceId)}/${number}/restore`, {
+      request<{ commit: string }>(atBranch(target, "versions", String(number), "restore"), {
         method: "POST",
       }),
-    // Le retour réécrit l'arbre de la branche : les modèles listés changent aussi.
+    // Le retour réécrit l'arbre de la branche : modèles et contrats listés changent aussi.
     onSuccess: () =>
       Promise.all([
-        client.invalidateQueries({ queryKey: versionsKey(workspaceId) }),
-        client.invalidateQueries({ queryKey: key(workspaceId) }),
+        client.invalidateQueries({ queryKey: versionsKey(target) }),
+        client.invalidateQueries({ queryKey: key(target) }),
+        client.invalidateQueries({ queryKey: branchKey("contracts", target) }),
       ]),
   });
 }

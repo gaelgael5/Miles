@@ -15,6 +15,9 @@ TAG_PREFIX = "version/"
 _TAG_RE = re.compile(r"^version/(\d+)$")
 _AUTHOR_RE = re.compile(r"^(?P<name>[^<>]+) <(?P<email>[^<>]+)>$")
 _FIELD = "\x1f"
+# La branche d'où vient une version, en ligne de pied du message de l'étiquette : le nom
+# `version/<n>` reste unique au dépôt (Gael, 22/10/2026), la branche ne s'y lit donc pas.
+BRANCH_TRAILER = "Branche"
 
 
 class VersionTakenError(Exception):
@@ -28,6 +31,8 @@ class SavedVersion:
     commit: str
     author: str
     saved_at: datetime
+    # None : étiquette posée avant les branches filles (22/10/2026), sans ligne de pied.
+    branch: str | None = None
 
 
 async def fetch_versions(copy: WorkCopy) -> list[SavedVersion]:
@@ -55,7 +60,8 @@ async def fetch_versions(copy: WorkCopy) -> list[SavedVersion]:
     listed = await copy.git(
         "for-each-ref",
         f"--format=%(refname:short){_FIELD}%(*objectname){_FIELD}%(taggername) %(taggeremail)"
-        f"{_FIELD}%(taggerdate:iso-strict){_FIELD}%(contents:subject)",
+        f"{_FIELD}%(taggerdate:iso-strict){_FIELD}%(contents:subject)"
+        f"{_FIELD}%(trailers:key={BRANCH_TRAILER},valueonly,separator=)",
         f"refs/tags/{TAG_PREFIX}",
     )
     versions = [v for v in map(_parse, listed.stdout.splitlines()) if v is not None]
@@ -65,13 +71,18 @@ async def fetch_versions(copy: WorkCopy) -> list[SavedVersion]:
 def _parse(line: str) -> SavedVersion | None:
     parts = line.split(_FIELD)
     # Une étiquette légère ou hors convention n'est pas une version enregistrée par Miles.
-    if len(parts) != 5 or not parts[1]:
+    if len(parts) != 6 or not parts[1]:
         return None
     match = _TAG_RE.match(parts[0])
     if match is None:
         return None
     return SavedVersion(
-        int(match[1]), parts[4], parts[1], parts[2], datetime.fromisoformat(parts[3])
+        int(match[1]),
+        parts[4],
+        parts[1],
+        parts[2],
+        datetime.fromisoformat(parts[3]),
+        parts[5] or None,
     )
 
 
@@ -82,7 +93,10 @@ async def same_tree(copy: WorkCopy, commit: str) -> bool:
 
 
 async def tag_head(copy: WorkCopy, number: int, label: str, author: str) -> None:
-    """Pose et pousse `version/<n>` sur la tête lue au départ, au nom de l'auteur."""
+    """Pose et pousse `version/<n>` sur la tête lue au départ, au nom de l'auteur.
+
+    Le message porte le libellé, puis la branche de la copie en ligne de pied.
+    """
     match = _AUTHOR_RE.match(author)
     if match is None:
         raise ValueError("auteur de commit mal formé")
@@ -100,6 +114,8 @@ async def tag_head(copy: WorkCopy, number: int, label: str, author: str) -> None
         copy.head,
         "-m",
         label,
+        "-m",
+        f"{BRANCH_TRAILER}: {copy.branch}",
     )
     if not tagged.ok:
         raise RepositoryAccessError(classify(tagged))

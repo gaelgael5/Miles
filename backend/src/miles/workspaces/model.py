@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
@@ -45,6 +46,14 @@ class WorkspaceConflictError(WorkspaceError):
 
 class WorkspaceNotFoundError(WorkspaceError):
     pass
+
+
+class BranchNotFoundError(WorkspaceNotFoundError):
+    """Slug de branche inconnu du workspace : ni la base, ni une branche fille déclarée.
+
+    Fille de WorkspaceNotFoundError pour que tout point d'entrée de l'atelier la refuse
+    déjà ; chacun la nomme avant le cas général, sinon elle se lirait « workspace inconnu ».
+    """
 
 
 class RepositoryUnavailableError(WorkspaceError):
@@ -107,3 +116,18 @@ def commit_author(author: EventAuthor) -> str:
     subject = _COMMIT_IDENTITY_RE.sub("-", author.subject)[:60] or "inconnu"
     directory = _COMMIT_IDENTITY_RE.sub("-", author.directory)[:60] or "inconnu"
     return f"{subject} via Miles <{subject}@{directory}.miles.invalid>"
+
+
+MAX_LABEL = 120
+
+
+def checked_label(label: str) -> str:
+    """Label saisi d'un objet du workspace (contrat, branche) : une ligne lisible."""
+    label = label.strip()
+    if not label:
+        raise WorkspaceInputError("label", "vide")
+    # Caractères de contrôle refusés : le label s'affiche dans le menu et les journaux, où
+    # un retour à la ligne ou une séquence d'échappement fausserait la lecture.
+    if len(label) > MAX_LABEL or any(unicodedata.category(c) == "Cc" for c in label):
+        raise WorkspaceInputError("label")
+    return label

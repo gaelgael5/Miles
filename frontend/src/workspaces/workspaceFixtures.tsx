@@ -63,16 +63,16 @@ export const SETTINGS: Routes = {
 };
 
 /** L'écran avec la sélection que lui tient le portail, ici tenue localement. */
-function Workspaces() {
-  const [selection, setSelection] = useState<WorkspaceSelection>(null);
+function Workspaces({ initial }: { initial: WorkspaceSelection }) {
+  const [selection, setSelection] = useState<WorkspaceSelection>(initial);
   return <WorkspacesScreen selection={selection} onSelect={setSelection} />;
 }
 
-export function renderWorkspaces() {
+export function renderWorkspaces(initial: WorkspaceSelection = null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <Workspaces />
+      <Workspaces initial={initial} />
     </QueryClientProvider>,
   );
 }

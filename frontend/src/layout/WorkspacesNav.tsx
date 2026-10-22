@@ -1,26 +1,37 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Workspace, useWorkspaces } from "../api/workspaces";
-import { ContractLinks } from "./ContractLinks";
+import { BranchLinks } from "./BranchLinks";
 
-export type WorkspaceView = "settings" | "dataModels" | "contracts";
+export type WorkspaceView = "settings" | "branch" | "dataModels" | "contracts";
 /**
- * Ce qu'affiche l'écran Workspaces : la liste (null), une vue d'un workspace, ou l'un
- * de ses contrats (`contract`, avec la vue « contracts »).
+ * Ce qu'affiche l'écran Workspaces : la liste (null), le paramétrage d'un workspace, ou
+ * une vue d'une de ses branches de travail (`branch`, son slug) — l'un de ses contrats
+ * compris (`contract`, avec la vue « contracts »).
  */
-export type WorkspaceSelection = { id: string; view: WorkspaceView; contract?: string } | null;
+export type WorkspaceSelection = {
+  id: string;
+  view: WorkspaceView;
+  branch?: string;
+  contract?: string;
+} | null;
 
-/** Vues d'un workspace, dans l'ordre du sous-menu. */
+/** Slug de la branche de base : celle qu'ouvrent les boutons de la liste des workspaces. */
+export function baseBranchOf(workspace: Workspace): string | null {
+  return workspace.work_branch?.replace(/^work\//, "") ?? null;
+}
+
+/** Vues offertes sur la ligne d'un workspace, dans « Tous les workspaces ». */
 export function viewsOf(workspace: Workspace): WorkspaceView[] {
-  // Modèles et contrats s'écrivent dans la branche de travail : sans elle, rien à ouvrir.
+  // Modèles et contrats s'écrivent dans une branche de travail : sans elle, rien à ouvrir.
   return workspace.work_branch === null ? ["settings"] : ["dataModels", "contracts", "settings"];
 }
 
 /**
- * Sous-menu des workspaces (Gael, 21/10/2026) : la liste, puis chaque workspace, dont
- * le sous-sous-menu ouvre ses vues. Un workspace est replié par défaut, sauf celui
- * qu'on regarde : avec beaucoup de workspaces, tout déplier noierait le menu.
+ * Sous-menu des workspaces : la liste, puis chaque workspace, qui se déplie sur ses
+ * branches de travail par leur slug (Gael, 22/10/2026), chacune sur ses vues. Replié par
+ * défaut, sauf ce qu'on regarde : avec beaucoup de workspaces, tout déplier noierait le menu.
  */
 export function WorkspacesNav({
   active,
@@ -58,11 +69,10 @@ export function WorkspacesNav({
       {workspaces.data?.map((workspace) => {
         const open = expanded.has(workspace.id) || selection?.id === workspace.id;
         const listId = `sidebar-workspace-${workspace.id}`;
-        // Le paramétrage du workspace se fait depuis « Tous les workspaces » et n'est plus
-        // répété dans le menu (Gael, 22/10/2026). Sans branche de travail, il ne reste
-        // aucune vue à déplier : le nom ouvre alors directement ce paramétrage.
-        const views = viewsOf(workspace).filter((view) => view !== "settings");
-        if (views.length === 0) {
+        // Le paramétrage du workspace se fait depuis « Tous les workspaces » et n'est pas
+        // répété dans le menu (Gael, 22/10/2026). Sans branche de travail, il n'y a rien
+        // à déplier : le nom ouvre alors directement ce paramétrage.
+        if (workspace.work_branch === null) {
           return (
             <button
               key={workspace.id}
@@ -87,34 +97,13 @@ export function WorkspacesNav({
               {workspace.name}
             </button>
             <div id={listId} hidden={!open}>
-              {views.map((view) => (
-                <Fragment key={view}>
-                  <button
-                    type="button"
-                    className="sidebar-link sidebar-sublink"
-                    aria-current={
-                      active &&
-                      selection?.id === workspace.id &&
-                      selection.view === view &&
-                      selection.contract === undefined
-                        ? "page"
-                        : undefined
-                    }
-                    onClick={() => onSelect({ id: workspace.id, view })}
-                  >
-                    {t(`workspaces.card.${view}`)}
-                  </button>
-                  {view === "contracts" && (
-                    <ContractLinks
-                      workspaceId={workspace.id}
-                      open={open}
-                      active={active}
-                      selection={selection}
-                      onSelect={onSelect}
-                    />
-                  )}
-                </Fragment>
-              ))}
+              <BranchLinks
+                workspaceId={workspace.id}
+                open={open}
+                active={active}
+                selection={selection}
+                onSelect={onSelect}
+              />
             </div>
           </div>
         );

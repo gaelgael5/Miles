@@ -4,14 +4,13 @@ import pytest
 
 from miles.contracts.layout import (
     ContractMeta,
-    checked_label,
     checked_slug,
     meta_text,
     read_meta,
     slugs_in,
     versions_in,
 )
-from miles.workspaces.model import WorkspaceInputError
+from miles.workspaces.model import WorkspaceInputError, checked_label
 
 
 @pytest.mark.parametrize(

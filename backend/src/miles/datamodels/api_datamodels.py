@@ -15,6 +15,7 @@ from miles.datamodels.service import (
     ModelNotFoundError,
 )
 from miles.workspaces.model import (
+    BranchNotFoundError,
     RepositoryUnavailableError,
     WorkspaceConflictError,
     WorkspaceInputError,
@@ -92,23 +93,27 @@ def _refusal(exc: Exception) -> JSONResponse:
         return _error(unprocessable, {"field": exc.field})
     if isinstance(exc, WorkspaceConflictError):
         return _error(status.HTTP_409_CONFLICT, exc.code)
+    if isinstance(exc, BranchNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "branche_inconnue")
     if isinstance(exc, WorkspaceNotFoundError):
         return _error(status.HTTP_404_NOT_FOUND, "workspace_inconnu")
     raise exc
 
 
 @router.get("", response_model=list[ModelOut])
-async def list_models(workspace_id: str, service: Service) -> object:
+async def list_models(workspace_id: str, service: Service, branch: str | None = None) -> object:
     try:
-        return [_out(e) for e in await service.resolve_list(workspace_id)]
+        return [_out(e) for e in await service.resolve_list(workspace_id, branch=branch)]
     except _REFUSALS as exc:
         return _refusal(exc)
 
 
 @router.get("/{scope}/{name}", response_model=ModelContentOut)
-async def get_model(workspace_id: str, scope: str, name: str, service: Service) -> object:
+async def get_model(
+    workspace_id: str, scope: str, name: str, service: Service, branch: str | None = None
+) -> object:
     try:
-        entry, content = await service.resolve_get(workspace_id, scope, name)
+        entry, content = await service.resolve_get(workspace_id, scope, name, branch=branch)
     except _REFUSALS as exc:
         return _refusal(exc)
     return ModelContentOut(scope=entry.scope, name=entry.name, path=entry.path, content=content)
@@ -116,11 +121,16 @@ async def get_model(workspace_id: str, scope: str, name: str, service: Service) 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ModelOut)
 async def create_model(
-    workspace_id: str, body: ModelCreate, request: Request, response: Response, service: Service
+    workspace_id: str,
+    body: ModelCreate,
+    request: Request,
+    response: Response,
+    service: Service,
+    branch: str | None = None,
 ) -> object:
     try:
         entry, existed = await service.resolve_create(
-            request_author(request), workspace_id, body.scope, body.content
+            request_author(request), workspace_id, body.scope, body.content, branch=branch
         )
     except _REFUSALS as exc:
         return _refusal(exc)
@@ -133,10 +143,17 @@ async def create_model(
 
 @router.delete("/{scope}/{name}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_model(
-    workspace_id: str, scope: str, name: str, request: Request, service: Service
+    workspace_id: str,
+    scope: str,
+    name: str,
+    request: Request,
+    service: Service,
+    branch: str | None = None,
 ) -> Response:
     try:
-        await service.resolve_delete(request_author(request), workspace_id, scope, name)
+        await service.resolve_delete(
+            request_author(request), workspace_id, scope, name, branch=branch
+        )
     except _REFUSALS as exc:
         return _refusal(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

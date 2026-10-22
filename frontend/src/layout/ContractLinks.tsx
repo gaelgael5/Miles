@@ -1,38 +1,32 @@
 import { useContracts } from "../api/contracts";
-import type { WorkspaceSelection } from "./WorkspacesNav";
+import type { WorkTarget } from "../api/workTarget";
 
 /**
- * Contrats déclarés, sous « Contrats » du workspace (Gael, 22/10/2026) : on déclare le
- * contrat, il apparaît ici, et on l'ouvre pour y intégrer les fichiers du tiers. Lus
- * seulement quand le workspace est déplié : chaque lecture clone la branche de travail.
+ * Contrats déclarés dans une branche, sous « Contrats » (Gael, 22/10/2026) : on déclare
+ * le contrat, il apparaît ici, et on l'ouvre pour y intégrer les fichiers du tiers. Lus
+ * seulement quand la branche est dépliée : chaque lecture clone la branche.
  */
 export function ContractLinks({
-  workspaceId,
+  target,
   open,
-  active,
-  selection,
+  current,
   onSelect,
 }: {
-  workspaceId: string;
+  target: WorkTarget;
   open: boolean;
-  active: boolean;
-  selection: WorkspaceSelection;
-  onSelect: (selection: WorkspaceSelection) => void;
+  current: string | undefined;
+  onSelect: (contract: string) => void;
 }) {
-  const contracts = useContracts(workspaceId, open);
+  const contracts = useContracts(target, open);
   return (
     <>
       {contracts.data?.map((contract) => (
         <button
           key={contract.slug}
           type="button"
-          className="sidebar-link sidebar-subsublink"
-          aria-current={
-            active && selection?.id === workspaceId && selection.contract === contract.slug
-              ? "page"
-              : undefined
-          }
-          onClick={() => onSelect({ id: workspaceId, view: "contracts", contract: contract.slug })}
+          className="sidebar-link sidebar-contractlink"
+          aria-current={current === contract.slug ? "page" : undefined}
+          onClick={() => onSelect(contract.slug)}
         >
           {contract.label}
         </button>

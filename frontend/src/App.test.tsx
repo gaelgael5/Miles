@@ -15,6 +15,11 @@ function renderApp() {
   );
 }
 
+const BRANCHES = [
+  { slug: "atelier", label: "atelier", branch: "work/atelier", base: true },
+  { slug: "essai", label: "Essai Gael", branch: "work/essai", base: false },
+];
+
 const ADMIN = {
   "GET /api/bootstrap/status": { status: 200, body: { admin_declared: true } },
   "GET /api/auth/me": {
@@ -106,8 +111,8 @@ describe("App", () => {
     );
   });
 
-  it("lists each workspace under Workspaces, whose sub-menu opens its views", async () => {
-    mockApi({
+  it("lists each workspace under Workspaces, then its branches by slug, each opening its views", async () => {
+    const calls = mockApi({
       ...ADMIN,
       "GET /api/workspaces": {
         status: 200,
@@ -116,8 +121,10 @@ describe("App", () => {
           { ...BARE, id: "caisse", name: "Caisse" },
         ],
       },
-      "GET /api/workspaces/retrait/data-models": { status: 200, body: [] },
-      "GET /api/workspaces/retrait/versions": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/branches": { status: 200, body: BRANCHES },
+      "GET /api/workspaces/retrait/versions?branch=essai": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/data-models?branch=essai": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/contracts?branch=essai": { status: 200, body: [] },
     });
     renderApp();
     const nav = await screen.findByRole("navigation");
@@ -126,43 +133,51 @@ describe("App", () => {
     expect(retrait).toHaveAttribute("aria-expanded", "false");
 
     fireEvent.click(retrait);
-
-    expect(within(nav).getAllByRole("button", { name: "Data models" })).toHaveLength(1);
+    const essai = await within(nav).findByRole("button", { name: "essai" });
+    expect(within(nav).getByRole("button", { name: "atelier" })).toBeVisible();
     // Le paramétrage s'ouvre depuis « Tous les workspaces », pas depuis le menu.
     expect(within(nav).queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+
+    fireEvent.click(essai);
+    expect(
+      await screen.findByRole("heading", { name: "Retrait de colis — branch essai" }),
+    ).toBeInTheDocument();
+    expect(essai).toHaveAttribute("aria-current", "page");
+    expect(essai).toHaveAttribute("aria-expanded", "true");
+    const views = within(document.getElementById("sidebar-branch-retrait-essai") as HTMLElement);
+    fireEvent.click(views.getByRole("button", { name: "Data models" }));
+    expect(
+      await screen.findByRole("heading", { name: "Data models — Retrait de colis" }),
+    ).toBeInTheDocument();
+    expect(views.getByRole("button", { name: "Data models" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    // Les vues d'une branche fille lisent cette branche-là, jamais la base.
+    expect(calls.some((c) => c.key.includes("branch=atelier"))).toBe(false);
+
     // Sans branche de travail, rien à déplier : le nom ouvre le paramétrage du workspace.
     const caisse = within(nav).getByRole("button", { name: "Caisse" });
     expect(caisse).not.toHaveAttribute("aria-expanded");
     fireEvent.click(caisse);
     expect(await screen.findByRole("heading", { name: /Caisse/ })).toBeInTheDocument();
     expect(caisse).toHaveAttribute("aria-current", "page");
-    fireEvent.click(within(nav).getByRole("button", { name: "Data models" }));
-    expect(
-      await screen.findByRole("heading", { name: "Data models — Retrait de colis" }),
-    ).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: "Data models" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    // Le retour de l'écran ramène aussi le menu sur la liste.
-    fireEvent.click(screen.getByText("← Back to workspaces"));
-    expect(within(nav).getByRole("button", { name: "All workspaces" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
   });
 
-  it("lists the declared contracts under their workspace, and opens one from the menu", async () => {
+  it("lists the declared contracts under their branch, and opens one from the menu", async () => {
     const declared = { slug: "suivi", label: "Suivi des demandes", sens: "sortant", versions: [] };
     mockApi({
       ...ADMIN,
       "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
-      "GET /api/workspaces/retrait/contracts": { status: 200, body: [declared] },
-      "GET /api/workspaces/retrait/contracts/suivi": { status: 200, body: declared },
+      "GET /api/workspaces/retrait/branches": { status: 200, body: BRANCHES },
+      "GET /api/workspaces/retrait/versions?branch=atelier": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/contracts?branch=atelier": { status: 200, body: [declared] },
+      "GET /api/workspaces/retrait/contracts/suivi?branch=atelier": { status: 200, body: declared },
     });
     renderApp();
     const nav = await screen.findByRole("navigation");
     fireEvent.click(await within(nav).findByRole("button", { name: "Retrait de colis" }));
+    fireEvent.click(await within(nav).findByRole("button", { name: "atelier" }));
 
     const contract = await within(nav).findByRole("button", { name: "Suivi des demandes" });
     fireEvent.click(contract);

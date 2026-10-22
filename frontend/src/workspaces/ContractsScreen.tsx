@@ -8,20 +8,21 @@ import {
   useContracts,
   useDeclareContract,
 } from "../api/contracts";
+import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
 import { ContractRefusal } from "./ContractRefusal";
 
 function DeclareForm({
-  workspaceId,
+  target,
   onDeclared,
   onCancel,
 }: {
-  workspaceId: string;
+  target: WorkTarget;
   onDeclared: (slug: string) => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
-  const declare = useDeclareContract(workspaceId);
+  const declare = useDeclareContract(target);
   const [label, setLabel] = useState("");
   // Le slug suit le label tant qu'on ne l'a pas touché ; modifiable ici seulement, il est
   // figé une fois le contrat déclaré.
@@ -115,15 +116,17 @@ function ContractRow({ contract, onOpen }: { contract: Contract; onOpen: () => v
 /** Contrats OpenAPI du workspace : déclarés ici, puis alimentés par les fichiers du tiers. */
 export function ContractsScreen({
   workspace,
+  target,
   onBack,
   onOpen,
 }: {
   workspace: Workspace;
+  target: WorkTarget;
   onBack: () => void;
   onOpen: (slug: string) => void;
 }) {
   const { t } = useTranslation();
-  const contracts = useContracts(workspace.id);
+  const contracts = useContracts(target);
   const [declaring, setDeclaring] = useState(false);
 
   return (
@@ -144,7 +147,7 @@ export function ContractsScreen({
       </div>
       {declaring && (
         <DeclareForm
-          workspaceId={workspace.id}
+          target={target}
           onDeclared={onOpen}
           onCancel={() => setDeclaring(false)}
         />

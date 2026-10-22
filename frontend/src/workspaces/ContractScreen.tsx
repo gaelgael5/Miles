@@ -7,14 +7,14 @@ import {
   useImportVersion,
   usePreviewContract,
 } from "../api/contracts";
-import type { Workspace } from "../api/workspaces";
+import type { WorkTarget } from "../api/workTarget";
 import { ContractRefusal } from "./ContractRefusal";
 import { ContractSource } from "./ContractSource";
 
-function IntegrateForm({ workspaceId, slug }: { workspaceId: string; slug: string }) {
+function IntegrateForm({ target, slug }: { target: WorkTarget; slug: string }) {
   const { t } = useTranslation();
-  const preview = usePreviewContract(workspaceId);
-  const save = useImportVersion(workspaceId, slug);
+  const preview = usePreviewContract(target);
+  const save = useImportVersion(target, slug);
   const [content, setContent] = useState("");
   const read = preview.data;
 
@@ -44,7 +44,7 @@ function IntegrateForm({ workspaceId, slug }: { workspaceId: string; slug: strin
   return (
     <form className="card" onSubmit={readContract} aria-label={t("contracts.integrate.title")}>
       <h2>{t("contracts.integrate.title")}</h2>
-      <ContractSource workspaceId={workspaceId} onContent={loaded} />
+      <ContractSource target={target} onContent={loaded} />
       <label className="field">
         {t("contracts.fields.content")}
         <textarea
@@ -137,16 +137,16 @@ function VersionRow({ version }: { version: ContractVersionDetail }) {
 
 /** Un contrat déclaré : on y intègre les fichiers du tiers, chacun en nouvelle version. */
 export function ContractScreen({
-  workspace,
+  target,
   slug,
   onBack,
 }: {
-  workspace: Workspace;
+  target: WorkTarget;
   slug: string;
   onBack: () => void;
 }) {
   const { t } = useTranslation();
-  const contract = useContract(workspace.id, slug);
+  const contract = useContract(target, slug);
   const detail = contract.data;
 
   return (
@@ -167,7 +167,7 @@ export function ContractScreen({
               </p>
             </div>
           </div>
-          <IntegrateForm workspaceId={workspace.id} slug={detail.slug} />
+          <IntegrateForm target={target} slug={detail.slug} />
           <h2>{t("contracts.versions.title")}</h2>
           {detail.versions.length === 0 ? (
             <p className="muted">{t("contracts.versions.empty")}</p>

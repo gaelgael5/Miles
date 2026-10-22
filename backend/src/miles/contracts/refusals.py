@@ -11,6 +11,7 @@ from miles.contracts.openapi import (
 )
 from miles.contracts.service import ContractNotFoundError, ContractTakenError
 from miles.workspaces.model import (
+    BranchNotFoundError,
     RepositoryUnavailableError,
     WorkspaceConflictError,
     WorkspaceInputError,
@@ -59,6 +60,8 @@ def refusal(exc: Exception) -> JSONResponse:
         return error(unprocessable, invalid)
     if isinstance(exc, WorkspaceConflictError):
         return error(status.HTTP_409_CONFLICT, exc.code)
+    if isinstance(exc, BranchNotFoundError):
+        return error(status.HTTP_404_NOT_FOUND, "branche_inconnue")
     if isinstance(exc, WorkspaceNotFoundError):
         return error(status.HTTP_404_NOT_FOUND, "workspace_inconnu")
     raise exc

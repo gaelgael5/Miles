@@ -19,6 +19,8 @@ from miles.gitaccess.resolver import AccessResolver
 from miles.secrets.crypto import SecretCipher
 from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles.secrets.service import SecretsService
+from miles.workshop.branches import EVENT_TYPES as BRANCH_EVENTS
+from miles.workshop.branches import BranchesService
 from miles.workshop.service import EVENT_TYPES as WORKSHOP_EVENTS
 from miles.workshop.service import WorkshopService
 from miles.workshop.target import WorkBranches
@@ -45,6 +47,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | DATA_MODEL_EVENTS
         | WORKSHOP_EVENTS
         | CONTRACT_EVENTS
+        | BRANCH_EVENTS
     )
     secrets = SecretsService(portal.pool, SecretCipher(os.urandom(32)), catalog, utc_now)
     resolver = AccessResolver(secrets)
@@ -62,6 +65,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     # Sans connexion ouverte tant que rien n'est lu : les tests n'y font passer que des
     # adresses refusées avant toute requête.
     state.remote_contracts = RemoteContracts(httpx.AsyncClient())
+    state.branches = BranchesService(portal.pool, branches, catalog, utc_now)
 
 
 async def add_secret(client: httpx.AsyncClient, slug: str, kind: str, value: str) -> None:

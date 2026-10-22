@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import unicodedata
 from dataclasses import dataclass
 
 from miles.contracts.openapi import SLUG_RE
@@ -13,7 +12,6 @@ from miles.workspaces.model import WorkspaceInputError
 # défaut : un webhook pris pour un appel sortant produirait un mapping à l'envers.
 DIRECTIONS = frozenset({"sortant", "entrant"})
 META = "contract.yaml"
-MAX_LABEL = 120
 VERSION_RE = re.compile(r"^v(?P<number>[1-9]\d{0,5})\.yaml$")
 _FILE_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/(?P<file>[^/]+)$")
 
@@ -91,14 +89,3 @@ def checked_slug(slug: str) -> str:
     if not SLUG_RE.match(slug):
         raise WorkspaceInputError("slug")
     return slug
-
-
-def checked_label(label: str) -> str:
-    label = label.strip()
-    if not label:
-        raise WorkspaceInputError("label", "vide")
-    # Caractères de contrôle refusés : le label s'affiche dans le menu et les journaux, où
-    # un retour à la ligne ou une séquence d'échappement fausserait la lecture.
-    if len(label) > MAX_LABEL or any(unicodedata.category(c) == "Cc" for c in label):
-        raise WorkspaceInputError("label")
-    return label

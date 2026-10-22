@@ -2,6 +2,7 @@ import { type ChangeEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useFetchContract } from "../api/contracts";
+import type { WorkTarget } from "../api/workTarget";
 import { ContractRefusal } from "./ContractRefusal";
 
 /**
@@ -10,14 +11,14 @@ import { ContractRefusal } from "./ContractRefusal";
  * zone de texte : ce qui est importé est ce que l'administrateur a eu sous les yeux.
  */
 export function ContractSource({
-  workspaceId,
+  target,
   onContent,
 }: {
-  workspaceId: string;
+  target: WorkTarget;
   onContent: (content: string) => void;
 }) {
   const { t } = useTranslation();
-  const remote = useFetchContract(workspaceId);
+  const remote = useFetchContract(target);
   const [url, setUrl] = useState("");
   const [fileFailed, setFileFailed] = useState(false);
 
