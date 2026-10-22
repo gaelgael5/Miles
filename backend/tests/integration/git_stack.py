@@ -26,6 +26,8 @@ from miles.identities.service import GitIdentitiesService
 from miles.secrets.crypto import SecretCipher
 from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles.secrets.service import SecretsService
+from miles.sources.service import EVENT_TYPES as SOURCE_EVENTS
+from miles.sources.service import SourcesService
 from miles.transform.api_catalog import CatalogService
 from miles.workshop.branches import EVENT_TYPES as BRANCH_EVENTS
 from miles.workshop.branches import BranchesService
@@ -58,6 +60,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | BRANCH_EVENTS
         | IDENTITY_EVENTS
         | CHAIN_EVENTS
+        | SOURCE_EVENTS
     )
     cipher = SecretCipher(os.urandom(32))
     secrets = SecretsService(portal.pool, cipher, catalog, utc_now)
@@ -81,6 +84,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.branches = BranchesService(portal.pool, branches, catalog, utc_now)
     state.template_catalog = CatalogService(branches)
     state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
+    state.sources = SourcesService(portal.pool, branches, catalog, utc_now)
     state.git_identities = GitIdentitiesService(
         portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts
     )

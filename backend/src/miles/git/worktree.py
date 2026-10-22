@@ -37,6 +37,8 @@ SKELETON = (
     # Chaînes de transformations (Gael, 22/10/2026) : un répertoire par chaîne, à la
     # racine puisque le dépôt est déjà propre à une application.
     "transformations",
+    # Sources de données (story 66391afe), à la racine pour la même raison.
+    "sources",
 )
 # Fichiers que poussent les forges ou les outils à la création d'un dépôt : un dépôt qui
 # n'a qu'eux est vierge, pas « non conforme ».
@@ -139,7 +141,7 @@ def _allowed(parts: list[str]) -> bool:
         return top == MANIFEST or top in _TOLERATED_ROOT
     if top == ".github":
         return True
-    if top in ("contracts", "transformations"):
+    if top in ("contracts", "transformations", "sources"):
         # Le contenu d'une chaîne se vérifie avec la chaîne (validation de la branche).
         return True
     if top == "shared":

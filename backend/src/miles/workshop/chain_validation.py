@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import re
+
 from miles.chains.layout import CHAIN_FILE, chain_dir, chain_path, files_of, read_chain, slugs_in
 from miles.datamodels.grammar import Problem
 from miles.git.workcopy import WorkCopy
+from miles.sources.checks import branch_problems
+from miles.sources.layout import ROOT as SOURCES_ROOT
+from miles.sources.layout import form_problems, read_source
 from miles.transform.chain import ChainInvalidError, StepSpec, compile_chain
 
 
@@ -51,3 +56,25 @@ async def _problems(copy: WorkCopy, paths: list[str], slug: str) -> tuple[Proble
 def _first(problem: object) -> str | None:
     violations = getattr(problem, "violations", ())
     return violations[0].construct if violations else None
+
+
+async def source_reports(copy: WorkCopy, paths: list[str]) -> list[tuple[str, tuple[Problem, ...]]]:
+    """Chaque source de la branche : déclaration lisible, et tout ce qu'elle exige.
+
+    Mêmes vérifications qu'à l'écriture par Miles : une source retouchée dans GitHub ne se
+    fige pas en version si Miles l'aurait refusée.
+    """
+    reports: list[tuple[str, tuple[Problem, ...]]] = []
+    for path in paths:
+        match = re.match(rf"^{SOURCES_ROOT}/(?P<file>[^/]+)$", path)
+        if match is None or match["file"] == ".gitkeep":
+            continue
+        doc = read_source(await copy.read(path))
+        expected = f"{doc.name}.yaml" if doc is not None else None
+        if doc is None or match["file"] != expected:
+            reports.append((path, (Problem("", "declaration_invalide"),)))
+            continue
+        found = form_problems(doc) + await branch_problems(copy, doc)
+        if found:
+            reports.append((path, tuple(Problem(p.path, p.code, p.detail) for p in found)))
+    return reports

@@ -14,7 +14,7 @@ from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError, Proble
 from miles.datamodels.service import ModelEntry, entry_of, visible_from
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import MANIFEST, diagnose
-from miles.workshop.chain_validation import chain_reports
+from miles.workshop.chain_validation import chain_reports, source_reports
 
 _CONTRACT_FILE_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/(?P<file>[^/]+)$")
 
@@ -49,6 +49,7 @@ async def validate_branch(copy: WorkCopy) -> list[FileReport]:
         if problems:
             reports.append(FileReport(path, problems))
     reports += [FileReport(path, problems) for path, problems in await chain_reports(copy, paths)]
+    reports += [FileReport(path, problems) for path, problems in await source_reports(copy, paths)]
     return sorted(reports, key=lambda r: r.path)
 
 

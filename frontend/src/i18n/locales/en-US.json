@@ -298,7 +298,8 @@
       "dataModels": "Data models",
       "contracts": "Contracts",
       "branch": "Versions",
-      "transformations": "Transformations"
+      "transformations": "Transformations",
+      "sources": "Data sources"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -780,6 +781,67 @@
       },
       "unexpected": "The chain could not be saved. See the back-office logs.",
       "unreadable": "This chain cannot be read."
+    }
+  },
+  "sources": {
+    "title": "Data sources — {{name}}",
+    "intro": "A data source declares which object collection is fed, where the items are in the received document, how an object is recognised from one delivery to the next, which transformation chain shapes each item, and which properties can be filtered.",
+    "add": "New source",
+    "empty": "No data source on this branch.",
+    "unreadable": "Unreadable declaration",
+    "back": "Back to sources",
+    "form": {
+      "title": "New data source",
+      "submit": "Declare the source",
+      "choose": "Choose…",
+      "splitHelp": "Path of the item array in the received document, e.g. $.accounts[*]. It must be streamable: no filter, no unbounded “..” descent, ending with [*].",
+      "keysHelp": "One path per line, read on the source item, e.g. $.accountId. Together they identify an object from one import to the next.",
+      "filterablesHelp": "Each filterable property is named (its name becomes its index identifier) and designated by a path on the transformed object. A path to an array is refused: an object holds one value per filter.",
+      "addFilterable": "Add a filterable property",
+      "removeFilterable": "Remove filterable {{rank}}"
+    },
+    "fields": {
+      "name": "Name",
+      "model": "Target model",
+      "split": "Split path",
+      "keys": "Key rules",
+      "chain": "Transformation chain",
+      "largeFile": "Large file mode (streamed parsing)",
+      "unifiedTransaction": "Single transaction for the whole import",
+      "filterables": "Filterable properties",
+      "filterableName": "Name {{rank}}",
+      "filterableJpath": "Path {{rank}}"
+    },
+    "editor": {
+      "save": "Save the source",
+      "saved": "Source saved.",
+      "savedRewrite": "Source saved. The chain or the filterable properties changed: the next import will rewrite every object and its index.",
+      "delete": "Delete the source",
+      "deleteTitle": "Delete this source?",
+      "deleteBody": "The file sources/{{name}}.yaml will be removed from the branch."
+    },
+    "problems": {
+      "nom_invalide": "Name: lowercase letters, digits and dashes, unique.",
+      "modele_invalide": "Model “{{detail}}” is not of the form scope/name.",
+      "modele_inconnu": "Model “{{detail}}” does not exist on this branch.",
+      "cle_vide": "At least one key rule is required: without a key, objects cannot be reconciled.",
+      "chemin_unique_attendu": "“{{detail}}” must designate a single value.",
+      "decoupage_absent": "The split path is required.",
+      "jpath_illisible": "Unreadable path “{{detail}}”.",
+      "non_streamable": "Not streamable — {{detail}}: in large file mode the document is read once, without going back.",
+      "jpath_double": "Path “{{detail}}” is declared twice.",
+      "chemin_de_propriete_attendu": "“{{detail}}” must be a path of property names from $.",
+      "propriete_inconnue": "“{{detail}}” designates nothing in the target model.",
+      "tableau_interdit": "“{{detail}}” designates an array: a filter needs a single value per object.",
+      "valeur_attendue": "“{{detail}}” designates an object, not a value.",
+      "chaine_inconnue": "Chain “{{detail}}” does not exist on this branch.",
+      "chaine_invalide": "The chain is invalid: {{detail}}."
+    },
+    "errors": {
+      "nom_pris": "A different source already has this name on the branch.",
+      "nom_fige": "A source cannot be renamed.",
+      "unexpected": "The source could not be saved. See the back-office logs.",
+      "unreadable": "This source cannot be read."
     }
   }
 }

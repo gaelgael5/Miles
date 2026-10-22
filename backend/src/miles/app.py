@@ -63,6 +63,9 @@ from miles.secrets.service import SecretsService
 from miles.security import service as security_events
 from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
+from miles.sources import service as sources_events
+from miles.sources.api_sources import router as sources_router
+from miles.sources.service import SourcesService
 from miles.transform.api_catalog import CatalogService
 from miles.transform.api_catalog import router as catalog_router
 from miles.transform.api_transform import chains_router
@@ -112,6 +115,7 @@ def create_app() -> FastAPI:
         | branches_events.EVENT_TYPES
         | identities_events.EVENT_TYPES
         | chains_events.EVENT_TYPES
+        | sources_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -163,6 +167,7 @@ def create_app() -> FastAPI:
         app.state.branches = BranchesService(pool, branches, catalog, utc_now)
         app.state.template_catalog = CatalogService(branches)
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
+        app.state.sources = SourcesService(pool, branches, catalog, utc_now)
         app.state.git_identities = GitIdentitiesService(
             pool, cipher, http, catalog, utc_now, git_hosts
         )
@@ -231,4 +236,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(chains_router)
     app.include_router(catalog_router)
     app.include_router(chains_api_router)
+    app.include_router(sources_router)
     return app

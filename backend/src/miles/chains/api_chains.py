@@ -8,7 +8,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from miles.auth.author import request_author
 from miles.chains.layout import MAX_STEPS
-from miles.chains.service import ChainNotFoundError, ChainsService, StoredChain, StoredStep
+from miles.chains.service import (
+    ChainInUseError,
+    ChainNotFoundError,
+    ChainsService,
+    StoredChain,
+    StoredStep,
+)
 from miles.transform.api_transform import MAX_TEMPLATE_LENGTH, StepProblemOut, step_problem_out
 from miles.transform.chain import ChainInvalidError
 from miles.workspaces.model import (
@@ -69,6 +75,7 @@ def _error(code: int, detail: object) -> JSONResponse:
 
 
 _REFUSALS = (
+    ChainInUseError,
     ChainInvalidError,
     ChainNotFoundError,
     RepositoryUnavailableError,
@@ -84,6 +91,8 @@ def _refusal(exc: Exception) -> JSONResponse:
         problems: list[StepProblemOut] = [step_problem_out(p) for p in exc.problems]
         detail = {"code": "chaine_invalide", "problems": [p.model_dump() for p in problems]}
         return _error(unprocessable, detail)
+    if isinstance(exc, ChainInUseError):
+        return _error(status.HTTP_409_CONFLICT, {"code": "chaine_utilisee", "by": exc.users})
     if isinstance(exc, ChainNotFoundError):
         return _error(status.HTTP_404_NOT_FOUND, "chaine_inconnue")
     if isinstance(exc, RepositoryUnavailableError):

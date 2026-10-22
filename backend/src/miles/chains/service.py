@@ -24,6 +24,7 @@ from miles.chains.layout import (
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
+from miles.sources.layout import names_in, read_source, source_path
 from miles.transform.chain import StepSpec, compile_chain
 from miles.workshop.target import WorkBranches
 from miles.workspaces.model import checked_label
@@ -37,6 +38,14 @@ EVENT_TYPES = frozenset({SAVED_EVENT, DELETED_EVENT})
 
 class ChainNotFoundError(Exception):
     pass
+
+
+class ChainInUseError(Exception):
+    """La chaîne est désignée par des flux : on nomme lesquels."""
+
+    def __init__(self, users: list[str]) -> None:
+        super().__init__(", ".join(users))
+        self.users = users
 
 
 @dataclass(frozen=True)
@@ -75,7 +84,7 @@ class ChainsService:
             paths = await copy.paths()
             found: list[StoredChain | str] = []
             for slug in slugs_in(paths):
-                stored = await _stored(copy, slug)
+                stored = await stored_chain(copy, slug)
                 found.append(stored if stored is not None else slug)
             return found
 
@@ -84,7 +93,7 @@ class ChainsService:
     ) -> StoredChain:
         slug = checked_slug(slug)
         async with self.branches.checkout(workspace_id, branch) as copy:
-            stored = await _stored(copy, slug)
+            stored = await stored_chain(copy, slug)
         if stored is None:
             raise ChainNotFoundError(slug)
         return stored
@@ -129,9 +138,19 @@ class ChainsService:
     ) -> None:
         slug = checked_slug(slug)
         async with self.branches.checkout(workspace_id, branch) as copy:
-            files = files_of(await copy.paths(), slug)
+            paths = await copy.paths()
+            files = files_of(paths, slug)
             if not files:
                 raise ChainNotFoundError(slug)
+            # Une chaîne désignée par une source ne se supprime pas : la source cesserait de
+            # se vérifier, et son prochain import échouerait loin de la cause.
+            users = [
+                name
+                for name in names_in(paths)
+                if (doc := read_source(await copy.read(source_path(name)))) and doc.chain == slug
+            ]
+            if users:
+                raise ChainInUseError(users)
             for name in files:
                 await copy.remove(f"{chain_dir(slug)}/{name}")
             commit = await self.branches.push(copy, f"Suppression de la chaîne {slug}", author)
@@ -165,7 +184,7 @@ async def _write(copy: WorkCopy, doc: ChainDoc, stored: StoredChain) -> None:
     await copy.git("add", "-A", "--", chain_dir(doc.slug))
 
 
-async def _stored(copy: WorkCopy, slug: str) -> StoredChain | None:
+async def stored_chain(copy: WorkCopy, slug: str) -> StoredChain | None:
     doc = read_chain(await copy.read(chain_path(slug)))
     if doc is None or doc.slug != slug:
         return None

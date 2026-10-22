@@ -298,7 +298,8 @@
       "dataModels": "Modèles de données",
       "contracts": "Contrats",
       "branch": "Versions",
-      "transformations": "Transformations"
+      "transformations": "Transformations",
+      "sources": "Sources de données"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -780,6 +781,67 @@
       },
       "unexpected": "La chaîne n'a pas pu être enregistrée. Voir les journaux du back-office.",
       "unreadable": "Cette chaîne ne peut pas être lue."
+    }
+  },
+  "sources": {
+    "title": "Sources de données — {{name}}",
+    "intro": "Une source de données déclare quelle collection d'objets on alimente, où sont les items dans le document reçu, comment on reconnaît un objet d'un envoi à l'autre, quelle chaîne de transformations met chaque item en forme, et sur quelles propriétés on pourra filtrer.",
+    "add": "Nouvelle source",
+    "empty": "Aucune source de données sur cette branche.",
+    "unreadable": "Déclaration illisible",
+    "back": "Retour aux sources",
+    "form": {
+      "title": "Nouvelle source de données",
+      "submit": "Déclarer la source",
+      "choose": "Choisir…",
+      "splitHelp": "Chemin du tableau d'items dans le document reçu, par exemple $.accounts[*]. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*].",
+      "keysHelp": "Un chemin par ligne, lu sur l'item source, par exemple $.accountId. Ensemble, ils reconnaissent un objet d'un import à l'autre.",
+      "filterablesHelp": "Chaque propriété filtrable est nommée (son nom devient son identifiant d'index) et désignée par un chemin sur l'objet transformé. Un chemin vers un tableau est refusé : un objet porte une seule valeur par filtre.",
+      "addFilterable": "Ajouter une propriété filtrable",
+      "removeFilterable": "Retirer le filtrable {{rank}}"
+    },
+    "fields": {
+      "name": "Nom",
+      "model": "Modèle cible",
+      "split": "Chemin de découpage",
+      "keys": "Règles de clé",
+      "chain": "Chaîne de transformations",
+      "largeFile": "Mode gros fichier (lecture en flux)",
+      "unifiedTransaction": "Une seule transaction pour tout l'import",
+      "filterables": "Propriétés filtrables",
+      "filterableName": "Nom {{rank}}",
+      "filterableJpath": "Chemin {{rank}}"
+    },
+    "editor": {
+      "save": "Enregistrer la source",
+      "saved": "Source enregistrée.",
+      "savedRewrite": "Source enregistrée. La chaîne ou les propriétés filtrables ont changé : le prochain import réécrira tous les objets et leur index.",
+      "delete": "Supprimer la source",
+      "deleteTitle": "Supprimer cette source ?",
+      "deleteBody": "Le fichier sources/{{name}}.yaml sera retiré de la branche."
+    },
+    "problems": {
+      "nom_invalide": "Nom : lettres minuscules, chiffres et tirets, sans doublon.",
+      "modele_invalide": "Le modèle « {{detail}} » n'est pas de la forme portée/nom.",
+      "modele_inconnu": "Le modèle « {{detail}} » n'existe pas sur cette branche.",
+      "cle_vide": "Au moins une règle de clé est requise : sans clé, les objets ne se réconcilient pas.",
+      "chemin_unique_attendu": "« {{detail}} » doit désigner une seule valeur.",
+      "decoupage_absent": "Le chemin de découpage est obligatoire.",
+      "jpath_illisible": "Chemin illisible « {{detail}} ».",
+      "non_streamable": "Non streamable — {{detail}} : en mode gros fichier, le document se lit une fois, sans retour en arrière.",
+      "jpath_double": "Le chemin « {{detail}} » est déclaré deux fois.",
+      "chemin_de_propriete_attendu": "« {{detail}} » doit être un chemin de noms de propriétés depuis $.",
+      "propriete_inconnue": "« {{detail}} » ne désigne rien dans le modèle cible.",
+      "tableau_interdit": "« {{detail}} » désigne un tableau : un filtre exige une seule valeur par objet.",
+      "valeur_attendue": "« {{detail}} » désigne un objet, pas une valeur.",
+      "chaine_inconnue": "La chaîne « {{detail}} » n'existe pas sur cette branche.",
+      "chaine_invalide": "La chaîne est invalide : {{detail}}."
+    },
+    "errors": {
+      "nom_pris": "Une autre source porte déjà ce nom sur la branche.",
+      "nom_fige": "Une source ne se renomme pas.",
+      "unexpected": "La source n'a pas pu être enregistrée. Voir les journaux du back-office.",
+      "unreadable": "Cette source ne peut pas être lue."
     }
   }
 }

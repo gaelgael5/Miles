@@ -9,18 +9,12 @@ import { PageHead } from "../layout/PageHead";
 import {
   type WorkspaceSelection,
   type WorkspaceView,
-  baseBranchOf,
   viewedBranchOf,
   viewsOf,
 } from "../layout/WorkspacesNav";
 import { BranchForm } from "./BranchForm";
 import { BranchPicker } from "./BranchPicker";
-import { BranchScreen } from "./BranchScreen";
-import { ChainScreen } from "./ChainScreen";
-import { ChainsScreen } from "./ChainsScreen";
-import { ContractScreen } from "./ContractScreen";
-import { ContractsScreen } from "./ContractsScreen";
-import { DataModelsScreen } from "./DataModelsScreen";
+import { branchScreen } from "./branchViews";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
 function errorKey(error: unknown): string {
@@ -136,69 +130,6 @@ function WorkspaceRow({
       </div>
     </li>
   );
-}
-
-/** Écran d'une vue de branche ; null pour le paramétrage du workspace. */
-function branchScreen(
-  workspace: Workspace,
-  selection: NonNullable<WorkspaceSelection>,
-  onSelect: (selection: WorkspaceSelection) => void,
-) {
-  const branch = selection.branch ?? baseBranchOf(workspace);
-  if (selection.view === "settings" || branch === null) {
-    return null;
-  }
-  const target = { workspaceId: workspace.id, branch };
-  const back = () => onSelect(null);
-  // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
-  // autre branche (formulaire ouvert, aperçu) recopié par erreur.
-  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}`;
-  if (selection.view === "contracts" && selection.contract !== undefined) {
-    return (
-      <ContractScreen
-        key={key}
-        target={target}
-        slug={selection.contract}
-        onBack={() => onSelect({ id: workspace.id, view: "contracts", branch })}
-      />
-    );
-  }
-  if (selection.view === "contracts") {
-    return (
-      <ContractsScreen
-        key={key}
-        workspace={workspace}
-        target={target}
-        onBack={back}
-        onOpen={(contract) => onSelect({ id: workspace.id, view: "contracts", branch, contract })}
-      />
-    );
-  }
-  if (selection.view === "transformations" && selection.chain !== undefined) {
-    return (
-      <ChainScreen
-        key={key}
-        target={target}
-        slug={selection.chain}
-        onBack={() => onSelect({ id: workspace.id, view: "transformations", branch })}
-      />
-    );
-  }
-  if (selection.view === "transformations") {
-    return (
-      <ChainsScreen
-        key={key}
-        workspace={workspace}
-        target={target}
-        onBack={back}
-        onOpen={(chain) => onSelect({ id: workspace.id, view: "transformations", branch, chain })}
-      />
-    );
-  }
-  if (selection.view === "dataModels") {
-    return <DataModelsScreen key={key} workspace={workspace} target={target} onBack={back} />;
-  }
-  return <BranchScreen key={key} workspace={workspace} target={target} onBack={back} />;
 }
 
 /** Workspaces : une application métier chacun, avec son dépôt et ses cinq droits éprouvés. */
