@@ -668,7 +668,8 @@
       "unexpected": "La branche n'a pas pu être créée. Voir les journaux du back-office.",
       "view": "La branche à afficher n'a pas pu être choisie."
     },
-    "viewed": "Branche affichée"
+    "viewed": "Branche affichée",
+    "rootReadOnly": "Vous êtes sur la branche racine du workspace : elle est en lecture seule. Pour modifier modèles, contrats, chaînes ou sources, créez ou choisissez une branche enfant dans « Tous les workspaces ». Enregistrer une version reste possible ici."
   },
   "profile": {
     "title": "Mon profil",

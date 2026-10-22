@@ -7,7 +7,9 @@ import httpx
 import pytest
 
 from miles.events.model import EventAuthor
+from tests.integration.test_contracts_pg import EMPTY
 from tests.integration.test_datamodels_pg import PERSONNE
+from tests.integration.test_sources_pg import SOURCE
 from tests.integration.work_stack import Forge, open_work_forge
 
 pytestmark = pytest.mark.integration
@@ -20,7 +22,7 @@ MODEL_PATH = "shared/messages/personne.yaml"
 
 @pytest.fixture
 async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
-    async with open_work_forge(blank_db, tmp_path) as opened:
+    async with open_work_forge(blank_db, tmp_path, edition=False) as opened:
         yield opened
 
 
@@ -174,3 +176,40 @@ async def test_each_viewer_keeps_the_branch_they_look_at(forge: Forge) -> None:
     # Le choix de l'un ne change pas ce que regarde l'autre.
     assert mine.json() == {"retrait": "atelier"}
     assert await service.resolve_views(bob) == {"retrait": "essai"}
+
+
+async def test_the_root_refuses_every_content_write_but_can_be_frozen(forge: Forge) -> None:
+    # La racine est en lecture seule (story dca0eb0e) : on modifie dans une branche enfant.
+    workspace = "/api/workspaces/retrait"
+    writes = [
+        ("POST", MODELS, {"scope": "shared", "content": PERSONNE}),
+        ("DELETE", f"{MODELS}/shared/personne", None),
+        ("POST", f"{workspace}/contracts", {"slug": "suivi", "label": "Suivi", "sens": "sortant"}),
+        ("POST", f"{workspace}/contracts/suivi/versions", {"content": EMPTY}),
+        ("PUT", f"{workspace}/transformations/import", {"label": "Import", "steps": []}),
+        ("DELETE", f"{workspace}/transformations/import", None),
+        ("POST", f"{workspace}/sources", SOURCE),
+        ("PUT", f"{workspace}/sources/comptes", SOURCE),
+        ("DELETE", f"{workspace}/sources/comptes", None),
+    ]
+    before = await forge.commits()
+
+    version = await forge.client.post(VERSIONS, json={"label": "Racine"}, timeout=120)
+    restore = await forge.client.post(f"{VERSIONS}/1/restore", timeout=120)
+    refused = [
+        await forge.client.request(method, path, json=body, timeout=120)
+        for method, path, body in writes
+    ]
+    child = await _create(forge)
+
+    assert version.status_code == 201, version.text
+    assert (restore.status_code, restore.json()["detail"]) == (409, "branche_racine_lecture_seule")
+    for (method, path, _), response in zip(writes, refused, strict=True):
+        assert (method, path, response.status_code, response.json()["detail"]) == (
+            method,
+            path,
+            409,
+            "branche_racine_lecture_seule",
+        )
+    assert child.status_code == 201, child.text
+    assert await forge.commits() == before

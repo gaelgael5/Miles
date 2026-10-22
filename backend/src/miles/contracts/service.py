@@ -79,7 +79,7 @@ class ContractsService:
         return parse_contract(content)
 
     async def resolve_list(self, workspace_id: str, *, branch: str | None = None) -> list[Contract]:
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
             paths = await copy.paths()
             found = [await _contract(copy, paths, slug) for slug in slugs_in(paths)]
         return [c for c in found if c is not None]
@@ -88,7 +88,7 @@ class ContractsService:
         self, workspace_id: str, slug: str, *, branch: str | None = None
     ) -> Contract:
         slug = checked_slug(slug)
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
             contract = await _contract(copy, await copy.paths(), slug)
         if contract is None:
             raise ContractNotFoundError(slug)
@@ -109,7 +109,7 @@ class ContractsService:
         Rejeu à l'identique : sans effet. Le fichier vient ensuite, par `resolve_import`.
         """
         meta = ContractMeta(checked_slug(slug), checked_label(label), _direction(direction))
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
             paths = await copy.paths()
             existing = await _contract(copy, paths, meta.slug)
             if existing is not None:
@@ -149,7 +149,7 @@ class ContractsService:
         slug = checked_slug(slug)
         # Vérifié avant tout accès au dépôt : un fichier refusé ne coûte aucun clone.
         parse_contract(content)
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
             paths = await copy.paths()
             meta = read_meta(await copy.read(meta_path(slug)))
             if meta is None:

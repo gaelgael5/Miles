@@ -6,6 +6,12 @@
 export interface WorkTarget {
   workspaceId: string;
   branch: string;
+  /**
+   * La racine du workspace est en lecture seule (Gael, 22/10/2026, story dca0eb0e) : on
+   * modifie dans une branche enfant. L'écran n'en offre pas les boutons ; le serveur, lui,
+   * refuse de toute façon (`branche_racine_lecture_seule`).
+   */
+  readOnly: boolean;
 }
 
 /** Adresse d'une ressource de l'atelier sur la branche visée. */

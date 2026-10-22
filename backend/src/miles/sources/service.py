@@ -67,7 +67,7 @@ class SourcesService:
         self, workspace_id: str, *, branch: str | None = None
     ) -> list[SourceDoc | str]:
         """Les déclarations lisibles, et le nom seul de celles qui ne le sont pas."""
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
             found: list[SourceDoc | str] = []
             for name in names_in(await copy.paths()):
                 doc = read_source(await copy.read(source_path(name)))
@@ -77,7 +77,7 @@ class SourcesService:
     async def resolve_get(
         self, workspace_id: str, name: str, *, branch: str | None = None
     ) -> SourceDoc:
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
             doc = read_source(await copy.read(source_path(name)))
         if doc is None or doc.name != name:
             raise SourceNotFoundError(name)
@@ -97,7 +97,7 @@ class SourcesService:
         problems = form_problems(doc)
         if problems:
             raise SourceInvalidError(problems)
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
             previous = read_source(await copy.read(source_path(doc.name)))
             if previous is not None and create and previous != doc:
                 raise WorkspaceConflictError("nom_pris")
@@ -120,7 +120,7 @@ class SourcesService:
     async def resolve_delete(
         self, author: EventAuthor, workspace_id: str, name: str, *, branch: str | None = None
     ) -> None:
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
             if await copy.read(source_path(name)) is None:
                 raise SourceNotFoundError(name)
             # Le refus de supprimer une source qui porte des objets (critère 18) viendra

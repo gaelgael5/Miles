@@ -47,15 +47,24 @@ class WorkBranches:
 
     @asynccontextmanager
     async def checkout(
-        self, workspace_id: str, branch: str | None = None
+        self, workspace_id: str, branch: str | None = None, *, edit: bool
     ) -> AsyncIterator[WorkCopy]:
         """`branch` : slug d'une branche du workspace ; None ouvre la base.
 
         Repli volontaire sur la base : c'est la branche de référence du workspace, et les
         écrans antérieurs aux branches filles (22/10/2026) ne désignent pas de branche.
+
+        `edit` : le geste change-t-il le contenu de la branche ? Sans valeur par défaut,
+        exprès : chaque appelant déclare son intention, et un nouveau geste d'écriture ne
+        peut pas atteindre la racine par oubli.
         """
         workspace = await self._with_base(workspace_id)
         name = await self._branch_name(workspace, branch)
+        if edit and name == workspace.work_branch:
+            # La racine est en lecture seule (Gael, 22/10/2026, story dca0eb0e) : on
+            # modifie dans une branche enfant. Refusé avant tout clone, et côté serveur,
+            # pas seulement par l'écran. Enregistrer une version n'est pas un `edit`.
+            raise WorkspaceConflictError("branche_racine_lecture_seule")
         repo, access = await self.repository(workspace)
         try:
             async with self.workdirs.checkout(repo, access, workspace.id, name) as copy:

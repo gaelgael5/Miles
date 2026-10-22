@@ -61,9 +61,9 @@ function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain
     <>
       <label className="field">
         {t("chains.fields.label")}
-        <input required value={label} onChange={(e) => setLabel(e.target.value)} />
+        <input required readOnly={target.readOnly} value={label} onChange={(e) => setLabel(e.target.value)} />
       </label>
-      <ChainStepsEditor steps={steps} problems={problems} onChange={setSteps} />
+      <ChainStepsEditor steps={steps} problems={problems} readOnly={target.readOnly} onChange={setSteps} />
       <section className="card" aria-labelledby="chain-test">
         <h2 id="chain-test">{t("chains.editor.test")}</h2>
         <label className="field">
@@ -100,6 +100,8 @@ function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain
       {save.isError && problems.length === 0 && (
         <p className="alert" role="alert">{t("chains.errors.unexpected")}</p>
       )}
+      {/* L'essai sur échantillon reste offert sur la racine : il n'écrit rien. */}
+      {!target.readOnly && (
       <div className="actions">
         <button
           type="button"
@@ -116,6 +118,7 @@ function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain
           {t("chains.editor.delete")}
         </button>
       </div>
+      )}
       {confirming && (
         <ConfirmDialog
           title={t("chains.editor.deleteTitle")}

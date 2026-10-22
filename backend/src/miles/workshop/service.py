@@ -59,7 +59,7 @@ class WorkshopService:
     async def resolve_list(
         self, workspace_id: str, *, branch: str | None = None
     ) -> list[SavedVersion]:
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
             mine, _ = await self._branch_versions(workspace_id, copy)
             return mine
 
@@ -69,7 +69,9 @@ class WorkshopService:
         """Fige la tête de la branche ; rend (version, déjà_là). Rejeu : sans effet."""
         label = _label(label)
         identity = commit_author(author)
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        # Pas un `edit` : une étiquette fige la branche sans en changer le contenu, et
+        # reste permise sur la racine (Gael, 22/10/2026).
+        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
             mine, last_number = await self._branch_versions(workspace_id, copy)
             last = mine[0] if mine else None
             if last is not None and await same_tree(copy, last.commit):
@@ -97,7 +99,7 @@ class WorkshopService:
         self, author: EventAuthor, workspace_id: str, number: int, *, branch: str | None = None
     ) -> str:
         """Revient à une version par un NOUVEAU commit : l'historique n'est pas réécrit."""
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
             # Seulement les versions de cette branche : ses modifications lui sont propres,
             # y ramener l'état d'une autre branche serait une fusion déguisée.
             mine, _ = await self._branch_versions(workspace_id, copy)

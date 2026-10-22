@@ -150,6 +150,7 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .field-check input { width: 18px; height: 18px; }
 .help { margin: -10px 0 18px; font-size: 13px; color: var(--encre-faible); }
 fieldset { border: 1px solid var(--bordure-carte); border-radius: 6px; padding: 16px; margin: 0 0 18px; }
+.plain-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 .step { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
 .step-number {

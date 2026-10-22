@@ -113,7 +113,7 @@ class BranchesService:
                 if existing == entry:
                     return existing, True
                 raise BranchTakenError(existing.label)
-        async with self.branches.checkout(workspace_id) as copy:
+        async with self.branches.checkout(workspace_id, edit=False) as copy:
             await _push_new_branch(copy, entry.branch)
             base_commit = copy.head
         async with self.pool.acquire() as conn, conn.transaction():

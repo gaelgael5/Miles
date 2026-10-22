@@ -6,7 +6,7 @@ import { BARE, CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/data-models";
-const NO_VERSION = { "GET /api/workspaces/retrait/versions?branch=atelier": { status: 200, body: [] } };
+const NO_VERSION = { "GET /api/workspaces/retrait/versions?branch=edition": { status: 200, body: [] } };
 const PERSONNE = { scope: "shared", name: "personne", path: "shared/messages/personne.yaml" };
 const COLIS = { scope: "suivi", name: "colis", path: "domains/suivi/messages/colis.yaml" };
 const YAML = "nom: personne\nversion: 1\nproprietes:\n  nom:\n    type: chaine\n";
@@ -16,8 +16,8 @@ afterEach(() => {
 });
 
 async function openModels() {
-  renderWorkspaces();
-  fireEvent.click(await screen.findByText("Data models"));
+  // Une branche enfant : la racine est en lecture seule (story dca0eb0e).
+  renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition" });
   return screen.findByRole("heading", { name: "Data models — Retrait de colis" });
 }
 
@@ -33,8 +33,8 @@ describe("DataModelsScreen", () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=atelier`]: { status: 200, body: [COLIS, PERSONNE] },
-      [`GET ${ROUTE}/shared/personne?branch=atelier`]: { status: 200, body: { ...PERSONNE, content: YAML } },
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [COLIS, PERSONNE] },
+      [`GET ${ROUTE}/shared/personne?branch=edition`]: { status: 200, body: { ...PERSONNE, content: YAML } },
     });
     await openModels();
 
@@ -53,11 +53,11 @@ describe("DataModelsScreen", () => {
     const calls = mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=atelier`]: [
+      [`GET ${ROUTE}?branch=edition`]: [
         { status: 200, body: [] },
         { status: 200, body: [PERSONNE] },
       ],
-      [`POST ${ROUTE}?branch=atelier`]: { status: 201, body: PERSONNE },
+      [`POST ${ROUTE}?branch=edition`]: { status: 201, body: PERSONNE },
     });
     await openModels();
     fireEvent.click(screen.getByText("Add a model"));
@@ -66,7 +66,7 @@ describe("DataModelsScreen", () => {
     fireEvent.click(screen.getByText("Write to the work branch"));
 
     expect(await screen.findByText("shared/messages/personne.yaml")).toBeInTheDocument();
-    expect(calls.find((c) => c.key === `POST ${ROUTE}?branch=atelier`)?.body).toEqual({
+    expect(calls.find((c) => c.key === `POST ${ROUTE}?branch=edition`)?.body).toEqual({
       scope: "shared",
       content: YAML,
     });
@@ -76,8 +76,8 @@ describe("DataModelsScreen", () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=atelier`]: { status: 200, body: [] },
-      [`POST ${ROUTE}?branch=atelier`]: {
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+      [`POST ${ROUTE}?branch=edition`]: {
         status: 422,
         body: {
           detail: {
@@ -106,12 +106,12 @@ describe("DataModelsScreen", () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=atelier`]: { status: 200, body: [PERSONNE] },
-      [`POST ${ROUTE}?branch=atelier`]: {
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [PERSONNE] },
+      [`POST ${ROUTE}?branch=edition`]: {
         status: 422,
         body: { detail: { code: "yaml_invalide", line: 3, column: 7, message: "bad" } },
       },
-      [`DELETE ${ROUTE}/shared/personne?branch=atelier`]: {
+      [`DELETE ${ROUTE}/shared/personne?branch=edition`]: {
         status: 409,
         body: { detail: { code: "utilise", by: [COLIS.path] } },
       },

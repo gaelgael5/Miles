@@ -6,7 +6,7 @@ import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/transformations";
-const Q = "?branch=atelier";
+const Q = "?branch=edition";
 const CHAIN = {
   slug: "comptes-import",
   label: "Import des comptes",
@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 function openChain() {
-  renderWorkspaces({ id: "retrait", view: "transformations", branch: "atelier", chain: "comptes-import" });
+  renderWorkspaces({ id: "retrait", view: "transformations", branch: "edition", chain: "comptes-import" });
 }
 
 describe("ChainsScreen", () => {
@@ -38,7 +38,7 @@ describe("ChainsScreen", () => {
         body: { slug: "import-des-comptes", label: "Import des comptes", steps: [] },
       },
     });
-    renderWorkspaces({ id: "retrait", view: "transformations", branch: "atelier" });
+    renderWorkspaces({ id: "retrait", view: "transformations", branch: "edition" });
     expect(await screen.findByText("No transformation chain on this branch.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("New chain"));

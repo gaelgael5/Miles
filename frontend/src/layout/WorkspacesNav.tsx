@@ -116,6 +116,7 @@ export function WorkspacesNav({
               <WorkspaceViews
                 workspaceId={workspace.id}
                 branch={branch}
+                readOnly={branch === baseBranchOf(workspace)}
                 open={open}
                 active={active}
                 selection={selection}

@@ -84,7 +84,7 @@ export function ChainsScreen({
           <h1 id="chains-title">{t("chains.title", { name: workspace.name })}</h1>
           <p className="lead">{t("chains.intro")}</p>
         </div>
-        {!creating && (
+        {!creating && !target.readOnly && (
           <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
             {t("chains.add")}
           </button>

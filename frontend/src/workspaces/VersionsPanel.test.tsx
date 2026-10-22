@@ -6,7 +6,7 @@ import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const VERSIONS = "/api/workspaces/retrait/versions";
-const MODELS = "GET /api/workspaces/retrait/data-models?branch=atelier";
+const MODELS = "GET /api/workspaces/retrait/data-models?branch=edition";
 const BRANCHES = {
   "GET /api/workspaces/retrait/branches": {
     status: 200,
@@ -27,9 +27,9 @@ afterEach(() => {
 
 async function openWorkshop() {
   // Le panneau des versions est sur l'écran de la branche : une version la fige en entier.
-  renderWorkspaces({ id: "retrait", view: "branch", branch: "atelier" });
+  renderWorkspaces({ id: "retrait", view: "branch", branch: "edition" });
   expect(
-    await screen.findByRole("heading", { name: "Retrait de colis — branch atelier" }),
+    await screen.findByRole("heading", { name: "Retrait de colis — branch edition" }),
   ).toBeInTheDocument();
   return screen.findByRole("region", { name: "Versions of the work branch" });
 }
@@ -40,11 +40,11 @@ describe("VersionsPanel", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
-      [`GET ${VERSIONS}?branch=atelier`]: [
+      [`GET ${VERSIONS}?branch=edition`]: [
         { status: 200, body: [] },
         { status: 200, body: [V1] },
       ],
-      [`POST ${VERSIONS}?branch=atelier`]: { status: 201, body: V1 },
+      [`POST ${VERSIONS}?branch=edition`]: { status: 201, body: V1 },
     });
     const panel = await openWorkshop();
     expect(await within(panel).findByText("No version saved yet.")).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe("VersionsPanel", () => {
 
     expect(await within(panel).findByText("Version 1 — Recette du 21 octobre")).toBeInTheDocument();
     expect(within(panel).getByText("0123456789")).toBeInTheDocument();
-    expect(calls.find((c) => c.key === `POST ${VERSIONS}?branch=atelier`)?.body).toEqual({
+    expect(calls.find((c) => c.key === `POST ${VERSIONS}?branch=edition`)?.body).toEqual({
       label: "Recette du 21 octobre",
     });
   });
@@ -65,8 +65,8 @@ describe("VersionsPanel", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
-      [`GET ${VERSIONS}?branch=atelier`]: { status: 200, body: [] },
-      [`POST ${VERSIONS}?branch=atelier`]: {
+      [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
+      [`POST ${VERSIONS}?branch=edition`]: {
         status: 422,
         body: {
           detail: {
@@ -100,8 +100,8 @@ describe("VersionsPanel", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
-      [`GET ${VERSIONS}?branch=atelier`]: { status: 200, body: [V1] },
-      [`POST ${VERSIONS}?branch=atelier`]: { status: 409, body: { detail: "rien_a_figer" } },
+      [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [V1] },
+      [`POST ${VERSIONS}?branch=edition`]: { status: 409, body: { detail: "rien_a_figer" } },
     });
     const panel = await openWorkshop();
     fireEvent.click(within(panel).getByText("Save a version"));
@@ -118,8 +118,8 @@ describe("VersionsPanel", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
-      [`GET ${VERSIONS}?branch=atelier`]: { status: 200, body: [V1] },
-      [`POST ${VERSIONS}/1/restore?branch=atelier`]: { status: 200, body: { commit: "fedcba98765432100000" } },
+      [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [V1] },
+      [`POST ${VERSIONS}/1/restore?branch=edition`]: { status: 200, body: { commit: "fedcba98765432100000" } },
     });
     const panel = await openWorkshop();
     fireEvent.click(await within(panel).findByText("Return to this version"));
@@ -131,6 +131,6 @@ describe("VersionsPanel", () => {
     expect(
       await within(panel).findByText("Back to this version, by a new commit fedcba9876."),
     ).toBeInTheDocument();
-    expect(calls.some((c) => c.key === `POST ${VERSIONS}/1/restore?branch=atelier`)).toBe(true);
+    expect(calls.some((c) => c.key === `POST ${VERSIONS}/1/restore?branch=edition`)).toBe(true);
   });
 });

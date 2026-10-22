@@ -15,8 +15,8 @@ afterEach(() => {
 });
 
 async function openContracts() {
-  renderWorkspaces();
-  fireEvent.click(await screen.findByText("Contracts"));
+  // Une branche enfant : la racine est en lecture seule (story dca0eb0e).
+  renderWorkspaces({ id: "retrait", view: "contracts", branch: "edition" });
   await screen.findByRole("heading", { name: "OpenAPI contracts — Retrait de colis" });
 }
 
@@ -36,12 +36,12 @@ describe("ContractsScreen", () => {
   it("declares a contract with its label, proposed slug and direction, then opens it", async () => {
     const calls = mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
-      [`GET ${ROUTE}?branch=atelier`]: [
+      [`GET ${ROUTE}?branch=edition`]: [
         { status: 200, body: [] },
         { status: 200, body: [DECLARED] },
       ],
-      [`POST ${ROUTE}?branch=atelier`]: { status: 201, body: DECLARED },
-      [`GET ${ROUTE}/suivi?branch=atelier`]: { status: 200, body: DECLARED },
+      [`POST ${ROUTE}?branch=edition`]: { status: 201, body: DECLARED },
+      [`GET ${ROUTE}/suivi?branch=edition`]: { status: 200, body: DECLARED },
     });
     await openContracts();
     fireEvent.click(screen.getByRole("button", { name: "Declare a contract" }));
@@ -59,7 +59,7 @@ describe("ContractsScreen", () => {
 
     expect(await screen.findByRole("heading", { name: "Suivi des demandes" })).toBeInTheDocument();
     expect(screen.getByText(/No file integrated yet/)).toBeInTheDocument();
-    expect(calls.find((c) => c.key === `POST ${ROUTE}?branch=atelier`)?.body).toEqual({
+    expect(calls.find((c) => c.key === `POST ${ROUTE}?branch=edition`)?.body).toEqual({
       label: "Suivi des demandes du tiers",
       slug: "suivi",
       sens: "sortant",
@@ -69,8 +69,8 @@ describe("ContractsScreen", () => {
   it("names the occupant of a taken slug and the missing label", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
-      [`GET ${ROUTE}?branch=atelier`]: { status: 200, body: [] },
-      [`POST ${ROUTE}?branch=atelier`]: [
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+      [`POST ${ROUTE}?branch=edition`]: [
         { status: 409, body: { detail: { code: "slug_pris", by: "Matériel" } } },
         { status: 422, body: { detail: { field: "label", reason: "vide" } } },
       ],
@@ -91,7 +91,7 @@ describe("ContractsScreen", () => {
   it("lists contracts with their direction and versions, flagging the ones without file", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
-      [`GET ${ROUTE}?branch=atelier`]: {
+      [`GET ${ROUTE}?branch=edition`]: {
         status: 200,
         body: [
           { ...DECLARED, versions: [V1, { ...V1, number: 2 }] },

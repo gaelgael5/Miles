@@ -102,11 +102,14 @@ function VersionRow({ target, version }: { target: WorkTarget; version: SavedVer
           {date} · {version.author} · <span className="mono">{version.commit.slice(0, 10)}</span>
         </div>
       </div>
-      <div className="actions row-actions">
-        <button type="button" className="btn btn-secondary" onClick={() => setConfirming(true)}>
-          {t("versions.restore")}
-        </button>
-      </div>
+      {/* Restaurer change le contenu : refusé sur la racine. Enregistrer y reste permis. */}
+      {!target.readOnly && (
+        <div className="actions row-actions">
+          <button type="button" className="btn btn-secondary" onClick={() => setConfirming(true)}>
+            {t("versions.restore")}
+          </button>
+        </div>
+      )}
       {restore.isSuccess && (
         <p className="notice row-detail" role="status">
           {t("versions.restored", { commit: restore.data.commit.slice(0, 10) })}

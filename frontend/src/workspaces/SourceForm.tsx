@@ -19,9 +19,11 @@ export const EMPTY_SOURCE: Source = {
 
 function FilterablesEditor({
   rows,
+  readOnly,
   onChange,
 }: {
   rows: Filterable[];
+  readOnly: boolean;
   onChange: (rows: Filterable[]) => void;
 }) {
   const { t } = useTranslation();
@@ -45,22 +47,26 @@ function FilterablesEditor({
               onChange={(e) => set(index, { ...row, jpath: e.target.value })}
             />
           </label>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => onChange(rows.filter((_, i) => i !== index))}
-          >
-            {t("sources.form.removeFilterable", { rank: index + 1 })}
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => onChange(rows.filter((_, i) => i !== index))}
+            >
+              {t("sources.form.removeFilterable", { rank: index + 1 })}
+            </button>
+          )}
         </div>
       ))}
-      <button
-        type="button"
-        className="btn btn-secondary"
-        onClick={() => onChange([...rows, { name: "", jpath: "" }])}
-      >
-        {t("sources.form.addFilterable")}
-      </button>
+      {!readOnly && (
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => onChange([...rows, { name: "", jpath: "" }])}
+        >
+          {t("sources.form.addFilterable")}
+        </button>
+      )}
     </fieldset>
   );
 }
@@ -104,6 +110,8 @@ export function SourceForm({
 
   return (
     <form className="card" onSubmit={submit} aria-label={submitLabel}>
+      {/* Sur la racine, la déclaration se lit sans se modifier : champs désactivés d'un coup. */}
+      <fieldset className="plain-fieldset" disabled={target.readOnly}>
       <label className="field">
         {t("sources.fields.name")}
         <input required disabled={!creating} value={source.name} onChange={(e) => set({ name: e.target.value })} />
@@ -152,7 +160,12 @@ export function SourceForm({
         />
         {t("sources.fields.unifiedTransaction")}
       </label>
-      <FilterablesEditor rows={source.filterables} onChange={(filterables) => set({ filterables })} />
+      <FilterablesEditor
+        rows={source.filterables}
+        readOnly={target.readOnly}
+        onChange={(filterables) => set({ filterables })}
+      />
+      </fieldset>
       {problems.length > 0 && (
         <ul className="alert plain-list" role="alert">
           {problems.map((p, index) => (
@@ -163,12 +176,14 @@ export function SourceForm({
           ))}
         </ul>
       )}
-      <div className="actions">
-        <button type="submit" className="btn btn-primary" disabled={pending}>
-          {submitLabel}
-        </button>
-        {children}
-      </div>
+      {!target.readOnly && (
+        <div className="actions">
+          <button type="submit" className="btn btn-primary" disabled={pending}>
+            {submitLabel}
+          </button>
+          {children}
+        </div>
+      )}
     </form>
   );
 }

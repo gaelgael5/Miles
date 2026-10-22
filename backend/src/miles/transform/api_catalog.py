@@ -37,7 +37,7 @@ class CatalogService:
     async def resolve(
         self, workspace_id: str, branch: str | None, commit: str | None
     ) -> dict[str, Any]:
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
             source = await snapshot(copy, commit) if commit else None
             paths = await (source.paths() if source else copy.paths())
             read = source.read if source else copy.read

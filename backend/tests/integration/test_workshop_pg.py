@@ -34,7 +34,7 @@ async def _tags(forge: Forge) -> list[str]:
 
 async def test_version_freezes_the_head_with_its_label_and_author(forge: Forge) -> None:
     await forge.client.post(MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120)
-    head = await forge.api.get(f"/api/v1/repos/miles/{forge.name}/branches/work/atelier")
+    head = await forge.api.get(f"/api/v1/repos/miles/{forge.name}/branches/work/edition")
 
     saved = await _save(forge, "Recette du 21 octobre")
     listed = await forge.client.get(VERSIONS, timeout=120)
@@ -71,7 +71,7 @@ async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
     # Écrit hors de Miles, directement sur la forge : un modèle qui désigne un absent.
     written = await forge.api.post(
         f"/api/v1/repos/miles/{forge.name}/contents/shared/messages/colis.yaml",
-        json={"branch": "work/atelier", "content": base64.b64encode(COLIS.encode()).decode()},
+        json={"branch": "work/edition", "content": base64.b64encode(COLIS.encode()).decode()},
     )
     assert written.status_code == 201, written.text
 

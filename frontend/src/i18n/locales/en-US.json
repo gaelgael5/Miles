@@ -668,7 +668,8 @@
       "unexpected": "The branch could not be created. See the back-office logs.",
       "view": "The branch to view could not be chosen."
     },
-    "viewed": "Branch viewed"
+    "viewed": "Branch viewed",
+    "rootReadOnly": "This is the workspace root branch: it is read-only. To change models, contracts, chains or sources, create or choose a child branch in “All workspaces”. Versions can still be saved here."
   },
   "profile": {
     "title": "My profile",

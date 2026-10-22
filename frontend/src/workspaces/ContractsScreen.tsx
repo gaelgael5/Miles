@@ -139,7 +139,7 @@ export function ContractsScreen({
           <h1 id="contracts-title">{t("contracts.title", { name: workspace.name })}</h1>
           <p className="lead">{t("contracts.intro")}</p>
         </div>
-        {!declaring && (
+        {!declaring && !target.readOnly && (
           <button type="button" className="btn btn-primary" onClick={() => setDeclaring(true)}>
             {t("contracts.add")}
           </button>

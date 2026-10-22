@@ -21,7 +21,7 @@ async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
 
 
 async def _head(forge: Forge) -> str:
-    got = await forge.api.get(f"/api/v1/repos/miles/{forge.name}/branches/work/atelier")
+    got = await forge.api.get(f"/api/v1/repos/miles/{forge.name}/branches/work/edition")
     return str(got.json()["commit"]["id"])
 
 

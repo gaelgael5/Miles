@@ -76,7 +76,7 @@ export function SourcesScreen({
           <h1 id="sources-title">{t("sources.title", { name: workspace.name })}</h1>
           <p className="lead">{t("sources.intro")}</p>
         </div>
-        {!creating && (
+        {!creating && !target.readOnly && (
           <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
             {t("sources.add")}
           </button>

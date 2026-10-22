@@ -150,9 +150,11 @@ function ModelRow({ target, model }: { target: WorkTarget; model: DataModel }) {
         >
           {t(open ? "dataModels.list.hide" : "dataModels.list.show")}
         </button>
-        <button type="button" className="btn btn-danger" onClick={() => setConfirming(true)}>
-          {t("dataModels.list.delete")}
-        </button>
+        {!target.readOnly && (
+          <button type="button" className="btn btn-danger" onClick={() => setConfirming(true)}>
+            {t("dataModels.list.delete")}
+          </button>
+        )}
       </div>
       {open && read.data && (
         <pre className="row-detail code-block" aria-label={model.path}>
@@ -213,7 +215,7 @@ export function DataModelsScreen({
             {t("dataModels.intro")} <span className="mono">{workspace.work_branch}</span>
           </p>
         </div>
-        {!creating && (
+        {!creating && !target.readOnly && (
           <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
             {t("dataModels.add")}
           </button>

@@ -80,7 +80,7 @@ class ChainsService:
         self, workspace_id: str, *, branch: str | None = None
     ) -> list[StoredChain | str]:
         """Les chaînes lisibles, et le slug seul de celles dont l'enchaînement ne l'est pas."""
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
             paths = await copy.paths()
             found: list[StoredChain | str] = []
             for slug in slugs_in(paths):
@@ -92,7 +92,7 @@ class ChainsService:
         self, workspace_id: str, slug: str, *, branch: str | None = None
     ) -> StoredChain:
         slug = checked_slug(slug)
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
             stored = await stored_chain(copy, slug)
         if stored is None:
             raise ChainNotFoundError(slug)
@@ -122,7 +122,7 @@ class ChainsService:
                 StoredStep(d.name, s.template, d.target) for s, d in zip(steps, docs, strict=True)
             ),
         )
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
             await _write(copy, doc, stored)
             changed = await copy.git("status", "--porcelain", "--", chain_dir(slug))
             if not changed.stdout.strip():
@@ -137,7 +137,7 @@ class ChainsService:
         self, author: EventAuthor, workspace_id: str, slug: str, *, branch: str | None = None
     ) -> None:
         slug = checked_slug(slug)
-        async with self.branches.checkout(workspace_id, branch) as copy:
+        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
             paths = await copy.paths()
             files = files_of(paths, slug)
             if not files:

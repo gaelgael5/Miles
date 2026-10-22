@@ -18,10 +18,13 @@ function moved(steps: ChainStep[], from: number, to: number): ChainStep[] {
 export function ChainStepsEditor({
   steps,
   problems,
+  readOnly,
   onChange,
 }: {
   steps: ChainStep[];
   problems: StepProblem[];
+  /** Sur la racine : les étapes se lisent, sans boutons pour les changer. */
+  readOnly: boolean;
   onChange: (steps: ChainStep[]) => void;
 }) {
   const { t } = useTranslation();
@@ -43,6 +46,8 @@ export function ChainStepsEditor({
           <li key={index} className="card" aria-label={t("chains.editor.step", { rank: index + 1 })}>
             <div className="actions">
               <span className="badge badge-accent">{index + 1}</span>
+              {!readOnly && (
+                <>
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -66,16 +71,19 @@ export function ChainStepsEditor({
               >
                 {t("chains.editor.remove")}
               </button>
+                </>
+              )}
             </div>
             <label className="field">
               {t("chains.fields.stepName")}
-              <input value={step.name} onChange={(e) => update(index, { name: e.target.value })} />
+              <input readOnly={readOnly} value={step.name} onChange={(e) => update(index, { name: e.target.value })} />
             </label>
             <label className="field">
               {t("chains.fields.template")}
               <textarea
                 rows={6}
                 spellCheck={false}
+                readOnly={readOnly}
                 value={step.template}
                 onChange={(e) => update(index, { template: e.target.value })}
               />
@@ -85,6 +93,7 @@ export function ChainStepsEditor({
               <input
                 className="mono"
                 placeholder="$.chemin"
+                readOnly={readOnly}
                 value={step.target ?? ""}
                 onChange={(e) => update(index, { target: e.target.value || null })}
               />
@@ -116,11 +125,13 @@ export function ChainStepsEditor({
           </li>
         ))}
       </ol>
-      <div className="actions">
-        <button type="button" className="btn btn-secondary" onClick={add}>
-          {t("chains.editor.add")}
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="actions">
+          <button type="button" className="btn btn-secondary" onClick={add}>
+            {t("chains.editor.add")}
+          </button>
+        </div>
+      )}
     </section>
   );
 }

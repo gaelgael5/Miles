@@ -204,7 +204,7 @@ export function ContractScreen({
               </p>
             </div>
           </div>
-          <IntegrateForm target={target} slug={detail.slug} />
+          {!target.readOnly && <IntegrateForm target={target} slug={detail.slug} />}
           <h2>{t("contracts.versions.title")}</h2>
           {detail.versions.length === 0 ? (
             <p className="muted">{t("contracts.versions.empty")}</p>

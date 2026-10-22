@@ -6,7 +6,7 @@ import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/sources";
-const Q = "?branch=atelier";
+const Q = "?branch=edition";
 const SOURCE = {
   name: "comptes",
   model: "shared/compte",
@@ -41,7 +41,7 @@ describe("SourcesScreen", () => {
       [`POST ${ROUTE}${Q}`]: { status: 201, body: { ...SOURCE, rewrite_announced: false } },
       [`GET ${ROUTE}/comptes${Q}`]: { status: 200, body: SOURCE },
     });
-    renderWorkspaces({ id: "retrait", view: "sources", branch: "atelier" });
+    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition" });
     expect(await screen.findByText("No data source on this branch.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("New source"));
@@ -80,7 +80,7 @@ describe("SourcesScreen", () => {
         },
       },
     });
-    renderWorkspaces({ id: "retrait", view: "sources", branch: "atelier" });
+    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition" });
     fireEvent.click(await screen.findByText("New source"));
     fill("Name", "comptes");
     fireEvent.submit(screen.getByRole("form", { name: "Declare the source" }));
@@ -98,7 +98,7 @@ describe("SourcesScreen", () => {
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
       [`POST ${ROUTE}${Q}`]: { status: 409, body: { detail: "nom_pris" } },
     });
-    renderWorkspaces({ id: "retrait", view: "sources", branch: "atelier" });
+    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition" });
     fireEvent.click(await screen.findByText("New source"));
     fireEvent.submit(screen.getByRole("form", { name: "Declare the source" }));
 
@@ -118,7 +118,7 @@ describe("SourceScreen", () => {
       },
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
     });
-    renderWorkspaces({ id: "retrait", view: "sources", branch: "atelier", source: "comptes" });
+    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition", source: "comptes" });
     expect(await screen.findByLabelText("Name")).toBeDisabled();
     expect(screen.getByLabelText("Key rules")).toHaveValue("$.accountId\n$.region");
 
@@ -137,7 +137,7 @@ describe("SourceScreen", () => {
       [`DELETE ${ROUTE}/comptes${Q}`]: { status: 204 },
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
     });
-    renderWorkspaces({ id: "retrait", view: "sources", branch: "atelier", source: "comptes" });
+    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition", source: "comptes" });
     fireEvent.click(await screen.findByText("Delete the source"));
     fireEvent.click(within(screen.getByRole("dialog")).getByText("Delete the source"));
 

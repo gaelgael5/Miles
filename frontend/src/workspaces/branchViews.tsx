@@ -1,4 +1,5 @@
 import type { Workspace } from "../api/workspaces";
+import { RootReadOnlyNotice } from "./RootReadOnlyNotice";
 import { type WorkspaceSelection, baseBranchOf } from "../layout/WorkspacesNav";
 import { BranchScreen } from "./BranchScreen";
 import { ChainScreen } from "./ChainScreen";
@@ -9,8 +10,26 @@ import { DataModelsScreen } from "./DataModelsScreen";
 import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
 
-/** Écran d'une vue de branche ; null pour le paramétrage du workspace. */
+/** Écran d'une vue de branche, avec l'avis de lecture seule sur la racine ; null pour le paramétrage. */
 export function branchScreen(
+  workspace: Workspace,
+  selection: NonNullable<WorkspaceSelection>,
+  onSelect: (selection: WorkspaceSelection) => void,
+) {
+  const screen = viewScreen(workspace, selection, onSelect);
+  const branch = selection.branch ?? baseBranchOf(workspace);
+  if (screen === null || branch !== baseBranchOf(workspace)) {
+    return screen;
+  }
+  return (
+    <>
+      <RootReadOnlyNotice />
+      {screen}
+    </>
+  );
+}
+
+function viewScreen(
   workspace: Workspace,
   selection: NonNullable<WorkspaceSelection>,
   onSelect: (selection: WorkspaceSelection) => void,
@@ -19,7 +38,7 @@ export function branchScreen(
   if (selection.view === "settings" || branch === null) {
     return null;
   }
-  const target = { workspaceId: workspace.id, branch };
+  const target = { workspaceId: workspace.id, branch, readOnly: branch === baseBranchOf(workspace) };
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.

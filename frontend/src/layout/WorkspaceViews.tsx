@@ -13,6 +13,7 @@ const VIEWS: WorkspaceView[] = ["branch", "dataModels", "contracts", "transforma
 export function WorkspaceViews({
   workspaceId,
   branch,
+  readOnly,
   open,
   active,
   selection,
@@ -20,6 +21,7 @@ export function WorkspaceViews({
 }: {
   workspaceId: string;
   branch: string;
+  readOnly: boolean;
   open: boolean;
   active: boolean;
   selection: WorkspaceSelection;
@@ -47,7 +49,7 @@ export function WorkspaceViews({
           </button>
           {view === "contracts" && (
             <ContractLinks
-              target={{ workspaceId, branch }}
+              target={{ workspaceId, branch, readOnly }}
               open={open}
               current={here ? selection?.contract : undefined}
               onSelect={(contract) => onSelect({ id: workspaceId, view, branch, contract })}
