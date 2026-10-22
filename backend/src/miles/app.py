@@ -60,6 +60,8 @@ from miles.secrets.service import SecretsService
 from miles.security import service as security_events
 from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
+from miles.transform.api_catalog import CatalogService
+from miles.transform.api_catalog import router as catalog_router
 from miles.transform.api_transform import router as transform_router
 from miles.workshop import branches as branches_events
 from miles.workshop import service as workshop_events
@@ -154,6 +156,7 @@ def create_app() -> FastAPI:
         app.state.remote_contracts = RemoteContracts(http)
         app.state.transform_budget = settings.transform_budget
         app.state.branches = BranchesService(pool, branches, catalog, utc_now)
+        app.state.template_catalog = CatalogService(branches)
         app.state.git_identities = GitIdentitiesService(
             pool, cipher, http, catalog, utc_now, git_hosts
         )
@@ -219,4 +222,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(preferences_router)
     app.include_router(identities_router)
     app.include_router(transform_router)
+    app.include_router(catalog_router)
     return app

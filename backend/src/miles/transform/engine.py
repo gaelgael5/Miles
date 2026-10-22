@@ -7,16 +7,28 @@ from datetime import datetime, time
 from typing import Any
 from urllib.parse import urlsplit
 
-from urban_json import FunctionRegistry, JsltError, JsltSemanticError, JsltSyntaxError
+from urban_json import (
+    FunctionRegistry,
+    JsltError,
+    JsltSemanticError,
+    JsltSyntaxError,
+    default_registry,
+)
 from urban_json.ast import JsltBase
 from urban_json.ast.nodes import JsltFunctionCall, JsltPath
 from urban_json.parsing import parse_to_tree
 from urban_json.parsing.script_builder_visitor import ScriptBuilderVisitor
 from urban_json.runtime import JsltEvaluationVisitor, RuntimeContext, Sources
 
-from miles.transform.profile import Violation, check_profile
+from miles.transform.profile import Violation, check_profile, unknown_functions
 
 CAST_FUNCTION = "convert"
+_CORE_MODULE = "urban_json.functions."
+_CAST_DESCRIPTION = (
+    "Convertit une valeur selon un suffixe #type (integer, decimal, boolean, string,"
+    " datetime, time, uuid, uri). Une valeur absente reste absente ; une valeur"
+    " incompatible est une erreur nommant le chemin, jamais une valeur par défaut."
+)
 
 
 class TemplateSyntaxError(Exception):
@@ -72,7 +84,7 @@ def compile_template(source: str) -> Template:
         raise TemplateSyntaxError(
             str(exc), getattr(location, "line", None), getattr(location, "column", None)
         ) from None
-    violations = check_profile(ast)
+    violations = check_profile(ast) + unknown_functions(ast, function_registry())
     if violations:
         raise OutsideProfileError(violations)
     return Template(source, ast)
@@ -84,7 +96,7 @@ def evaluate(template: Template, document: Any, budget: int) -> Any:
     # qui passerait pour un résultat (critère 8).
     if document is None or document == {} or document == []:
         raise EvaluationError("entree_vide")
-    evaluator = _Evaluator(RuntimeContext(Sources(document), _registry()), budget)
+    evaluator = _Evaluator(RuntimeContext(Sources(document), function_registry()), budget)
     try:
         return template.ast.accept(evaluator)
     except _BudgetExceeded:
@@ -128,12 +140,30 @@ class _Evaluator(JsltEvaluationVisitor):
             raise EvaluationError("conversion", path=path, expected=exc.expected) from None
 
 
+def function_registry() -> FunctionRegistry:
+    """Le registre unique de Miles : celui qu'évalue le moteur et que décrit le catalogue."""
+    return _REGISTRY
+
+
 def _registry() -> FunctionRegistry:
-    # Registre isolé, jamais le registre par défaut du moteur : celui-ci charge tout
-    # plugin installé (HTTP, SQL…). Le catalogue (ticket 28f00c74) y ajoutera ses
-    # fonctions ; d'ici là, seule la conversion des suffixes `#type`.
+    """Registre de Miles : les fonctions cœur du moteur, et sa conversion stricte.
+
+    Isolé, jamais le registre par défaut du moteur lui-même, que `load_plugins` peut
+    avoir garni de tout plugin installé (HTTP, SQL…). Seules entrent les fonctions
+    définies dans le paquet `urban_json.functions` (Gael, 22/10/2026) : un plugin
+    installé plus tard ne s'y glisse pas. Le catalogue dérive de ce registre.
+    """
     registry = FunctionRegistry()
-    registry.register(CAST_FUNCTION, _strict_convert, (), "Conversion stricte d'un #type")
+    for name in default_registry.names():
+        function = default_registry.get(name)
+        info = default_registry.describe(name)
+        if function is None or info is None:
+            continue
+        if not function.__module__.startswith(_CORE_MODULE):
+            continue
+        registry.register(name, function, info.path_args, info.description)
+    # Écart voulu au convert du moteur (voir _strict_convert) : il le remplace.
+    registry.register(CAST_FUNCTION, _strict_convert, (), _CAST_DESCRIPTION)
     return registry
 
 
@@ -214,3 +244,6 @@ _CONVERTERS: dict[str, Callable[[Any], Any]] = {
     "uuid": _checked(uuid.UUID),
     "uri": _checked(_uri),
 }
+
+# Construit une fois : les fonctions viennent du code installé, pas d'une configuration.
+_REGISTRY = _registry()

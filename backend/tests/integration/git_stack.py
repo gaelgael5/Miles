@@ -24,6 +24,7 @@ from miles.identities.service import GitIdentitiesService
 from miles.secrets.crypto import SecretCipher
 from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles.secrets.service import SecretsService
+from miles.transform.api_catalog import CatalogService
 from miles.workshop.branches import EVENT_TYPES as BRANCH_EVENTS
 from miles.workshop.branches import BranchesService
 from miles.workshop.service import EVENT_TYPES as WORKSHOP_EVENTS
@@ -75,6 +76,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     # adresses refusées avant toute requête.
     state.remote_contracts = RemoteContracts(httpx.AsyncClient())
     state.branches = BranchesService(portal.pool, branches, catalog, utc_now)
+    state.template_catalog = CatalogService(branches)
     state.git_identities = GitIdentitiesService(
         portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts
     )

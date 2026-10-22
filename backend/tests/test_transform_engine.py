@@ -5,7 +5,9 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from urban_json import FunctionRegistry, default_registry
 
+from miles.transform import engine
 from miles.transform.api_transform import router
 from miles.transform.engine import (
     EvaluationError,
@@ -166,14 +168,33 @@ def test_evaluation_beyond_the_configured_budget_is_interrupted() -> None:
     assert (caught.value.code, caught.value.expected) == ("budget_depasse", "500")
 
 
-def test_engine_default_functions_and_plugins_are_not_reachable() -> None:
-    # `sum` existe dans le registre par défaut du moteur ; Miles n'en expose rien tant
-    # que le catalogue ne l'a pas admis.
-    with pytest.raises(EvaluationError) as caught:
-        _run('{ "t": sum($.v) }', {"v": [1, 2]})
+def test_only_core_functions_of_the_engine_enter_the_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def from_plugin(ctx: Any, url: Any = None) -> Any:
+        """Appel HTTP d'un plugin installé."""
 
-    assert caught.value.code == "evaluation"
-    assert "sum" in (caught.value.message or "")
+    from_plugin.__module__ = "urban_json_http.functions"
+    installed = FunctionRegistry()
+    installed.register("upper", default_registry.get("upper"), (), "Majuscules.")
+    installed.register("http_get", from_plugin, (), "Appel HTTP.")
+    installed.register("convert", default_registry.get("convert"), (), "Conversion du moteur.")
+    monkeypatch.setattr(engine, "default_registry", installed)
+
+    registry = engine._registry()
+
+    assert sorted(registry.names()) == ["convert", "upper"]
+    # La conversion est celle de Miles, stricte, pas celle du moteur.
+    assert registry.get("convert") is engine._strict_convert
+
+
+def test_a_function_missing_from_the_catalogue_is_refused_when_written() -> None:
+    with pytest.raises(OutsideProfileError) as caught:
+        compile_template('{ "a": upper($.x), "b": http_get($.url) }')
+
+    assert [(v.construct, v.detail) for v in caught.value.violations] == [
+        ("fonction_inconnue", "http_get")
+    ]
 
 
 def _client() -> TestClient:

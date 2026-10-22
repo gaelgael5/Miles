@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from urban_json import FunctionRegistry
 from urban_json.ast import JsltBase
 from urban_json.ast.nodes import (
     JsltArray,
@@ -162,3 +163,40 @@ def _closed(node: JsltPath, side: FilterPath, found: list[Violation]) -> None:
     # entier, et le résultat d'un filtre dépendrait d'ailleurs que de ce qu'il filtre.
     if not side.is_current:
         found.append(_at(node, "predicat_non_clos", "chemin relatif à @ attendu"))
+
+
+def unknown_functions(ast: JsltBase, registry: FunctionRegistry) -> tuple[Violation, ...]:
+    """Fonctions appelées que le catalogue ne connaît pas : refusées à l'écriture.
+
+    Vérifiées ici plutôt qu'à l'exécution : une fonction retirée du registre rend
+    ses templates invalides dès leur prochaine vérification, pas sur un terminal.
+    """
+    found: list[Violation] = []
+    _calls(ast, registry, found)
+    return tuple(found)
+
+
+def _calls(node: JsltBase, registry: FunctionRegistry, found: list[Violation]) -> None:
+    if isinstance(node, JsltFunctionCall) and node.name not in registry:
+        found.append(_at(node, "fonction_inconnue", node.name))
+    for child in _children(node):
+        _calls(child, registry, found)
+
+
+def _children(node: JsltBase) -> list[JsltBase]:
+    children: list[JsltBase | None] = []
+    if isinstance(node, JsltObject):
+        children += [node.source, node.where, *node.variables, *node.properties]
+    elif isinstance(node, JsltProperty):
+        children.append(node.value)
+    elif isinstance(node, JsltArray):
+        children += node.items
+    elif isinstance(node, JsltFunctionCall):
+        children += node.arguments
+    elif isinstance(node, JsltBinaryOperator):
+        children += [node.left, node.right]
+    elif isinstance(node, JsltOperator):
+        children.append(node.left)
+    elif isinstance(node, JsltSwitch):
+        children += [node.expression, node.default, *node.cases]
+    return [c for c in children if c is not None]
