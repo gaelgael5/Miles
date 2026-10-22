@@ -94,13 +94,24 @@ def test_every_faulty_step_is_reported_with_its_rank() -> None:
 
 
 @pytest.mark.parametrize(
-    ("message", "target"),
-    [({"statut": "brut"}, "$.statut.detail"), ({"lignes": [1]}, "$.lignes[3]")],
-    ids=["traverse-un-texte", "indice-absent"],
+    ("message", "target", "expected"),
+    [
+        ({"statut": "brut"}, "$.statut.detail", {"statut": {"detail": {"a": 1}}}),
+        ({"statut": None}, "$.statut.detail", {"statut": {"detail": {"a": 1}}}),
+        ("texte", "$.a", {"a": {"a": 1}}),
+    ],
+    ids=["texte", "null", "racine"],
 )
-def test_a_target_that_would_overwrite_a_value_fails_the_step(message: Any, target: str) -> None:
+def test_a_value_crossed_by_the_target_is_overwritten_by_an_object(
+    message: Any, target: str, expected: Any
+) -> None:
+    # Décision de Gael (22/10/2026) : la valeur traversée est écrasée.
+    assert _final([StepSpec('{ "a": 1 }', target=target)], message) == expected
+
+
+def test_a_missing_array_item_is_not_created() -> None:
     with pytest.raises(ChainFailedError) as caught:
-        _final([StepSpec('{ "a": 1 }', target=target)], message)
+        _final([StepSpec('{ "a": 1 }', target="$.lignes[3]")], {"lignes": [1]})
 
     assert (caught.value.step, caught.value.cause.code) == (0, "cible_impossible")
 

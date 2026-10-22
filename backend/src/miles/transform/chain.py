@@ -161,25 +161,29 @@ def _singular_keys(text: str) -> tuple[str | int, ...] | None:
 
 
 def _project(message: Any, target: _Target, value: Any) -> Any:
-    """Pose `value` au chemin cible d'une copie du message, objets intermédiaires créés."""
+    """Pose `value` au chemin cible d'une copie du message, objets intermédiaires créés.
+
+    Un nom traversé qui ne porte pas un objet (un texte, un nombre, null) est écrasé par
+    un objet (Gael, 22/10/2026 : « la valeur est écrasée »). Un indice, lui, ne se crée
+    pas : poser `$.lignes[3]` dans un tableau de deux éléments reste une erreur.
+    """
     # Copie : le message d'une étape reste intact si la projection échoue plus loin.
     root = copy.deepcopy(message)
+    if isinstance(target.keys[0], str) and not isinstance(root, dict):
+        root = {}
     node = root
     for depth, key in enumerate(target.keys):
-        last = depth == len(target.keys) - 1
-        if isinstance(key, str):
-            if not isinstance(node, dict):
-                # Traverser un texte ou un nombre l'écraserait : refus, jamais d'écrasement.
-                raise EvaluationError("cible_impossible", path=target.text)
-            if last:
-                node[key] = value
-            else:
-                node = node.setdefault(key, {})
-        else:
-            if not isinstance(node, list) or not -len(node) <= key < len(node):
-                raise EvaluationError("cible_impossible", path=target.text)
-            if last:
-                node[key] = value
-            else:
-                node = node[key]
+        following = target.keys[depth + 1] if depth + 1 < len(target.keys) else None
+        if isinstance(key, int) and (
+            not isinstance(node, list) or not -len(node) <= key < len(node)
+        ):
+            raise EvaluationError("cible_impossible", path=target.text)
+        if following is None:
+            node[key] = value
+            break
+        child = node.get(key) if isinstance(node, dict) else node[key]
+        if isinstance(following, str) and not isinstance(child, dict):
+            child = {}
+            node[key] = child
+        node = child
     return root
