@@ -126,10 +126,16 @@ describe("App", () => {
     expect(retrait).toHaveAttribute("aria-expanded", "false");
 
     fireEvent.click(retrait);
-    fireEvent.click(within(nav).getByRole("button", { name: "Caisse" }));
 
     expect(within(nav).getAllByRole("button", { name: "Data models" })).toHaveLength(1);
-    expect(within(nav).getAllByRole("button", { name: "Settings" })).toHaveLength(2);
+    // Le paramétrage s'ouvre depuis « Tous les workspaces », pas depuis le menu.
+    expect(within(nav).queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+    // Sans branche de travail, rien à déplier : le nom ouvre le paramétrage du workspace.
+    const caisse = within(nav).getByRole("button", { name: "Caisse" });
+    expect(caisse).not.toHaveAttribute("aria-expanded");
+    fireEvent.click(caisse);
+    expect(await screen.findByRole("heading", { name: /Caisse/ })).toBeInTheDocument();
+    expect(caisse).toHaveAttribute("aria-current", "page");
     fireEvent.click(within(nav).getByRole("button", { name: "Data models" }));
     expect(
       await screen.findByRole("heading", { name: "Data models — Retrait de colis" }),

@@ -58,6 +58,23 @@ export function WorkspacesNav({
       {workspaces.data?.map((workspace) => {
         const open = expanded.has(workspace.id) || selection?.id === workspace.id;
         const listId = `sidebar-workspace-${workspace.id}`;
+        // Le paramétrage du workspace se fait depuis « Tous les workspaces » et n'est plus
+        // répété dans le menu (Gael, 22/10/2026). Sans branche de travail, il ne reste
+        // aucune vue à déplier : le nom ouvre alors directement ce paramétrage.
+        const views = viewsOf(workspace).filter((view) => view !== "settings");
+        if (views.length === 0) {
+          return (
+            <button
+              key={workspace.id}
+              type="button"
+              className="sidebar-link"
+              aria-current={active && selection?.id === workspace.id ? "page" : undefined}
+              onClick={() => onSelect({ id: workspace.id, view: "settings" })}
+            >
+              {workspace.name}
+            </button>
+          );
+        }
         return (
           <div key={workspace.id}>
             <button
@@ -70,7 +87,7 @@ export function WorkspacesNav({
               {workspace.name}
             </button>
             <div id={listId} hidden={!open}>
-              {viewsOf(workspace).map((view) => (
+              {views.map((view) => (
                 <Fragment key={view}>
                   <button
                     type="button"
