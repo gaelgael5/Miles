@@ -18,6 +18,11 @@ from miles.obo.service import Actor
 from miles.workshop.target import base_slug
 from miles.workspaces.service import WorkspacesService
 
+# Adresse de la surface MCP sous l'origine de Miles, avec la barre finale : sans elle,
+# nginx redirige (301), et un client MCP ne rejoue pas toujours un POST redirigé.
+MCP_MOUNT = "/mcp"
+MCP_PATH = MCP_MOUNT + "/"
+
 INSTRUCTIONS = (
     "Miles : back-office du terminal point relais. Le paramétrage (modèles de données,"
     " chaînes de transformations…) vit dans des branches de travail d'un workspace."

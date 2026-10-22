@@ -907,6 +907,13 @@
         "grants": "Access: a workspace is unknown or listed twice."
       },
       "unexpected": "The API keys could not be handled. See the back-office logs."
+    },
+    "endpoint": {
+      "title": "MCP service address",
+      "url": "Address to declare",
+      "copy": "Copy the address",
+      "unset": "MILES_PUBLIC_URL is not configured on this instance: the MCP service answers on {{path}} of Miles' public address.",
+      "help": "Declare this address in the portal's MCP gateway, with the trailing slash, and present the key as “Authorization: Bearer <key>” or “X-API-Key: <key>”. Never put the key in the address."
     }
   },
   "copy": {

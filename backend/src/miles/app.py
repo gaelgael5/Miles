@@ -52,7 +52,7 @@ from miles.identities import service as identities_events
 from miles.identities.api_identities import router as identities_router
 from miles.identities.service import GitIdentitiesService
 from miles.log_config import configure_logging
-from miles.mcp_api.server import build_server, mcp_app
+from miles.mcp_api.server import MCP_MOUNT, build_server, mcp_app
 from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder
 from miles.obo.api_identity import router as identity_router
@@ -176,6 +176,7 @@ def create_app() -> FastAPI:
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
         app.state.api_keys = ApiKeysService(pool, catalog, utc_now)
+        app.state.public_url = settings.public_url
         app.state.actor_identities = ActorIdentitiesService(pool, utc_now)
         app.state.git_identities = GitIdentitiesService(
             pool, cipher, http, catalog, utc_now, git_hosts
@@ -254,5 +255,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     # Surface MCP (story 0d4e4f75) : hors /api, donc hors de la passerelle des sessions ;
     # gardée par sa propre clé. Adresse publiée : /mcp/.
     app.state.mcp = build_server()
-    app.mount("/mcp", mcp_app(app.state.mcp))
+    app.mount(MCP_MOUNT, mcp_app(app.state.mcp))
     return app

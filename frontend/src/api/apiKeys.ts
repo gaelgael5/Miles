@@ -28,6 +28,13 @@ export interface IssuedKey {
   secret: string;
 }
 
+/** Où la gateway appelle Miles avec une clé. */
+export interface McpEndpoint {
+  path: string;
+  /** null : MILES_PUBLIC_URL n'est pas configurée sur cette instance. */
+  url: string | null;
+}
+
 const KEY = ["api-keys"] as const;
 const ROOT = "/api/api-keys";
 
@@ -35,6 +42,13 @@ export function useApiKeys() {
   return useQuery({
     queryKey: KEY,
     queryFn: ({ signal }) => request<ApiKey[]>(ROOT, { signal }),
+  });
+}
+
+export function useMcpEndpoint() {
+  return useQuery({
+    queryKey: [...KEY, "endpoint"],
+    queryFn: ({ signal }) => request<McpEndpoint>(`${ROOT}/endpoint`, { signal }),
   });
 }
 

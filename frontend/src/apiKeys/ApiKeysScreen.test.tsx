@@ -38,6 +38,34 @@ afterEach(() => {
 });
 
 describe("ApiKeysScreen", () => {
+  it("gives the MCP address to declare in the gateway, ready to copy", async () => {
+    mockApi({
+      "GET /api/api-keys": { status: 200, body: [] },
+      "GET /api/api-keys/endpoint": {
+        status: 200,
+        body: { path: "/mcp/", url: "https://svc-miles.exemple.invalid/mcp/" },
+      },
+    });
+    renderScreen();
+
+    expect(await screen.findByLabelText("Address to declare")).toHaveTextContent(
+      "https://svc-miles.exemple.invalid/mcp/",
+    );
+    expect(screen.getByText("Copy the address")).toBeInTheDocument();
+    expect(screen.getByText(/Authorization: Bearer/)).toBeInTheDocument();
+  });
+
+  it("says the public address is not configured instead of guessing one", async () => {
+    mockApi({
+      "GET /api/api-keys": { status: 200, body: [] },
+      "GET /api/api-keys/endpoint": { status: 200, body: { path: "/mcp/", url: null } },
+    });
+    renderScreen();
+
+    expect(await screen.findByText(/MILES_PUBLIC_URL is not configured/)).toHaveTextContent("/mcp/");
+    expect(screen.queryByText("Copy the address")).toBeNull();
+  });
+
   it("issues a key with its access per workspace and shows the key only once", async () => {
     const calls = mockApi({
       "GET /api/workspaces": WORKSPACES,

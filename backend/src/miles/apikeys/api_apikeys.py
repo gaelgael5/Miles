@@ -15,6 +15,7 @@ from miles.apikeys.service import (
     UnknownWorkspaceError,
 )
 from miles.auth.author import request_author
+from miles.mcp_api.server import MCP_PATH
 from miles.workspaces.model import WorkspaceInputError
 
 # Réservé à l'administrateur, comme toute route que la passerelle ne liste pas : une
@@ -55,6 +56,14 @@ class ApiKeyOut(BaseModel):
     created_by: str
     revoked_at: datetime | None
     last_used_at: datetime | None
+
+
+class EndpointOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    path: str
+    # None : MILES_PUBLIC_URL n'est pas configurée ; l'écran le dit au lieu de deviner une
+    # adresse depuis le navigateur, qui n'est pas forcément celle que joint la gateway.
+    url: str | None
 
 
 class IssuedOut(BaseModel):
@@ -102,6 +111,13 @@ def _refusal(exc: Exception) -> JSONResponse:
         return _error(422, detail)
     reason = exc.reason if isinstance(exc, WorkspaceInputError) else None
     return _error(422, {"field": "label", "reason": reason})
+
+
+@router.get("/endpoint", response_model=EndpointOut)
+async def mcp_endpoint(request: Request) -> EndpointOut:
+    """Où la gateway appelle Miles avec une clé : l'adresse publique de la surface MCP."""
+    public_url: str | None = getattr(request.app.state, "public_url", None)
+    return EndpointOut(path=MCP_PATH, url=None if public_url is None else public_url + MCP_PATH)
 
 
 @router.get("", response_model=list[ApiKeyOut])

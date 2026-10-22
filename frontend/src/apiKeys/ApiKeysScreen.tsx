@@ -1,7 +1,16 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { type ApiKey, type Grant, type IssuedKey, useApiKeys, useIssueApiKey, useRevokeApiKey, useSetApiKeyGrants } from "../api/apiKeys";
+import {
+  type ApiKey,
+  type Grant,
+  type IssuedKey,
+  useApiKeys,
+  useIssueApiKey,
+  useMcpEndpoint,
+  useRevokeApiKey,
+  useSetApiKeyGrants,
+} from "../api/apiKeys";
 import { invalidField } from "../api/http";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { CopyButton } from "../layout/CopyButton";
@@ -11,6 +20,30 @@ import { GrantsEditor } from "./GrantsEditor";
 function errorKey(error: unknown): string {
   const field = invalidField(error);
   return field === null ? "apiKeys.errors.unexpected" : `apiKeys.errors.invalid.${field}`;
+}
+
+/** L'adresse à déclarer dans la gateway du portail, avec la façon d'y présenter la clé. */
+function EndpointCard() {
+  const { t } = useTranslation();
+  const endpoint = useMcpEndpoint();
+  if (!endpoint.data) {
+    return null;
+  }
+  const { url, path } = endpoint.data;
+  return (
+    <section className="card" aria-labelledby="mcp-endpoint-title">
+      <h2 id="mcp-endpoint-title">{t("apiKeys.endpoint.title")}</h2>
+      {url !== null ? (
+        <div className="actions">
+          <code className="mono" aria-label={t("apiKeys.endpoint.url")}>{url}</code>
+          <CopyButton text={url} label={t("apiKeys.endpoint.copy")} />
+        </div>
+      ) : (
+        <p className="alert" role="alert">{t("apiKeys.endpoint.unset", { path })}</p>
+      )}
+      <p className="help">{t("apiKeys.endpoint.help")}</p>
+    </section>
+  );
 }
 
 /** La clé en clair, cette seule fois : on la copie maintenant ou on en émet une autre. */
@@ -154,6 +187,7 @@ export function ApiKeysScreen() {
           ) : undefined
         }
       />
+      <EndpointCard />
       {issued !== null && <IssuedNotice issued={issued} onDone={() => setIssued(null)} />}
       {issuing && (
         <IssueForm

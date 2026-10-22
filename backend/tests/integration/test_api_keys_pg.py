@@ -245,3 +245,14 @@ async def test_a_key_does_not_open_the_rest_routes_and_a_session_does_not_open_m
 
     assert (rest_by_key.status_code, rest_by_key.json()["detail"]) == (401, "session_requise")
     assert mcp_by_session.status_code == 401
+
+
+async def test_the_mcp_address_is_given_from_the_configured_public_url(stack: Stack) -> None:
+    unset = await stack.admin.get(f"{ROUTE}/endpoint")
+    stack.portal.app.state.public_url = "https://miles.exemple.invalid"
+    configured = await stack.admin.get(f"{ROUTE}/endpoint")
+    anonymous = await stack.mcp.get(f"{ROUTE}/endpoint")
+
+    assert unset.json() == {"path": "/mcp/", "url": None}
+    assert configured.json() == {"path": "/mcp/", "url": "https://miles.exemple.invalid/mcp/"}
+    assert anonymous.status_code == 401

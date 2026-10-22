@@ -907,6 +907,13 @@
         "grants": "Droits : un workspace est inconnu ou cité deux fois."
       },
       "unexpected": "Les clés d'API n'ont pas pu être traitées. Voir les journaux du back-office."
+    },
+    "endpoint": {
+      "title": "Adresse du service MCP",
+      "url": "Adresse à déclarer",
+      "copy": "Copier l'adresse",
+      "unset": "MILES_PUBLIC_URL n'est pas configurée sur cette instance : le service MCP répond sur {{path}} de l'adresse publique de Miles.",
+      "help": "Déclarez cette adresse dans la gateway MCP du portail, avec la barre finale, et présentez la clé en « Authorization: Bearer <clé> » ou « X-API-Key: <clé> ». Jamais la clé dans l'adresse."
     }
   },
   "copy": {
