@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
+from pydantic import Field
 from starlette.requests import Request
 from starlette.types import ASGIApp
 
 from miles.apikeys.model import KeyPrincipal
 from miles.mcp_api import tools_chains, tools_models
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE, ApiKeyAuth
+from miles.mcp_api.calls import caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
 from miles.obo.service import Actor
 from miles.workshop.target import base_slug
@@ -78,6 +80,24 @@ def build_server() -> MCPServer:
                     }
                 )
         return visible
+
+    @server.tool(
+        description=(
+            "Liste les branches d'un workspace : la branche de base (base: true, lecture"
+            " seule) et ses branches enfants, seules cibles possibles d'une modification."
+        )
+    )
+    async def list_branches(
+        workspace_id: Annotated[str, Field(description="Identifiant du workspace.")],
+        ctx: Context[Any, Request],
+    ) -> list[dict[str, Any]]:
+        caller = caller_of(ctx)
+        await caller.readable(workspace_id)
+        try:
+            entries = await caller.services.branches.resolve_list(workspace_id)
+        except Exception as exc:
+            raise tool_refusal(exc) or exc from None
+        return [{"slug": e.slug, "label": e.label, "base": e.base} for e in entries]
 
     @server.tool(
         description=(

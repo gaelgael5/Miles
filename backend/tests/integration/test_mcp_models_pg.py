@@ -104,11 +104,16 @@ async def test_a_change_needs_a_named_child_branch(m: McpForge) -> None:
     root = await m.refused("create_data_model", WS | body | {"branch": "atelier"})
     unknown = await m.refused("create_data_model", WS | body | {"branch": "nulle"})
     read_root = await m.ok("list_data_models", WS)
+    branches = await m.ok("list_branches", WS)
 
     assert missing == {"code": "branche_requise", "branches": ["edition"]}
     assert root == {"code": "branche_racine_lecture_seule", "branches": ["edition"]}
     assert unknown == {"code": "branche_inconnue", "branche": "nulle", "branches": ["edition"]}
     assert read_root == []
+    assert branches == [
+        {"slug": "atelier", "label": "atelier", "base": True},
+        {"slug": "edition", "label": "Édition", "base": False},
+    ]
     assert await m.forge.commits("work/atelier") == before
 
 
