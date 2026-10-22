@@ -9,7 +9,6 @@ from miles.contracts.openapi import (
     ContractSyntaxError,
     UnsupportedVersionError,
     parse_contract,
-    propose_slug,
 )
 
 SUIVI = """openapi: 3.0.3
@@ -110,17 +109,3 @@ def test_dangling_internal_reference_is_reported_not_raised() -> None:
     assert caught.value.problems[0].message == (
         "référence introuvable : #/components/schemas/Absente"
     )
-
-
-@pytest.mark.parametrize(
-    ("title", "slug"),
-    [
-        ("Suivi des demandes", "suivi-des-demandes"),
-        ("  API Matériel — v2 ", "api-materiel-v2"),
-        ("Événements_Colis", "evenements-colis"),
-        ("这是", ""),
-        ("x" * 80, "x" * 63),
-    ],
-)
-def test_slug_is_proposed_from_the_title(title: str, slug: str) -> None:
-    assert propose_slug(title) == slug

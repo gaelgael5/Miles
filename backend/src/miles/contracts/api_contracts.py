@@ -7,26 +7,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from miles.auth.author import request_author
-from miles.contracts.openapi import (
-    SUPPORTED,
-    ContractInvalidError,
-    ContractSyntaxError,
-    ParsedContract,
-    UnsupportedVersionError,
-)
+from miles.contracts.openapi import ParsedContract
+from miles.contracts.refusals import REFUSALS as _REFUSALS
+from miles.contracts.refusals import error as _error
+from miles.contracts.refusals import refusal as _refusal
 from miles.contracts.remote import RemoteContractError, RemoteContracts
-from miles.contracts.service import (
-    ContractEntry,
-    ContractNotFoundError,
-    ContractsService,
-    ContractTakenError,
-)
-from miles.workspaces.model import (
-    RepositoryUnavailableError,
-    WorkspaceConflictError,
-    WorkspaceInputError,
-    WorkspaceNotFoundError,
-)
+from miles.contracts.service import Contract, ContractsService, ContractVersion
 
 # Réservé à l'administrateur tant que les rôles n'existent pas : la passerelle refuse
 # toute autre session. Le droit d'écriture sur le workspace viendra avec les rôles.
@@ -57,11 +43,6 @@ class OperationOut(BaseModel):
     operation_id: str | None
 
 
-class PreviewIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    content: str
-
-
 class FetchIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     url: str
@@ -74,33 +55,48 @@ class FetchOut(BaseModel):
 
 class PreviewOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    # Proposé depuis le titre, modifiable dans le même geste de création seulement.
-    slug: str
     title: str
     openapi: str
     operations: list[OperationOut]
+    # Licite mais probablement le mauvais fichier : signalé, pas refusé.
     warnings: list[str]
+
+
+class VersionOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    number: int
+    # None : fichier retouché hors de Miles et devenu illisible.
+    title: str | None
+    operations: int
+    warnings: list[str]
+
+
+class VersionDetailOut(VersionOut):
+    operation_list: list[OperationOut]
 
 
 class ContractOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     slug: str
+    label: str
     sens: str
-    title: str
-    operations: int
-    # Licite mais probablement une erreur de dépôt : signalé, pas refusé (critère 7).
-    warnings: list[str]
+    versions: list[VersionOut]
 
 
 class ContractDetailOut(ContractOut):
-    operation_list: list[OperationOut]
+    versions: list[VersionDetailOut]  # type: ignore[assignment]
 
 
-class ContractCreate(BaseModel):
+class ContractDeclare(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    label: str
     slug: str
     # Pas de défaut : None se refuse en nommant le champ, comme une valeur hors liste.
     sens: str | None = None
+
+
+class VersionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     content: str
 
 
@@ -108,12 +104,13 @@ class ContractChange(BaseModel):
     model_config = ConfigDict(extra="forbid")
     slug: str | None = None
     sens: str | None = None
+    label: str | None = None
 
 
-def _operations(parsed: ParsedContract) -> list[OperationOut]:
+def _operations(parsed: ParsedContract | None) -> list[OperationOut]:
+    operations = parsed.operations if parsed is not None else ()
     return [
-        OperationOut(method=o.method, path=o.path, operation_id=o.operation_id)
-        for o in parsed.operations
+        OperationOut(method=o.method, path=o.path, operation_id=o.operation_id) for o in operations
     ]
 
 
@@ -121,71 +118,33 @@ def _warnings(count: int) -> list[str]:
     return [NO_OPERATION] if count == 0 else []
 
 
-def _out(entry: ContractEntry) -> ContractOut:
-    return ContractOut(
-        slug=entry.slug,
-        sens=entry.direction,
-        title=entry.title,
-        operations=entry.operations,
-        warnings=_warnings(entry.operations),
+def _version(version: ContractVersion) -> VersionDetailOut:
+    operations = _operations(version.parsed)
+    return VersionDetailOut(
+        number=version.number,
+        title=version.parsed.title if version.parsed is not None else None,
+        operations=len(operations),
+        warnings=_warnings(len(operations)),
+        operation_list=operations,
     )
 
 
-def _error(code: int, detail: object) -> JSONResponse:
-    return JSONResponse(status_code=code, content={"detail": detail})
-
-
-_REFUSALS = (
-    ContractSyntaxError,
-    ContractInvalidError,
-    UnsupportedVersionError,
-    ContractTakenError,
-    ContractNotFoundError,
-    RepositoryUnavailableError,
-    WorkspaceConflictError,
-    WorkspaceInputError,
-    WorkspaceNotFoundError,
-)
-
-
-def _refusal(exc: Exception) -> JSONResponse:
-    unprocessable = status.HTTP_422_UNPROCESSABLE_CONTENT
-    if isinstance(exc, ContractSyntaxError):
-        detail = {"code": "openapi_illisible", "message": exc.message}
-        return _error(unprocessable, detail | {"line": exc.line, "column": exc.column})
-    if isinstance(exc, ContractInvalidError):
-        problems = [{"path": p.path, "message": p.message} for p in exc.problems]
-        return _error(unprocessable, {"code": "openapi_invalide", "problems": problems})
-    if isinstance(exc, UnsupportedVersionError):
-        unsupported: dict[str, object] = {"code": "version_non_prise_en_charge"}
-        return _error(
-            unprocessable, unsupported | {"found": exc.found, "accepted": sorted(SUPPORTED)}
-        )
-    if isinstance(exc, ContractTakenError):
-        return _error(status.HTTP_409_CONFLICT, {"code": "slug_pris", "by": exc.occupant})
-    if isinstance(exc, ContractNotFoundError):
-        return _error(status.HTTP_404_NOT_FOUND, "contrat_inconnu")
-    if isinstance(exc, RepositoryUnavailableError):
-        return _error(unprocessable, {"code": "acces_depot", "reason": exc.reason})
-    if isinstance(exc, WorkspaceInputError):
-        invalid = {"field": exc.field} | ({"reason": exc.reason} if exc.reason else {})
-        return _error(unprocessable, invalid)
-    if isinstance(exc, WorkspaceConflictError):
-        return _error(status.HTTP_409_CONFLICT, exc.code)
-    if isinstance(exc, WorkspaceNotFoundError):
-        return _error(status.HTTP_404_NOT_FOUND, "workspace_inconnu")
-    raise exc
+def _out(contract: Contract) -> ContractOut:
+    versions = [
+        VersionOut(**_version(v).model_dump(exclude={"operation_list"})) for v in contract.versions
+    ]
+    meta = contract.meta
+    return ContractOut(slug=meta.slug, label=meta.label, sens=meta.direction, versions=versions)
 
 
 @router.post("/preview", response_model=PreviewOut)
-async def preview_contract(workspace_id: str, body: PreviewIn, service: Service) -> object:
+async def preview_contract(workspace_id: str, body: VersionIn, service: Service) -> object:
     try:
-        slug, parsed = service.resolve_preview(body.content)
+        parsed = service.resolve_preview(body.content)
     except _REFUSALS as exc:
         return _refusal(exc)
     operations = _operations(parsed)
     return PreviewOut(
-        slug=slug,
         title=parsed.title,
         openapi=parsed.openapi,
         operations=operations,
@@ -196,7 +155,7 @@ async def preview_contract(workspace_id: str, body: PreviewIn, service: Service)
 @router.post("/fetch", response_model=FetchOut)
 async def fetch_contract(workspace_id: str, body: FetchIn, remote: Remote) -> object:
     # Lecture seule : le texte revient à l'écran et suit ensuite le chemin d'un fichier
-    # collé (aperçu, puis import), si bien que ce qui est versionné est ce qui a été vu.
+    # chargé (aperçu, puis intégration), si bien que ce qui est versionné est ce qui a été vu.
     try:
         return FetchOut(content=await remote.resolve_fetch(body.url))
     except RemoteContractError as exc:
@@ -209,7 +168,7 @@ async def fetch_contract(workspace_id: str, body: FetchIn, remote: Remote) -> ob
 @router.get("", response_model=list[ContractOut])
 async def list_contracts(workspace_id: str, service: Service) -> object:
     try:
-        return [_out(e) for e in await service.resolve_list(workspace_id)]
+        return [_out(c) for c in await service.resolve_list(workspace_id)]
     except _REFUSALS as exc:
         return _refusal(exc)
 
@@ -217,34 +176,65 @@ async def list_contracts(workspace_id: str, service: Service) -> object:
 @router.get("/{slug}", response_model=ContractDetailOut)
 async def get_contract(workspace_id: str, slug: str, service: Service) -> object:
     try:
-        entry, parsed = await service.resolve_get(workspace_id, slug)
+        contract = await service.resolve_get(workspace_id, slug)
     except _REFUSALS as exc:
         return _refusal(exc)
-    return ContractDetailOut(**_out(entry).model_dump(), operation_list=_operations(parsed))
+    versions = [_version(v) for v in contract.versions]
+    return ContractDetailOut(**_out(contract).model_dump(exclude={"versions"}), versions=versions)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ContractOut)
-async def import_contract(
-    workspace_id: str, body: ContractCreate, request: Request, response: Response, service: Service
+async def declare_contract(
+    workspace_id: str,
+    body: ContractDeclare,
+    request: Request,
+    response: Response,
+    service: Service,
 ) -> object:
     try:
-        entry, _, existed = await service.resolve_create(
-            request_author(request), workspace_id, body.slug, body.sens or "", body.content
+        contract, existed = await service.resolve_declare(
+            request_author(request), workspace_id, body.label, body.slug, body.sens or ""
         )
     except _REFUSALS as exc:
         return _refusal(exc)
     if existed:
-        # Rejeu du même fichier sous le même slug : ni doublon ni commit, et la réponse le dit.
+        # Rejeu de la même déclaration : ni doublon ni commit, et la réponse le dit.
         response.status_code = status.HTTP_200_OK
         response.headers["X-Miles-Already-Exists"] = "true"
-    return _out(entry)
+    return _out(contract)
+
+
+@router.post(
+    "/{slug}/versions", status_code=status.HTTP_201_CREATED, response_model=VersionDetailOut
+)
+async def import_version(
+    workspace_id: str,
+    slug: str,
+    body: VersionIn,
+    request: Request,
+    response: Response,
+    service: Service,
+) -> object:
+    try:
+        version, existed = await service.resolve_import(
+            request_author(request), workspace_id, slug, body.content
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    if existed:
+        # Fichier déjà intégré à l'identique : la version existante, sans nouveau commit.
+        response.status_code = status.HTTP_200_OK
+        response.headers["X-Miles-Already-Exists"] = "true"
+    return _version(version)
 
 
 @router.patch("/{slug}")
 async def change_contract(workspace_id: str, slug: str, body: ContractChange) -> JSONResponse:
     # Le slug est l'identifiant stable : aucun mécanisme de propagation derrière lui, donc
-    # aucun renommage, même pour un administrateur (critère 3). Le changement de sens
+    # aucun renommage, même pour un administrateur. Le changement de sens ou de label
     # n'est pas instruit : refusé et signalé. La route existe pour dire pourquoi.
     if body.slug is not None and body.slug != slug:
         return _error(status.HTTP_409_CONFLICT, "slug_fige")
+    if body.label is not None:
+        return _error(status.HTTP_409_CONFLICT, "label_fige")
     return _error(status.HTTP_409_CONFLICT, "sens_fige")

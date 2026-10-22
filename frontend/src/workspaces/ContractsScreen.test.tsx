@@ -1,20 +1,14 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
+import { proposeSlug } from "../api/contracts";
 import { mockApi } from "../test/mockApi";
 import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/contracts";
-const YAML = "openapi: 3.0.3\ninfo: {title: Suivi des demandes, version: '1'}\npaths: {}\n";
-const PREVIEW = {
-  slug: "suivi-des-demandes",
-  title: "Suivi des demandes",
-  openapi: "3.0.3",
-  operations: [{ method: "get", path: "/demandes", operation_id: "lister" }],
-  warnings: [],
-};
-const SUIVI = { slug: "suivi", sens: "sortant", title: "Suivi des demandes", operations: 1, warnings: [] };
+const DECLARED = { slug: "suivi", label: "Suivi des demandes", sens: "sortant", versions: [] };
+const V1 = { number: 1, title: "Suivi des demandes", operations: 1, warnings: [] };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -26,90 +20,92 @@ async function openContracts() {
   await screen.findByRole("heading", { name: "OpenAPI contracts — Retrait de colis" });
 }
 
+describe("proposeSlug", () => {
+  it.each([
+    ["Suivi des demandes", "suivi-des-demandes"],
+    ["  API Matériel — v2 ", "api-materiel-v2"],
+    ["Événements_Colis", "evenements-colis"],
+    ["这是", ""],
+    ["x".repeat(80), "x".repeat(63)],
+  ])("proposes %j as %j", (label, slug) => {
+    expect(proposeSlug(label)).toBe(slug);
+  });
+});
+
 describe("ContractsScreen", () => {
-  it("reads the contract, lets the proposed slug be changed, then imports with the chosen direction", async () => {
+  it("declares a contract with its label, proposed slug and direction, then opens it", async () => {
     const calls = mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}`]: [
         { status: 200, body: [] },
-        { status: 200, body: [SUIVI] },
+        { status: 200, body: [DECLARED] },
       ],
-      [`POST ${ROUTE}/preview`]: { status: 200, body: PREVIEW },
-      [`POST ${ROUTE}`]: { status: 201, body: SUIVI },
+      [`POST ${ROUTE}`]: { status: 201, body: DECLARED },
+      [`GET ${ROUTE}/suivi`]: { status: 200, body: DECLARED },
     });
     await openContracts();
-    fireEvent.click(screen.getByText("Import a contract"));
-    fill("OpenAPI contract (YAML or JSON)", YAML);
-    fireEvent.click(screen.getByText("Read the contract"));
+    fireEvent.click(screen.getByRole("button", { name: "Declare a contract" }));
 
-    expect(await screen.findByLabelText("Slug")).toHaveValue("suivi-des-demandes");
+    fill("Label", "Suivi des demandes");
+    expect(screen.getByLabelText("Slug")).toHaveValue("suivi-des-demandes");
     fill("Slug", "suivi");
-    // Pas de sens par défaut : l'import attend un choix explicite.
-    expect(screen.getByText("Import to the work branch")).toBeDisabled();
+    fill("Label", "Suivi des demandes du tiers");
+    // Touché à la main, le slug ne suit plus le label.
+    expect(screen.getByLabelText("Slug")).toHaveValue("suivi");
+    // Pas de sens par défaut : la déclaration attend un choix explicite.
+    expect(screen.getByText("Declare the contract")).toBeDisabled();
     fireEvent.click(screen.getByLabelText("Outbound — call to a remote service"));
-    fireEvent.click(screen.getByText("Import to the work branch"));
+    fireEvent.click(screen.getByText("Declare the contract"));
 
-    expect(await screen.findByText("contracts/suivi")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Suivi des demandes" })).toBeInTheDocument();
+    expect(screen.getByText(/No file integrated yet/)).toBeInTheDocument();
     expect(calls.find((c) => c.key === `POST ${ROUTE}`)?.body).toEqual({
+      label: "Suivi des demandes du tiers",
       slug: "suivi",
       sens: "sortant",
-      content: YAML,
     });
   });
 
-  it("flags a contract without operation, and names the occupant of a taken slug", async () => {
+  it("names the occupant of a taken slug and the missing label", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}`]: { status: 200, body: [] },
-      [`POST ${ROUTE}/preview`]: { status: 200, body: { ...PREVIEW, operations: [], warnings: ["aucune_operation"] } },
-      [`POST ${ROUTE}`]: { status: 409, body: { detail: { code: "slug_pris", by: "Matériel" } } },
+      [`POST ${ROUTE}`]: [
+        { status: 409, body: { detail: { code: "slug_pris", by: "Matériel" } } },
+        { status: 422, body: { detail: { field: "label", reason: "vide" } } },
+      ],
     });
     await openContracts();
-    fireEvent.click(screen.getByText("Import a contract"));
-    fill("OpenAPI contract (YAML or JSON)", YAML);
-    fireEvent.click(screen.getByText("Read the contract"));
-
-    expect(await screen.findByText(/has no operation/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Declare a contract" }));
+    fill("Label", "Matériel");
     fireEvent.click(screen.getByLabelText("Inbound — webhook received"));
-    fireEvent.click(screen.getByText("Import to the work branch"));
-    expect(await screen.findByText("This slug is already used by the contract “Matériel”.")).toBeInTheDocument();
-  });
 
-  it("names the unsupported version and the accepted ones", async () => {
-    mockApi({
-      "GET /api/workspaces": { status: 200, body: [WORKING] },
-      [`GET ${ROUTE}`]: { status: 200, body: [] },
-      [`POST ${ROUTE}/preview`]: {
-        status: 422,
-        body: { detail: { code: "version_non_prise_en_charge", found: "2.0", accepted: ["3.0", "3.1"] } },
-      },
-    });
-    await openContracts();
-    fireEvent.click(screen.getByText("Import a contract"));
-    fill("OpenAPI contract (YAML or JSON)", "swagger: '2.0'");
-    fireEvent.click(screen.getByText("Read the contract"));
-
+    fireEvent.click(screen.getByText("Declare the contract"));
     expect(
-      await screen.findByText("OpenAPI version 2.0 is not supported. Accepted: 3.0, 3.1."),
+      await screen.findByText("This slug is already used by the contract “Matériel”."),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Declare the contract"));
+    expect(await screen.findByText("Give the contract a label.")).toBeInTheDocument();
   });
 
-  it("lists contracts with their direction and shows their operations, without any rename", async () => {
+  it("lists contracts with their direction and versions, flagging the ones without file", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
-      [`GET ${ROUTE}`]: { status: 200, body: [SUIVI] },
-      [`GET ${ROUTE}/suivi`]: {
+      [`GET ${ROUTE}`]: {
         status: 200,
-        body: { ...SUIVI, operation_list: PREVIEW.operations },
+        body: [
+          { ...DECLARED, versions: [V1, { ...V1, number: 2 }] },
+          { slug: "vide", label: "Sans fichier", sens: "entrant", versions: [] },
+        ],
       },
     });
     await openContracts();
+
     const row = (await screen.findByText("Suivi des demandes")).closest("li") as HTMLElement;
     expect(within(row).getByText("Outbound — call to a remote service")).toBeInTheDocument();
+    expect(within(row).getByText("2 versions (latest v2)")).toBeInTheDocument();
     expect(within(row).queryByText(/rename/i)).not.toBeInTheDocument();
-
-    fireEvent.click(within(row).getByRole("button", { name: "Operations" }));
-
-    expect(await within(row).findByText("GET /demandes — lister")).toBeInTheDocument();
+    const empty = screen.getByText("Sans fichier").closest("li") as HTMLElement;
+    expect(within(empty).getByText("No file yet")).toBeInTheDocument();
   });
 });

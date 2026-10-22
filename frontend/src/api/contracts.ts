@@ -11,25 +11,47 @@ export interface Operation {
   operation_id: string | null;
 }
 
-export interface Contract {
-  /** Figé à la création : identifiant stable, jamais renommé. */
-  slug: string;
-  sens: Direction;
-  title: string;
+export interface ContractVersion {
+  number: number;
+  /** null : fichier retouché hors de Miles et devenu illisible. */
+  title: string | null;
   operations: number;
   warnings: string[];
 }
 
-export interface ContractDetail extends Contract {
+export interface ContractVersionDetail extends ContractVersion {
   operation_list: Operation[];
 }
 
-export interface ContractPreview {
+export interface Contract {
+  /** Figé à la déclaration : identifiant stable, jamais renommé. */
   slug: string;
+  label: string;
+  sens: Direction;
+  /** Croissantes : les versions d'un contrat coexistent. */
+  versions: ContractVersion[];
+}
+
+export interface ContractDetail extends Omit<Contract, "versions"> {
+  versions: ContractVersionDetail[];
+}
+
+export interface ContractPreview {
   title: string;
   openapi: string;
   operations: Operation[];
   warnings: string[];
+}
+
+/**
+ * Slug proposé d'après le label : minuscules sans accents, mots séparés par des tirets.
+ * Simple proposition, modifiable : c'est le back-office qui valide le slug. Rend une
+ * chaîne vide quand rien ne reste, pour qu'un slug soit donné plutôt qu'inventé.
+ */
+export function proposeSlug(label: string): string {
+  const ascii = label.normalize("NFKD").replace(/[^\x20-\x7e]/g, "");
+  const slug = ascii.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug.slice(0, 63).replace(/-+$/, "");
 }
 
 function root(workspaceId: string) {
@@ -40,25 +62,24 @@ function key(workspaceId: string) {
   return ["contracts", workspaceId] as const;
 }
 
-export function useContracts(workspaceId: string) {
+/** `enabled` : le menu ne lit les contrats que d'un workspace déplié (un clone chacun). */
+export function useContracts(workspaceId: string, enabled = true) {
   return useQuery({
     queryKey: key(workspaceId),
+    enabled,
     queryFn: ({ signal }) => request<Contract[]>(root(workspaceId), { signal }),
   });
 }
 
-export function useContract(workspaceId: string, slug: string | null) {
+export function useContract(workspaceId: string, slug: string) {
   return useQuery({
     queryKey: [...key(workspaceId), slug],
-    enabled: slug !== null,
     queryFn: ({ signal }) =>
-      request<ContractDetail>(`${root(workspaceId)}/${encodeURIComponent(slug ?? "")}`, {
-        signal,
-      }),
+      request<ContractDetail>(`${root(workspaceId)}/${encodeURIComponent(slug)}`, { signal }),
   });
 }
 
-/** Lecture du contrat sans rien écrire : le slug proposé se corrige avant l'import. */
+/** Lecture du fichier sans rien écrire : montrée avant l'intégration. */
 export function usePreviewContract(workspaceId: string) {
   return useMutation({
     mutationFn: (content: string) =>
@@ -69,11 +90,24 @@ export function usePreviewContract(workspaceId: string) {
   });
 }
 
-export function useImportContract(workspaceId: string) {
+export function useDeclareContract(workspaceId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { slug: string; sens: Direction; content: string }) =>
+    mutationFn: (input: { label: string; slug: string; sens: Direction }) =>
       request<Contract>(root(workspaceId), { method: "POST", body: JSON.stringify(input) }),
+    onSuccess: () => client.invalidateQueries({ queryKey: key(workspaceId) }),
+  });
+}
+
+export function useImportVersion(workspaceId: string, slug: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) =>
+      request<ContractVersionDetail>(
+        `${root(workspaceId)}/${encodeURIComponent(slug)}/versions`,
+        { method: "POST", body: JSON.stringify({ content }) },
+      ),
+    // Préfixe commun : la liste (menu compris) et le détail de ce contrat se rafraîchissent.
     onSuccess: () => client.invalidateQueries({ queryKey: key(workspaceId) }),
   });
 }

@@ -44,6 +44,8 @@ export function ContractRefusal({ error }: { error: unknown }) {
     message = t("dataModels.errors.access", { reason: detail.reason ?? "echec" });
   } else if (detail?.field) {
     message = t(`contracts.errors.field.${detail.field}${detail.reason ? `_${detail.reason}` : ""}`);
+  } else if (error instanceof ApiError && error.detail === "contrat_inconnu") {
+    message = t("contracts.errors.notFound");
   } else if (error instanceof ApiError && typeof error.detail === "string") {
     message = t(`dataModels.errors.conflict.${error.detail}`);
   }

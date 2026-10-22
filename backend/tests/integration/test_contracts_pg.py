@@ -22,7 +22,9 @@ paths:
       responses:
         "200": {description: ok}
 """
+SUIVI_V2 = SUIVI.replace('"1.2"', '"2.0"')
 EMPTY = 'openapi: 3.1.0\ninfo: {title: Vide, version: "1"}\npaths: {}\n'
+LABEL = "Suivi : demandes # tiers"
 
 
 @pytest.fixture
@@ -31,84 +33,108 @@ async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
         yield opened
 
 
-async def _import(
-    forge: Forge, content: str, slug: str, sens: str | None = "sortant"
+async def _declare(
+    forge: Forge, slug: str = "suivi", label: str = LABEL, sens: str | None = "sortant"
 ) -> httpx.Response:
-    body = {"slug": slug, "content": content} | ({"sens": sens} if sens else {})
+    body = {"slug": slug, "label": label} | ({"sens": sens} if sens else {})
     return await forge.client.post(ROUTE, json=body, timeout=120)
 
 
-async def test_contract_is_proposed_a_slug_then_imported_under_the_chosen_one(
-    forge: Forge,
-) -> None:
-    preview = await forge.client.post(f"{ROUTE}/preview", json={"content": SUIVI})
+async def _import(forge: Forge, content: str, slug: str = "suivi") -> httpx.Response:
+    body = {"content": content}
+    return await forge.client.post(f"{ROUTE}/{slug}/versions", json=body, timeout=120)
 
-    imported = await _import(forge, SUIVI, "suivi")
-    listed = await forge.client.get(ROUTE, timeout=120)
+
+async def test_contract_is_declared_then_its_files_coexist_as_versions(forge: Forge) -> None:
+    declared = await _declare(forge)
+    first = await _import(forge, SUIVI)
+    second = await _import(forge, SUIVI_V2)
     detail = await forge.client.get(f"{ROUTE}/suivi", timeout=120)
 
-    assert preview.json()["slug"] == "suivi-des-demandes"
-    assert imported.status_code == 201, imported.text
-    assert imported.json() == {
-        "slug": "suivi",
-        "sens": "sortant",
-        "title": "Suivi des demandes",
-        "operations": 1,
-        "warnings": [],
-    }
+    assert declared.status_code == 201, declared.text
+    assert declared.json() == {"slug": "suivi", "label": LABEL, "sens": "sortant", "versions": []}
+    assert (first.status_code, first.json()["number"]) == (201, 1)
+    assert (second.status_code, second.json()["number"]) == (201, 2)
     assert await forge.file("contracts/suivi/v1.yaml") == SUIVI
-    assert await forge.file("contracts/suivi/contract.yaml") == "slug: suivi\nsens: sortant\n"
-    assert [c["slug"] for c in listed.json()] == ["suivi"]
-    assert detail.json()["operation_list"] == [
+    assert await forge.file("contracts/suivi/v2.yaml") == SUIVI_V2
+    assert await forge.file("contracts/suivi/contract.yaml") == (
+        'slug: suivi\nlabel: "Suivi : demandes # tiers"\nsens: sortant\n'
+    )
+    assert [v["number"] for v in detail.json()["versions"]] == [1, 2]
+    assert detail.json()["versions"][0]["operation_list"] == [
         {"method": "get", "path": "/demandes", "operation_id": "listerDemandes"}
     ]
 
 
-async def test_slug_is_frozen_and_the_direction_cannot_change(forge: Forge) -> None:
-    await _import(forge, SUIVI, "suivi")
+async def test_declared_contracts_are_listed_with_their_versions(forge: Forge) -> None:
+    await _declare(forge)
+    await _declare(forge, "vide", "Sans opération", "entrant")
+    await _import(forge, EMPTY, "vide")
 
-    renamed = await forge.client.patch(f"{ROUTE}/suivi", json={"slug": "autre"})
-    turned = await forge.client.patch(f"{ROUTE}/suivi", json={"sens": "entrant"})
+    listed = await forge.client.get(ROUTE, timeout=120)
 
-    assert (renamed.status_code, renamed.json()["detail"]) == (409, "slug_fige")
-    assert (turned.status_code, turned.json()["detail"]) == (409, "sens_fige")
-    assert await forge.file("contracts/autre/v1.yaml") is None
+    assert listed.json() == [
+        {"slug": "suivi", "label": LABEL, "sens": "sortant", "versions": []},
+        {
+            "slug": "vide",
+            "label": "Sans opération",
+            "sens": "entrant",
+            "versions": [
+                {"number": 1, "title": "Vide", "operations": 0, "warnings": ["aucune_operation"]}
+            ],
+        },
+    ]
 
 
-async def test_replay_writes_nothing_and_a_taken_slug_names_its_occupant(forge: Forge) -> None:
-    await _import(forge, SUIVI, "suivi")
+async def test_replays_write_nothing_and_a_taken_slug_names_its_occupant(forge: Forge) -> None:
+    await _declare(forge)
+    await _import(forge, SUIVI)
     before = await forge.commits()
 
-    replay = await _import(forge, SUIVI, "suivi")
-    taken = await _import(forge, EMPTY, "suivi")
-    other_direction = await _import(forge, SUIVI, "suivi", sens="entrant")
+    redeclared = await _declare(forge)
+    reimported = await _import(forge, SUIVI)
+    taken = await _declare(forge, label="Autre chose")
+    turned = await _declare(forge, sens="entrant")
 
-    assert (replay.status_code, replay.headers["x-miles-already-exists"]) == (200, "true")
-    assert taken.json()["detail"] == {"code": "slug_pris", "by": "Suivi des demandes"}
-    assert other_direction.status_code == 409
+    assert (redeclared.status_code, redeclared.headers["x-miles-already-exists"]) == (200, "true")
+    assert (reimported.status_code, reimported.json()["number"]) == (200, 1)
+    assert taken.json()["detail"] == {"code": "slug_pris", "by": LABEL}
+    assert turned.status_code == 409
     assert await forge.commits() == before
 
 
-async def test_contract_without_operation_is_accepted_and_flagged(forge: Forge) -> None:
-    imported = await _import(forge, EMPTY, "vide", sens="entrant")
+async def test_declaration_is_frozen(forge: Forge) -> None:
+    await _declare(forge)
 
-    assert imported.status_code == 201
-    assert imported.json()["warnings"] == ["aucune_operation"]
+    renamed = await forge.client.patch(f"{ROUTE}/suivi", json={"slug": "autre"})
+    relabelled = await forge.client.patch(f"{ROUTE}/suivi", json={"label": "Autre"})
+    turned = await forge.client.patch(f"{ROUTE}/suivi", json={"sens": "entrant"})
+
+    assert (renamed.status_code, renamed.json()["detail"]) == (409, "slug_fige")
+    assert relabelled.json()["detail"] == "label_fige"
+    assert turned.json()["detail"] == "sens_fige"
 
 
 async def test_refusals_write_nothing_and_say_why(forge: Forge) -> None:
     before = await forge.commits()
 
-    no_direction = await _import(forge, SUIVI, "suivi", sens=None)
-    empty_slug = await _import(forge, SUIVI, "   ")
-    bad_slug = await _import(forge, SUIVI, "Suivi!")
-    unreadable = await _import(forge, "openapi: [\n", "autre")
-    swagger = await _import(forge, "swagger: '2.0'\ninfo: {title: x}\n", "autre")
-    invalid = await _import(forge, EMPTY.replace(', version: "1"', ""), "autre")
+    no_direction = await _declare(forge, sens=None)
+    empty_slug = await _declare(forge, slug="   ")
+    bad_slug = await _declare(forge, slug="Suivi!")
+    no_label = await _declare(forge, label="  ")
+    undeclared = await _import(forge, SUIVI, "inconnu")
+    await _declare(forge)
+    declared = await forge.commits()
+    unreadable = await _import(forge, "openapi: [\n")
+    swagger = await _import(forge, "swagger: '2.0'\ninfo: {title: x}\n")
+    invalid = await _import(forge, EMPTY.replace(', version: "1"', ""))
 
     assert no_direction.json()["detail"] == {"field": "sens"}
     assert empty_slug.json()["detail"] == {"field": "slug", "reason": "vide"}
     assert bad_slug.json()["detail"] == {"field": "slug"}
+    assert no_label.json()["detail"] == {"field": "label", "reason": "vide"}
+    assert (undeclared.status_code, undeclared.json()["detail"]) == (404, "contrat_inconnu")
+    assert declared == before + 1
     assert unreadable.json()["detail"]["code"] == "openapi_illisible"
     assert unreadable.json()["detail"]["line"] is not None
     assert swagger.json()["detail"] == {
@@ -117,11 +143,32 @@ async def test_refusals_write_nothing_and_say_why(forge: Forge) -> None:
         "accepted": ["3.0", "3.1"],
     }
     assert invalid.json()["detail"]["code"] == "openapi_invalide"
-    assert await forge.commits() == before
+    assert await forge.commits() == declared
+
+
+async def test_a_version_cannot_freeze_a_declared_contract_without_file(forge: Forge) -> None:
+    await _declare(forge)
+
+    refused = await forge.client.post(
+        "/api/workspaces/retrait/versions", json={"label": "Contrat vide"}, timeout=120
+    )
+    await _import(forge, SUIVI)
+    saved = await forge.client.post(
+        "/api/workspaces/retrait/versions", json={"label": "Contrat complet"}, timeout=120
+    )
+
+    assert refused.json()["detail"]["reports"] == [
+        {
+            "path": "contracts/suivi/contract.yaml",
+            "problems": [{"path": "", "code": "contrat_sans_fichier", "detail": None}],
+        }
+    ]
+    assert saved.status_code == 201, saved.text
 
 
 async def test_a_version_cannot_freeze_a_contract_broken_outside_miles(forge: Forge) -> None:
-    await _import(forge, SUIVI, "suivi")
+    await _declare(forge)
+    await _import(forge, SUIVI)
     meta = await forge.api.get(
         f"/api/v1/repos/miles/{forge.name}/contents/contracts/suivi/contract.yaml",
         params={"ref": "work/atelier"},

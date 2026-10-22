@@ -4,109 +4,73 @@ import { useTranslation } from "react-i18next";
 import {
   type Contract,
   type Direction,
-  useContract,
+  proposeSlug,
   useContracts,
-  useImportContract,
-  usePreviewContract,
+  useDeclareContract,
 } from "../api/contracts";
 import type { Workspace } from "../api/workspaces";
 import { ContractRefusal } from "./ContractRefusal";
-import { ContractSource } from "./ContractSource";
 
-function ImportForm({ workspaceId, onDone }: { workspaceId: string; onDone: () => void }) {
+function DeclareForm({
+  workspaceId,
+  onDeclared,
+  onCancel,
+}: {
+  workspaceId: string;
+  onDeclared: (slug: string) => void;
+  onCancel: () => void;
+}) {
   const { t } = useTranslation();
-  const preview = usePreviewContract(workspaceId);
-  const save = useImportContract(workspaceId);
-  const [content, setContent] = useState("");
-  // Le slug proposé se modifie ici, et seulement ici : il est figé une fois importé.
+  const declare = useDeclareContract(workspaceId);
+  const [label, setLabel] = useState("");
+  // Le slug suit le label tant qu'on ne l'a pas touché ; modifiable ici seulement, il est
+  // figé une fois le contrat déclaré.
   const [slug, setSlug] = useState<string | null>(null);
   const [sens, setSens] = useState<Direction | null>(null);
-  const read = preview.data;
-  const shownSlug = slug ?? read?.slug ?? "";
+  const shownSlug = slug ?? proposeSlug(label);
 
-  function readContract(event: FormEvent) {
+  function submit(event: FormEvent) {
     event.preventDefault();
-    setSlug(null);
-    preview.mutate(content);
-  }
-
-  // Un fichier ou une adresse chargés sont lus aussitôt : ils remplacent le texte et
-  // l'aperçu précédents, slug proposé compris.
-  function loaded(text: string) {
-    setContent(text);
-    setSlug(null);
-    preview.mutate(text);
-  }
-
-  function submit() {
     if (sens !== null) {
-      save.mutate({ slug: shownSlug, sens, content }, { onSuccess: onDone });
+      declare.mutate(
+        { label, slug: shownSlug, sens },
+        { onSuccess: (contract) => onDeclared(contract.slug) },
+      );
     }
   }
 
   return (
-    <form className="card" onSubmit={readContract} aria-label={t("contracts.form.title")}>
+    <form className="card" onSubmit={submit} aria-label={t("contracts.form.title")}>
       <h2>{t("contracts.form.title")}</h2>
-      <ContractSource workspaceId={workspaceId} onContent={loaded} />
       <label className="field">
-        {t("contracts.fields.content")}
-        <textarea
-          required
-          rows={12}
-          spellCheck={false}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
+        {t("contracts.fields.label")}
+        <input required value={label} onChange={(e) => setLabel(e.target.value)} />
       </label>
-      <div className="actions">
-        <button type="submit" className="btn btn-secondary" disabled={preview.isPending}>
-          {t("contracts.form.read")}
-        </button>
-      </div>
-      {preview.isError && <ContractRefusal error={preview.error} />}
-      {read && (
-        <div className="panel">
-          <p>
-            <strong>{read.title}</strong> · OpenAPI {read.openapi} ·{" "}
-            {t("contracts.list.operations", { count: read.operations.length })}
-          </p>
-          {read.warnings.includes("aucune_operation") && (
-            <p className="alert">{t("contracts.warnings.aucune_operation")}</p>
-          )}
-          <label className="field">
-            {t("contracts.fields.slug")}
-            <input required value={shownSlug} onChange={(e) => setSlug(e.target.value)} />
+      <label className="field">
+        {t("contracts.fields.slug")}
+        <input required value={shownSlug} onChange={(e) => setSlug(e.target.value)} />
+      </label>
+      <p className="help">{t("contracts.form.slugHelp")}</p>
+      <fieldset>
+        <legend>{t("contracts.fields.sens")}</legend>
+        {(["sortant", "entrant"] as const).map((value) => (
+          <label key={value} className="choice">
+            <input
+              type="radio"
+              name="sens"
+              checked={sens === value}
+              onChange={() => setSens(value)}
+            />
+            {t(`contracts.sens.${value}`)}
           </label>
-          <p className="help">{t("contracts.form.slugHelp")}</p>
-          <fieldset>
-            <legend>{t("contracts.fields.sens")}</legend>
-            {(["sortant", "entrant"] as const).map((value) => (
-              <label key={value} className="choice">
-                <input
-                  type="radio"
-                  name="sens"
-                  checked={sens === value}
-                  onChange={() => setSens(value)}
-                />
-                {t(`contracts.sens.${value}`)}
-              </label>
-            ))}
-          </fieldset>
-          {save.isError && <ContractRefusal error={save.error} />}
-          <div className="actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={save.isPending || sens === null}
-              onClick={submit}
-            >
-              {t("contracts.form.submit")}
-            </button>
-          </div>
-        </div>
-      )}
+        ))}
+      </fieldset>
+      {declare.isError && <ContractRefusal error={declare.error} />}
       <div className="actions">
-        <button type="button" className="btn btn-secondary" onClick={onDone}>
+        <button type="submit" className="btn btn-primary" disabled={declare.isPending || sens === null}>
+          {t("contracts.form.submit")}
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>
           {t("dataModels.form.cancel")}
         </button>
       </div>
@@ -114,15 +78,13 @@ function ImportForm({ workspaceId, onDone }: { workspaceId: string; onDone: () =
   );
 }
 
-function ContractRow({ workspaceId, contract }: { workspaceId: string; contract: Contract }) {
+function ContractRow({ contract, onOpen }: { contract: Contract; onOpen: () => void }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const detail = useContract(workspaceId, open ? contract.slug : null);
-
+  const latest = contract.versions.at(-1);
   return (
     <li className="row">
       <div className="row-main">
-        <div className="row-title">{contract.title}</div>
+        <div className="row-title">{contract.label}</div>
         <div className="row-sub mono">contracts/{contract.slug}</div>
       </div>
       <div className="cell">
@@ -132,48 +94,37 @@ function ContractRow({ workspaceId, contract }: { workspaceId: string; contract:
         </div>
       </div>
       <div className="cell">
-        <div className="caption">{t("contracts.list.captionOperations")}</div>
+        <div className="caption">{t("contracts.list.captionVersions")}</div>
         <div className="value">
-          {t("contracts.list.operations", { count: contract.operations })}{" "}
-          {contract.warnings.includes("aucune_operation") && (
-            <span className="badge badge-warning">{t("contracts.list.noOperation")}</span>
+          {latest === undefined ? (
+            <span className="badge badge-warning">{t("contracts.list.noFile")}</span>
+          ) : (
+            t("contracts.list.versions", { count: contract.versions.length, latest: latest.number })
           )}
         </div>
       </div>
       <div className="actions row-actions">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          {t(open ? "dataModels.list.hide" : "contracts.list.showOperations")}
+        <button type="button" className="btn btn-secondary" onClick={onOpen}>
+          {t("contracts.list.open")}
         </button>
       </div>
-      {open && detail.data && (
-        <ul className="row-detail plain-list mono">
-          {detail.data.operation_list.map((o) => (
-            <li key={`${o.method} ${o.path}`}>
-              {o.method.toUpperCase()} {o.path}
-              {o.operation_id ? ` — ${o.operation_id}` : ""}
-            </li>
-          ))}
-        </ul>
-      )}
-      {detail.isError && (
-        <div className="row-detail">
-          <ContractRefusal error={detail.error} />
-        </div>
-      )}
     </li>
   );
 }
 
-/** Contrats OpenAPI du workspace : importés depuis les tiers, jamais édités. */
-export function ContractsScreen({ workspace, onBack }: { workspace: Workspace; onBack: () => void }) {
+/** Contrats OpenAPI du workspace : déclarés ici, puis alimentés par les fichiers du tiers. */
+export function ContractsScreen({
+  workspace,
+  onBack,
+  onOpen,
+}: {
+  workspace: Workspace;
+  onBack: () => void;
+  onOpen: (slug: string) => void;
+}) {
   const { t } = useTranslation();
   const contracts = useContracts(workspace.id);
-  const [importing, setImporting] = useState(false);
+  const [declaring, setDeclaring] = useState(false);
 
   return (
     <section aria-labelledby="contracts-title">
@@ -185,13 +136,19 @@ export function ContractsScreen({ workspace, onBack }: { workspace: Workspace; o
           <h1 id="contracts-title">{t("contracts.title", { name: workspace.name })}</h1>
           <p className="lead">{t("contracts.intro")}</p>
         </div>
-        {!importing && (
-          <button type="button" className="btn btn-primary" onClick={() => setImporting(true)}>
+        {!declaring && (
+          <button type="button" className="btn btn-primary" onClick={() => setDeclaring(true)}>
             {t("contracts.add")}
           </button>
         )}
       </div>
-      {importing && <ImportForm workspaceId={workspace.id} onDone={() => setImporting(false)} />}
+      {declaring && (
+        <DeclareForm
+          workspaceId={workspace.id}
+          onDeclared={onOpen}
+          onCancel={() => setDeclaring(false)}
+        />
+      )}
       {contracts.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
       {contracts.isError && <ContractRefusal error={contracts.error} />}
       {contracts.isSuccess && contracts.data.length === 0 && (
@@ -200,7 +157,7 @@ export function ContractsScreen({ workspace, onBack }: { workspace: Workspace; o
       {contracts.isSuccess && contracts.data.length > 0 && (
         <ul className="card-list plain-list">
           {contracts.data.map((c) => (
-            <ContractRow key={c.slug} workspaceId={workspace.id} contract={c} />
+            <ContractRow key={c.slug} contract={c} onOpen={() => onOpen(c.slug)} />
           ))}
         </ul>
       )}

@@ -3,20 +3,19 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from miles.contracts.layout import META, VERSION_RE, read_meta, versions_in
 from miles.contracts.openapi import (
     ContractInvalidError,
     ContractSyntaxError,
     UnsupportedVersionError,
     parse_contract,
 )
-from miles.contracts.service import read_meta
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError, Problem, parse_model
 from miles.datamodels.service import ModelEntry, entry_of, visible_from
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import MANIFEST, diagnose
 
 _CONTRACT_FILE_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/(?P<file>[^/]+)$")
-_VERSION_FILE_RE = re.compile(r"^v\d+\.yaml$")
 
 
 @dataclass(frozen=True)
@@ -45,7 +44,7 @@ async def validate_branch(copy: WorkCopy) -> list[FileReport]:
         if problems:
             reports.append(FileReport(entry.path, problems))
     for path in paths:
-        problems = await _contract_problems(copy, path)
+        problems = await _contract_problems(copy, paths, path)
         if problems:
             reports.append(FileReport(path, problems))
     return sorted(reports, key=lambda r: r.path)
@@ -86,19 +85,23 @@ async def _model_problems(
     return tuple(problems)
 
 
-async def _contract_problems(copy: WorkCopy, path: str) -> tuple[Problem, ...]:
+async def _contract_problems(copy: WorkCopy, paths: list[str], path: str) -> tuple[Problem, ...]:
     match = _CONTRACT_FILE_RE.match(path)
     if match is None or match["file"] == ".gitkeep":
         return ()
     text = await copy.read(path)
-    if match["file"] == "contract.yaml":
+    if match["file"] == META:
         meta = read_meta(text)
         if meta is None:
             return (Problem("", "metadonnees_de_contrat_invalides"),)
-        if meta[0] != match["slug"]:
+        if meta.slug != match["slug"]:
             return (Problem("slug", "slug_different_du_dossier", match["slug"]),)
+        # Bloquant (Gael, 22/10/2026) : un contrat déclaré mais jamais intégré ne décrit
+        # rien, et une version du paramétrage ne fige pas une promesse vide.
+        if not versions_in(paths, meta.slug):
+            return (Problem("", "contrat_sans_fichier"),)
         return ()
-    if not _VERSION_FILE_RE.match(match["file"]):
+    if not VERSION_RE.match(match["file"]):
         return (Problem("", "fichier_de_contrat_inattendu"),)
     try:
         parse_contract(text or "")

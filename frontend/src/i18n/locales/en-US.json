@@ -557,19 +557,19 @@
   },
   "contracts": {
     "title": "OpenAPI contracts — {{name}}",
-    "intro": "Imported from third parties, never edited. A contract's slug is frozen once imported.",
-    "add": "Import a contract",
-    "empty": "No contract imported on the work branch.",
+    "intro": "Declared here (label, slug, direction), then fed with the third party's files: each file becomes a version that coexists with the previous ones.",
+    "add": "Declare a contract",
+    "empty": "No contract declared on the work branch.",
     "fields": {
       "content": "OpenAPI contract (YAML or JSON)",
       "slug": "Slug",
-      "sens": "Direction"
+      "sens": "Direction",
+      "label": "Label"
     },
     "form": {
-      "title": "Import a contract",
-      "read": "Read the contract",
-      "submit": "Import to the work branch",
-      "slugHelp": "Proposed from the contract title. You can change it now only: once imported, the slug is frozen and never renamed."
+      "title": "Declare a contract",
+      "submit": "Declare the contract",
+      "slugHelp": "Proposed from the label. You can change it now only: once declared, the slug, label and direction are frozen."
     },
     "sens": {
       "sortant": "Outbound — call to a remote service",
@@ -584,7 +584,12 @@
       "operations_one": "{{count}} operation",
       "operations_other": "{{count}} operations",
       "noOperation": "No operation",
-      "showOperations": "Operations"
+      "showOperations": "Operations",
+      "captionVersions": "Versions",
+      "versions_one": "{{count}} version (latest v{{latest}})",
+      "versions_other": "{{count}} versions (latest v{{latest}})",
+      "noFile": "No file yet",
+      "open": "Open"
     },
     "errors": {
       "unreadable": "Unreadable file, line {{line}}, column {{column}}: {{message}}",
@@ -594,7 +599,9 @@
       "field": {
         "slug": "Slug: lowercase letters, digits and dashes, 2 to 63 characters.",
         "slug_vide": "Nothing usable remains of the title: give a slug.",
-        "sens": "Choose the direction: outbound or inbound."
+        "sens": "Choose the direction: outbound or inbound.",
+        "label": "Label: at most 120 characters, on a single line.",
+        "label_vide": "Give the contract a label."
       },
       "unexpected": "The operation failed. See the back-office logs.",
       "remote": {
@@ -606,13 +613,26 @@
         "trop_de_redirections": "Too many redirections: the contract was not reached.",
         "encodage": "The answer is not text: is it really a contract?"
       },
-      "file": "The file could not be read."
+      "file": "The file could not be read.",
+      "notFound": "This contract is not declared on the work branch."
     },
     "source": {
       "file": "From a file",
       "url": "From an address",
       "fetch": "Fetch",
       "urlHelp": "Read by the back-office, over http or https, then shown below before anything is imported."
+    },
+    "back": "Back to contracts",
+    "integrate": {
+      "title": "Integrate a file",
+      "read": "Read the file",
+      "submit": "Integrate as a new version",
+      "done": "Integrated as version v{{number}}."
+    },
+    "versions": {
+      "title": "Versions",
+      "empty": "No file integrated yet: a work version cannot be saved until this contract has one.",
+      "unreadable": "unreadable file"
     }
   }
 }

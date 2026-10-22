@@ -6,6 +6,7 @@ import secrets as random
 import httpx
 import pytest
 
+from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import EVENT_TYPES as CONTRACT_EVENTS
 from miles.contracts.service import ContractsService
 from miles.datamodels.service import EVENT_TYPES as DATA_MODEL_EVENTS
@@ -58,6 +59,9 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.data_models = DataModelsService(portal.pool, branches, catalog, utc_now)
     state.workshop = WorkshopService(portal.pool, branches, catalog, utc_now)
     state.contracts = ContractsService(portal.pool, branches, catalog, utc_now)
+    # Sans connexion ouverte tant que rien n'est lu : les tests n'y font passer que des
+    # adresses refusées avant toute requête.
+    state.remote_contracts = RemoteContracts(httpx.AsyncClient())
 
 
 async def add_secret(client: httpx.AsyncClient, slug: str, kind: str, value: str) -> None:

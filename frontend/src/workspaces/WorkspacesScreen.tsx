@@ -6,6 +6,7 @@ import { slugFromLabel } from "../api/secrets";
 import { type Workspace, useCreateWorkspace, useWorkspaces } from "../api/workspaces";
 import { PageHead } from "../layout/PageHead";
 import { type WorkspaceSelection, type WorkspaceView, viewsOf } from "../layout/WorkspacesNav";
+import { ContractScreen } from "./ContractScreen";
 import { ContractsScreen } from "./ContractsScreen";
 import { DataModelsScreen } from "./DataModelsScreen";
 import { WorkspaceSettings } from "./WorkspaceSettings";
@@ -127,8 +128,24 @@ export function WorkspacesScreen({
   const [creating, setCreating] = useState(false);
   const current = workspaces.data?.find((w) => w.id === selection?.id);
 
+  if (current && selection?.view === "contracts" && selection.contract !== undefined) {
+    return (
+      <ContractScreen
+        key={selection.contract}
+        workspace={current}
+        slug={selection.contract}
+        onBack={() => onSelect({ id: current.id, view: "contracts" })}
+      />
+    );
+  }
   if (current && selection?.view === "contracts") {
-    return <ContractsScreen workspace={current} onBack={() => onSelect(null)} />;
+    return (
+      <ContractsScreen
+        workspace={current}
+        onBack={() => onSelect(null)}
+        onOpen={(contract) => onSelect({ id: current.id, view: "contracts", contract })}
+      />
+    );
   }
   if (current && selection?.view === "dataModels") {
     return <DataModelsScreen workspace={current} onBack={() => onSelect(null)} />;

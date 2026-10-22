@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Workspace, useWorkspaces } from "../api/workspaces";
+import { ContractLinks } from "./ContractLinks";
 
 export type WorkspaceView = "settings" | "dataModels" | "contracts";
-/** Ce qu'affiche l'écran Workspaces : la liste (null), ou une vue d'un workspace. */
-export type WorkspaceSelection = { id: string; view: WorkspaceView } | null;
+/**
+ * Ce qu'affiche l'écran Workspaces : la liste (null), une vue d'un workspace, ou l'un
+ * de ses contrats (`contract`, avec la vue « contracts »).
+ */
+export type WorkspaceSelection = { id: string; view: WorkspaceView; contract?: string } | null;
 
 /** Vues d'un workspace, dans l'ordre du sous-menu. */
 export function viewsOf(workspace: Workspace): WorkspaceView[] {
@@ -67,19 +71,32 @@ export function WorkspacesNav({
             </button>
             <div id={listId} hidden={!open}>
               {viewsOf(workspace).map((view) => (
-                <button
-                  key={view}
-                  type="button"
-                  className="sidebar-link sidebar-sublink"
-                  aria-current={
-                    active && selection?.id === workspace.id && selection.view === view
-                      ? "page"
-                      : undefined
-                  }
-                  onClick={() => onSelect({ id: workspace.id, view })}
-                >
-                  {t(`workspaces.card.${view}`)}
-                </button>
+                <Fragment key={view}>
+                  <button
+                    type="button"
+                    className="sidebar-link sidebar-sublink"
+                    aria-current={
+                      active &&
+                      selection?.id === workspace.id &&
+                      selection.view === view &&
+                      selection.contract === undefined
+                        ? "page"
+                        : undefined
+                    }
+                    onClick={() => onSelect({ id: workspace.id, view })}
+                  >
+                    {t(`workspaces.card.${view}`)}
+                  </button>
+                  {view === "contracts" && (
+                    <ContractLinks
+                      workspaceId={workspace.id}
+                      open={open}
+                      active={active}
+                      selection={selection}
+                      onSelect={onSelect}
+                    />
+                  )}
+                </Fragment>
               ))}
             </div>
           </div>

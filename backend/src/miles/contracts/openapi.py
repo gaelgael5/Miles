@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
@@ -134,14 +133,3 @@ def _operations(data: dict[str, Any]) -> list[Operation]:
                     operation_id = operation.get("operationId")
                     operations.append(Operation(method, str(route), operation_id))
     return operations
-
-
-def propose_slug(title: str) -> str:
-    """Slug proposé depuis le titre : minuscules sans accents, mots séparés par des tirets.
-
-    Rend une chaîne vide quand rien ne reste après normalisation : c'est alors à
-    l'utilisateur de donner un slug explicite (critère 5), on n'en invente pas.
-    """
-    ascii_title = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
-    slug = re.sub(r"[^a-z0-9]+", "-", ascii_title.lower()).strip("-")
-    return slug[:63].rstrip("-")

@@ -145,4 +145,26 @@ describe("App", () => {
       "page",
     );
   });
+
+  it("lists the declared contracts under their workspace, and opens one from the menu", async () => {
+    const declared = { slug: "suivi", label: "Suivi des demandes", sens: "sortant", versions: [] };
+    mockApi({
+      ...ADMIN,
+      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
+      "GET /api/workspaces/retrait/contracts": { status: 200, body: [declared] },
+      "GET /api/workspaces/retrait/contracts/suivi": { status: 200, body: declared },
+    });
+    renderApp();
+    const nav = await screen.findByRole("navigation");
+    fireEvent.click(await within(nav).findByRole("button", { name: "Retrait de colis" }));
+
+    const contract = await within(nav).findByRole("button", { name: "Suivi des demandes" });
+    fireEvent.click(contract);
+
+    expect(await screen.findByRole("heading", { name: "Suivi des demandes" })).toBeInTheDocument();
+    expect(contract).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("button", { name: "Contracts" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
 });
