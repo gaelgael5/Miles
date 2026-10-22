@@ -596,7 +596,23 @@
         "slug_vide": "Nothing usable remains of the title: give a slug.",
         "sens": "Choose the direction: outbound or inbound."
       },
-      "unexpected": "The operation failed. See the back-office logs."
+      "unexpected": "The operation failed. See the back-office logs.",
+      "remote": {
+        "adresse_invalide": "Address not accepted: http:// or https://, a host name, and no credentials in it.",
+        "adresse_interdite": "This address leads to the back-office itself (loopback, cloud metadata): refused.",
+        "injoignable": "The address cannot be reached from the back-office.",
+        "statut": "The address answered with status {{status}} instead of the contract.",
+        "trop_volumineux": "The file exceeds 2 MB.",
+        "trop_de_redirections": "Too many redirections: the contract was not reached.",
+        "encodage": "The answer is not text: is it really a contract?"
+      },
+      "file": "The file could not be read."
+    },
+    "source": {
+      "file": "From a file",
+      "url": "From an address",
+      "fetch": "Fetch",
+      "urlHelp": "Read by the back-office, over http or https, then shown below before anything is imported."
     }
   }
 }

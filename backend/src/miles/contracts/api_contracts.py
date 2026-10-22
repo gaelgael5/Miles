@@ -14,6 +14,7 @@ from miles.contracts.openapi import (
     ParsedContract,
     UnsupportedVersionError,
 )
+from miles.contracts.remote import RemoteContractError, RemoteContracts
 from miles.contracts.service import (
     ContractEntry,
     ContractNotFoundError,
@@ -41,6 +42,14 @@ def contracts_service(request: Request) -> ContractsService:
 Service = Annotated[ContractsService, Depends(contracts_service)]
 
 
+def remote_contracts(request: Request) -> RemoteContracts:
+    remote: RemoteContracts = request.app.state.remote_contracts
+    return remote
+
+
+Remote = Annotated[RemoteContracts, Depends(remote_contracts)]
+
+
 class OperationOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     method: str
@@ -49,6 +58,16 @@ class OperationOut(BaseModel):
 
 
 class PreviewIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    content: str
+
+
+class FetchIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: str
+
+
+class FetchOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     content: str
 
@@ -172,6 +191,19 @@ async def preview_contract(workspace_id: str, body: PreviewIn, service: Service)
         operations=operations,
         warnings=_warnings(len(operations)),
     )
+
+
+@router.post("/fetch", response_model=FetchOut)
+async def fetch_contract(workspace_id: str, body: FetchIn, remote: Remote) -> object:
+    # Lecture seule : le texte revient à l'écran et suit ensuite le chemin d'un fichier
+    # collé (aperçu, puis import), si bien que ce qui est versionné est ce qui a été vu.
+    try:
+        return FetchOut(content=await remote.resolve_fetch(body.url))
+    except RemoteContractError as exc:
+        reading: dict[str, object] = {"code": "lecture_distante", "reason": exc.reason}
+        if exc.status is not None:
+            reading["status"] = exc.status
+        return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, reading)
 
 
 @router.get("", response_model=list[ContractOut])

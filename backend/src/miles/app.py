@@ -21,6 +21,7 @@ from miles.auth.throttle import LoginThrottle
 from miles.config import Settings
 from miles.contracts import service as contracts_events
 from miles.contracts.api_contracts import router as contracts_router
+from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import ContractsService
 from miles.cultures import service as cultures_events
 from miles.cultures.api_cultures import public_router as login_cultures_router
@@ -135,6 +136,7 @@ def create_app() -> FastAPI:
         app.state.data_models = DataModelsService(pool, branches, catalog, utc_now)
         app.state.workshop = WorkshopService(pool, branches, catalog, utc_now)
         app.state.contracts = ContractsService(pool, branches, catalog, utc_now)
+        app.state.remote_contracts = RemoteContracts(http)
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(

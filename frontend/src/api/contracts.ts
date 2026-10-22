@@ -77,3 +77,14 @@ export function useImportContract(workspaceId: string) {
     onSuccess: () => client.invalidateQueries({ queryKey: key(workspaceId) }),
   });
 }
+
+/** Lecture d'un contrat publié à une adresse : le back-office le lit, rien n'est écrit. */
+export function useFetchContract(workspaceId: string) {
+  return useMutation({
+    mutationFn: (url: string) =>
+      request<{ content: string }>(`${root(workspaceId)}/fetch`, {
+        method: "POST",
+        body: JSON.stringify({ url }),
+      }),
+  });
+}

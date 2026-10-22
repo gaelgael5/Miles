@@ -147,3 +147,14 @@ async def test_a_version_cannot_freeze_a_contract_broken_outside_miles(forge: Fo
             "problems": [{"path": "", "code": "metadonnees_de_contrat_invalides", "detail": None}],
         }
     ]
+
+
+async def test_reading_an_address_refuses_the_server_itself_and_names_why(forge: Forge) -> None:
+    looped = await forge.client.post(f"{ROUTE}/fetch", json={"url": "http://127.0.0.1:8080/x"})
+    malformed = await forge.client.post(f"{ROUTE}/fetch", json={"url": "file:///etc/passwd"})
+
+    assert (looped.status_code, looped.json()["detail"]) == (
+        422,
+        {"code": "lecture_distante", "reason": "adresse_interdite"},
+    )
+    assert malformed.json()["detail"] == {"code": "lecture_distante", "reason": "adresse_invalide"}

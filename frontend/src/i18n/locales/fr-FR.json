@@ -596,7 +596,23 @@
         "slug_vide": "Il ne reste rien d'utilisable du titre : donnez un slug.",
         "sens": "Choisissez le sens : sortant ou entrant."
       },
-      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office.",
+      "remote": {
+        "adresse_invalide": "Adresse refusée : http:// ou https://, un nom d'hôte, et aucun identifiant dedans.",
+        "adresse_interdite": "Cette adresse mène au back-office lui-même (boucle locale, métadonnées du cloud) : refusée.",
+        "injoignable": "L'adresse est injoignable depuis le back-office.",
+        "statut": "L'adresse a répondu le statut {{status}} au lieu du contrat.",
+        "trop_volumineux": "Le fichier dépasse 2 Mo.",
+        "trop_de_redirections": "Trop de redirections : le contrat n'a pas été atteint.",
+        "encodage": "La réponse n'est pas du texte : est-ce bien un contrat ?"
+      },
+      "file": "Le fichier n'a pas pu être lu."
+    },
+    "source": {
+      "file": "Depuis un fichier",
+      "url": "Depuis une adresse",
+      "fetch": "Récupérer",
+      "urlHelp": "Lue par le back-office, en http ou https, puis affichée ci-dessous avant tout import."
     }
   }
 }
