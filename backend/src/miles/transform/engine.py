@@ -73,10 +73,10 @@ class Template:
     ast: JsltBase
 
 
-def compile_template(source: str) -> Template:
-    """Analyse le template et le confronte au profil ; refuse ce qui n'y entre pas."""
+def parse_ast(source: str) -> JsltBase:
+    """Arbre du moteur pour ce texte, sans aucune vérification de profil."""
     try:
-        ast = ScriptBuilderVisitor().visit(parse_to_tree(source))
+        ast: JsltBase = ScriptBuilderVisitor().visit(parse_to_tree(source))
     except JsltSyntaxError as exc:
         raise TemplateSyntaxError(str(exc), exc.line, exc.column) from None
     except JsltSemanticError as exc:
@@ -84,6 +84,12 @@ def compile_template(source: str) -> Template:
         raise TemplateSyntaxError(
             str(exc), getattr(location, "line", None), getattr(location, "column", None)
         ) from None
+    return ast
+
+
+def compile_template(source: str) -> Template:
+    """Analyse le template et le confronte au profil ; refuse ce qui n'y entre pas."""
+    ast = parse_ast(source)
     violations = check_profile(ast) + unknown_functions(ast, function_registry())
     if violations:
         raise OutsideProfileError(violations)
@@ -92,10 +98,11 @@ def compile_template(source: str) -> Template:
 
 def evaluate(template: Template, document: Any, budget: int) -> Any:
     """Applique le template ; toute erreur est explicite, jamais un résultat partiel."""
-    # Entrée vide ou absente : refusée plutôt que transformée en un document creux,
-    # qui passerait pour un résultat (critère 8).
-    if document is None or document == {} or document == []:
-        raise EvaluationError("entree_vide")
+    # Sans message, la source vaut {} (Gael, 22/10/2026 : chaîne de transformations).
+    # Cela remplace le refus d'une entrée vide d'abord livré (68cae2ff, critère 8) : un
+    # template de constantes ou d'appels de fonctions sur {} est légitime.
+    if document is None:
+        document = {}
     evaluator = _Evaluator(RuntimeContext(Sources(document), function_registry()), budget)
     try:
         return template.ast.accept(evaluator)

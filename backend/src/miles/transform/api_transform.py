@@ -5,6 +5,14 @@ from typing import Any
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from miles.transform.chain import (
+    ChainFailedError,
+    ChainInvalidError,
+    StepProblem,
+    StepSpec,
+    compile_chain,
+    run_chain,
+)
 from miles.transform.engine import (
     EvaluationError,
     OutsideProfileError,
@@ -16,6 +24,8 @@ from miles.transform.engine import (
 # Réservé à l'administrateur tant que les rôles n'existent pas. Vérifier n'écrit rien :
 # l'enregistrement d'un template appartient à ce qui le porte (mapping, import…).
 router = APIRouter(prefix="/api/templates")
+# Chaîne de transformations (story 66ae5c10) : même vérification, étape par étape.
+chains_router = APIRouter(prefix="/api/transformations")
 MAX_TEMPLATE_LENGTH = 256 * 1024
 
 
@@ -87,3 +97,77 @@ async def check_template(body: CheckIn, request: Request) -> CheckOut:
         )
         return CheckOut(valid=True, evaluated=True, evaluation=failure)
     return CheckOut(valid=True, evaluated=True, result=result)
+
+
+class StepIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    template: str = Field(max_length=MAX_TEMPLATE_LENGTH)
+    # Vide : le résultat devient le message ; sinon le chemin où le poser.
+    target: str | None = Field(default=None, max_length=1024)
+
+
+class ChainCheckIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    steps: list[StepIn] = Field(max_length=200)
+    # Message d'entrée ; absent, la source vaut {}.
+    sample: Any = None
+
+
+class StepProblemOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    step: int
+    code: str
+    detail: str | None
+    line: int | None
+    column: int | None
+    violations: list[ViolationOut]
+
+
+class ChainFailureOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    step: int
+    evaluation: EvaluationOut
+
+
+class ChainCheckOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    valid: bool
+    problems: list[StepProblemOut] = []
+    # Message produit après chaque étape : on voit où une transformation dévie.
+    trace: list[Any] = []
+    failure: ChainFailureOut | None = None
+
+
+@chains_router.post("/check", response_model=ChainCheckOut)
+async def check_chain(body: ChainCheckIn, request: Request) -> ChainCheckOut:
+    specs = [StepSpec(s.template, s.target) for s in body.steps]
+    try:
+        chain = compile_chain(specs)
+    except ChainInvalidError as exc:
+        return ChainCheckOut(valid=False, problems=[_problem(p) for p in exc.problems])
+    budget: int = request.app.state.transform_budget
+    try:
+        trace = run_chain(chain, body.sample, budget)
+    except ChainFailedError as exc:
+        cause = exc.cause
+        evaluation = EvaluationOut(
+            code=cause.code, message=cause.message, path=cause.path, expected=cause.expected
+        )
+        return ChainCheckOut(
+            valid=True, failure=ChainFailureOut(step=exc.step, evaluation=evaluation)
+        )
+    return ChainCheckOut(valid=True, trace=trace)
+
+
+def _problem(problem: StepProblem) -> StepProblemOut:
+    return StepProblemOut(
+        step=problem.step,
+        code=problem.code,
+        detail=problem.detail,
+        line=problem.line,
+        column=problem.column,
+        violations=[
+            ViolationOut(construction=v.construct, detail=v.detail, line=v.line, column=v.column)
+            for v in problem.violations
+        ],
+    )

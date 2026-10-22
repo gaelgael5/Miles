@@ -150,12 +150,11 @@ def test_absent_value_stays_absent_through_a_cast_instead_of_a_default() -> None
     assert _run('{ "r": $.v#integer, "s": $.v#integer ?? -1 }', {"x": 1}) == {"r": None, "s": -1}
 
 
-@pytest.mark.parametrize("document", [None, {}, []], ids=["absente", "objet-vide", "liste-vide"])
-def test_empty_or_absent_input_is_an_explicit_error(document: Any) -> None:
-    with pytest.raises(EvaluationError) as caught:
-        _run('{ "a": 1 }', document)
-
-    assert caught.value.code == "entree_vide"
+@pytest.mark.parametrize("document", [None, {}], ids=["absente", "objet-vide"])
+def test_without_a_message_the_source_is_an_empty_object(document: Any) -> None:
+    # Gael, 22/10/2026 : pas de message, la source vaut {} ; un template de constantes
+    # produit alors un message à partir de rien.
+    assert _run('{ "a": 1, "b": $.x ?? "repli" }', document) == {"a": 1, "b": "repli"}
 
 
 def test_evaluation_beyond_the_configured_budget_is_interrupted() -> None:

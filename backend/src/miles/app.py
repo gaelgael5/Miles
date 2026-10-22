@@ -62,6 +62,7 @@ from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
 from miles.transform.api_catalog import CatalogService
 from miles.transform.api_catalog import router as catalog_router
+from miles.transform.api_transform import chains_router
 from miles.transform.api_transform import router as transform_router
 from miles.workshop import branches as branches_events
 from miles.workshop import service as workshop_events
@@ -222,5 +223,6 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(preferences_router)
     app.include_router(identities_router)
     app.include_router(transform_router)
+    app.include_router(chains_router)
     app.include_router(catalog_router)
     return app
