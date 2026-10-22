@@ -123,6 +123,7 @@ async def test_full_login_through_a_real_provider_opens_an_oidc_session(flow: Fl
     assert me.json() == {
         "kind": "oidc",
         "username": "Alice",
+        "subject": "alice-sub",
         "email": "alice@example.org",
         "directory": "mock",
         "root_admin": False,

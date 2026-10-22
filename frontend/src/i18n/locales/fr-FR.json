@@ -686,6 +686,35 @@
     "noBranch": "Aucun workspace n'a encore de branche de travail.",
     "errors": {
       "language": "La langue n'a pas pu être enregistrée."
+    },
+    "git": {
+      "title": "Identité git",
+      "intro": "Pour modifier le paramétrage d'une branche, vous travaillez sous votre propre compte git : enregistrez un jeton d'accès personnel pour chaque connexion git. Il est vérifié auprès de la forge, chiffré, et jamais réaffiché.",
+      "none": "Aucun jeton enregistré pour cette connexion.",
+      "noConnection": "Aucune connexion git n'est encore déclarée.",
+      "account": "Compte {{login}} ({{name}}) —",
+      "noreply": "Adresse « noreply » de GitHub : le compte n'expose aucun e-mail lisible",
+      "write": {
+        "true": "peut écrire",
+        "false": "ne peut pas écrire",
+        "unknown": "non vérifié (la forge n'a pas répondu)"
+      },
+      "form": "Jeton personnel pour {{name}}",
+      "token": "Jeton d'accès personnel",
+      "tokenHelp": "Droits nécessaires : contenu en lecture et écriture sur les dépôts, et lecture des adresses e-mail du compte.",
+      "save": "Vérifier et enregistrer",
+      "replace": "Vérifier et remplacer",
+      "remove": "Retirer le jeton",
+      "removeTitle": "Retirer votre identité git ?",
+      "removeBody": "Votre jeton pour {{name}} sera supprimé. Il faudra en enregistrer un nouveau avant de modifier une branche de cette connexion.",
+      "errors": {
+        "jeton_refuse": "La forge a refusé ce jeton.",
+        "forge_injoignable": "La forge est injoignable.",
+        "reponse_inattendue": "La forge a répondu de façon inattendue.",
+        "forge": "Cette forge n'est pas prise en charge.",
+        "empty": "Saisissez un jeton.",
+        "unexpected": "Le jeton n'a pas pu être enregistré. Voir les journaux du back-office."
+      }
     }
   }
 }

@@ -41,6 +41,16 @@ PUBLIC_API_PATHS = frozenset(
 # Les préférences (langue du portail) sont personnelles : les ouvrir n'atteint que la
 # personne elle-même (ticket 0a52596d), et rien d'autre ne s'ouvre avec elles.
 OIDC_SESSION_PATHS = frozenset({"/api/auth/me", "/api/auth/logout", "/api/auth/me/preferences"})
+# Identité git personnelle (ticket 033e5ff3) : même raison, la personne n'y atteint que
+# ses propres jetons. Préfixe, parce que la connexion git figure dans le chemin.
+OIDC_SESSION_PREFIXES = ("/api/auth/me/git-identities",)
+
+
+def _personal(path: str) -> bool:
+    return path in OIDC_SESSION_PATHS or any(
+        path == prefix or path.startswith(prefix + "/") for prefix in OIDC_SESSION_PREFIXES
+    )
+
 
 CallNext = Callable[[Request], Awaitable[Response]]
 
@@ -77,7 +87,7 @@ async def auth_gate(request: Request, call_next: CallNext) -> Response:
             log.warning("session_admin_oidc_revoquee", origin=client_origin(request))
             return _deny(status.HTTP_401_UNAUTHORIZED, "session_requise")
     elif session.subject_kind == OIDC_KIND:
-        if path not in OIDC_SESSION_PATHS:
+        if not _personal(path):
             return _deny(status.HTTP_403_FORBIDDEN, "aucun_droit")
     # Recalculé à chaque requête, pas mémorisé : après une réinitialisation du
     # compte dans .env, les sessions de l'ancien administrateur ne valent plus rien.

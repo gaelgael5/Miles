@@ -686,6 +686,35 @@
     "noBranch": "No workspace has a work branch yet.",
     "errors": {
       "language": "The language could not be saved."
+    },
+    "git": {
+      "title": "Git identity",
+      "intro": "To modify the configuration of a branch, you work under your own git account: register a personal access token for each git connection. It is checked with the forge, encrypted, and never shown again.",
+      "none": "No token registered for this connection.",
+      "noConnection": "No git connection is declared yet.",
+      "account": "Account {{login}} ({{name}}) —",
+      "noreply": "GitHub no-reply address: the account exposes no readable e-mail",
+      "write": {
+        "true": "can write",
+        "false": "cannot write",
+        "unknown": "not checked (forge did not answer)"
+      },
+      "form": "Personal token for {{name}}",
+      "token": "Personal access token",
+      "tokenHelp": "Rights needed: contents read and write on the repositories, and read access to the e-mail addresses of the account.",
+      "save": "Check and save",
+      "replace": "Check and replace",
+      "remove": "Remove the token",
+      "removeTitle": "Remove your git identity?",
+      "removeBody": "Your token for {{name}} will be deleted. You will need to register one again before modifying a branch of this connection.",
+      "errors": {
+        "jeton_refuse": "The forge refused this token.",
+        "forge_injoignable": "The forge could not be reached.",
+        "reponse_inattendue": "The forge gave an unexpected answer.",
+        "forge": "This forge is not supported.",
+        "empty": "Enter a token.",
+        "unexpected": "The token could not be saved. See the back-office logs."
+      }
     }
   }
 }

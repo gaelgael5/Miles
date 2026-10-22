@@ -19,6 +19,8 @@ from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.model import EVENT_TYPES as GITACCESS_EVENTS
 from miles.gitaccess.resolver import AccessResolver
+from miles.identities.service import EVENT_TYPES as IDENTITY_EVENTS
+from miles.identities.service import GitIdentitiesService
 from miles.secrets.crypto import SecretCipher
 from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles.secrets.service import SecretsService
@@ -51,8 +53,10 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | WORKSHOP_EVENTS
         | CONTRACT_EVENTS
         | BRANCH_EVENTS
+        | IDENTITY_EVENTS
     )
-    secrets = SecretsService(portal.pool, SecretCipher(os.urandom(32)), catalog, utc_now)
+    cipher = SecretCipher(os.urandom(32))
+    secrets = SecretsService(portal.pool, cipher, catalog, utc_now)
     resolver = AccessResolver(secrets)
     verifier = DependentsVerifier(portal.pool, catalog, utc_now, hosts)
     state = portal.app.state
@@ -71,6 +75,9 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     # adresses refusées avant toute requête.
     state.remote_contracts = RemoteContracts(httpx.AsyncClient())
     state.branches = BranchesService(portal.pool, branches, catalog, utc_now)
+    state.git_identities = GitIdentitiesService(
+        portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts
+    )
 
 
 async def add_secret(client: httpx.AsyncClient, slug: str, kind: str, value: str) -> None:

@@ -42,6 +42,9 @@ from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.resolver import AccessResolver
 from miles.health import resolve_health
+from miles.identities import service as identities_events
+from miles.identities.api_identities import router as identities_router
+from miles.identities.service import GitIdentitiesService
 from miles.log_config import configure_logging
 from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder
@@ -100,6 +103,7 @@ def create_app() -> FastAPI:
         | workshop_events.EVENT_TYPES
         | contracts_events.EVENT_TYPES
         | branches_events.EVENT_TYPES
+        | identities_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -148,6 +152,9 @@ def create_app() -> FastAPI:
         app.state.contracts = ContractsService(pool, branches, catalog, utc_now)
         app.state.remote_contracts = RemoteContracts(http)
         app.state.branches = BranchesService(pool, branches, catalog, utc_now)
+        app.state.git_identities = GitIdentitiesService(
+            pool, cipher, http, catalog, utc_now, git_hosts
+        )
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -208,4 +215,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(branches_router)
     app.include_router(branch_views_router)
     app.include_router(preferences_router)
+    app.include_router(identities_router)
     return app

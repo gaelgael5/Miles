@@ -102,6 +102,17 @@ def test_oidc_session_without_rights_reaches_its_own_preferences(
     assert oidc_client.put("/api/workspaces/x/branches/view", json={}).status_code == 403
 
 
+def test_oidc_session_without_rights_reaches_its_own_git_identities_only(
+    oidc_client: TestClient,
+) -> None:
+    oidc_client.app.state.git_identities = object()  # type: ignore[attr-defined]
+
+    # 422 : la route elle-même refuse le corps, donc la passerelle l'a laissée passer.
+    assert oidc_client.put("/api/auth/me/git-identities/forge", json={}).status_code == 422
+    # Un chemin qui ne fait que commencer pareil reste fermé : le préfixe s'arrête au « / ».
+    assert oidc_client.get("/api/auth/me/git-identitiesx").status_code == 403
+
+
 @pytest.mark.parametrize(
     ("method", "path"),
     [
