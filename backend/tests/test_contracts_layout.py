@@ -4,6 +4,7 @@ import pytest
 
 from miles.contracts.layout import (
     ContractMeta,
+    VersionImport,
     checked_slug,
     meta_text,
     read_meta,
@@ -66,3 +67,23 @@ def test_label_and_slug_are_trimmed() -> None:
     assert (checked_label("  Suivi  "), checked_slug(" suivi ")) == ("Suivi", "suivi")
     with pytest.raises(WorkspaceInputError):
         checked_slug("Suivi!")
+
+
+def test_deposits_are_written_and_read_back_with_the_declaration() -> None:
+    deposit = VersionImport("2026-10-22T08:00:00+00:00", "Gaël via Miles <g@x.miles.invalid>")
+    meta = ContractMeta("suivi", "Suivi", "sortant").with_import(2, deposit)
+
+    back = read_meta(meta_text(meta))
+
+    assert back == meta
+    assert back is not None and back.imported(2) == deposit and back.imported(1) is None
+    # Un dépôt ne change pas l'identité déclarée : le rejeu de la déclaration reste égal.
+    assert back.declaration() == ("suivi", "Suivi", "sortant")
+
+
+@pytest.mark.parametrize(
+    "versions",
+    ["versions: [1]\n", "versions:\n  un: {imported_at: x, by: y}\n", "versions:\n  1: {by: y}\n"],
+)
+def test_malformed_deposits_make_the_declaration_unreadable(versions: str) -> None:
+    assert read_meta("slug: suivi\nsens: sortant\n" + versions) is None

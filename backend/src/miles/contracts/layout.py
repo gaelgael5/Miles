@@ -17,10 +17,32 @@ _FILE_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/(?P<file>[^/]+)$")
 
 
 @dataclass(frozen=True)
+class VersionImport:
+    """Dépôt d'une version de contrat : quand, et par qui (story b2305542)."""
+
+    # ISO 8601. Tenu dans git avec le contrat : le journal d'events, lui, se purge.
+    imported_at: str
+    by: str
+
+
+@dataclass(frozen=True)
 class ContractMeta:
     slug: str
     label: str
     direction: str
+    # Par numéro de version. Absent : version déposée hors de Miles, sans date connue.
+    imports: tuple[tuple[int, VersionImport], ...] = ()
+
+    def declaration(self) -> tuple[str, str, str]:
+        """Ce que fige la déclaration ; les dépôts de versions n'en font pas partie."""
+        return self.slug, self.label, self.direction
+
+    def imported(self, number: int) -> VersionImport | None:
+        return dict(self.imports).get(number)
+
+    def with_import(self, number: int, entry: VersionImport) -> ContractMeta:
+        imports = dict(self.imports) | {number: entry}
+        return ContractMeta(self.slug, self.label, self.direction, tuple(sorted(imports.items())))
 
 
 def contract_dir(slug: str) -> str:
@@ -52,14 +74,44 @@ def read_meta(text: str | None) -> ContractMeta | None:
         label = slug
     if not isinstance(label, str):
         return None
-    return ContractMeta(slug, label, str(direction))
+    imports = _imports(data.get("versions"))
+    if imports is None:
+        return None
+    return ContractMeta(slug, label, str(direction), imports)
+
+
+def _imports(raw: object) -> tuple[tuple[int, VersionImport], ...] | None:
+    """Dépôts lus dans la déclaration ; None si la section est mal formée."""
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict):
+        return None
+    entries = []
+    for number, entry in raw.items():
+        if not isinstance(number, int) or isinstance(number, bool) or number < 1:
+            return None
+        if not isinstance(entry, dict):
+            return None
+        at, by = entry.get("imported_at"), entry.get("by")
+        if not isinstance(at, str) or not isinstance(by, str):
+            return None
+        entries.append((number, VersionImport(at, by)))
+    return tuple(sorted(entries))
 
 
 def meta_text(meta: ContractMeta) -> str:
     # Le label est libre : écrit en chaîne JSON, qui est aussi une chaîne YAML entre
     # guillemets, pour qu'aucun « : » ni « # » saisi ne change la structure du fichier.
     label = json.dumps(meta.label, ensure_ascii=False)
-    return f"slug: {meta.slug}\nlabel: {label}\nsens: {meta.direction}\n"
+    text = f"slug: {meta.slug}\nlabel: {label}\nsens: {meta.direction}\n"
+    if meta.imports:
+        text += "versions:\n"
+        for number, entry in meta.imports:
+            # Mêmes guillemets JSON : l'auteur porte « < > » et la date des « : ».
+            at = json.dumps(entry.imported_at)
+            by = json.dumps(entry.by, ensure_ascii=False)
+            text += f"  {number}:\n    imported_at: {at}\n    by: {by}\n"
+    return text
 
 
 def slugs_in(paths: list[str]) -> list[str]:

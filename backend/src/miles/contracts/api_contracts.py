@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -7,6 +8,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from miles.auth.author import request_author
+from miles.contracts.history import Comparison, compare
 from miles.contracts.openapi import ParsedContract
 from miles.contracts.refusals import REFUSALS as _REFUSALS
 from miles.contracts.refusals import error as _error
@@ -69,10 +71,21 @@ class VersionOut(BaseModel):
     title: str | None
     operations: int
     warnings: list[str]
+    # None : version déposée hors de Miles, sans date ni auteur connus.
+    imported_at: datetime | None
+    imported_by: str | None
+
+
+class VersionOperationOut(OperationOut):
+    # « nouvelle » : absente de la version précédente. None : déjà là, ou rien à comparer.
+    change: str | None
 
 
 class VersionDetailOut(VersionOut):
-    operation_list: list[OperationOut]
+    operation_list: list[VersionOperationOut]
+    # Version à laquelle celle-ci est comparée ; None pour la première.
+    compared_with: int | None
+    removed: list[OperationOut]
 
 
 class ContractOut(BaseModel):
@@ -118,21 +131,46 @@ def _warnings(count: int) -> list[str]:
     return [NO_OPERATION] if count == 0 else []
 
 
-def _version(version: ContractVersion) -> VersionDetailOut:
-    operations = _operations(version.parsed)
+def _versions(contract: Contract) -> list[VersionDetailOut]:
+    details, previous = [], None
+    for version in contract.versions:
+        details.append(_version(contract, version, compare(previous, version.parsed)))
+        previous = (version.number, version.parsed)
+    return details
+
+
+def _version(
+    contract: Contract, version: ContractVersion, comparison: Comparison
+) -> VersionDetailOut:
+    operations = version.parsed.operations if version.parsed is not None else ()
+    deposit = contract.meta.imported(version.number)
     return VersionDetailOut(
         number=version.number,
         title=version.parsed.title if version.parsed is not None else None,
         operations=len(operations),
         warnings=_warnings(len(operations)),
-        operation_list=operations,
+        imported_at=datetime.fromisoformat(deposit.imported_at) if deposit else None,
+        imported_by=deposit.by if deposit else None,
+        operation_list=[
+            VersionOperationOut(
+                method=o.method,
+                path=o.path,
+                operation_id=o.operation_id,
+                change="nouvelle" if (o.method, o.path) in comparison.added else None,
+            )
+            for o in operations
+        ],
+        compared_with=comparison.previous,
+        removed=[
+            OperationOut(method=o.method, path=o.path, operation_id=o.operation_id)
+            for o in comparison.removed
+        ],
     )
 
 
 def _out(contract: Contract) -> ContractOut:
-    versions = [
-        VersionOut(**_version(v).model_dump(exclude={"operation_list"})) for v in contract.versions
-    ]
+    summary = {"operation_list", "compared_with", "removed"}
+    versions = [VersionOut(**v.model_dump(exclude=summary)) for v in _versions(contract)]
     meta = contract.meta
     return ContractOut(slug=meta.slug, label=meta.label, sens=meta.direction, versions=versions)
 
@@ -181,7 +219,7 @@ async def get_contract(
         contract = await service.resolve_get(workspace_id, slug, branch=branch)
     except _REFUSALS as exc:
         return _refusal(exc)
-    versions = [_version(v) for v in contract.versions]
+    versions = _versions(contract)
     return ContractDetailOut(**_out(contract).model_dump(exclude={"versions"}), versions=versions)
 
 
@@ -225,7 +263,7 @@ async def import_version(
     branch: str | None = None,
 ) -> object:
     try:
-        version, existed = await service.resolve_import(
+        contract, number, existed = await service.resolve_import(
             request_author(request), workspace_id, slug, body.content, branch=branch
         )
     except _REFUSALS as exc:
@@ -234,7 +272,7 @@ async def import_version(
         # Fichier déjà intégré à l'identique : la version existante, sans nouveau commit.
         response.status_code = status.HTTP_200_OK
         response.headers["X-Miles-Already-Exists"] = "true"
-    return _version(version)
+    return next(v for v in _versions(contract) if v.number == number)
 
 
 @router.patch("/{slug}")

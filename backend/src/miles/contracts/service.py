@@ -10,6 +10,7 @@ import structlog
 from miles.contracts.layout import (
     DIRECTIONS,
     ContractMeta,
+    VersionImport,
     checked_slug,
     meta_path,
     meta_text,
@@ -23,7 +24,7 @@ from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
 from miles.workshop.target import WorkBranches
-from miles.workspaces.model import WorkspaceInputError, checked_label
+from miles.workspaces.model import WorkspaceInputError, checked_label, commit_author
 
 log = structlog.get_logger(__name__)
 
@@ -112,7 +113,9 @@ class ContractsService:
             paths = await copy.paths()
             existing = await _contract(copy, paths, meta.slug)
             if existing is not None:
-                if existing.meta == meta:
+                # Rejeu : la même déclaration. Les dépôts de versions faits depuis n'en
+                # changent pas l'identité.
+                if existing.meta.declaration() == meta.declaration():
                     return existing, True
                 raise ContractTakenError(existing.meta.label)
             # Un dossier sans déclaration lisible (retouché hors de Miles) occupe aussi le slug.
@@ -137,29 +140,38 @@ class ContractsService:
         content: str,
         *,
         branch: str | None = None,
-    ) -> tuple[ContractVersion, bool]:
-        """Intègre un fichier en version suivante ; rend (version, déjà_là)."""
+    ) -> tuple[Contract, int, bool]:
+        """Intègre un fichier en version suivante ; rend (contrat, numéro, déjà_là).
+
+        Le contrat entier revient, relu après écriture : la version se présente avec sa
+        date de dépôt et sa comparaison à la précédente, comme dans le détail.
+        """
         slug = checked_slug(slug)
         # Vérifié avant tout accès au dépôt : un fichier refusé ne coûte aucun clone.
-        parsed = parse_contract(content)
+        parse_contract(content)
         async with self.branches.checkout(workspace_id, branch) as copy:
             paths = await copy.paths()
-            if read_meta(await copy.read(meta_path(slug))) is None:
+            meta = read_meta(await copy.read(meta_path(slug)))
+            if meta is None:
                 raise ContractNotFoundError(slug)
             numbers = versions_in(paths, slug)
             # Un fichier déjà intégré à l'identique ne crée pas de version : le rejeu d'un
             # import ne doit pas fabriquer v2, v3… du même contrat.
             for number in numbers:
                 if await copy.read(version_path(slug, number)) == content:
-                    return ContractVersion(number, parsed), True
+                    return await _required(copy, slug), number, True
             number = (numbers[-1] if numbers else 0) + 1
             await copy.write(version_path(slug, number), content)
+            # Date et auteur du dépôt, écrits dans le même commit que la version.
+            deposit = VersionImport(self.now().isoformat(), commit_author(author))
+            await copy.write(meta_path(slug), meta_text(meta.with_import(number, deposit)))
             message = f"Intégration du contrat {slug} (v{number})"
             commit = await self.branches.push(copy, message, author)
+            contract = await _required(copy, slug)
         properties = {"slug": slug, "version": number, "commit": commit, "branch": copy.branch}
         await self._journal(VERSION_EVENT, workspace_id, author, properties)
         log.info("contrat_integre", workspace=workspace_id, slug=slug, version=number)
-        return ContractVersion(number, parsed), False
+        return contract, number, False
 
     async def _journal(
         self, kind: str, workspace_id: str, author: EventAuthor, properties: dict[str, object]
@@ -167,6 +179,13 @@ class ContractsService:
         event = NewEvent(kind, (ObjectRef("workspace", workspace_id),), author, properties)
         async with self.pool.acquire() as conn, conn.transaction():
             await db_write_event(conn, event, self.catalog, self.now)
+
+
+async def _required(copy: WorkCopy, slug: str) -> Contract:
+    contract = await _contract(copy, await copy.paths(), slug)
+    if contract is None:
+        raise ContractNotFoundError(slug)
+    return contract
 
 
 def _direction(direction: str) -> str:

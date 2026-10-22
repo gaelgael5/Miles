@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import {
   type ContractVersionDetail,
+  type Operation,
   useContract,
   useImportVersion,
   usePreviewContract,
@@ -92,15 +93,31 @@ function IntegrateForm({ target, slug }: { target: WorkTarget; slug: string }) {
   );
 }
 
+function OperationLine({ operation }: { operation: Operation }) {
+  return (
+    <>
+      {operation.method.toUpperCase()} {operation.path}
+      {operation.operation_id ? ` — ${operation.operation_id}` : ""}
+    </>
+  );
+}
+
 function VersionRow({ version }: { version: ContractVersionDetail }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
+  const deposited = version.imported_at
+    ? t("contracts.versions.deposited", {
+        date: new Date(version.imported_at).toLocaleString(i18n.language),
+        by: version.imported_by ?? "",
+      })
+    : t("contracts.versions.outside");
   return (
     <li className="row">
       <div className="row-main">
         <div className="row-title">
           v{version.number} — {version.title ?? t("contracts.versions.unreadable")}
         </div>
+        <div className="row-sub">{deposited}</div>
       </div>
       <div className="cell">
         <div className="caption">{t("contracts.list.captionOperations")}</div>
@@ -122,14 +139,34 @@ function VersionRow({ version }: { version: ContractVersionDetail }) {
         </button>
       </div>
       {open && (
-        <ul className="row-detail plain-list mono">
-          {version.operation_list.map((o) => (
-            <li key={`${o.method} ${o.path}`}>
-              {o.method.toUpperCase()} {o.path}
-              {o.operation_id ? ` — ${o.operation_id}` : ""}
-            </li>
-          ))}
-        </ul>
+        <div className="row-detail">
+          <ul className="plain-list mono">
+            {version.operation_list.map((o) => (
+              <li key={`${o.method} ${o.path}`}>
+                <OperationLine operation={o} />{" "}
+                {o.change === "nouvelle" && (
+                  <span className="badge badge-accent">{t("contracts.versions.new")}</span>
+                )}{" "}
+                {/* Les mappings arrivent avec leur feature : d'ici là, rien ne couvre une opération. */}
+                <span className="badge badge-warning">{t("contracts.versions.unmapped")}</span>
+              </li>
+            ))}
+          </ul>
+          {version.removed.length > 0 && (
+            <>
+              <p className="caption">
+                {t("contracts.versions.removed", { number: version.compared_with })}
+              </p>
+              <ul className="plain-list mono muted">
+                {version.removed.map((o) => (
+                  <li key={`${o.method} ${o.path}`}>
+                    <OperationLine operation={o} />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
       )}
     </li>
   );

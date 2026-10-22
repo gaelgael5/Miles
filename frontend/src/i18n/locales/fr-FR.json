@@ -635,7 +635,12 @@
     "versions": {
       "title": "Versions",
       "empty": "Aucun fichier intégré : une version du paramétrage ne pourra pas être enregistrée tant que ce contrat n'en a pas.",
-      "unreadable": "fichier illisible"
+      "unreadable": "fichier illisible",
+      "deposited": "Déposée le {{date}} par {{by}}",
+      "outside": "Déposée hors de Miles : date inconnue",
+      "new": "Nouvelle",
+      "unmapped": "Non mappée",
+      "removed": "Exposées par la v{{number}}, plus par celle-ci (leurs mappings servent encore la v{{number}}) :"
     }
   },
   "branches": {

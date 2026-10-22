@@ -635,7 +635,12 @@
     "versions": {
       "title": "Versions",
       "empty": "No file integrated yet: a work version cannot be saved until this contract has one.",
-      "unreadable": "unreadable file"
+      "unreadable": "unreadable file",
+      "deposited": "Deposited on {{date}} by {{by}}",
+      "outside": "Deposited outside Miles: date unknown",
+      "new": "New",
+      "unmapped": "Not mapped",
+      "removed": "Exposed by v{{number}}, no longer by this version (their mappings still serve v{{number}}):"
     }
   },
   "branches": {

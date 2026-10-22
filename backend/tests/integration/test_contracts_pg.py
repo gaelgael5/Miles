@@ -57,13 +57,46 @@ async def test_contract_is_declared_then_its_files_coexist_as_versions(forge: Fo
     assert (second.status_code, second.json()["number"]) == (201, 2)
     assert await forge.file("contracts/suivi/v1.yaml") == SUIVI
     assert await forge.file("contracts/suivi/v2.yaml") == SUIVI_V2
-    assert await forge.file("contracts/suivi/contract.yaml") == (
-        'slug: suivi\nlabel: "Suivi : demandes # tiers"\nsens: sortant\n'
+    meta = await forge.file("contracts/suivi/contract.yaml")
+    assert meta is not None
+    assert meta.startswith('slug: suivi\nlabel: "Suivi : demandes # tiers"\nsens: sortant\n')
+    versions = detail.json()["versions"]
+    assert [v["number"] for v in versions] == [1, 2]
+    assert versions[0]["operation_list"] == [
+        {"method": "get", "path": "/demandes", "operation_id": "listerDemandes", "change": None}
+    ]
+    # Date et auteur du dépôt, tenus dans git avec le contrat.
+    assert all(v["imported_at"] is not None for v in versions)
+    assert versions[1]["imported_by"].startswith("admin via Miles <")
+
+
+async def test_a_new_version_shows_what_it_adds_and_what_it_no_longer_exposes(
+    forge: Forge,
+) -> None:
+    v2 = SUIVI.replace(
+        "  /demandes:\n    get:\n      operationId: listerDemandes\n",
+        "  /colis:\n    post:\n      operationId: deposerColis\n",
     )
-    assert [v["number"] for v in detail.json()["versions"]] == [1, 2]
-    assert detail.json()["versions"][0]["operation_list"] == [
+    await _declare(forge)
+    await _import(forge, SUIVI)
+
+    imported = await _import(forge, v2)
+    detail = await forge.client.get(f"{ROUTE}/suivi", timeout=120)
+    redeclared = await _declare(forge)
+
+    assert imported.json()["compared_with"] == 1
+    assert imported.json()["operation_list"] == [
+        {"method": "post", "path": "/colis", "operation_id": "deposerColis", "change": "nouvelle"}
+    ]
+    assert imported.json()["removed"] == [
         {"method": "get", "path": "/demandes", "operation_id": "listerDemandes"}
     ]
+    first = detail.json()["versions"][0]
+    assert (first["compared_with"], first["removed"]) == (None, [])
+    # L'ancienne version reste entière : ses opérations servent tant que le tiers l'expose.
+    assert await forge.file("contracts/suivi/v1.yaml") == SUIVI
+    # Les dépôts ne changent pas l'identité déclarée : le rejeu reste un rejeu.
+    assert (redeclared.status_code, redeclared.headers["x-miles-already-exists"]) == (200, "true")
 
 
 async def test_declared_contracts_are_listed_with_their_versions(forge: Forge) -> None:
@@ -73,6 +106,7 @@ async def test_declared_contracts_are_listed_with_their_versions(forge: Forge) -
 
     listed = await forge.client.get(ROUTE, timeout=120)
 
+    assert listed.json()[1]["versions"][0]["imported_at"] is not None
     assert listed.json() == [
         {"slug": "suivi", "label": LABEL, "sens": "sortant", "versions": []},
         {
@@ -80,7 +114,14 @@ async def test_declared_contracts_are_listed_with_their_versions(forge: Forge) -
             "label": "Sans opération",
             "sens": "entrant",
             "versions": [
-                {"number": 1, "title": "Vide", "operations": 0, "warnings": ["aucune_operation"]}
+                {
+                    "number": 1,
+                    "title": "Vide",
+                    "operations": 0,
+                    "warnings": ["aucune_operation"],
+                    "imported_at": listed.json()[1]["versions"][0]["imported_at"],
+                    "imported_by": listed.json()[1]["versions"][0]["imported_by"],
+                }
             ],
         },
     ]

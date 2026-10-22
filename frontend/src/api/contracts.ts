@@ -18,10 +18,22 @@ export interface ContractVersion {
   title: string | null;
   operations: number;
   warnings: string[];
+  /** null : version déposée hors de Miles, sans date ni auteur connus. */
+  imported_at: string | null;
+  imported_by: string | null;
+}
+
+export interface VersionOperation extends Operation {
+  /** « nouvelle » : absente de la version précédente. */
+  change: "nouvelle" | null;
 }
 
 export interface ContractVersionDetail extends ContractVersion {
-  operation_list: Operation[];
+  operation_list: VersionOperation[];
+  /** Version comparée ; null pour la première. */
+  compared_with: number | null;
+  /** Exposées par la précédente, plus par celle-ci : leurs mappings servent encore. */
+  removed: Operation[];
 }
 
 export interface Contract {

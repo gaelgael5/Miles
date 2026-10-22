@@ -9,7 +9,26 @@ const ROUTE = "/api/workspaces/retrait/contracts";
 const YAML = "openapi: 3.1.0\ninfo: {title: Matériel, version: '2'}\npaths: {}\n";
 const PREVIEW = { title: "Matériel", openapi: "3.1.0", operations: [], warnings: ["aucune_operation"] };
 const OPERATION = { method: "get", path: "/demandes", operation_id: "lister" };
-const V1 = { number: 1, title: "Matériel", operations: 1, warnings: [], operation_list: [OPERATION] };
+const V1 = {
+  number: 1,
+  title: "Matériel",
+  operations: 1,
+  warnings: [],
+  imported_at: "2026-10-22T08:00:00Z",
+  imported_by: "admin via Miles <admin@local.miles.invalid>",
+  operation_list: [{ ...OPERATION, change: null }],
+  compared_with: null,
+  removed: [],
+};
+const V2 = {
+  ...V1,
+  number: 2,
+  imported_at: null,
+  imported_by: null,
+  operation_list: [{ method: "post", path: "/colis", operation_id: "deposer", change: "nouvelle" }],
+  compared_with: 1,
+  removed: [OPERATION],
+};
 const DECLARED = { slug: "materiel", label: "Matériel du tiers", sens: "entrant", versions: [] };
 const CONTENT = "OpenAPI contract (YAML or JSON)";
 
@@ -54,7 +73,8 @@ describe("ContractScreen", () => {
     expect(await screen.findByText("Integrated as version v1.")).toBeInTheDocument();
     const row = (await screen.findByText("v1 — Matériel")).closest("li") as HTMLElement;
     fireEvent.click(within(row).getByRole("button", { name: "Operations" }));
-    expect(within(row).getByText("GET /demandes — lister")).toBeInTheDocument();
+    expect(within(row).getByText(/GET \/demandes — lister/)).toBeInTheDocument();
+    expect(within(row).getByText(/Deposited on .* by admin via Miles/)).toBeInTheDocument();
     expect(calls.find((c) => c.key === `POST ${ROUTE}/materiel/versions?branch=atelier`)?.body).toEqual({
       content: YAML,
     });
@@ -146,5 +166,27 @@ describe("ContractScreen", () => {
     expect(
       await screen.findByRole("heading", { name: "OpenAPI contracts — Retrait de colis" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows what a new version adds, what it no longer exposes, and that nothing is mapped yet", async () => {
+    mockApi(
+      routes({
+        [`GET ${ROUTE}/materiel?branch=atelier`]: {
+          status: 200,
+          body: { ...DECLARED, versions: [V1, V2] },
+        },
+      }),
+    );
+    await openContract();
+    const row = (await screen.findByText("v2 — Matériel")).closest("li") as HTMLElement;
+    expect(within(row).getByText("Deposited outside Miles: date unknown")).toBeInTheDocument();
+
+    fireEvent.click(within(row).getByRole("button", { name: "Operations" }));
+
+    const added = within(row).getByText(/POST \/colis — deposer/);
+    expect(within(added).getByText("New")).toBeInTheDocument();
+    expect(within(added).getByText("Not mapped")).toBeInTheDocument();
+    expect(within(row).getByText(/Exposed by v1, no longer by this version/)).toBeInTheDocument();
+    expect(within(row).getByText(/GET \/demandes — lister/)).toBeInTheDocument();
   });
 });
