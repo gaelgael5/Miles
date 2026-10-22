@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from miles.auth.author import request_author
 from miles.workshop.branches import BranchEntry, BranchesService, BranchTakenError
 from miles.workspaces.model import (
+    BranchNotFoundError,
     RepositoryUnavailableError,
     WorkspaceConflictError,
     WorkspaceInputError,
@@ -18,6 +19,9 @@ from miles.workspaces.model import (
 # Réservé à l'administrateur tant que les rôles n'existent pas : la passerelle refuse
 # toute autre session. Le droit d'écriture sur le workspace viendra avec les rôles.
 router = APIRouter(prefix="/api/workspaces/{workspace_id}/branches")
+# Les branches que regarde la personne connectée, tous workspaces confondus : le menu
+# en a besoin d'un coup pour libeller chaque workspace « nom (branche) ».
+views_router = APIRouter(prefix="/api/branch-views")
 
 
 def branches_service(request: Request) -> BranchesService:
@@ -34,6 +38,11 @@ class BranchOut(BaseModel):
     label: str
     branch: str
     base: bool
+
+
+class ViewIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    branch: str
 
 
 class BranchCreate(BaseModel):
@@ -70,6 +79,8 @@ def _refusal(exc: Exception) -> JSONResponse:
         return _error(unprocessable, invalid)
     if isinstance(exc, WorkspaceConflictError):
         return _error(status.HTTP_409_CONFLICT, exc.code)
+    if isinstance(exc, BranchNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "branche_inconnue")
     if isinstance(exc, WorkspaceNotFoundError):
         return _error(status.HTTP_404_NOT_FOUND, "workspace_inconnu")
     raise exc
@@ -98,3 +109,17 @@ async def create_branch(
         response.status_code = status.HTTP_200_OK
         response.headers["X-Miles-Already-Exists"] = "true"
     return _out(entry)
+
+
+@router.put("/view", response_model=BranchOut)
+async def set_view(workspace_id: str, body: ViewIn, request: Request, service: Service) -> object:
+    try:
+        entry = await service.resolve_set_view(request_author(request), workspace_id, body.branch)
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return _out(entry)
+
+
+@views_router.get("", response_model=dict[str, str])
+async def list_views(request: Request, service: Service) -> object:
+    return await service.resolve_views(request_author(request))

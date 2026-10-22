@@ -10,7 +10,8 @@
       "secrets": "Secrets",
       "health": "État du service",
       "gitConnections": "Connexions git",
-      "allWorkspaces": "Tous les workspaces"
+      "allWorkspaces": "Tous les workspaces",
+      "workspaceOnBranch": "{{name}} ({{branch}})"
     },
     "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé.",
     "brand": "Miles",
@@ -295,7 +296,8 @@
       "captionWorkBranch": "Branche de travail",
       "settings": "Paramétrer",
       "dataModels": "Modèles de données",
-      "contracts": "Contrats"
+      "contracts": "Contrats",
+      "branch": "Versions"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -656,7 +658,9 @@
         "slug": "Slug : lettres minuscules, chiffres et tirets, 40 caractères au plus."
       },
       "taken": "Ce slug ou cette branche est déjà pris par « {{by}} ».",
-      "unexpected": "La branche n'a pas pu être créée. Voir les journaux du back-office."
-    }
+      "unexpected": "La branche n'a pas pu être créée. Voir les journaux du back-office.",
+      "view": "La branche à afficher n'a pas pu être choisie."
+    },
+    "viewed": "Branche affichée"
   }
 }

@@ -34,12 +34,17 @@ services:
       MILES_SECRETS_KEY: ${MILES_SECRETS_KEY:?MILES_SECRETS_KEY absent de .env — lancer dev-deploy.sh}
       # Adresse publique (URL de retour OIDC) ; vide : la connexion OIDC est indisponible.
       MILES_PUBLIC_URL: ${MILES_PUBLIC_URL:-}
+      # Copies de travail persistantes, une par branche de chaque workspace (Gael,
+      # 22/10/2026). Git fait foi : ce volume n'est qu'un cache qui évite de recloner.
+      MILES_WORKCOPIES_DIR: /var/lib/miles/workcopies
     volumes:
       # Fichier par fichier, pas le dossier du dépôt (décision du 19/10/2026) : le
       # backend y écrit le compte d'amorçage, et .env.bak sert à restaurer .env si
       # cette écriture est interrompue. dev-deploy.sh crée les deux avant le démarrage.
       - ./.env:/run/miles/.env
       - ./.env.bak:/run/miles/.env.bak
+      # Volume mappé sur l'hôte : préparé par dev-deploy.sh au nom de l'utilisateur du runtime.
+      - ./.deploy/workcopies:/var/lib/miles/workcopies
     depends_on:
       db:
         condition: service_healthy

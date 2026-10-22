@@ -24,7 +24,7 @@ export function ContractLinks({
         <button
           key={contract.slug}
           type="button"
-          className="sidebar-link sidebar-contractlink"
+          className="sidebar-link sidebar-subsublink"
           aria-current={current === contract.slug ? "page" : undefined}
           onClick={() => onSelect(contract.slug)}
         >

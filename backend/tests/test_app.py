@@ -44,6 +44,7 @@ def _set_env_files(
     env_file, backup = write_env(directory, content)
     monkeypatch.setenv("MILES_ENV_FILE", str(env_file))
     monkeypatch.setenv("MILES_ENV_BACKUP_FILE", str(backup))
+    monkeypatch.setenv("MILES_WORKCOPIES_DIR", str(directory / "workcopies"))
     monkeypatch.setenv("MILES_MQTT_HOST", "mqtt")
     monkeypatch.setenv("MILES_MQTT_PASSWORD", "x")
     monkeypatch.setenv("MILES_SECRETS_KEY", base64.urlsafe_b64encode(os.urandom(32)).decode())

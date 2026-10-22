@@ -155,6 +155,12 @@ touch "$BACKUP_ENV_FILE"
 chmod 600 "$ENV_FILE" "$BACKUP_ENV_FILE"
 chown "$RUNTIME_UID:$RUNTIME_UID" "$ENV_FILE" "$BACKUP_ENV_FILE" \
   || fail "chown de .env impossible : lancer dev-deploy.sh en root (machine de test)"
+# Copies de travail persistantes des branches (volume mappé du backend). Créé ici : absent,
+# docker le créerait au nom de root et le runtime, non root, ne pourrait pas y écrire.
+# Jamais vidé par le déploiement ; git fait foi, le supprimer ne perd rien.
+mkdir -p "$STATE_DIR/workcopies"
+chown "$RUNTIME_UID:$RUNTIME_UID" "$STATE_DIR/workcopies" \
+  || fail "chown du volume des copies de travail impossible : lancer dev-deploy.sh en root"
 MQTT_PORT="$(env_value MILES_MQTT_PORT)"
 [[ "$MQTT_PORT" =~ ^[0-9]{2,5}$ ]] || fail "MILES_MQTT_PORT invalide dans .env : $MQTT_PORT"
 

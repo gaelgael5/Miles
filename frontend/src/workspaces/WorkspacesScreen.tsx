@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useBranchViews } from "../api/branches";
 import { ApiError, invalidField } from "../api/http";
 import { slugFromLabel } from "../api/secrets";
 import { type Workspace, useCreateWorkspace, useWorkspaces } from "../api/workspaces";
@@ -9,9 +10,11 @@ import {
   type WorkspaceSelection,
   type WorkspaceView,
   baseBranchOf,
+  viewedBranchOf,
   viewsOf,
 } from "../layout/WorkspacesNav";
 import { BranchForm } from "./BranchForm";
+import { BranchPicker } from "./BranchPicker";
 import { BranchScreen } from "./BranchScreen";
 import { ContractScreen } from "./ContractScreen";
 import { ContractsScreen } from "./ContractsScreen";
@@ -109,10 +112,14 @@ function WorkspaceRow({
         <div className="caption">{t("workspaces.card.captionSecurity")}</div>
         <div className="value">{workspace.security_service_id ?? "—"}</div>
       </div>
-      <div className="cell">
-        <div className="caption">{t("workspaces.card.captionWorkBranch")}</div>
-        <div className="value mono">{workspace.work_branch ?? "—"}</div>
-      </div>
+      {workspace.work_branch === null ? (
+        <div className="cell">
+          <div className="caption">{t("workspaces.card.captionWorkBranch")}</div>
+          <div className="value mono">—</div>
+        </div>
+      ) : (
+        <BranchPicker workspace={workspace} />
+      )}
       <div className="actions row-actions">
         {workspace.work_branch !== null && (
           <button type="button" className="btn btn-secondary" onClick={onBranch}>
@@ -183,6 +190,7 @@ export function WorkspacesScreen({
   const workspaces = useWorkspaces();
   const [creating, setCreating] = useState(false);
   const [branching, setBranching] = useState<Workspace | null>(null);
+  const views = useBranchViews();
   const current = workspaces.data?.find((w) => w.id === selection?.id);
   const screen = current && selection ? branchScreen(current, selection, onSelect) : null;
 
@@ -239,7 +247,7 @@ export function WorkspacesScreen({
               key={w.id}
               workspace={w}
               onOpen={(view) =>
-                onSelect({ id: w.id, view, branch: baseBranchOf(w) ?? undefined })
+                onSelect({ id: w.id, view, branch: viewedBranchOf(w, views.data) ?? undefined })
               }
               onBranch={() => setBranching(w)}
             />

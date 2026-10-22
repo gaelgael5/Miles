@@ -14,6 +14,7 @@ from miles.git.workcopy import WorkCopy
 from miles.git.worktree import WORK_BRANCH_PREFIX, WORK_NAME_RE
 from miles.workshop.target import WorkBranches, base_slug
 from miles.workspaces.model import (
+    BranchNotFoundError,
     RepositoryUnavailableError,
     WorkspaceInputError,
     checked_label,
@@ -66,6 +67,40 @@ class BranchesService:
         # La base n'a pas de label saisi : elle s'est ouverte par son seul nom.
         entries = [BranchEntry(base, base, workspace.work_branch or "", True)]
         return entries + [BranchEntry(r["slug"], r["label"], r["branch"], False) for r in rows]
+
+    async def resolve_views(self, viewer: EventAuthor) -> dict[str, str]:
+        """Branche regardée par cette personne, par workspace ; absente : la base."""
+        rows = await self.pool.fetch(
+            "SELECT workspace_id, slug FROM branch_views"
+            " WHERE viewer_directory = $1 AND viewer_subject = $2",
+            viewer.directory,
+            viewer.subject,
+        )
+        return {r["workspace_id"]: r["slug"] for r in rows}
+
+    async def resolve_set_view(
+        self, viewer: EventAuthor, workspace_id: str, slug: str
+    ) -> BranchEntry:
+        """Retient la branche que cette personne regarde dans ce workspace.
+
+        Pas d'event au journal : c'est une préférence d'affichage, rien du paramétrage
+        ne change. Seule une branche connue du workspace peut être choisie.
+        """
+        for entry in await self.resolve_list(workspace_id):
+            if entry.slug == slug:
+                await self.pool.execute(
+                    "INSERT INTO branch_views (viewer_directory, viewer_subject, workspace_id,"
+                    " slug, updated_at) VALUES ($1, $2, $3, $4, $5)"
+                    " ON CONFLICT (viewer_directory, viewer_subject, workspace_id)"
+                    " DO UPDATE SET slug = EXCLUDED.slug, updated_at = EXCLUDED.updated_at",
+                    viewer.directory,
+                    viewer.subject,
+                    workspace_id,
+                    slug,
+                    self.now(),
+                )
+                return entry
+        raise BranchNotFoundError(slug)
 
     async def resolve_create(
         self, author: EventAuthor, workspace_id: str, label: str, slug: str

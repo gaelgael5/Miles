@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useCreateBranch } from "../api/branches";
+import { useCreateBranch, useSetBranchView } from "../api/branches";
 import { proposeSlug } from "../api/contracts";
 import { ApiError, invalidField } from "../api/http";
 import type { Workspace } from "../api/workspaces";
@@ -35,6 +35,7 @@ export function BranchForm({
 }) {
   const { t } = useTranslation();
   const create = useCreateBranch(workspace.id);
+  const choose = useSetBranchView(workspace.id);
   const [label, setLabel] = useState("");
   const [slug, setSlug] = useState<string | null>(null);
   // Le slug d'une branche tient en 40 caractères, la limite du nom `work/<slug>`.
@@ -46,7 +47,14 @@ export function BranchForm({
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    create.mutate({ label, slug: shownSlug }, { onSuccess: (branch) => onDone(branch.slug) });
+    // Créée pour y travailler : elle devient la branche regardée, et le menu la nomme.
+    create.mutate(
+      { label, slug: shownSlug },
+      {
+        onSuccess: (branch) =>
+          choose.mutate(branch.slug, { onSettled: () => onDone(branch.slug) }),
+      },
+    );
   }
 
   return (

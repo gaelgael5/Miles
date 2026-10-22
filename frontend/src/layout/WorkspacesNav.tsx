@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useBranchViews } from "../api/branches";
 import { type Workspace, useWorkspaces } from "../api/workspaces";
-import { BranchLinks } from "./BranchLinks";
+import { WorkspaceViews } from "./WorkspaceViews";
 
 export type WorkspaceView = "settings" | "branch" | "dataModels" | "contracts";
 /**
@@ -22,6 +23,14 @@ export function baseBranchOf(workspace: Workspace): string | null {
   return workspace.work_branch?.replace(/^work\//, "") ?? null;
 }
 
+/** Branche que la personne regarde dans ce workspace : son choix, ou la base. */
+export function viewedBranchOf(
+  workspace: Workspace,
+  views: Record<string, string> | undefined,
+): string | null {
+  return views?.[workspace.id] ?? baseBranchOf(workspace);
+}
+
 /** Vues offertes sur la ligne d'un workspace, dans « Tous les workspaces ». */
 export function viewsOf(workspace: Workspace): WorkspaceView[] {
   // Modèles et contrats s'écrivent dans une branche de travail : sans elle, rien à ouvrir.
@@ -29,9 +38,10 @@ export function viewsOf(workspace: Workspace): WorkspaceView[] {
 }
 
 /**
- * Sous-menu des workspaces : la liste, puis chaque workspace, qui se déplie sur ses
- * branches de travail par leur slug (Gael, 22/10/2026), chacune sur ses vues. Replié par
- * défaut, sauf ce qu'on regarde : avec beaucoup de workspaces, tout déplier noierait le menu.
+ * Sous-menu des workspaces : la liste, puis chaque workspace libellé « nom (branche) »
+ * d'après la branche que la personne regarde (Gael, 22/10/2026), déplié sur les vues de
+ * cette branche. Replié par défaut, sauf ce qu'on regarde : avec beaucoup de workspaces,
+ * tout déplier noierait le menu.
  */
 export function WorkspacesNav({
   active,
@@ -44,6 +54,7 @@ export function WorkspacesNav({
 }) {
   const { t } = useTranslation();
   const workspaces = useWorkspaces();
+  const views = useBranchViews();
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
   function toggle(id: string) {
@@ -85,6 +96,7 @@ export function WorkspacesNav({
             </button>
           );
         }
+        const branch = viewedBranchOf(workspace, views.data) ?? "";
         return (
           <div key={workspace.id}>
             <button
@@ -94,11 +106,12 @@ export function WorkspacesNav({
               aria-controls={listId}
               onClick={() => toggle(workspace.id)}
             >
-              {workspace.name}
+              {t("app.nav.workspaceOnBranch", { name: workspace.name, branch })}
             </button>
             <div id={listId} hidden={!open}>
-              <BranchLinks
+              <WorkspaceViews
                 workspaceId={workspace.id}
+                branch={branch}
                 open={open}
                 active={active}
                 selection={selection}

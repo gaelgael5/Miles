@@ -9,6 +9,7 @@ DSN = "postgresql://miles:s3cr3t-valeur@db:5432/miles"
 FILES = {
     "env_file": "/run/miles/.env",
     "env_backup_file": "/run/miles/.env.bak",
+    "workcopies_dir": "/var/lib/miles/workcopies",
     "mqtt_host": "mqtt",
     "mqtt_password": "mqtt-s3cr3t",
     "secrets_key": "cle-des-secrets-s3cr3t",
@@ -32,6 +33,7 @@ def test_settings_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MILES_DB_POOL_MAX_SIZE", "4")
     monkeypatch.setenv("MILES_ENV_FILE", "/run/miles/.env")
     monkeypatch.setenv("MILES_ENV_BACKUP_FILE", "/run/miles/.env.bak")
+    monkeypatch.setenv("MILES_WORKCOPIES_DIR", "/var/lib/miles/workcopies")
     monkeypatch.setenv("MILES_MQTT_HOST", "mqtt")
     monkeypatch.setenv("MILES_MQTT_PASSWORD", "mqtt-s3cr3t")
     monkeypatch.setenv("MILES_SECRETS_KEY", "cle-des-secrets-s3cr3t")

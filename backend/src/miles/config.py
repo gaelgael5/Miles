@@ -69,6 +69,10 @@ class Settings(DatabaseSettings):
     # Hôtes git admis en plus de github.com (GitHub seul au premier lot). Vide en
     # production ; seuls les tests d'intégration y mettent leur forge jetable.
     git_test_hosts: list[str] = Field(default_factory=list)
+    # Volume des copies de travail persistantes, une par branche (Gael, 22/10/2026).
+    # Obligatoire : un dossier de secours dans le conteneur serait perdu au redéploiement
+    # sans que rien ne le signale. Git fait foi, ce volume n'est qu'un cache.
+    workcopies_dir: Path
 
     @field_validator("public_url")
     @classmethod

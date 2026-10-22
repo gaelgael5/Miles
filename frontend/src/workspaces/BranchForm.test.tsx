@@ -24,6 +24,7 @@ describe("BranchForm", () => {
     const calls = mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`POST ${ROUTE}`]: { status: 201, body: ESSAI },
+      [`PUT ${ROUTE}/view`]: { status: 200, body: ESSAI },
       [`GET ${ROUTE}`]: { status: 200, body: [BASE, ESSAI] },
       "GET /api/workspaces/retrait/versions?branch=essai-de-gael": { status: 200, body: [] },
     });
@@ -41,6 +42,10 @@ describe("BranchForm", () => {
     expect(calls.find((c) => c.key === `POST ${ROUTE}`)?.body).toEqual({
       label: "Essai de Gaël",
       slug: "essai-de-gael",
+    });
+    // Créée pour y travailler : elle devient la branche regardée.
+    expect(calls.find((c) => c.key === `PUT ${ROUTE}/view`)?.body).toEqual({
+      branch: "essai-de-gael",
     });
   });
 

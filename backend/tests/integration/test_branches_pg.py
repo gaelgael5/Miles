@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from miles.events.model import EventAuthor
 from tests.integration.test_datamodels_pg import PERSONNE
 from tests.integration.work_stack import Forge, open_work_forge
 
@@ -154,3 +155,22 @@ async def test_workspace_without_base_branch_cannot_have_children(forge: Forge) 
     )
 
     assert (refused.status_code, refused.json()["detail"]) == (409, "depot_non_configure")
+
+
+async def test_each_viewer_keeps_the_branch_they_look_at(forge: Forge) -> None:
+    await _create(forge)
+    service = forge.portal.app.state.branches
+    bob = EventAuthor("annuaire-x", "bob")
+
+    chosen = await forge.client.put(f"{ROUTE}/view", json={"branch": "essai"}, timeout=120)
+    again = await forge.client.put(f"{ROUTE}/view", json={"branch": "atelier"}, timeout=120)
+    unknown = await forge.client.put(f"{ROUTE}/view", json={"branch": "inconnue"}, timeout=120)
+    await service.resolve_set_view(bob, "retrait", "essai")
+    mine = await forge.client.get("/api/branch-views")
+
+    assert (chosen.status_code, chosen.json()["slug"]) == (200, "essai")
+    assert again.json()["slug"] == "atelier"
+    assert (unknown.status_code, unknown.json()["detail"]) == (404, "branche_inconnue")
+    # Le choix de l'un ne change pas ce que regarde l'autre.
+    assert mine.json() == {"retrait": "atelier"}
+    assert await service.resolve_views(bob) == {"retrait": "essai"}

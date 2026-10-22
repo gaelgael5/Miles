@@ -50,6 +50,9 @@ async def fetch_versions(copy: WorkCopy) -> list[SavedVersion]:
     fetched = await copy.git(
         "fetch",
         "-q",
+        # La copie est persistante : une étiquette supprimée sur la forge doit disparaître
+        # ici aussi, sinon elle serait encore listée comme version.
+        "--prune",
         "--depth",
         "1",
         copy.repo.url,

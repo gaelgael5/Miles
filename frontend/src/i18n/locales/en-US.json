@@ -10,7 +10,8 @@
       "secrets": "Secrets",
       "health": "Service status",
       "gitConnections": "Git connections",
-      "allWorkspaces": "All workspaces"
+      "allWorkspaces": "All workspaces",
+      "workspaceOnBranch": "{{name}} ({{branch}})"
     },
     "noRights": "You are signed in through {{directory}}, but no right is granted to you yet.",
     "brand": "Miles",
@@ -295,7 +296,8 @@
       "captionWorkBranch": "Work branch",
       "settings": "Settings",
       "dataModels": "Data models",
-      "contracts": "Contracts"
+      "contracts": "Contracts",
+      "branch": "Versions"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -656,7 +658,9 @@
         "slug": "Slug: lowercase letters, digits and dashes, at most 40 characters."
       },
       "taken": "This slug or branch is already taken by “{{by}}”.",
-      "unexpected": "The branch could not be created. See the back-office logs."
-    }
+      "unexpected": "The branch could not be created. See the back-office logs.",
+      "view": "The branch to view could not be chosen."
+    },
+    "viewed": "Branch viewed"
   }
 }

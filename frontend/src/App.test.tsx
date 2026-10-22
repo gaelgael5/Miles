@@ -111,7 +111,7 @@ describe("App", () => {
     );
   });
 
-  it("lists each workspace under Workspaces, then its branches by slug, each opening its views", async () => {
+  it("names each workspace after the branch viewed, and opens that branch's views", async () => {
     const calls = mockApi({
       ...ADMIN,
       "GET /api/workspaces": {
@@ -121,41 +121,31 @@ describe("App", () => {
           { ...BARE, id: "caisse", name: "Caisse" },
         ],
       },
+      "GET /api/branch-views": { status: 200, body: { retrait: "essai" } },
       "GET /api/workspaces/retrait/branches": { status: 200, body: BRANCHES },
-      "GET /api/workspaces/retrait/versions?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/data-models?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/contracts?branch=essai": { status: 200, body: [] },
     });
     renderApp();
     const nav = await screen.findByRole("navigation");
-    const retrait = await within(nav).findByRole("button", { name: "Retrait de colis" });
+    const retrait = await within(nav).findByRole("button", { name: "Retrait de colis (essai)" });
     // Replié par défaut : avec beaucoup de workspaces, tout déplier noierait le menu.
     expect(retrait).toHaveAttribute("aria-expanded", "false");
 
     fireEvent.click(retrait);
-    const essai = await within(nav).findByRole("button", { name: "essai" });
-    expect(within(nav).getByRole("button", { name: "atelier" })).toBeVisible();
-    // Le paramétrage s'ouvre depuis « Tous les workspaces », pas depuis le menu.
+    // Les branches ne sont pas listées : seules les vues de la branche regardée.
+    expect(within(nav).queryByRole("button", { name: "atelier" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+    fireEvent.click(within(nav).getByRole("button", { name: "Data models" }));
 
-    fireEvent.click(essai);
-    expect(
-      await screen.findByRole("heading", { name: "Retrait de colis — branch essai" }),
-    ).toBeInTheDocument();
-    expect(essai).toHaveAttribute("aria-current", "page");
-    expect(essai).toHaveAttribute("aria-expanded", "true");
-    const views = within(document.getElementById("sidebar-branch-retrait-essai") as HTMLElement);
-    fireEvent.click(views.getByRole("button", { name: "Data models" }));
     expect(
       await screen.findByRole("heading", { name: "Data models — Retrait de colis" }),
     ).toBeInTheDocument();
-    expect(views.getByRole("button", { name: "Data models" })).toHaveAttribute(
+    expect(within(nav).getByRole("button", { name: "Data models" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    // Les vues d'une branche fille lisent cette branche-là, jamais la base.
     expect(calls.some((c) => c.key.includes("branch=atelier"))).toBe(false);
-
     // Sans branche de travail, rien à déplier : le nom ouvre le paramétrage du workspace.
     const caisse = within(nav).getByRole("button", { name: "Caisse" });
     expect(caisse).not.toHaveAttribute("aria-expanded");
@@ -164,20 +154,49 @@ describe("App", () => {
     expect(caisse).toHaveAttribute("aria-current", "page");
   });
 
-  it("lists the declared contracts under their branch, and opens one from the menu", async () => {
+  it("switches the branch viewed from All workspaces, which renames the workspace in the menu", async () => {
+    const calls = mockApi({
+      ...ADMIN,
+      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
+      "GET /api/branch-views": [
+        { status: 200, body: {} },
+        { status: 200, body: { retrait: "essai" } },
+      ],
+      "GET /api/workspaces/retrait/branches": { status: 200, body: BRANCHES },
+      "PUT /api/workspaces/retrait/branches/view": { status: 200, body: BRANCHES[1] },
+    });
+    renderApp();
+    const nav = await screen.findByRole("navigation");
+    // Sans choix enregistré, c'est la branche de base qu'on regarde.
+    expect(
+      await within(nav).findByRole("button", { name: "Retrait de colis (atelier)" }),
+    ).toBeInTheDocument();
+    const picker = await screen.findByLabelText("Branch viewed");
+    await within(picker).findByRole("option", { name: "essai" });
+
+    fireEvent.change(picker, { target: { value: "essai" } });
+
+    expect(
+      await within(nav).findByRole("button", { name: "Retrait de colis (essai)" }),
+    ).toBeInTheDocument();
+    expect(calls.find((c) => c.key === "PUT /api/workspaces/retrait/branches/view")?.body).toEqual({
+      branch: "essai",
+    });
+  });
+
+  it("lists the declared contracts under the branch viewed, and opens one from the menu", async () => {
     const declared = { slug: "suivi", label: "Suivi des demandes", sens: "sortant", versions: [] };
     mockApi({
       ...ADMIN,
       "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
+      "GET /api/branch-views": { status: 200, body: {} },
       "GET /api/workspaces/retrait/branches": { status: 200, body: BRANCHES },
-      "GET /api/workspaces/retrait/versions?branch=atelier": { status: 200, body: [] },
       "GET /api/workspaces/retrait/contracts?branch=atelier": { status: 200, body: [declared] },
       "GET /api/workspaces/retrait/contracts/suivi?branch=atelier": { status: 200, body: declared },
     });
     renderApp();
     const nav = await screen.findByRole("navigation");
-    fireEvent.click(await within(nav).findByRole("button", { name: "Retrait de colis" }));
-    fireEvent.click(await within(nav).findByRole("button", { name: "atelier" }));
+    fireEvent.click(await within(nav).findByRole("button", { name: "Retrait de colis (atelier)" }));
 
     const contract = await within(nav).findByRole("button", { name: "Suivi des demandes" });
     fireEvent.click(contract);

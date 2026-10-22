@@ -9,7 +9,8 @@ import asyncpg
 from miles.events.model import EventAuthor
 from miles.git.access import GitAccess
 from miles.git.forge import Repository, RepositoryUrlError, parse_repository
-from miles.git.workcopy import BranchMissingError, BranchMovedError, WorkCopy, checkout
+from miles.git.workcopy import BranchMissingError, BranchMovedError, WorkCopy
+from miles.git.workdirs import WorkDirs
 from miles.git.worktree import WORK_BRANCH_PREFIX, RepositoryAccessError
 from miles.gitaccess.model import GitAccessError
 from miles.gitaccess.resolver import AccessResolver
@@ -41,6 +42,7 @@ class WorkBranches:
     pool: asyncpg.Pool
     workspaces: WorkspacesService
     resolver: AccessResolver
+    workdirs: WorkDirs
     extra_git_hosts: Sequence[str] = field(default=())
 
     @asynccontextmanager
@@ -56,7 +58,7 @@ class WorkBranches:
         name = await self._branch_name(workspace, branch)
         repo, access = await self.repository(workspace)
         try:
-            async with checkout(repo, access, name) as copy:
+            async with self.workdirs.checkout(repo, access, workspace.id, name) as copy:
                 yield copy
         except RepositoryAccessError as exc:
             # Dépôt devenu inaccessible : on désigne l'accès, la branche reste intacte.

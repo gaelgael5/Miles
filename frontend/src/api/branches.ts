@@ -36,3 +36,26 @@ export function useCreateBranch(workspaceId: string) {
     onSuccess: () => client.invalidateQueries({ queryKey: key(workspaceId) }),
   });
 }
+
+const VIEWS_KEY = ["branch-views"] as const;
+
+/** Branche que la personne connectée regarde, par workspace ; absente : la base. */
+export function useBranchViews() {
+  return useQuery({
+    queryKey: VIEWS_KEY,
+    queryFn: ({ signal }) => request<Record<string, string>>("/api/branch-views", { signal }),
+  });
+}
+
+/** Change la branche regardée : retenue côté serveur, pour ce compte seulement. */
+export function useSetBranchView(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (branch: string) =>
+      request<WorkBranch>(`${root(workspaceId)}/view`, {
+        method: "PUT",
+        body: JSON.stringify({ branch }),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: VIEWS_KEY }),
+  });
+}

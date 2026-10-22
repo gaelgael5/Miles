@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import secrets as random
+import tempfile
+from pathlib import Path
 
 import httpx
 import pytest
@@ -12,6 +14,7 @@ from miles.contracts.service import ContractsService
 from miles.datamodels.service import EVENT_TYPES as DATA_MODEL_EVENTS
 from miles.datamodels.service import DataModelsService
 from miles.events.model import EventTypeCatalog
+from miles.git.workdirs import WorkDirs
 from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.model import EVENT_TYPES as GITACCESS_EVENTS
@@ -58,7 +61,9 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         portal.pool, resolver, verifier, catalog, utc_now, hosts
     )
     state.workspaces = WorkspacesService(portal.pool, resolver, catalog, utc_now, hosts)
-    branches = WorkBranches(portal.pool, state.workspaces, resolver, hosts)
+    # Copies de travail dans un dossier jetable propre à l'exécution, comme le volume en service.
+    workdirs = WorkDirs(Path(tempfile.mkdtemp(prefix="miles-it-workdirs-")))
+    branches = WorkBranches(portal.pool, state.workspaces, resolver, workdirs, hosts)
     state.data_models = DataModelsService(portal.pool, branches, catalog, utc_now)
     state.workshop = WorkshopService(portal.pool, branches, catalog, utc_now)
     state.contracts = ContractsService(portal.pool, branches, catalog, utc_now)

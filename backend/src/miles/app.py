@@ -33,6 +33,7 @@ from miles.datamodels.service import DataModelsService
 from miles.db.migration_files import file_load_migrations
 from miles.db.pool import db_create_pool
 from miles.events.model import EventTypeCatalog
+from miles.git.workdirs import WorkDirs
 from miles.gitaccess import model as gitaccess_events
 from miles.gitaccess.api_gitaccess import connections_router
 from miles.gitaccess.connections import ConnectionsService
@@ -57,6 +58,7 @@ from miles.security.service import SecurityServices
 from miles.workshop import branches as branches_events
 from miles.workshop import service as workshop_events
 from miles.workshop.api_branches import router as branches_router
+from miles.workshop.api_branches import views_router as branch_views_router
 from miles.workshop.api_workshop import router as workshop_router
 from miles.workshop.branches import BranchesService
 from miles.workshop.service import WorkshopService
@@ -136,7 +138,8 @@ def create_app() -> FastAPI:
             pool, resolver, verifier, catalog, utc_now, git_hosts
         )
         app.state.workspaces = WorkspacesService(pool, resolver, catalog, utc_now, git_hosts)
-        branches = WorkBranches(pool, app.state.workspaces, resolver, git_hosts)
+        workdirs = WorkDirs(settings.workcopies_dir)
+        branches = WorkBranches(pool, app.state.workspaces, resolver, workdirs, git_hosts)
         app.state.data_models = DataModelsService(pool, branches, catalog, utc_now)
         app.state.workshop = WorkshopService(pool, branches, catalog, utc_now)
         app.state.contracts = ContractsService(pool, branches, catalog, utc_now)
@@ -200,4 +203,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(workshop_router)
     app.include_router(contracts_router)
     app.include_router(branches_router)
+    app.include_router(branch_views_router)
     return app
