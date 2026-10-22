@@ -5,7 +5,7 @@ import { useBranchViews } from "../api/branches";
 import { type Workspace, useWorkspaces } from "../api/workspaces";
 import { WorkspaceViews } from "./WorkspaceViews";
 
-export type WorkspaceView = "settings" | "branch" | "dataModels" | "contracts";
+export type WorkspaceView = "settings" | "branch" | "dataModels" | "contracts" | "transformations";
 /**
  * Ce qu'affiche l'écran Workspaces : la liste (null), le paramétrage d'un workspace, ou
  * une vue d'une de ses branches de travail (`branch`, son slug) — l'un de ses contrats
@@ -16,6 +16,8 @@ export type WorkspaceSelection = {
   view: WorkspaceView;
   branch?: string;
   contract?: string;
+  // Une chaîne de transformations ouverte, avec la vue « transformations ».
+  chain?: string;
 } | null;
 
 /** Slug de la branche de base : celle qu'ouvrent les boutons de la liste des workspaces. */

@@ -20,6 +20,9 @@ from miles.auth.api_preferences import router as preferences_router
 from miles.auth.context import AuthContext, utc_now
 from miles.auth.gate import auth_gate
 from miles.auth.throttle import LoginThrottle
+from miles.chains import service as chains_events
+from miles.chains.api_chains import router as chains_api_router
+from miles.chains.service import ChainsService
 from miles.config import Settings
 from miles.contracts import service as contracts_events
 from miles.contracts.api_contracts import router as contracts_router
@@ -108,6 +111,7 @@ def create_app() -> FastAPI:
         | contracts_events.EVENT_TYPES
         | branches_events.EVENT_TYPES
         | identities_events.EVENT_TYPES
+        | chains_events.EVENT_TYPES
     )
 
     @asynccontextmanager
@@ -158,6 +162,7 @@ def create_app() -> FastAPI:
         app.state.transform_budget = settings.transform_budget
         app.state.branches = BranchesService(pool, branches, catalog, utc_now)
         app.state.template_catalog = CatalogService(branches)
+        app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.git_identities = GitIdentitiesService(
             pool, cipher, http, catalog, utc_now, git_hosts
         )
@@ -225,4 +230,5 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(transform_router)
     app.include_router(chains_router)
     app.include_router(catalog_router)
+    app.include_router(chains_api_router)
     return app

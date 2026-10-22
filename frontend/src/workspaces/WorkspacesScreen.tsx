@@ -16,6 +16,8 @@ import {
 import { BranchForm } from "./BranchForm";
 import { BranchPicker } from "./BranchPicker";
 import { BranchScreen } from "./BranchScreen";
+import { ChainScreen } from "./ChainScreen";
+import { ChainsScreen } from "./ChainsScreen";
 import { ContractScreen } from "./ContractScreen";
 import { ContractsScreen } from "./ContractsScreen";
 import { DataModelsScreen } from "./DataModelsScreen";
@@ -150,7 +152,7 @@ function branchScreen(
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.
-  const key = `${branch}/${selection.view}/${selection.contract ?? ""}`;
+  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}`;
   if (selection.view === "contracts" && selection.contract !== undefined) {
     return (
       <ContractScreen
@@ -169,6 +171,27 @@ function branchScreen(
         target={target}
         onBack={back}
         onOpen={(contract) => onSelect({ id: workspace.id, view: "contracts", branch, contract })}
+      />
+    );
+  }
+  if (selection.view === "transformations" && selection.chain !== undefined) {
+    return (
+      <ChainScreen
+        key={key}
+        target={target}
+        slug={selection.chain}
+        onBack={() => onSelect({ id: workspace.id, view: "transformations", branch })}
+      />
+    );
+  }
+  if (selection.view === "transformations") {
+    return (
+      <ChainsScreen
+        key={key}
+        workspace={workspace}
+        target={target}
+        onBack={back}
+        onOpen={(chain) => onSelect({ id: workspace.id, view: "transformations", branch, chain })}
       />
     );
   }

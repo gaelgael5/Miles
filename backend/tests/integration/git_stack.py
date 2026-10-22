@@ -8,6 +8,8 @@ from pathlib import Path
 import httpx
 import pytest
 
+from miles.chains.service import EVENT_TYPES as CHAIN_EVENTS
+from miles.chains.service import ChainsService
 from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import EVENT_TYPES as CONTRACT_EVENTS
 from miles.contracts.service import ContractsService
@@ -55,6 +57,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | CONTRACT_EVENTS
         | BRANCH_EVENTS
         | IDENTITY_EVENTS
+        | CHAIN_EVENTS
     )
     cipher = SecretCipher(os.urandom(32))
     secrets = SecretsService(portal.pool, cipher, catalog, utc_now)
@@ -77,6 +80,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.remote_contracts = RemoteContracts(httpx.AsyncClient())
     state.branches = BranchesService(portal.pool, branches, catalog, utc_now)
     state.template_catalog = CatalogService(branches)
+    state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
     state.git_identities = GitIdentitiesService(
         portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts
     )

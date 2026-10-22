@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ContractLinks } from "./ContractLinks";
 import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
 
-const VIEWS: WorkspaceView[] = ["branch", "dataModels", "contracts"];
+const VIEWS: WorkspaceView[] = ["branch", "dataModels", "contracts", "transformations"];
 
 /**
  * Vues de la branche que la personne regarde (Gael, 22/10/2026) : le menu ne liste pas
@@ -35,7 +35,7 @@ export function WorkspaceViews({
             type="button"
             className="sidebar-link sidebar-sublink"
             aria-current={
-              here && selection?.view === view && selection.contract === undefined
+              here && selection?.view === view && selection.contract === undefined && selection.chain === undefined
                 ? "page"
                 : undefined
             }

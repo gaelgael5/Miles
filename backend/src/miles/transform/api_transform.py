@@ -144,7 +144,7 @@ async def check_chain(body: ChainCheckIn, request: Request) -> ChainCheckOut:
     try:
         chain = compile_chain(specs)
     except ChainInvalidError as exc:
-        return ChainCheckOut(valid=False, problems=[_problem(p) for p in exc.problems])
+        return ChainCheckOut(valid=False, problems=[step_problem_out(p) for p in exc.problems])
     budget: int = request.app.state.transform_budget
     try:
         trace = run_chain(chain, body.sample, budget)
@@ -159,7 +159,7 @@ async def check_chain(body: ChainCheckIn, request: Request) -> ChainCheckOut:
     return ChainCheckOut(valid=True, trace=trace)
 
 
-def _problem(problem: StepProblem) -> StepProblemOut:
+def step_problem_out(problem: StepProblem) -> StepProblemOut:
     return StepProblemOut(
         step=problem.step,
         code=problem.code,

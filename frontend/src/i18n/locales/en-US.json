@@ -297,7 +297,8 @@
       "settings": "Settings",
       "dataModels": "Data models",
       "contracts": "Contracts",
-      "branch": "Versions"
+      "branch": "Versions",
+      "transformations": "Transformations"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -720,6 +721,65 @@
         "empty": "Enter a token.",
         "unexpected": "The token could not be saved. See the back-office logs."
       }
+    }
+  },
+  "chains": {
+    "title": "Transformation chains — {{name}}",
+    "intro": "Ordered steps applied to a message: each step runs its template on the message produced by the previous one, and either replaces it or sets its result at a target path. Data flows designate a chain by its slug.",
+    "add": "New chain",
+    "empty": "No transformation chain on this branch.",
+    "unreadable": "Unreadable sequence",
+    "captionSteps": "Steps",
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "back": "Back to transformations",
+    "form": {
+      "title": "New transformation chain",
+      "slugHelp": "Proposed from the label; frozen once created, since data flows designate the chain by it.",
+      "submit": "Create the chain"
+    },
+    "fields": {
+      "label": "Label",
+      "slug": "Slug",
+      "stepName": "Step name",
+      "template": "JSLT template",
+      "target": "Target path (optional)",
+      "sample": "Sample message (JSON, optional)"
+    },
+    "editor": {
+      "steps": "Steps, in order",
+      "noStep": "No step yet: the chain returns the message unchanged.",
+      "step": "Step {{rank}}",
+      "up": "Move up",
+      "down": "Move down",
+      "remove": "Remove",
+      "add": "Add a step",
+      "targetHelp": "Empty: the template result becomes the message. Set: the result is placed at this path in the message, missing objects being created.",
+      "test": "Try on a sample",
+      "run": "Run",
+      "sampleInvalid": "The sample is not valid JSON.",
+      "failed": "The chain fails at step {{rank}}: {{code}} {{path}}",
+      "after": "After step {{rank}}",
+      "save": "Save the chain",
+      "saved": "Chain saved.",
+      "delete": "Delete the chain",
+      "deleteTitle": "Delete this chain?",
+      "deleteBody": "The directory transformations/{{slug}} will be removed from the branch."
+    },
+    "problems": {
+      "syntaxe": "Unreadable template, line {{line}}, column {{column}}: {{detail}}",
+      "hors_profil": "Constructions outside the writing profile:",
+      "cible_invalide": "Target “{{detail}}” is not a single path ($ followed by names and indices).",
+      "violation": "{{construction}} {{detail}} (line {{line}}, column {{column}})"
+    },
+    "errors": {
+      "field": {
+        "label": "Label: required, at most 120 characters, on one line.",
+        "slug": "Slug: lowercase letters, digits and dashes, 2 to 63 characters.",
+        "steps": "Step names: lowercase letters, digits and dashes, all different."
+      },
+      "unexpected": "The chain could not be saved. See the back-office logs.",
+      "unreadable": "This chain cannot be read."
     }
   }
 }

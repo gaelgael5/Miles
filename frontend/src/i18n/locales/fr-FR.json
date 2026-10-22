@@ -297,7 +297,8 @@
       "settings": "Paramétrer",
       "dataModels": "Modèles de données",
       "contracts": "Contrats",
-      "branch": "Versions"
+      "branch": "Versions",
+      "transformations": "Transformations"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -720,6 +721,65 @@
         "empty": "Saisissez un jeton.",
         "unexpected": "Le jeton n'a pas pu être enregistré. Voir les journaux du back-office."
       }
+    }
+  },
+  "chains": {
+    "title": "Chaînes de transformations — {{name}}",
+    "intro": "Des étapes ordonnées appliquées à un message : chaque étape applique son template au message produit par la précédente, puis le remplace ou pose son résultat à un chemin cible. Les flux désignent une chaîne par son slug.",
+    "add": "Nouvelle chaîne",
+    "empty": "Aucune chaîne de transformations dans cette branche.",
+    "unreadable": "Enchaînement illisible",
+    "captionSteps": "Étapes",
+    "steps_one": "{{count}} étape",
+    "steps_other": "{{count}} étapes",
+    "back": "Retour aux transformations",
+    "form": {
+      "title": "Nouvelle chaîne de transformations",
+      "slugHelp": "Proposé d'après le label ; figé une fois la chaîne créée, puisque les flux la désignent par lui.",
+      "submit": "Créer la chaîne"
+    },
+    "fields": {
+      "label": "Label",
+      "slug": "Slug",
+      "stepName": "Nom de l'étape",
+      "template": "Template JSLT",
+      "target": "Chemin cible (facultatif)",
+      "sample": "Message échantillon (JSON, facultatif)"
+    },
+    "editor": {
+      "steps": "Étapes, dans l’ordre",
+      "noStep": "Aucune étape : la chaîne rend le message tel quel.",
+      "step": "Étape {{rank}}",
+      "up": "Monter",
+      "down": "Descendre",
+      "remove": "Retirer",
+      "add": "Ajouter une étape",
+      "targetHelp": "Vide : le résultat du template devient le message. Renseigné : le résultat est posé à ce chemin du message, les objets manquants étant créés.",
+      "test": "Essayer sur un échantillon",
+      "run": "Lancer",
+      "sampleInvalid": "L'échantillon n'est pas un JSON valide.",
+      "failed": "La chaîne échoue à l'étape {{rank}} : {{code}} {{path}}",
+      "after": "Après l'étape {{rank}}",
+      "save": "Enregistrer la chaîne",
+      "saved": "Chaîne enregistrée.",
+      "delete": "Supprimer la chaîne",
+      "deleteTitle": "Supprimer cette chaîne ?",
+      "deleteBody": "Le répertoire transformations/{{slug}} sera retiré de la branche."
+    },
+    "problems": {
+      "syntaxe": "Template illisible, ligne {{line}}, colonne {{column}} : {{detail}}",
+      "hors_profil": "Constructions hors du profil d'écriture :",
+      "cible_invalide": "La cible « {{detail}} » n’est pas un chemin unique ($ suivi de noms et d’indices).",
+      "violation": "{{construction}} {{detail}} (ligne {{line}}, colonne {{column}})"
+    },
+    "errors": {
+      "field": {
+        "label": "Label : obligatoire, 120 caractères au plus, sur une ligne.",
+        "slug": "Slug : lettres minuscules, chiffres et tirets, de 2 à 63 caractères.",
+        "steps": "Noms d'étapes : lettres minuscules, chiffres et tirets, tous différents."
+      },
+      "unexpected": "La chaîne n'a pas pu être enregistrée. Voir les journaux du back-office.",
+      "unreadable": "Cette chaîne ne peut pas être lue."
     }
   }
 }
