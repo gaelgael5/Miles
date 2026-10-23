@@ -40,6 +40,8 @@ from miles.sources.service import SourcesService
 from miles.transform.api_catalog import CatalogService
 from miles.workshop.branches import EVENT_TYPES as BRANCH_EVENTS
 from miles.workshop.branches import BranchesService
+from miles.workshop.domains_service import EVENT_TYPES as DOMAIN_EVENTS
+from miles.workshop.domains_service import DomainsService
 from miles.workshop.holds import EVENT_TYPES as HOLD_EVENTS
 from miles.workshop.holds import BranchHoldsService
 from miles.workshop.service import EVENT_TYPES as WORKSHOP_EVENTS
@@ -69,6 +71,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | WORKSPACE_EVENTS
         | GITACCESS_EVENTS
         | DATA_MODEL_EVENTS
+        | DOMAIN_EVENTS
         | WORKSHOP_EVENTS
         | CONTRACT_EVENTS
         | BRANCH_EVENTS
@@ -101,6 +104,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         portal.pool, state.workspaces, resolver, workdirs, holds, state.git_identities, hosts
     )
     state.data_models = DataModelsService(portal.pool, branches, catalog, utc_now)
+    state.domains = DomainsService(portal.pool, branches, catalog, utc_now)
     state.workshop = WorkshopService(portal.pool, branches, catalog, utc_now)
     state.contracts = ContractsService(portal.pool, branches, catalog, utc_now)
     # Sans connexion ouverte tant que rien n'est lu : les tests n'y font passer que des
