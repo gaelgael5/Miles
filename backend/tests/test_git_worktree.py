@@ -181,7 +181,8 @@ async def test_taking_over_a_blank_branch_gives_it_the_skeleton(tmp_path: Path) 
 
     opened = await open_work_branch(repo, TOKEN, "atelier", AUTHOR, adopt_existing=True)
 
-    assert opened.outcome == "initialisee"
+    # Pas « initialisee » : le journal doit garder que la branche préexistait.
+    assert opened.outcome == "reprise_initialisee"
     tree = _tree(repo, "work/atelier")
     assert "manifest.json" in tree and "README.md" in tree
 
@@ -210,6 +211,21 @@ async def test_taking_over_a_branch_that_vanished_opens_it_normally(tmp_path: Pa
 
     assert (opened.branch, opened.outcome) == ("work/atelier", "initialisee")
 
+
+async def test_a_branch_whose_name_merely_starts_the_same_is_not_mistaken_for_it(
+    tmp_path: Path,
+) -> None:
+    """« work/atelier » n'existe pas parce que « work/atelier-bis » existe (relevé en revue).
+
+    La confusion rendait la branche inouvrable : refus à l'ouverture, puis échec d'accès
+    à la reprise, le clone visant une branche absente.
+    """
+    repo = _repo(tmp_path, {"README.md": "# Config"})
+    _seed_branch(repo, "work/atelier-bis", {"manifest.json": VALID_MANIFEST}, tmp_path)
+
+    opened = await open_work_branch(repo, TOKEN, "atelier", AUTHOR)
+
+    assert (opened.branch, opened.outcome) == ("work/atelier", "initialisee")
 
 async def test_unreachable_repository_designates_access(tmp_path: Path) -> None:
     repo = Repository(f"file://{tmp_path / 'disparu.git'}", "x", "disparu")

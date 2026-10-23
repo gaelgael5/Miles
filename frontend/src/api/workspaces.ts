@@ -83,8 +83,9 @@ export function useRecheckWorkspace(id: string) {
   });
 }
 
-/** « reprise » : la branche existait déjà au dépôt et n'a pas été modifiée. */
-export type WorkBranchOutcome = "initialisee" | "conforme" | "reprise";
+/** Les deux « reprise_* » disent que la branche préexistait au dépôt ; « reprise » seule
+ * dit qu'on n'y a rien écrit. */
+export type WorkBranchOutcome = "initialisee" | "conforme" | "reprise" | "reprise_initialisee";
 
 export function useOpenWorkBranch(id: string) {
   const client = useQueryClient();

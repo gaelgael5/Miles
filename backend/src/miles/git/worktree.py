@@ -86,8 +86,21 @@ class NonConformTreeError(WorkBranchError):
 @dataclass(frozen=True)
 class WorkBranch:
     branch: str
-    # « initialisee » : un commit a posé l'ossature ; « conforme » : rien n'a été écrit.
+    # Branche créée par Miles : « initialisee » (un commit a posé l'ossature) ou
+    # « conforme » (rien n'a été écrit). Branche qui préexistait et qu'on a reprise :
+    # « reprise » (rien n'a été écrit) ou « reprise_initialisee » (elle était vide et a
+    # reçu l'ossature). Les quatre valeurs sont contraintes en base (migration 0023).
     outcome: str
+
+
+def _has_ref(ls_remote: str, ref: str) -> bool:
+    """Référence présente, comparée EXACTEMENT ligne à ligne (« <sha>\t<ref> »).
+
+    Chercher la sous-chaîne confond « work/atelier » avec « work/atelier-bis » : la
+    branche demandée devient alors inouvrable, refusée à l'ouverture puis introuvable
+    au clone de la reprise (relevé en revue, 23/10/2026).
+    """
+    return any(line.split("\t")[-1].strip() == ref for line in ls_remote.splitlines())
 
 
 def work_branch_name(name: str) -> str:
@@ -194,7 +207,7 @@ class _Opener:
         heads = await self.git("ls-remote", "--symref", self.repo.url, "HEAD", "refs/heads/*")
         if not heads.ok:
             raise RepositoryAccessError(classify(heads))
-        existing = f"refs/heads/{self.branch}" in heads.stdout
+        existing = _has_ref(heads.stdout, f"refs/heads/{self.branch}")
         if existing and not self.adopt_existing:
             raise BranchExistsError(self.branch)
         # Reprise demandée mais la branche a disparu entre la confirmation et ici : on la
@@ -219,9 +232,12 @@ class _Opener:
             if not existing:
                 await self.git("checkout", "-q", "-b", self.branch, cwd=clone)
         outcome = await self._prepare(clone, paths)
-        if existing and outcome == "conforme":
-            # Rien n'a été écrit : la branche reprise reste à l'octet près ce qu'elle était.
-            outcome = "reprise"
+        if existing:
+            # Une branche qu'on reprend ne s'enregistre jamais comme une création : le
+            # journal doit pouvoir dire, après coup, que Miles s'est branché sur
+            # l'existant. « reprise » seule ne distinguerait pas la branche vide qu'on a
+            # dû initialiser — et c'est le seul cas où la reprise écrit quelque chose.
+            outcome = "reprise" if outcome == "conforme" else "reprise_initialisee"
         pushed = await self.git(
             "push", "-q", self.repo.url, f"HEAD:refs/heads/{self.branch}", cwd=clone
         )

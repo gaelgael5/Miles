@@ -214,6 +214,28 @@ describe("WorkBranchPanel", () => {
     ]);
   });
 
+  it("stops offering to take over once the branch name is changed", async () => {
+    mockApi({
+      "GET /api/workspaces": { status: 200, body: [CONFIGURED] },
+      "POST /api/workspaces/retrait/work-branch": {
+        status: 409,
+        body: { detail: "branche_existante" },
+      },
+      ...SETTINGS,
+    });
+    renderScreen();
+    await openSettings();
+
+    fireEvent.click(screen.getByText("Open the work branch"));
+    await screen.findByText("Take over this existing branch");
+    // Le refus portait sur « atelier » : il ne vaut pas confirmation pour un autre nom.
+    fireEvent.change(screen.getByLabelText(/Work branch name/), {
+      target: { value: "atelier2" },
+    });
+
+    expect(screen.queryByText("Take over this existing branch")).not.toBeInTheDocument();
+  });
+
   it("does not offer to take over when the refusal is something else", async () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [CONFIGURED] },

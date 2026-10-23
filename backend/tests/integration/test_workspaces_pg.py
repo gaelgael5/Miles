@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 import secrets as random
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -22,6 +24,7 @@ from tests.integration.portal_stack import PortalStack, open_portal_stack
 pytestmark = pytest.mark.integration
 
 ROUTE = "/api/workspaces"
+VALID_MANIFEST = json.dumps({"format_version": 1, "min_app_version": None, "capabilities": []})
 
 
 @dataclass
@@ -46,6 +49,31 @@ class Forge:
         name = url.rsplit("/", 1)[1].removesuffix(".git")
         listed = await self.api.get(f"/api/v1/repos/miles/{name}/branches")
         return [b["name"] for b in listed.json()]
+
+    async def seed_branch(self, url: str, branch: str, files: dict[str, str]) -> None:
+        """Pose `branch` dans le dépôt avec `files` : la branche qui préexiste à Miles."""
+        name = url.rsplit("/", 1)[1].removesuffix(".git")
+        created = await self.api.post(
+            f"/api/v1/repos/miles/{name}/branches", json={"new_branch_name": branch}
+        )
+        assert created.status_code == 201, created.text
+        for path, content in files.items():
+            written = await self.api.post(
+                f"/api/v1/repos/miles/{name}/contents/{path}",
+                json={
+                    "content": base64.b64encode(content.encode()).decode(),
+                    "branch": branch,
+                    "message": f"semis {path}",
+                },
+            )
+            assert written.status_code == 201, written.text
+
+    async def commits_on(self, url: str, branch: str) -> int:
+        name = url.rsplit("/", 1)[1].removesuffix(".git")
+        listed = await self.api.get(
+            f"/api/v1/repos/miles/{name}/commits", params={"sha": branch, "limit": 50}
+        )
+        return len(listed.json())
 
     async def tags(self, url: str) -> list[str]:
         name = url.rsplit("/", 1)[1].removesuffix(".git")
@@ -274,8 +302,60 @@ async def test_connection_in_use_cannot_be_deleted_nor_its_token(forge: Forge) -
     assert token.json()["detail"]["consumers"] == [{"kind": "git_connection", "id": "forge"}]
 
 
-async def _open(forge: Forge, name: str = "atelier") -> httpx.Response:
-    return await forge.client.post(f"{ROUTE}/retrait/work-branch", json={"name": name}, timeout=120)
+async def _open(
+    forge: Forge, name: str = "atelier", *, adopt: bool | None = None
+) -> httpx.Response:
+    body: dict[str, object] = {"name": name}
+    if adopt is not None:
+        body["adopt_existing"] = adopt
+    return await forge.client.post(f"{ROUTE}/retrait/work-branch", json=body, timeout=120)
+
+
+async def _stored_outcome(forge: Forge) -> str | None:
+    return await forge.portal.pool.fetchval(
+        "SELECT outcome FROM workspace_work_branches WHERE workspace_id = $1", "retrait"
+    )
+
+
+async def test_existing_branch_is_refused_then_taken_over_on_demand(forge: Forge) -> None:
+    """Le cas du recâblage : la branche préexiste, conforme. On la lie sans rien y écrire.
+
+    Écrit « reprise » en base : la contrainte de 0023 est donc éprouvée par le vrai
+    chemin, et pas seulement en SQL. Une contrainte trop étroite coincerait le workspace,
+    la branche étant déjà poussée quand l'INSERT échoue.
+    """
+    url = await forge.repo(auto_init=True)
+    await forge.seed_branch(
+        url, "work/atelier", {"manifest.json": VALID_MANIFEST, "domains/.gitkeep": ""}
+    )
+    await _with_repo(forge, url)
+    before = await forge.commits_on(url, "work/atelier")
+
+    refused = await _open(forge)
+    taken = await _open(forge, adopt=True)
+
+    assert (refused.status_code, refused.json()["detail"]) == (409, "branche_existante")
+    assert taken.status_code == 201, taken.text
+    assert taken.json()["outcome"] == "reprise"
+    assert taken.json()["workspace"]["work_branch"] == "work/atelier"
+    assert await _stored_outcome(forge) == "reprise"
+    # « elle n'a pas été touchée » : aucun commit de plus sur la branche reprise.
+    assert await forge.commits_on(url, "work/atelier") == before
+
+
+async def test_taking_over_an_empty_existing_branch_records_that_it_preexisted(
+    forge: Forge,
+) -> None:
+    url = await forge.repo(auto_init=True)
+    await forge.seed_branch(url, "work/atelier", {})
+    await _with_repo(forge, url)
+
+    taken = await _open(forge, adopt=True)
+
+    assert taken.status_code == 201, taken.text
+    # Surtout pas « initialisee » : la branche préexistait, le journal doit le dire.
+    assert taken.json()["outcome"] == "reprise_initialisee"
+    assert await _stored_outcome(forge) == "reprise_initialisee"
 
 
 async def test_work_branch_opens_once_a_repository_is_recorded(forge: Forge) -> None:

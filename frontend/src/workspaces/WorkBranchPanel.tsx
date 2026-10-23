@@ -38,6 +38,10 @@ export function WorkBranchPanel({ workspace }: { workspace: Workspace }) {
   const { t } = useTranslation();
   const open = useOpenWorkBranch(workspace.id);
   const [name, setName] = useState("atelier");
+  // Nom sur lequel le refus a porté. La confirmation vaut pour CE nom : sans cela,
+  // changer le champ après le refus laisse le bouton reprendre une autre branche, que
+  // personne n'a refusée ni confirmée (relevé en revue, 23/10/2026).
+  const [refused, setRefused] = useState<string | null>(null);
   const diagnosis = diagnosisOf(open.error);
 
   if (workspace.work_branch !== null) {
@@ -46,7 +50,11 @@ export function WorkBranchPanel({ workspace }: { workspace: Workspace }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    open.mutate({ name });
+    const asked = name;
+    open.mutate(
+      { name: asked },
+      { onError: (error) => setRefused(isExistingBranch(error) ? asked : null) },
+    );
   }
 
   return (
@@ -62,12 +70,12 @@ export function WorkBranchPanel({ workspace }: { workspace: Workspace }) {
       </button>
       {open.data?.outcome && <p className="muted" role="status">{t(`workspaces.work.outcome.${open.data.outcome}`)}</p>}
       {open.isError && <p className="alert" role="alert">{t(errorKey(open.error))}</p>}
-      {isExistingBranch(open.error) && (
+      {refused === name && isExistingBranch(open.error) && (
         <button
           type="button"
           className="btn"
           disabled={open.isPending}
-          onClick={() => open.mutate({ name, adoptExisting: true })}
+          onClick={() => open.mutate({ name: refused, adoptExisting: true })}
         >
           {t("workspaces.work.adopt")}
         </button>
