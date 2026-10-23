@@ -10,7 +10,7 @@ from starlette.requests import Request
 from starlette.types import ASGIApp
 
 from miles.apikeys.model import KeyPrincipal
-from miles.mcp_api import tools_chains, tools_models
+from miles.mcp_api import tools_chains, tools_models, tools_reads
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE, ApiKeyAuth
 from miles.mcp_api.calls import caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
@@ -27,6 +27,9 @@ INSTRUCTIONS = (
     "Miles : back-office du terminal point relais. Le paramétrage (modèles de données,"
     " chaînes de transformations…) vit dans des branches de travail d'un workspace."
     " Commencez par list_workspaces : seuls les workspaces ouverts à votre clé y figurent."
+    " Pour charger un domaine d'un coup : list_domains puis get_domain ; les contrats,"
+    " les messages transverses et le catalogue ont leurs lectures dédiées, à la tête de"
+    " la branche ou à un commit."
     " Une modification exige une branche enfant ; la branche de base est en lecture seule."
     " Elle agit au nom de la personne pour qui le portail appelle, qui doit avoir pris la"
     " main sur cette branche dans Miles : chaque modification y devient un commit local,"
@@ -158,6 +161,7 @@ def build_server() -> MCPServer:
 
     tools_models.register(server)
     tools_chains.register(server)
+    tools_reads.register(server)
     return server
 
 

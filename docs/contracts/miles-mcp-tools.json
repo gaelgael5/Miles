@@ -526,6 +526,321 @@
         "title": "try_chainArguments",
         "type": "object"
       }
+    },
+    {
+      "name": "list_domains",
+      "description": "Liste les domaines d'une branche, à sa tête ou à un commit.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Identifiant complet (40 caractères) d'un commit de la branche : lit l'état à ce commit, pas l'état courant. Absent : la tête de la branche.",
+            "title": "Commit"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "list_domainsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_domain",
+      "description": "Rend tout un domaine en un appel : messages, mappings entrants et sortants, référentiels, composants, écrans, scénarios, chacun avec son chemin et son contenu. `misplaced` : fichiers du domaine hors de ces rubriques. Réponse bornée : si `truncated`, les éléments au contenu null se redemandent avec after = next_after. Domaine inconnu : refus domaine_inconnu avec la liste.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "domain": {
+            "description": "Nom du domaine (voir list_domains).",
+            "title": "Domain",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Identifiant complet (40 caractères) d'un commit de la branche : lit l'état à ce commit, pas l'état courant. Absent : la tête de la branche.",
+            "title": "Commit"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Pour reprendre une réponse tronquée : le `next_after` qu'elle a rendu. Les éléments suivants, par ordre de chemin, sont alors rendus.",
+            "title": "After"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "domain"
+        ],
+        "title": "get_domainArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_shared_messages",
+      "description": "Rend les messages pivot transverses (shared/messages), chemin et contenu. Même borne que get_domain : si `truncated`, reprendre avec after = next_after.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Identifiant complet (40 caractères) d'un commit de la branche : lit l'état à ce commit, pas l'état courant. Absent : la tête de la branche.",
+            "title": "Commit"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Pour reprendre une réponse tronquée : le `next_after` qu'elle a rendu. Les éléments suivants, par ordre de chemin, sont alors rendus.",
+            "title": "After"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "get_shared_messagesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_contracts",
+      "description": "Liste les contrats d'une branche avec leurs versions intégrées.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Identifiant complet (40 caractères) d'un commit de la branche : lit l'état à ce commit, pas l'état courant. Absent : la tête de la branche.",
+            "title": "Commit"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "list_contractsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_contract",
+      "description": "Rend un contrat et ses versions ; avec `version`, les opérations de cette version (méthode, chemin, operationId). Refus : contrat_inconnu ou version_inconnue, avec ce qui existe.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "contract": {
+            "description": "Slug du contrat (voir list_contracts).",
+            "title": "Contract",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Numéro de version.",
+            "title": "Version"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Identifiant complet (40 caractères) d'un commit de la branche : lit l'état à ce commit, pas l'état courant. Absent : la tête de la branche.",
+            "title": "Commit"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "contract"
+        ],
+        "title": "get_contractArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_catalog",
+      "description": "Rend le catalogue d'une branche : fonctions utilisables dans un template (avec signature et documentation), modèles de données avec leurs propriétés, et plancher d'application, à la tête ou à un commit.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Identifiant complet (40 caractères) d'un commit de la branche : lit l'état à ce commit, pas l'état courant. Absent : la tête de la branche.",
+            "title": "Commit"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "get_catalogArguments",
+        "type": "object"
+      }
     }
   ]
 }

@@ -20,6 +20,7 @@ from miles.contracts.layout import (
     versions_in,
 )
 from miles.contracts.openapi import ParsedContract, parse_contract
+from miles.contracts.reading import Contract, contract_at
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
@@ -31,20 +32,6 @@ log = structlog.get_logger(__name__)
 DECLARED_EVENT = "contract.declared"
 VERSION_EVENT = "contract.version_imported"
 EVENT_TYPES = frozenset({DECLARED_EVENT, VERSION_EVENT})
-
-
-@dataclass(frozen=True)
-class ContractVersion:
-    number: int
-    # None : retouché hors de Miles et devenu illisible. Listé quand même, la validation
-    # de la branche dira pourquoi.
-    parsed: ParsedContract | None
-
-
-@dataclass(frozen=True)
-class Contract:
-    meta: ContractMeta
-    versions: tuple[ContractVersion, ...]
 
 
 class ContractNotFoundError(Exception):
@@ -205,16 +192,4 @@ def _direction(direction: str) -> str:
 
 
 async def _contract(copy: WorkCopy, paths: list[str], slug: str) -> Contract | None:
-    meta = read_meta(await copy.read(meta_path(slug)))
-    if meta is None:
-        return None
-    versions = []
-    for number in versions_in(paths, slug):
-        try:
-            parsed: ParsedContract | None = parse_contract(
-                await copy.read(version_path(slug, number)) or ""
-            )
-        except ValueError:
-            parsed = None
-        versions.append(ContractVersion(number, parsed))
-    return Contract(meta, tuple(versions))
+    return await contract_at(copy.read, paths, slug)

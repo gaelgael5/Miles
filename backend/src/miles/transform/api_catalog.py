@@ -9,10 +9,11 @@ from pydantic import BaseModel, ConfigDict
 
 from miles.auth.author import request_author
 from miles.events.model import EventAuthor
-from miles.git.snapshot import CommitNotFoundError, snapshot
+from miles.git.snapshot import CommitNotFoundError
 from miles.transform.catalog import app_floor, functions_catalog, models_catalog
 from miles.transform.engine import function_registry
-from miles.workshop.target import Gesture, WorkBranches
+from miles.workshop.reading import branch_source
+from miles.workshop.target import WorkBranches
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,
@@ -39,16 +40,12 @@ class CatalogService:
     async def resolve(
         self, viewer: EventAuthor, workspace_id: str, branch: str | None, commit: str | None
     ) -> dict[str, Any]:
-        async with self.branches.checkout(
-            workspace_id, branch, by=viewer, gesture=Gesture.READ
-        ) as copy:
-            source = await snapshot(copy, commit) if commit else None
-            paths = await (source.paths() if source else copy.paths())
-            read = source.read if source else copy.read
+        async with branch_source(self.branches, viewer, workspace_id, branch, commit) as source:
+            paths = await source.paths()
             return {
-                "commit": source.commit if source else copy.head,
-                "app_floor": await app_floor(read),
-                "models": await models_catalog(paths, read),
+                "commit": source.commit,
+                "app_floor": await app_floor(source.read),
+                "models": await models_catalog(paths, source.read),
             }
 
 

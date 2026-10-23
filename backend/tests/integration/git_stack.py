@@ -47,6 +47,7 @@ from miles.workshop.service import WorkshopService
 from miles.workshop.shelving import EVENT_TYPES as SHELF_EVENTS
 from miles.workshop.shelving import ShelvesService
 from miles.workshop.target import WorkBranches
+from miles.workshop.targeted import TargetedReads
 from miles.workspaces.model import EVENT_TYPES as WORKSPACE_EVENTS
 from miles.workspaces.service import WorkspacesService
 from tests.integration.portal_stack import PortalStack, utc_now
@@ -109,6 +110,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.branch_holds = BranchHoldsService(portal.pool, branches, catalog, utc_now)
     state.shelves = ShelvesService(portal.pool, branches, catalog, utc_now)
     state.template_catalog = CatalogService(branches)
+    state.targeted_reads = TargetedReads(branches)
     state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
     state.sources = SourcesService(portal.pool, branches, catalog, utc_now)
     state.api_keys = ApiKeysService(portal.pool, catalog, utc_now)

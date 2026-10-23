@@ -13,7 +13,6 @@ import structlog
 from fastapi import FastAPI
 
 from miles.api_health import router as health_router
-from miles.apikeys import service as apikeys_events
 from miles.apikeys.api_apikeys import router as api_keys_router
 from miles.apikeys.service import ApiKeysService
 from miles.auth.admin_store import AdminAccountStore
@@ -23,40 +22,34 @@ from miles.auth.api_preferences import router as preferences_router
 from miles.auth.context import AuthContext, utc_now
 from miles.auth.gate import auth_gate
 from miles.auth.throttle import LoginThrottle
-from miles.chains import service as chains_events
 from miles.chains.api_chains import router as chains_api_router
 from miles.chains.service import ChainsService
 from miles.config import Settings
-from miles.contracts import service as contracts_events
 from miles.contracts.api_contracts import router as contracts_router
 from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import ContractsService
-from miles.cultures import service as cultures_events
 from miles.cultures.api_cultures import public_router as login_cultures_router
 from miles.cultures.api_cultures import router as cultures_router
 from miles.cultures.service import CulturesService
-from miles.datamodels import service as datamodels_events
 from miles.datamodels.api_datamodels import router as data_models_router
 from miles.datamodels.service import DataModelsService
 from miles.db.migration_files import file_load_migrations
 from miles.db.pool import db_create_pool
+from miles.events.known import code_event_types
 from miles.events.model import EventTypeCatalog
 from miles.git.holdspace import HOLDS_DIR, HoldSpaces
 from miles.git.workdirs import WorkDirs
-from miles.gitaccess import model as gitaccess_events
 from miles.gitaccess.api_gitaccess import connections_router
 from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.resolver import AccessResolver
 from miles.health import resolve_health
-from miles.identities import service as identities_events
 from miles.identities.api_identities import router as identities_router
 from miles.identities.service import GitIdentitiesService
 from miles.log_config import configure_logging
 from miles.mcp_api.server import MCP_MOUNT, MCP_PATH, build_server, mcp_app
 from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder
-from miles.oauth import clients as oauth_events
 from miles.oauth.access import OAuthAccess
 from miles.oauth.api_authorize import router as oauth_authorize_router
 from miles.oauth.api_clients import router as oauth_clients_router
@@ -65,29 +58,21 @@ from miles.oauth.clients import OAuthClientsService
 from miles.oauth.flow import OAuthFlow
 from miles.obo.api_identity import router as identity_router
 from miles.obo.service import ActorIdentitiesService
-from miles.oidc import service as oidc_events
 from miles.oidc.api_connectors import router as oidc_connectors_router
 from miles.oidc.api_login import router as oidc_login_router
 from miles.oidc.service import OidcService
-from miles.secrets import service as secrets_events
 from miles.secrets.api_secrets import router as secrets_router
 from miles.secrets.api_secrets import types_router as secret_types_router
 from miles.secrets.crypto import SecretCipher, parse_secrets_key
 from miles.secrets.service import SecretsService
-from miles.security import service as security_events
 from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
-from miles.sources import service as sources_events
 from miles.sources.api_sources import router as sources_router
 from miles.sources.service import SourcesService
 from miles.transform.api_catalog import CatalogService
 from miles.transform.api_catalog import router as catalog_router
 from miles.transform.api_transform import chains_router
 from miles.transform.api_transform import router as transform_router
-from miles.workshop import branches as branches_events
-from miles.workshop import holds as holds_events
-from miles.workshop import service as workshop_events
-from miles.workshop import shelving as shelving_events
 from miles.workshop.api_branches import router as branches_router
 from miles.workshop.api_branches import views_router as branch_views_router
 from miles.workshop.api_holds import me_router as my_shelves_router
@@ -98,7 +83,7 @@ from miles.workshop.holds import BranchHoldsService
 from miles.workshop.service import WorkshopService
 from miles.workshop.shelving import ShelvesService
 from miles.workshop.target import WorkBranches
-from miles.workspaces import model as workspace_events
+from miles.workshop.targeted import TargetedReads
 from miles.workspaces.api_workspaces import router as workspaces_router
 from miles.workspaces.service import WorkspacesService
 
@@ -120,27 +105,7 @@ def create_app() -> FastAPI:
     store = AdminAccountStore.file_load(settings.env_file, settings.env_backup_file)
     # Même règle pour la clé des secrets : absente ou mal formée, on ne démarre pas.
     cipher = SecretCipher(parse_secrets_key(settings.secrets_key.get_secret_value()))
-    # Catalogue des types d'event connus du code. Le catalogue déclaré dans git
-    # viendra avec son propre ticket ; d'ici là, chaque module apporte ses types.
-    catalog = EventTypeCatalog(
-        secrets_events.EVENT_TYPES
-        | cultures_events.EVENT_TYPES
-        | oidc_events.EVENT_TYPES
-        | security_events.EVENT_TYPES
-        | workspace_events.EVENT_TYPES
-        | gitaccess_events.EVENT_TYPES
-        | datamodels_events.EVENT_TYPES
-        | workshop_events.EVENT_TYPES
-        | contracts_events.EVENT_TYPES
-        | branches_events.EVENT_TYPES
-        | holds_events.EVENT_TYPES
-        | shelving_events.EVENT_TYPES
-        | identities_events.EVENT_TYPES
-        | chains_events.EVENT_TYPES
-        | sources_events.EVENT_TYPES
-        | apikeys_events.EVENT_TYPES
-        | oauth_events.EVENT_TYPES
-    )
+    catalog = EventTypeCatalog(code_event_types())
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -206,6 +171,7 @@ def create_app() -> FastAPI:
         app.state.branch_holds = BranchHoldsService(pool, branches, catalog, utc_now)
         app.state.shelves = ShelvesService(pool, branches, catalog, utc_now)
         app.state.template_catalog = CatalogService(branches)
+        app.state.targeted_reads = TargetedReads(branches)
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
         app.state.api_keys = ApiKeysService(pool, catalog, utc_now)

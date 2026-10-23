@@ -10,11 +10,12 @@ from pydantic import BaseModel, ConfigDict
 from miles.auth.author import request_author
 from miles.contracts.history import Comparison, compare
 from miles.contracts.openapi import ParsedContract
+from miles.contracts.reading import Contract, ContractVersion
 from miles.contracts.refusals import REFUSALS as _REFUSALS
 from miles.contracts.refusals import error as _error
 from miles.contracts.refusals import refusal as _refusal
 from miles.contracts.remote import RemoteContractError, RemoteContracts
-from miles.contracts.service import Contract, ContractsService, ContractVersion
+from miles.contracts.service import ContractsService
 
 # Réservé à l'administrateur tant que les rôles n'existent pas : la passerelle refuse
 # toute autre session. Le droit d'écriture sur le workspace viendra avec les rôles.
