@@ -87,13 +87,16 @@ from miles.transform.api_transform import router as transform_router
 from miles.workshop import branches as branches_events
 from miles.workshop import holds as holds_events
 from miles.workshop import service as workshop_events
+from miles.workshop import shelving as shelving_events
 from miles.workshop.api_branches import router as branches_router
 from miles.workshop.api_branches import views_router as branch_views_router
+from miles.workshop.api_holds import me_router as my_shelves_router
 from miles.workshop.api_holds import router as holds_router
 from miles.workshop.api_workshop import router as workshop_router
 from miles.workshop.branches import BranchesService
 from miles.workshop.holds import BranchHoldsService
 from miles.workshop.service import WorkshopService
+from miles.workshop.shelving import ShelvesService
 from miles.workshop.target import WorkBranches
 from miles.workspaces import model as workspace_events
 from miles.workspaces.api_workspaces import router as workspaces_router
@@ -131,6 +134,7 @@ def create_app() -> FastAPI:
         | contracts_events.EVENT_TYPES
         | branches_events.EVENT_TYPES
         | holds_events.EVENT_TYPES
+        | shelving_events.EVENT_TYPES
         | identities_events.EVENT_TYPES
         | chains_events.EVENT_TYPES
         | sources_events.EVENT_TYPES
@@ -200,6 +204,7 @@ def create_app() -> FastAPI:
         app.state.transform_budget = settings.transform_budget
         app.state.branches = BranchesService(pool, branches, catalog, utc_now)
         app.state.branch_holds = BranchHoldsService(pool, branches, catalog, utc_now)
+        app.state.shelves = ShelvesService(pool, branches, catalog, utc_now)
         app.state.template_catalog = CatalogService(branches)
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
@@ -274,6 +279,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(branches_router)
     app.include_router(branch_views_router)
     app.include_router(holds_router)
+    app.include_router(my_shelves_router)
     app.include_router(preferences_router)
     app.include_router(identities_router)
     app.include_router(transform_router)

@@ -134,6 +134,11 @@ class WorkBranches:
                 published=hold.published_commit,
                 signature=git_signature(*signature),
             ) as copy:
+                # Relue sous le verrou de l'espace : une prise rendue ou déverrouillée
+                # pendant qu'un geste attendait ne lui laisse rien écrire.
+                current = await db_hold(self.pool, workspace.id, hold.slug)
+                if current is None or current.taken_at != hold.taken_at:
+                    raise HoldRequiredError(None if current is None else current.holder_label)
                 if copy.published != hold.published_commit:
                     # L'espace s'est recalé sur la forge : c'est la nouvelle tête publiée,
                     # le bail de la prochaine publication.

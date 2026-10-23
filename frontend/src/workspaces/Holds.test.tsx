@@ -99,6 +99,70 @@ describe("taking over a branch", () => {
   });
 });
 
+describe("unlocking and resuming (story fd1eb7da)", () => {
+  const SHELF = {
+    workspace_id: "retrait",
+    workspace_name: "Retrait de colis",
+    slug: "edition",
+    shelf_branch: "shelve/bob/edition",
+    mine: false,
+    shelved_at: "2026-10-23T09:00:00Z",
+  };
+
+  it("unlocks the holder only after confirmation, then says where the work went", async () => {
+    const calls = onList("edition", {
+      [`GET ${WS}/holds`]: [
+        { status: 200, body: [BOBS] },
+        { status: 200, body: [] },
+      ],
+      [`GET ${WS}/shelves`]: { status: 200, body: [] },
+      [`POST ${HOLD}/unlock`]: { status: 200, body: { shelf: SHELF } },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Unlock" }));
+    expect(calls.some((c) => c.key === `POST ${HOLD}/unlock`)).toBe(false);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Unlock" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "the unpublished work is shelved on shelve/bob/edition",
+    );
+    expect(calls.some((c) => c.key === `POST ${HOLD}/unlock`)).toBe(true);
+  });
+
+  it("keeps the branch held and asks for a new token when the forge refuses it", async () => {
+    onList("edition", {
+      [`GET ${WS}/holds`]: { status: 200, body: [BOBS] },
+      [`GET ${WS}/shelves`]: { status: 200, body: [] },
+      [`POST ${HOLD}/unlock`]: { status: 409, body: { detail: "jeton_personnel_refuse" } },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Unlock" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Unlock" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("renew their token");
+    expect(screen.getByText("Held by Bob Martin (bob)")).toBeInTheDocument();
+  });
+
+  it("offers to take over again when my work is shelved, and names conflicting files", async () => {
+    onList("edition", {
+      [`GET ${WS}/holds`]: { status: 200, body: [] },
+      [`GET ${WS}/shelves`]: { status: 200, body: [{ ...SHELF, mine: true }] },
+      [`POST ${HOLD}`]: {
+        status: 409,
+        body: { detail: { code: "conflit_de_reprise", files: ["shared/messages/personne.yaml"] } },
+      },
+    });
+
+    expect(await screen.findByRole("note")).toHaveTextContent("You have work shelved");
+    fireEvent.click(await screen.findByRole("button", { name: "Take over again" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "conflicts with the up-to-date branch (shared/messages/personne.yaml)",
+    );
+  });
+});
+
 describe("a child branch someone else holds", () => {
   it("reads the models without offering any change, and says who holds it", async () => {
     mockApi({

@@ -55,7 +55,12 @@ OIDC_SESSION_PATHS = frozenset(
 )
 # Identité git personnelle (ticket 033e5ff3) : même raison, la personne n'y atteint que
 # ses propres jetons. Préfixe, parce que la connexion git figure dans le chemin.
-OIDC_SESSION_PREFIXES = ("/api/auth/me/git-identities", "/api/auth/me/oauth-grants")
+# Ses rangements (fd1eb7da) aussi : la route ne rend que les siens.
+OIDC_SESSION_PREFIXES = (
+    "/api/auth/me/git-identities",
+    "/api/auth/me/oauth-grants",
+    "/api/auth/me/shelves",
+)
 
 
 def _personal(path: str) -> bool:

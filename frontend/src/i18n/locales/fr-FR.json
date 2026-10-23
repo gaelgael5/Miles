@@ -745,6 +745,12 @@
         "invalid": "Lettres, chiffres, points, tirets, deux-points et soulignés seulement, 128 caractères au plus.",
         "unexpected": "L'identifiant n'a pas pu être enregistré. Voir les journaux du back-office."
       }
+    },
+    "shelves": {
+      "title": "Branches rangées",
+      "help": "Votre travail non publié, rangé sur la forge quand l'administrateur vous a déverrouillé. Reprenez la main sur la branche dans « Tous les workspaces » pour le retrouver.",
+      "item": "{{workspace}} — branche {{branch}}, rangée le {{date}} :",
+      "error": "Vos rangements n'ont pas pu être lus."
     }
   },
   "chains": {
@@ -1007,7 +1013,22 @@
       "branche_modifiee": "La branche a bougé dans la forge depuis votre dernière publication : rien n'a été écrasé, vos modifications restent ici.",
       "prise_de_main_requise": "Vous n'avez pas la main sur cette branche.",
       "prise_concurrente": "Une autre prise de main a eu lieu au même moment : réessayez.",
-      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
-    }
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office.",
+      "jeton_personnel_refuse": "La forge refuse le jeton personnel de la personne qui tient la branche : rien n'a été rangé ni supprimé, la branche reste tenue. Elle doit renouveler son jeton dans « Mon profil ».",
+      "rangement_existant": "Un rangement existe déjà pour cette personne sur cette branche : il n'est jamais écrasé, rien n'a été fait.",
+      "branche_libre": "Personne ne tient cette branche : rien à déverrouiller.",
+      "conflit_de_reprise": "Votre travail rangé heurte la branche à jour ({{files}}) : rien n'a été écrit, le rangement reste sur la forge et la branche n'est pas tenue."
+    },
+    "unlock": "Déverrouiller",
+    "unlockConfirm": {
+      "title": "Déverrouiller {{holder}} ?",
+      "body": "Son travail non publié sera rangé sur la forge, sur une branche à son nom, avec son propre jeton ; son espace sur le serveur sera supprimé et la branche libérée. En reprenant la main, il retrouvera son travail fusionné dans la branche à jour."
+    },
+    "unlocked": {
+      "shelved": "Branche libérée ; le travail non publié est rangé sur {{branch}}.",
+      "free": "Branche libérée ; il n'y avait rien à ranger."
+    },
+    "shelvedMine": "Vous avez du travail rangé sur cette branche : en reprenant la main, il sera fusionné dans la branche à jour.",
+    "resume": "Reprendre la main"
   }
 }

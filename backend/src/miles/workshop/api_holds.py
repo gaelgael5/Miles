@@ -15,6 +15,8 @@ from miles.workshop.holds import (
     HoldStatus,
 )
 from miles.workshop.holds_db import Hold
+from miles.workshop.shelves_db import Shelf
+from miles.workshop.shelving import ShelfConflictError, ShelvesService
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,
@@ -33,6 +35,17 @@ def holds_service(request: Request) -> BranchHoldsService:
 
 
 Service = Annotated[BranchHoldsService, Depends(holds_service)]
+# Ce que la personne connectée a de rangé, tous workspaces confondus : son profil le
+# montre (fd1eb7da, critère 5). Ouvert à toute session, elle n'y voit que les siens.
+me_router = APIRouter(prefix="/api/auth/me/shelves")
+
+
+def shelves_service(request: Request) -> ShelvesService:
+    service: ShelvesService = request.app.state.shelves
+    return service
+
+
+Shelves = Annotated[ShelvesService, Depends(shelves_service)]
 
 
 class HoldOut(BaseModel):
@@ -49,6 +62,23 @@ class StatusOut(BaseModel):
     hold: HoldOut | None
     # Commits locaux non publiés, pour la seule personne qui a la main.
     unpublished: int | None
+
+
+class ShelfOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    workspace_id: str
+    workspace_name: str
+    slug: str
+    # Branche de rangement sur la forge : `shelve/<login>/<branche>`.
+    shelf_branch: str
+    mine: bool
+    shelved_at: str
+
+
+class UnlockedOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # None : rien n'était à ranger, la branche est simplement libérée (critère 4).
+    shelf: ShelfOut | None
 
 
 class PublishedOut(BaseModel):
@@ -75,6 +105,17 @@ def _status(found: HoldStatus, person: EventAuthor) -> StatusOut:
     return StatusOut(hold=hold, unpublished=found.unpublished)
 
 
+def _shelf(shelf: Shelf, person: EventAuthor) -> ShelfOut:
+    return ShelfOut(
+        workspace_id=shelf.workspace_id,
+        workspace_name=shelf.workspace_name,
+        slug=shelf.slug,
+        shelf_branch=shelf.shelf_branch,
+        mine=shelf.owned_by(person),
+        shelved_at=shelf.shelved_at.isoformat(),
+    )
+
+
 def _error(code: int, detail: object) -> JSONResponse:
     return JSONResponse(status_code=code, content={"detail": detail})
 
@@ -86,6 +127,8 @@ def _refusal(exc: Exception) -> JSONResponse:
     conflict = status.HTTP_409_CONFLICT
     if isinstance(exc, BranchHeldError):
         return _error(conflict, {"code": exc.code, "by": exc.holder})
+    if isinstance(exc, ShelfConflictError):
+        return _error(conflict, {"code": exc.code, "files": exc.files})
     if isinstance(exc, AlreadyHoldingError):
         held = {"workspace_id": exc.hold.workspace_id, "branch": exc.hold.slug}
         return _error(conflict, {"code": exc.code} | held)
@@ -147,3 +190,27 @@ async def release_hold(workspace_id: str, slug: str, request: Request, service: 
     except _REFUSALS as exc:
         return _refusal(exc)
     return ReleasedOut(released=released)
+
+
+@router.post("/branches/{slug}/hold/unlock", response_model=UnlockedOut)
+async def unlock_hold(workspace_id: str, slug: str, request: Request, shelves: Shelves) -> object:
+    """Réservé à l'administrateur racine tant que les rôles n'existent pas : la passerelle
+    refuse toute autre session sur /api/workspaces (critère 8)."""
+    admin = request_author(request)
+    try:
+        shelf = await shelves.resolve_unlock(admin, workspace_id, slug)
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return UnlockedOut(shelf=None if shelf is None else _shelf(shelf, admin))
+
+
+@router.get("/shelves", response_model=list[ShelfOut])
+async def list_shelves(workspace_id: str, request: Request, shelves: Shelves) -> object:
+    person = request_author(request)
+    return [_shelf(s, person) for s in await shelves.resolve_list(workspace_id)]
+
+
+@me_router.get("", response_model=list[ShelfOut])
+async def my_shelves(request: Request, shelves: Shelves) -> object:
+    person = request_author(request)
+    return [_shelf(s, person) for s in await shelves.resolve_mine(person)]

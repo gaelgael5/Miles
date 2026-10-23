@@ -44,6 +44,8 @@ from miles.workshop.holds import EVENT_TYPES as HOLD_EVENTS
 from miles.workshop.holds import BranchHoldsService
 from miles.workshop.service import EVENT_TYPES as WORKSHOP_EVENTS
 from miles.workshop.service import WorkshopService
+from miles.workshop.shelving import EVENT_TYPES as SHELF_EVENTS
+from miles.workshop.shelving import ShelvesService
 from miles.workshop.target import WorkBranches
 from miles.workspaces.model import EVENT_TYPES as WORKSPACE_EVENTS
 from miles.workspaces.service import WorkspacesService
@@ -70,6 +72,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | CONTRACT_EVENTS
         | BRANCH_EVENTS
         | HOLD_EVENTS
+        | SHELF_EVENTS
         | IDENTITY_EVENTS
         | CHAIN_EVENTS
         | SOURCE_EVENTS
@@ -104,6 +107,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.remote_contracts = RemoteContracts(httpx.AsyncClient())
     state.branches = BranchesService(portal.pool, branches, catalog, utc_now)
     state.branch_holds = BranchHoldsService(portal.pool, branches, catalog, utc_now)
+    state.shelves = ShelvesService(portal.pool, branches, catalog, utc_now)
     state.template_catalog = CatalogService(branches)
     state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
     state.sources = SourcesService(portal.pool, branches, catalog, utc_now)

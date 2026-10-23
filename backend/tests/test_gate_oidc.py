@@ -113,6 +113,16 @@ def test_oidc_session_without_rights_reaches_its_own_git_identities_only(
     assert oidc_client.get("/api/auth/me/git-identitiesx").status_code == 403
 
 
+def test_oidc_session_without_rights_sees_only_its_own_shelves(oidc_client: TestClient) -> None:
+    class Shelves:
+        async def resolve_mine(self, person: object) -> list[object]:
+            return []
+
+    oidc_client.app.state.shelves = Shelves()  # type: ignore[attr-defined]
+
+    assert oidc_client.get("/api/auth/me/shelves").json() == []
+
+
 @pytest.mark.parametrize(
     ("method", "path"),
     [
@@ -125,6 +135,9 @@ def test_oidc_session_without_rights_reaches_its_own_git_identities_only(
         ("POST", "/api/oidc/connectors"),
         ("GET", "/api/security-services"),
         ("POST", "/api/security-services/racine/verification"),
+        # Déverrouiller quelqu'un : administrateur racine seulement (fd1eb7da, critère 8).
+        ("POST", "/api/workspaces/retrait/branches/edition/hold/unlock"),
+        ("GET", "/api/workspaces/retrait/shelves"),
     ],
 )
 def test_oidc_session_without_roles_reaches_no_protected_route(

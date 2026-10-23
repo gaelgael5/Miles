@@ -10,6 +10,7 @@ import { BranchPicker } from "../workspaces/BranchPicker";
 import { ActorIdentitySection } from "./ActorIdentitySection";
 import { GitIdentitiesSection } from "./GitIdentitiesSection";
 import { OAuthGrantsSection } from "./OAuthGrantsSection";
+import { ShelvesSection } from "./ShelvesSection";
 
 function Identity({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -112,6 +113,7 @@ export function ProfileScreen({ me }: { me: Me }) {
       <GitIdentitiesSection />
       <ActorIdentitySection />
       <OAuthGrantsSection />
+      <ShelvesSection />
       {/* Les workspaces sont réservés à l'administrateur tant que les rôles manquent. */}
       {me.root_admin && <BranchViews />}
     </section>

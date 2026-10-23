@@ -21,6 +21,17 @@ export interface HoldStatus {
   unpublished: number | null;
 }
 
+/** Travail non publié rangé sur la forge au déverrouillage (story fd1eb7da). */
+export interface Shelf {
+  workspace_id: string;
+  workspace_name: string;
+  slug: string;
+  /** Branche de rangement sur la forge : `shelve/<login>/<branche>`. */
+  shelf_branch: string;
+  mine: boolean;
+  shelved_at: string;
+}
+
 function workspacePath(workspaceId: string) {
   return `/api/workspaces/${encodeURIComponent(workspaceId)}`;
 }
@@ -60,10 +71,15 @@ export function useHoldStatus(workspaceId: string, slug: string, enabled: boolea
  */
 function refresh(client: QueryClient, workspaceId: string, slug: string) {
   return client.invalidateQueries({
-    predicate: (query) =>
-      query.queryKey[0] === "holds"
-        ? query.queryKey[1] === workspaceId
-        : query.queryKey[1] === workspaceId && query.queryKey[2] === slug,
+    predicate: ({ queryKey: [kind, workspace, branch] }) => {
+      if (kind === "my-shelves") {
+        return true;
+      }
+      if (kind === "holds" || kind === "shelves") {
+        return workspace === workspaceId;
+      }
+      return workspace === workspaceId && branch === slug;
+    },
   });
 }
 
@@ -87,5 +103,28 @@ export function usePublishHold(workspaceId: string, slug: string) {
 export function useReleaseHold(workspaceId: string, slug: string) {
   return useHoldMutation(workspaceId, slug, () =>
     request<{ released: boolean }>(holdPath(workspaceId, slug), { method: "DELETE" }),
+  );
+}
+
+export function useShelves(workspaceId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["shelves", workspaceId] as const,
+    enabled,
+    queryFn: ({ signal }) => request<Shelf[]>(`${workspacePath(workspaceId)}/shelves`, { signal }),
+  });
+}
+
+/** Mes rangements, tous workspaces confondus : le profil les montre. */
+export function useMyShelves() {
+  return useQuery({
+    queryKey: ["my-shelves"] as const,
+    queryFn: ({ signal }) => request<Shelf[]>("/api/auth/me/shelves", { signal }),
+  });
+}
+
+/** Déverrouiller qui tient la branche : son travail non publié est rangé sur la forge. */
+export function useUnlockHold(workspaceId: string, slug: string) {
+  return useHoldMutation(workspaceId, slug, () =>
+    request<{ shelf: Shelf | null }>(`${holdPath(workspaceId, slug)}/unlock`, { method: "POST" }),
   );
 }

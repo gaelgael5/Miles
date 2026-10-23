@@ -10,8 +10,11 @@ import structlog
 
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles.git.holdspace import HeldCopy
 from miles.git.workcopy import BranchMovedError
 from miles.workshop.holds_db import Hold, db_hold, db_hold_of, db_holds, db_set_published
+from miles.workshop.shelves_db import db_shelf
+from miles.workshop.shelving import resume
 from miles.workshop.target import Gesture, WorkBranches, base_slug
 from miles.workspaces.model import BranchNotFoundError, Workspace, WorkspaceConflictError
 
@@ -93,9 +96,16 @@ class BranchHoldsService:
         head = await self._remote_head(person, workspace_id, slug)
         hold = await self._insert(person, workspace_id, slug, workspace.git_connection_id, head)
         try:
+            # Une prise neuve part d'un espace neuf : ce qu'un geste tardif aurait laissé
+            # sans prise ne doit jamais échoir à la personne suivante.
+            await self.branches.holds.discard(workspace_id, slug)
             # Le clone se fait après l'insertion : seul le gagnant clone, avec SON jeton.
-            async with self.branches.held(workspace, hold):
-                pass
+            async with self.branches.held(workspace, hold) as copy:
+                shelf = await db_shelf(self.pool, workspace_id, slug, person)
+                if shelf is not None:
+                    # Reprise après déverrouillage (fd1eb7da) : le rangement se fusionne
+                    # dans la branche à jour ; un conflit annule la prise.
+                    await resume(self.pool, copy, shelf, self.catalog, self.now)
         except Exception:
             # Rien ne doit rester tenu par un espace qui n'a pas pu s'ouvrir.
             await self.pool.execute(
@@ -114,19 +124,7 @@ class BranchHoldsService:
         hold = await self._mine(person, workspace_id, slug)
         workspace = await self.branches.base_workspace(workspace_id)
         async with self.branches.held(workspace, hold) as copy:
-            count = await copy.unpublished()
-            if count == 0:
-                return 0
-            try:
-                head = await copy.publish()
-            except BranchMovedError:
-                # La branche a bougé dans la forge : rien n'est écrasé, les commits locaux
-                # restent dans l'espace (critère 8).
-                raise WorkspaceConflictError("branche_modifiee") from None
-        await db_set_published(self.pool, hold, head)
-        await self._event(PUBLISHED_EVENT, person, hold, {"commit": head, "commits": count})
-        log.info("publication", workspace=workspace_id, branch=slug, commits=count)
-        return count
+            return await self._publish(copy, person, hold)
 
     async def resolve_release(self, person: EventAuthor, workspace_id: str, slug: str) -> bool:
         """Publie, libère la branche, supprime l'espace ; rend False au rejeu (sans effet)."""
@@ -136,21 +134,39 @@ class BranchHoldsService:
             if hold is None:
                 return False
             raise BranchHeldError(hold.holder_label)
-        # Une publication refusée arrête ici : la main n'est pas rendue sur des commits qui
-        # n'existeraient plus nulle part.
-        await self.resolve_publish(person, workspace_id, slug)
-        async with self.pool.acquire() as conn, conn.transaction():
-            await conn.execute(
-                "DELETE FROM branch_holds WHERE workspace_id = $1 AND slug = $2",
-                workspace_id,
-                slug,
-            )
-            await db_write_event(
-                conn, self._new(RELEASED_EVENT, person, hold, {}), self.catalog, self.now
-            )
+        workspace = await self.branches.base_workspace(workspace_id)
+        # Publication et libération sous le même verrou d'espace : aucun geste ne peut
+        # glisser un commit entre les deux, qui disparaîtrait avec l'espace.
+        async with self.branches.held(workspace, hold) as copy:
+            # Une publication refusée arrête ici : la main n'est pas rendue sur des
+            # commits qui n'existeraient plus nulle part.
+            await self._publish(copy, person, hold)
+            async with self.pool.acquire() as conn, conn.transaction():
+                await conn.execute(
+                    "DELETE FROM branch_holds WHERE workspace_id = $1 AND slug = $2",
+                    workspace_id,
+                    slug,
+                )
+                released = self._new(RELEASED_EVENT, person, hold, {})
+                await db_write_event(conn, released, self.catalog, self.now)
         await self.branches.holds.discard(workspace_id, slug)
         log.info("main_rendue", workspace=workspace_id, branch=slug)
         return True
+
+    async def _publish(self, copy: HeldCopy, person: EventAuthor, hold: Hold) -> int:
+        count = await copy.unpublished()
+        if count == 0:
+            return 0
+        try:
+            head = await copy.publish()
+        except BranchMovedError:
+            # La branche a bougé dans la forge : rien n'est écrasé, les commits locaux
+            # restent dans l'espace (critère 8).
+            raise WorkspaceConflictError("branche_modifiee") from None
+        await db_set_published(self.pool, hold, head)
+        await self._event(PUBLISHED_EVENT, person, hold, {"commit": head, "commits": count})
+        log.info("publication", workspace=hold.workspace_id, branch=hold.slug, commits=count)
+        return count
 
     async def _mine(self, person: EventAuthor, workspace_id: str, slug: str) -> Hold:
         await self._child(workspace_id, slug)

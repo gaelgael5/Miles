@@ -745,6 +745,12 @@
         "invalid": "Letters, digits, dots, dashes, colons and underscores only, 128 characters at most.",
         "unexpected": "The identifier could not be saved. See the back-office logs."
       }
+    },
+    "shelves": {
+      "title": "Shelved branches",
+      "help": "Your unpublished work, shelved on the forge when the administrator unlocked you. Take over the branch again in “All workspaces” to get it back.",
+      "item": "{{workspace}} — branch {{branch}}, shelved on {{date}}:",
+      "error": "Your shelves could not be read."
     }
   },
   "chains": {
@@ -1007,7 +1013,22 @@
       "branche_modifiee": "The branch moved in the forge since your last publication: nothing was overwritten, your changes stay here.",
       "prise_de_main_requise": "You do not hold this branch.",
       "prise_concurrente": "Another takeover happened at the same time: try again.",
-      "unexpected": "The operation failed. See the back-office logs."
-    }
+      "unexpected": "The operation failed. See the back-office logs.",
+      "jeton_personnel_refuse": "The forge refuses the personal token of the branch holder: nothing was shelved or removed, the branch stays held. They must renew their token in “My profile”.",
+      "rangement_existant": "A shelf already exists for this person on this branch: it is never overwritten, nothing was done.",
+      "branche_libre": "Nobody holds this branch: nothing to unlock.",
+      "conflit_de_reprise": "Your shelved work conflicts with the up-to-date branch ({{files}}): nothing was written, the shelf stays on the forge and the branch is not held."
+    },
+    "unlock": "Unlock",
+    "unlockConfirm": {
+      "title": "Unlock {{holder}}?",
+      "body": "Their unpublished work will be shelved on the forge, on a branch in their name, with their own token; their space on the server will be removed and the branch freed. When they take over again, their work will be merged into the up-to-date branch."
+    },
+    "unlocked": {
+      "shelved": "Branch freed; the unpublished work is shelved on {{branch}}.",
+      "free": "Branch freed; there was nothing to shelve."
+    },
+    "shelvedMine": "You have work shelved on this branch: taking over again will merge it into the up-to-date branch.",
+    "resume": "Take over again"
   }
 }

@@ -24,6 +24,8 @@ class Hold:
     taken_at: datetime
     # Ce qu'on affiche de qui la tient : son nom et son login de forge.
     holder_label: str
+    # Son login de forge : il nomme son rangement (fd1eb7da). None sans identité git.
+    holder_login: str | None = None
 
     def held_by(self, person: EventAuthor) -> bool:
         # (annuaire, sub) seulement : un auteur passé par MCP est la même personne.
@@ -41,6 +43,7 @@ def _hold(row: Any) -> Hold:
         row["published_commit"],
         row["taken_at"],
         label,
+        login,
     )
 
 
