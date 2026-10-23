@@ -37,7 +37,8 @@ export function WorkspaceViews({
             aria-current={
               here && selection?.view === view && selection.contract === undefined &&
               selection.chain === undefined &&
-              selection.source === undefined
+              selection.source === undefined &&
+              selection.model === undefined
                 ? "page"
                 : undefined
             }

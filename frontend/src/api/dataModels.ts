@@ -8,6 +8,8 @@ export interface DataModel {
   scope: string;
   name: string;
   path: string;
+  /** null : modèle créé par son YAML (avant le 23/10/2026, ou par MCP), sans label. */
+  label: string | null;
 }
 
 export interface DataModelContent extends DataModel {
@@ -42,14 +44,13 @@ export function useDataModels(target: WorkTarget) {
   });
 }
 
-export function useDataModel(target: WorkTarget, model: DataModel | null) {
+type ModelRef = Pick<DataModel, "scope" | "name">;
+
+export function useDataModel(target: WorkTarget, model: ModelRef) {
   return useQuery({
-    queryKey: [...key(target), model?.path],
-    enabled: model !== null,
+    queryKey: [...key(target), model.scope, model.name],
     queryFn: ({ signal }) =>
-      request<DataModelContent>(one(target, model?.scope ?? "", model?.name ?? ""), {
-        signal,
-      }),
+      request<DataModelContent>(one(target, model.scope, model.name), { signal }),
   });
 }
 
@@ -61,9 +62,23 @@ function useInvalidating<I, O>(target: WorkTarget, mutationFn: (input: I) => Pro
   });
 }
 
-export function useCreateDataModel(target: WorkTarget) {
-  return useInvalidating(target, (input: { scope: string; content: string }) =>
-    request<DataModel>(root(target), { method: "POST", body: JSON.stringify(input) }),
+/** Déclare un modèle par label et slug (Gael, 23/10/2026) : un brouillon sans propriété. */
+export function useDeclareDataModel(target: WorkTarget) {
+  return useInvalidating(target, (input: { scope: string; label: string; slug: string }) =>
+    request<DataModel>(atBranch(target, "data-models", "declarations"), {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+/** Remplace le YAML d'un modèle ; son nom (le slug) ne change pas. */
+export function useReplaceDataModel(target: WorkTarget, model: ModelRef) {
+  return useInvalidating(target, (content: string) =>
+    request<DataModel>(one(target, model.scope, model.name), {
+      method: "PUT",
+      body: JSON.stringify({ content }),
+    }),
   );
 }
 

@@ -117,14 +117,23 @@ def test_property_mistakes_are_named(properties: str, expected: str) -> None:
     ("text", "code"),
     [
         ("- a\n- b\n", "document_non_objet"),
-        ("nom: m\nversion: 1\nproprietes: {}\n", "proprietes_vides"),
+        ("nom: m\nversion: 1\nproprietes: []\n", "objet_attendu"),
         ("nom: m\nversion: true\nproprietes:\n  p:\n    type: chaine\n", "version_invalide"),
         ("version: 1\nproprietes:\n  p:\n    type: chaine\n", "obligatoire"),
     ],
-    ids=["liste", "sans-propriete", "version-booleenne", "sans-nom"],
+    ids=["liste", "proprietes-en-liste", "version-booleenne", "sans-nom"],
 )
 def test_document_mistakes_are_named(text: str, code: str) -> None:
     assert [p.code for p in _problems(text)] == [code]
+
+
+def test_a_model_without_property_is_an_admitted_draft() -> None:
+    # Brouillon (Gael, 23/10/2026) : admis à l'écriture, refusé dans une version.
+    draft = parse_model("nom: m\nversion: 1\nproprietes: {}\n")
+    full = parse_model(_with("  p:\n    type: chaine\n"))
+
+    assert (draft.name, draft.empty) == ("m", True)
+    assert full.empty is False
 
 
 def _nested(depth: int) -> str:

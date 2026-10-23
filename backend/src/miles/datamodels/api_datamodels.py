@@ -8,12 +8,8 @@ from pydantic import BaseModel, ConfigDict
 
 from miles.auth.author import request_author
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError
-from miles.datamodels.service import (
-    DataModelsService,
-    ModelEntry,
-    ModelInUseError,
-    ModelNotFoundError,
-)
+from miles.datamodels.layout import ModelEntry
+from miles.datamodels.service import DataModelsService, ModelInUseError, ModelNotFoundError
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,
@@ -41,6 +37,8 @@ class ModelOut(BaseModel):
     scope: str
     name: str
     path: str
+    # Absent pour un modèle créé par son YAML (avant le 23/10/2026, ou par MCP).
+    label: str | None
 
 
 class ModelContentOut(ModelOut):
@@ -55,8 +53,22 @@ class ModelCreate(BaseModel):
     content: str
 
 
+class ModelDeclare(BaseModel):
+    """Déclaration par label et slug (Gael, 23/10/2026) : le YAML s'écrit à l'édition."""
+
+    model_config = ConfigDict(extra="forbid")
+    scope: str
+    label: str
+    slug: str
+
+
+class ModelReplace(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    content: str
+
+
 def _out(entry: ModelEntry) -> ModelOut:
-    return ModelOut(scope=entry.scope, name=entry.name, path=entry.path)
+    return ModelOut(scope=entry.scope, name=entry.name, path=entry.path, label=entry.label)
 
 
 def _error(code: int, detail: object) -> JSONResponse:
@@ -130,7 +142,7 @@ async def get_model(
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    return ModelContentOut(scope=entry.scope, name=entry.name, path=entry.path, content=content)
+    return ModelContentOut(**_out(entry).model_dump(), content=content)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ModelOut)
@@ -151,6 +163,50 @@ async def create_model(
     if commit is None:
         # Rejeu à l'identique : ni fichier ni commit de plus, et la réponse le dit.
         response.status_code = status.HTTP_200_OK
+        response.headers["X-Miles-Already-Exists"] = "true"
+    return _out(entry)
+
+
+@router.post("/declarations", status_code=status.HTTP_201_CREATED, response_model=ModelOut)
+async def declare_model(
+    workspace_id: str,
+    body: ModelDeclare,
+    request: Request,
+    response: Response,
+    service: Service,
+    branch: str | None = None,
+) -> object:
+    try:
+        entry, commit = await service.resolve_declare(
+            request_author(request), workspace_id, body.scope, body.label, body.slug, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    if commit is None:
+        response.status_code = status.HTTP_200_OK
+        response.headers["X-Miles-Already-Exists"] = "true"
+    return _out(entry)
+
+
+@router.put("/{scope}/{name}", response_model=ModelOut)
+async def replace_model(
+    workspace_id: str,
+    scope: str,
+    name: str,
+    body: ModelReplace,
+    request: Request,
+    response: Response,
+    service: Service,
+    branch: str | None = None,
+) -> object:
+    try:
+        entry, commit = await service.resolve_replace(
+            request_author(request), workspace_id, scope, name, body.content, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    if commit is None:
+        # Même contenu : ni écriture ni commit, et la réponse le dit.
         response.headers["X-Miles-Already-Exists"] = "true"
     return _out(entry)
 

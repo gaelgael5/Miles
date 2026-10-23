@@ -11,7 +11,7 @@ from miles.contracts.openapi import (
     parse_contract,
 )
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError, Problem, parse_model
-from miles.datamodels.service import ModelEntry, entry_of, visible_from
+from miles.datamodels.layout import ModelEntry, entry_of, visible_from
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import MANIFEST, diagnose
 from miles.workshop.chain_validation import chain_reports, source_reports
@@ -75,6 +75,10 @@ async def _model_problems(
     except ModelGrammarError as exc:
         return tuple(exc.problems)
     problems = []
+    if model.empty:
+        # Brouillon admis à l'écriture, pas dans une version : un modèle sans propriété
+        # ne décrit rien qu'un terminal puisse recevoir (Gael, 23/10/2026).
+        problems.append(Problem("proprietes", "proprietes_vides"))
     # Retouché hors de Miles, un fichier peut ne plus porter le nom de son emplacement :
     # les références, qui se font par nom, ne le retrouveraient plus.
     if model.name != entry.name:

@@ -4,7 +4,7 @@ from typing import Any
 
 from miles.chains.service import stored_chain
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError, load_yaml, parse_model
-from miles.datamodels.service import entry_of, model_path, visible_from
+from miles.datamodels.layout import entry_of, model_path, visible_from
 from miles.git.workcopy import WorkCopy
 from miles.sources.layout import MODEL_RE, SourceDoc, SourceProblem, path_keys
 from miles.transform.chain import ChainInvalidError, StepSpec, compile_chain

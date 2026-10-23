@@ -459,20 +459,22 @@
     "empty": "No data model on the work branch.",
     "fields": {
       "domain": "Domain",
-      "content": "Model (YAML)"
+      "content": "Model (YAML)",
+      "label": "Label",
+      "slug": "Slug"
     },
     "form": {
       "title": "New data model",
       "domainHelp": "Leave empty for a shared model (shared/messages). Move a model to shared only once a second domain really uses it.",
-      "submit": "Write to the work branch",
-      "cancel": "Cancel"
+      "submit": "Create the model",
+      "cancel": "Cancel",
+      "slugHelp": "Proposed from the label; it is the name of the model and of its file, frozen once created. Lowercase letters, digits, hyphens and underscores."
     },
     "list": {
       "captionScope": "Location",
       "shared": "Shared",
-      "show": "Show",
-      "hide": "Hide",
-      "delete": "Delete"
+      "delete": "Delete",
+      "open": "Open"
     },
     "deleteConfirm": {
       "title": "Delete this model?",
@@ -486,9 +488,10 @@
       "access": "The repository no longer accepts this operation ({{reason}}). The work branch is unchanged.",
       "invalid": {
         "scope": "Domain: lowercase letters, digits, dashes and underscores.",
-        "name": "Invalid model name.",
+        "name": "Invalid slug: lowercase letters, digits, hyphens and underscores.",
         "git_connection_id": "The workspace's git connection is unusable.",
-        "repo_url": "The workspace's repository address is invalid."
+        "repo_url": "The workspace's repository address is invalid.",
+        "label": "Label: required, at most 120 characters, on a single line."
       },
       "conflict": {
         "nom_pris": "A different model with this name already exists at this location.",
@@ -498,7 +501,8 @@
         "depot_non_configure": "This workspace has no repository yet.",
         "modele_inconnu": "This model no longer exists.",
         "branche_inconnue": "This branch is unknown to the workspace.",
-        "prise_de_main_requise": "Take over this branch in “All workspaces” to change it."
+        "prise_de_main_requise": "Take over this branch in “All workspaces” to change it.",
+        "nom_fige": "The model name (nom:) does not change: it is frozen at creation."
       },
       "unexpected": "The operation failed. See the back-office logs."
     },
@@ -509,7 +513,7 @@
       "version_invalide": "version: an integer from 1",
       "texte_attendu": "text expected",
       "document_non_objet": "the document must be a mapping",
-      "proprietes_vides": "at least one property",
+      "proprietes_vides": "no property: the model is still a draft",
       "objet_attendu": "a mapping is expected",
       "nom_de_propriete_invalide": "invalid property name (lowercase letters, digits and _)",
       "booleen_attendu": "true or false expected",
@@ -532,6 +536,47 @@
       "openapi_illisible": "unreadable OpenAPI ({{detail}})",
       "version_non_prise_en_charge": "unsupported OpenAPI version {{detail}}",
       "openapi_invalide": "{{detail}}"
+    },
+    "editor": {
+      "title": "Model YAML",
+      "back": "← Back to models",
+      "help": "Edit through the tree or the YAML: they follow each other, and nothing is written before “Save”. The name (nom:) stays the one chosen at creation. A model without properties is a draft: it can be saved, but it blocks saving a version.",
+      "save": "Save",
+      "saved": "Model saved in your space: publish to push it.",
+      "unsaved": "Unsaved changes",
+      "leaveTitle": "Leave without saving?",
+      "leaveBody": "Your changes are only in memory: they will be lost.",
+      "leave": "Leave"
+    },
+    "tree": {
+      "title": "Properties",
+      "version": "Version",
+      "description": "Description",
+      "empty": "No property: the model is a draft.",
+      "add": "Add a property",
+      "remove": "Remove",
+      "name": "Name",
+      "required": "Required",
+      "type": "Type",
+      "values": "Values (comma-separated)",
+      "model": "Referenced model",
+      "chooseModel": "— choose —",
+      "elements": "List elements",
+      "nameInvalid": "Name: a lowercase letter, then lowercase letters, digits or underscores.",
+      "nameTaken": "Another property already has this name.",
+      "unreadable": "Unreadable YAML, line {{line}}, column {{column}}: {{message}}. Fix it on the right to get the tree back.",
+      "unsupported": "The tree cannot represent “{{path}}”: edit the YAML on the right. Saving will tell what the grammar thinks of it."
+    },
+    "types": {
+      "chaine": "String",
+      "entier": "Integer",
+      "decimal": "Decimal",
+      "booleen": "Boolean",
+      "date": "Date",
+      "horodatage": "Timestamp",
+      "enumeration": "Enumeration",
+      "objet": "Object (another model)",
+      "liste": "List"
     }
   },
   "versions": {
@@ -637,7 +682,9 @@
       "title": "Integrate a file",
       "read": "Read the file",
       "submit": "Integrate as a new version",
-      "done": "Integrated as version v{{number}}."
+      "done": "Integrated as version v{{number}}.",
+      "open": "Integrate a version",
+      "close": "Close"
     },
     "versions": {
       "title": "Versions",

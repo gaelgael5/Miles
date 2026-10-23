@@ -9,6 +9,7 @@ import { ChainScreen } from "./ChainScreen";
 import { ChainsScreen } from "./ChainsScreen";
 import { ContractScreen } from "./ContractScreen";
 import { ContractsScreen } from "./ContractsScreen";
+import { DataModelScreen } from "./DataModelScreen";
 import { DataModelsScreen } from "./DataModelsScreen";
 import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
@@ -53,7 +54,7 @@ function viewScreen(
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.
-  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.source ?? ""}`;
+  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.source ?? ""}/${selection.model ?? ""}`;
   if (selection.view === "contracts" && selection.contract !== undefined) {
     return (
       <ContractScreen
@@ -117,8 +118,30 @@ function viewScreen(
       />
     );
   }
+  if (selection.view === "dataModels" && selection.model !== undefined) {
+    const [scope = "", name = ""] = selection.model.split("/");
+    return (
+      <DataModelScreen
+        key={key}
+        target={target}
+        scope={scope}
+        name={name}
+        onBack={() => onSelect({ id: workspace.id, view: "dataModels", branch })}
+      />
+    );
+  }
   if (selection.view === "dataModels") {
-    return <DataModelsScreen key={key} workspace={workspace} target={target} onBack={back} />;
+    return (
+      <DataModelsScreen
+        key={key}
+        workspace={workspace}
+        target={target}
+        onBack={back}
+        onOpen={(m) =>
+          onSelect({ id: workspace.id, view: "dataModels", branch, model: `${m.scope}/${m.name}` })
+        }
+      />
+    );
   }
   return <BranchScreen key={key} workspace={workspace} target={target} onBack={back} />;
 }

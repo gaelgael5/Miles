@@ -7,7 +7,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 from starlette.requests import Request
 
-from miles.datamodels.service import DataModelsService, ModelEntry, ModelNotFoundError
+from miles.datamodels.layout import ModelEntry
+from miles.datamodels.service import DataModelsService, ModelNotFoundError
 from miles.mcp_api.calls import Caller, caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
 

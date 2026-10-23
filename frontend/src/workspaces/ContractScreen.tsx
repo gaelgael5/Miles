@@ -13,7 +13,18 @@ import { ContractDelete } from "./ContractDelete";
 import { ContractRefusal } from "./ContractRefusal";
 import { ContractSource } from "./ContractSource";
 
-function IntegrateForm({ target, slug }: { target: WorkTarget; slug: string }) {
+function IntegrateForm({
+  target,
+  slug,
+  onIntegrated,
+  onClose,
+}: {
+  target: WorkTarget;
+  slug: string;
+  onIntegrated: (number: number) => void;
+  // Absent : contrat sans version, le bloc reste ouvert, rien à fermer.
+  onClose?: () => void;
+}) {
   const { t } = useTranslation();
   const preview = usePreviewContract(target);
   const save = useImportVersion(target, slug);
@@ -36,9 +47,10 @@ function IntegrateForm({ target, slug }: { target: WorkTarget; slug: string }) {
 
   function integrate() {
     save.mutate(content, {
-      onSuccess: () => {
+      onSuccess: (version) => {
         setContent("");
         preview.reset();
+        onIntegrated(version.number);
       },
     });
   }
@@ -61,6 +73,11 @@ function IntegrateForm({ target, slug }: { target: WorkTarget; slug: string }) {
         <button type="submit" className="btn btn-secondary" disabled={preview.isPending}>
           {t("contracts.integrate.read")}
         </button>
+        {onClose && (
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            {t("contracts.integrate.close")}
+          </button>
+        )}
       </div>
       {preview.isError && <ContractRefusal error={preview.error} />}
       {read && (
@@ -84,11 +101,6 @@ function IntegrateForm({ target, slug }: { target: WorkTarget; slug: string }) {
             </button>
           </div>
         </div>
-      )}
-      {save.isSuccess && (
-        <p className="muted" role="status">
-          {t("contracts.integrate.done", { number: save.data.number })}
-        </p>
       )}
     </form>
   );
@@ -186,6 +198,12 @@ export function ContractScreen({
   const { t } = useTranslation();
   const contract = useContract(target, slug);
   const detail = contract.data;
+  const [integrating, setIntegrating] = useState(false);
+  const [integrated, setIntegrated] = useState<number | null>(null);
+  // Contrat déjà intégré : ses opérations d'abord, l'intégration derrière un bouton
+  // (Gael, 23/10/2026). Sans version, rien à lire : le bloc reste ouvert d'emblée.
+  const hasVersions = (detail?.versions.length ?? 0) > 0;
+  const showForm = !target.readOnly && (!hasVersions || integrating);
 
   return (
     <section aria-labelledby="contract-title">
@@ -205,6 +223,18 @@ export function ContractScreen({
               </p>
             </div>
             {/* Comme toute modification : sur une branche enfant dont on a la main. */}
+            {!target.readOnly && hasVersions && !integrating && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setIntegrated(null);
+                  setIntegrating(true);
+                }}
+              >
+                {t("contracts.integrate.open")}
+              </button>
+            )}
             {!target.readOnly && (
               <ContractDelete
                 target={target}
@@ -214,7 +244,22 @@ export function ContractScreen({
               />
             )}
           </div>
-          {!target.readOnly && <IntegrateForm target={target} slug={detail.slug} />}
+          {integrated !== null && (
+            <p className="notice" role="status">
+              {t("contracts.integrate.done", { number: integrated })}
+            </p>
+          )}
+          {showForm && (
+            <IntegrateForm
+              target={target}
+              slug={detail.slug}
+              onIntegrated={(number) => {
+                setIntegrated(number);
+                setIntegrating(false);
+              }}
+              onClose={hasVersions ? () => setIntegrating(false) : undefined}
+            />
+          )}
           <h2>{t("contracts.versions.title")}</h2>
           {detail.versions.length === 0 ? (
             <p className="muted">{t("contracts.versions.empty")}</p>

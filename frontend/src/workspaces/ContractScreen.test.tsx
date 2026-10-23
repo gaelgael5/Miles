@@ -212,4 +212,24 @@ describe("ContractScreen", () => {
     expect(await screen.findByRole("button", { name: "Declare a contract" })).toBeInTheDocument();
     expect(calls.some((c) => c.key === `DELETE ${ROUTE}/materiel?branch=edition`)).toBe(true);
   });
+
+  it("shows an integrated contract's operations first, integration behind a button", async () => {
+    mockApi(
+      routes({
+        [`GET ${ROUTE}/materiel?branch=edition`]: {
+          status: 200,
+          body: { ...DECLARED, versions: [V1] },
+        },
+      }),
+    );
+    await openContract();
+
+    expect(screen.queryByRole("form", { name: "Integrate a file" })).toBeNull();
+    expect(screen.getByText(/^v1 —/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Integrate a version" }));
+    expect(screen.getByRole("form", { name: "Integrate a file" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Integrate a version" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("form", { name: "Integrate a file" })).toBeNull();
+  });
 });

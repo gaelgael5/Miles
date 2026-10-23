@@ -53,6 +53,9 @@ class DataModel:
     version: int
     # Modèles désignés par les propriétés `objet` : leur présence se vérifie dans le dépôt.
     references: tuple[tuple[str, str], ...] = field(default=())
+    # Aucune propriété encore : un brouillon, admis à l'écriture (Gael, 23/10/2026) mais
+    # qui bloque l'enregistrement d'une version de la branche.
+    empty: bool = False
 
 
 class _StrictLoader(yaml.SafeLoader):
@@ -130,14 +133,15 @@ class _Checker:
         self.properties(data.get("proprietes"))
         if self.problems or not isinstance(version, int):
             return None
-        return DataModel(str(name), version, tuple(self.references))
+        empty = data.get("proprietes") == {}
+        return DataModel(str(name), version, tuple(self.references), empty)
 
     def properties(self, value: Any) -> None:
         if value is None:
             self.fail("proprietes", "obligatoire")
             return
-        if not isinstance(value, dict) or not value:
-            self.fail("proprietes", "proprietes_vides" if value == {} else "objet_attendu")
+        if not isinstance(value, dict):
+            self.fail("proprietes", "objet_attendu")
             return
         for key, spec in value.items():
             path = f"proprietes.{key}"

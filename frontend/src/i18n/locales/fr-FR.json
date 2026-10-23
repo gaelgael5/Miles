@@ -459,20 +459,22 @@
     "empty": "Aucun modèle de données dans la branche de travail.",
     "fields": {
       "domain": "Domaine",
-      "content": "Modèle (YAML)"
+      "content": "Modèle (YAML)",
+      "label": "Label",
+      "slug": "Slug"
     },
     "form": {
       "title": "Nouveau modèle de données",
       "domainHelp": "Laissez vide pour un modèle transverse (shared/messages). On ne promeut au transverse qu'au second usage réel par un autre domaine.",
-      "submit": "Écrire dans la branche de travail",
-      "cancel": "Annuler"
+      "submit": "Créer le modèle",
+      "cancel": "Annuler",
+      "slugHelp": "Proposé d'après le label ; c'est le nom du modèle et de son fichier, figé une fois créé. Lettres minuscules, chiffres, tirets et soulignés."
     },
     "list": {
       "captionScope": "Emplacement",
       "shared": "Transverse",
-      "show": "Afficher",
-      "hide": "Masquer",
-      "delete": "Supprimer"
+      "delete": "Supprimer",
+      "open": "Ouvrir"
     },
     "deleteConfirm": {
       "title": "Supprimer ce modèle ?",
@@ -486,9 +488,10 @@
       "access": "Le dépôt n'accepte plus cette opération ({{reason}}). La branche de travail est intacte.",
       "invalid": {
         "scope": "Domaine : lettres minuscules, chiffres, tirets et soulignés.",
-        "name": "Nom de modèle invalide.",
+        "name": "Slug invalide : lettres minuscules, chiffres, tirets et soulignés.",
         "git_connection_id": "La connexion git du workspace est inutilisable.",
-        "repo_url": "L'adresse du dépôt du workspace est invalide."
+        "repo_url": "L'adresse du dépôt du workspace est invalide.",
+        "label": "Label : obligatoire, 120 caractères au plus, sur une seule ligne."
       },
       "conflict": {
         "nom_pris": "Un autre modèle porte déjà ce nom à cet emplacement.",
@@ -498,7 +501,8 @@
         "depot_non_configure": "Ce workspace n'a pas encore de dépôt.",
         "modele_inconnu": "Ce modèle n'existe plus.",
         "branche_inconnue": "Cette branche n'est pas connue du workspace.",
-        "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier."
+        "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier.",
+        "nom_fige": "Le nom du modèle (nom:) ne change pas : il est figé à la création."
       },
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     },
@@ -509,7 +513,7 @@
       "version_invalide": "version : un entier à partir de 1",
       "texte_attendu": "texte attendu",
       "document_non_objet": "le document doit être un objet",
-      "proprietes_vides": "au moins une propriété",
+      "proprietes_vides": "aucune propriété : le modèle est encore un brouillon",
       "objet_attendu": "un objet est attendu",
       "nom_de_propriete_invalide": "nom de propriété invalide (lettres minuscules, chiffres et _)",
       "booleen_attendu": "true ou false attendu",
@@ -532,6 +536,47 @@
       "openapi_illisible": "OpenAPI illisible ({{detail}})",
       "version_non_prise_en_charge": "version OpenAPI {{detail}} non prise en charge",
       "openapi_invalide": "{{detail}}"
+    },
+    "editor": {
+      "title": "YAML du modèle",
+      "back": "← Retour aux modèles",
+      "help": "Modifiez par l'arbre ou par le YAML : les deux se suivent, et rien n'est écrit avant « Enregistrer ». Le nom (nom:) reste celui choisi à la création. Un modèle sans propriété est un brouillon : il s'enregistre, mais bloque l'enregistrement d'une version.",
+      "save": "Enregistrer",
+      "saved": "Modèle enregistré dans votre espace : publiez pour le pousser.",
+      "unsaved": "Modifications non enregistrées",
+      "leaveTitle": "Quitter sans enregistrer ?",
+      "leaveBody": "Vos modifications ne sont qu'en mémoire : elles seront perdues.",
+      "leave": "Quitter"
+    },
+    "tree": {
+      "title": "Propriétés",
+      "version": "Version",
+      "description": "Description",
+      "empty": "Aucune propriété : le modèle est un brouillon.",
+      "add": "Ajouter une propriété",
+      "remove": "Retirer",
+      "name": "Nom",
+      "required": "Obligatoire",
+      "type": "Type",
+      "values": "Valeurs (séparées par des virgules)",
+      "model": "Modèle désigné",
+      "chooseModel": "— choisir —",
+      "elements": "Éléments de la liste",
+      "nameInvalid": "Nom : une lettre minuscule, puis lettres minuscules, chiffres ou soulignés.",
+      "nameTaken": "Une autre propriété porte déjà ce nom.",
+      "unreadable": "YAML illisible, ligne {{line}}, colonne {{column}} : {{message}}. Corrigez-le à droite pour retrouver l'arbre.",
+      "unsupported": "L'arbre ne sait pas représenter « {{path}} » : modifiez le YAML à droite. L'enregistrement dira ce que la grammaire en pense."
+    },
+    "types": {
+      "chaine": "Chaîne",
+      "entier": "Entier",
+      "decimal": "Décimal",
+      "booleen": "Booléen",
+      "date": "Date",
+      "horodatage": "Horodatage",
+      "enumeration": "Énumération",
+      "objet": "Objet (autre modèle)",
+      "liste": "Liste"
     }
   },
   "versions": {
@@ -637,7 +682,9 @@
       "title": "Intégrer un fichier",
       "read": "Lire le fichier",
       "submit": "Intégrer en nouvelle version",
-      "done": "Intégré en version v{{number}}."
+      "done": "Intégré en version v{{number}}.",
+      "open": "Intégrer une version",
+      "close": "Fermer"
     },
     "versions": {
       "title": "Versions",

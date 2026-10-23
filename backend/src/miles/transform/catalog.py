@@ -9,7 +9,7 @@ from typing import Any
 from urban_json import FunctionRegistry
 
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError, load_yaml, parse_model
-from miles.datamodels.service import entry_of
+from miles.datamodels.layout import entry_of
 from miles.git.worktree import MANIFEST
 
 

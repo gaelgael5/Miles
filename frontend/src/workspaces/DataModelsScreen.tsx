@@ -1,120 +1,78 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { proposeSlug } from "../api/contracts";
 import {
   type DataModel,
-  type ModelProblem,
   SHARED_SCOPE,
-  useCreateDataModel,
-  useDataModel,
   useDataModels,
+  useDeclareDataModel,
   useDeleteDataModel,
 } from "../api/dataModels";
-import { ApiError } from "../api/http";
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
+import { ModelRefusal } from "./ModelRefusal";
 
-type Detail = {
-  code?: string;
-  field?: string;
-  reason?: string;
-  line?: number | null;
-  column?: number | null;
-  message?: string;
-  problems?: ModelProblem[];
-  by?: string[];
-};
-
-function detailOf(error: unknown): Detail | null {
-  if (error instanceof ApiError && typeof error.detail === "object" && error.detail !== null) {
-    return error.detail as Detail;
-  }
-  return null;
-}
-
-/** Message d'un refus ; les manquements à la grammaire s'affichent à part, un par ligne. */
-function errorKey(error: unknown): [string, Record<string, string>] {
-  const detail = detailOf(error);
-  if (detail?.code === "yaml_invalide") {
-    const at = { line: String(detail.line ?? "?"), column: String(detail.column ?? "?") };
-    return ["dataModels.errors.syntax", { ...at, message: detail.message ?? "" }];
-  }
-  if (detail?.code === "modele_non_conforme") {
-    return ["dataModels.errors.grammar", {}];
-  }
-  if (detail?.code === "utilise") {
-    return ["dataModels.errors.inUse", { list: (detail.by ?? []).join(", ") }];
-  }
-  if (detail?.code === "acces_depot") {
-    return ["dataModels.errors.access", { reason: detail.reason ?? "echec" }];
-  }
-  if (detail?.field) {
-    return [`dataModels.errors.invalid.${detail.field}`, {}];
-  }
-  if (error instanceof ApiError && typeof error.detail === "string") {
-    return [`dataModels.errors.conflict.${error.detail}`, {}];
-  }
-  return ["dataModels.errors.unexpected", {}];
-}
-
-function Refusal({ error }: { error: unknown }) {
+/**
+ * Création en deux temps (Gael, 23/10/2026) : label, slug et domaine ici ; le YAML
+ * s'écrit ensuite sur l'écran d'édition du modèle, qu'on ouvre aussitôt.
+ */
+function CreateForm({
+  target,
+  onCreated,
+  onCancel,
+}: {
+  target: WorkTarget;
+  onCreated: (model: DataModel) => void;
+  onCancel: () => void;
+}) {
   const { t } = useTranslation();
-  const [key, values] = errorKey(error);
-  const problems = detailOf(error)?.problems ?? [];
-  return (
-    <div className="alert" role="alert">
-      <p>{t(key, values)}</p>
-      {problems.length > 0 && (
-        <ul>
-          {problems.map((p) => (
-            <li key={`${p.path}-${p.code}`}>
-              <span className="mono">{p.path || "/"}</span> —{" "}
-              {t(`dataModels.problems.${p.code}`, { detail: p.detail ?? "" })}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function CreateForm({ target, onDone }: { target: WorkTarget; onDone: () => void }) {
-  const { t } = useTranslation();
-  const create = useCreateDataModel(target);
+  const declare = useDeclareDataModel(target);
+  const [label, setLabel] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
   const [domain, setDomain] = useState("");
-  const [content, setContent] = useState("");
+  const shownSlug = slugTouched ? slug : proposeSlug(label);
 
   function submit(event: FormEvent) {
     event.preventDefault();
     // Domaine vide : transverse. On ne promeut au transverse qu'au second usage réel.
-    create.mutate({ scope: domain.trim() || SHARED_SCOPE, content }, { onSuccess: onDone });
+    const scope = domain.trim() || SHARED_SCOPE;
+    declare.mutate({ scope, label, slug: shownSlug }, { onSuccess: onCreated });
   }
 
   return (
     <form className="card" onSubmit={submit} aria-label={t("dataModels.form.title")}>
       <h2>{t("dataModels.form.title")}</h2>
       <label className="field">
+        {t("dataModels.fields.label")}
+        <input required value={label} onChange={(e) => setLabel(e.target.value)} />
+      </label>
+      <label className="field">
+        {t("dataModels.fields.slug")}
+        <input
+          required
+          className="mono"
+          value={shownSlug}
+          onChange={(e) => {
+            setSlugTouched(true);
+            setSlug(e.target.value);
+          }}
+        />
+      </label>
+      <p className="help">{t("dataModels.form.slugHelp")}</p>
+      <label className="field">
         {t("dataModels.fields.domain")}
         <input value={domain} onChange={(e) => setDomain(e.target.value)} />
       </label>
       <p className="help">{t("dataModels.form.domainHelp")}</p>
-      <label className="field">
-        {t("dataModels.fields.content")}
-        <textarea
-          required
-          rows={16}
-          spellCheck={false}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-      </label>
-      {create.isError && <Refusal error={create.error} />}
+      {declare.isError && <ModelRefusal error={declare.error} />}
       <div className="actions">
-        <button type="submit" className="btn btn-primary" disabled={create.isPending}>
+        <button type="submit" className="btn btn-primary" disabled={declare.isPending}>
           {t("dataModels.form.submit")}
         </button>
-        <button type="button" className="btn btn-secondary" onClick={onDone}>
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>
           {t("dataModels.form.cancel")}
         </button>
       </div>
@@ -122,17 +80,24 @@ function CreateForm({ target, onDone }: { target: WorkTarget; onDone: () => void
   );
 }
 
-function ModelRow({ target, model }: { target: WorkTarget; model: DataModel }) {
+function ModelRow({
+  target,
+  model,
+  onOpen,
+}: {
+  target: WorkTarget;
+  model: DataModel;
+  onOpen: () => void;
+}) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const read = useDataModel(target, open ? model : null);
   const remove = useDeleteDataModel(target);
 
   return (
     <li className="row">
       <div className="row-main">
-        <div className="row-title">{model.name}</div>
+        {/* Un modèle créé par son YAML (avant le 23/10/2026, ou par MCP) n'a pas de label. */}
+        <div className="row-title">{model.label ?? model.name}</div>
         <div className="row-sub mono">{model.path}</div>
       </div>
       <div className="cell">
@@ -142,13 +107,8 @@ function ModelRow({ target, model }: { target: WorkTarget; model: DataModel }) {
         </div>
       </div>
       <div className="actions row-actions">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          {t(open ? "dataModels.list.hide" : "dataModels.list.show")}
+        <button type="button" className="btn btn-secondary" onClick={onOpen}>
+          {t("dataModels.list.open")}
         </button>
         {!target.readOnly && (
           <button type="button" className="btn btn-danger" onClick={() => setConfirming(true)}>
@@ -156,19 +116,9 @@ function ModelRow({ target, model }: { target: WorkTarget; model: DataModel }) {
           </button>
         )}
       </div>
-      {open && read.data && (
-        <pre className="row-detail code-block" aria-label={model.path}>
-          {read.data.content}
-        </pre>
-      )}
-      {read.isError && (
-        <div className="row-detail">
-          <Refusal error={read.error} />
-        </div>
-      )}
       {remove.isError && (
         <div className="row-detail">
-          <Refusal error={remove.error} />
+          <ModelRefusal error={remove.error} />
         </div>
       )}
       {confirming && (
@@ -194,10 +144,12 @@ export function DataModelsScreen({
   workspace,
   target,
   onBack,
+  onOpen,
 }: {
   workspace: Workspace;
   target: WorkTarget;
   onBack: () => void;
+  onOpen: (model: DataModel) => void;
 }) {
   const { t } = useTranslation();
   const models = useDataModels(target);
@@ -221,17 +173,18 @@ export function DataModelsScreen({
           </button>
         )}
       </div>
-      {/* En haut de l'atelier, comme sur toutes ses maquettes : figer ce qu'on vient d'écrire. */}
-      {creating && <CreateForm target={target} onDone={() => setCreating(false)} />}
+      {creating && (
+        <CreateForm target={target} onCreated={onOpen} onCancel={() => setCreating(false)} />
+      )}
       {models.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
-      {models.isError && <Refusal error={models.error} />}
+      {models.isError && <ModelRefusal error={models.error} />}
       {models.isSuccess && models.data.length === 0 && (
         <p className="muted">{t("dataModels.empty")}</p>
       )}
       {models.isSuccess && models.data.length > 0 && (
         <ul className="card-list plain-list">
           {models.data.map((m) => (
-            <ModelRow key={m.path} target={target} model={m} />
+            <ModelRow key={m.path} target={target} model={m} onOpen={() => onOpen(m)} />
           ))}
         </ul>
       )}

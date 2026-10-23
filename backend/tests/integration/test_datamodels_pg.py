@@ -12,6 +12,7 @@ from tests.integration.work_stack import Forge, open_work_forge
 pytestmark = pytest.mark.integration
 
 ROUTE = "/api/workspaces/retrait/data-models"
+MODEL_META = "shared/messages/personne.meta.yaml"
 PERSONNE = "nom: personne\nversion: 1\nproprietes:\n  nom:\n    type: chaine\n"
 COLIS = """nom: colis
 version: 2
@@ -54,6 +55,8 @@ async def test_model_is_written_to_the_work_branch_then_read_back_and_listed(
         "scope": "suivi",
         "name": "colis",
         "path": "domains/suivi/messages/colis.yaml",
+        # Créé par son YAML : pas de label (4a329076).
+        "label": None,
     }
     assert await forge.file("domains/suivi/messages/colis.yaml") == COLIS
     assert read.json()["content"] == COLIS
@@ -143,3 +146,80 @@ async def test_workspace_without_work_branch_is_refused(forge: Forge) -> None:
 
     assert (refused.status_code, refused.json()["detail"]) == (409, "depot_non_configure")
     assert bad_scope.json()["detail"] == {"field": "scope"}
+
+
+async def _declare(
+    forge: Forge, label: str = "Personne livrée", slug: str = "personne", scope: str = "shared"
+) -> httpx.Response:
+    body = {"scope": scope, "label": label, "slug": slug}
+    return await forge.client.post(f"{ROUTE}/declarations", json=body, timeout=120)
+
+
+async def test_a_model_is_declared_by_label_and_slug_then_written_in_yaml(forge: Forge) -> None:
+    declared = await _declare(forge)
+    replay = await _declare(forge)
+    other = await _declare(forge, label="Autre label")
+    listed = await forge.client.get(ROUTE, timeout=120)
+    draft = await forge.client.get(f"{ROUTE}/shared/personne", timeout=120)
+    replaced = await forge.client.put(
+        f"{ROUTE}/shared/personne", json={"content": PERSONNE}, timeout=120
+    )
+    same = await forge.client.put(
+        f"{ROUTE}/shared/personne", json={"content": PERSONNE}, timeout=120
+    )
+    renamed = await forge.client.put(
+        f"{ROUTE}/shared/personne",
+        json={"content": PERSONNE.replace("nom: personne", "nom: autre")},
+        timeout=120,
+    )
+
+    assert declared.status_code == 201, declared.text
+    assert declared.json() == {
+        "scope": "shared",
+        "name": "personne",
+        "path": "shared/messages/personne.yaml",
+        "label": "Personne livrée",
+    }
+    assert (replay.status_code, replay.headers["x-miles-already-exists"]) == (200, "true")
+    assert (other.status_code, other.json()["detail"]) == (409, "nom_pris")
+    # Le fichier de métadonnées n'est jamais pris pour un modèle.
+    assert [(m["name"], m["label"]) for m in listed.json()] == [("personne", "Personne livrée")]
+    assert draft.json()["content"] == "nom: personne\nversion: 1\nproprietes: {}\n"
+    assert replaced.status_code == 200 and replaced.json()["label"] == "Personne livrée"
+    assert same.headers["x-miles-already-exists"] == "true"
+    assert (renamed.status_code, renamed.json()["detail"]) == (409, "nom_fige")
+    assert await forge.file(MODEL_META) == "libelle: Personne livrée\n"
+    assert await forge.file("shared/messages/personne.yaml") == PERSONNE
+
+
+async def test_an_empty_model_is_kept_as_a_draft_but_blocks_a_version(forge: Forge) -> None:
+    await _declare(forge)
+    await forge.publish()
+
+    blocked = await forge.client.post(
+        "/api/workspaces/retrait/versions", json={"label": "Brouillon"}, timeout=120
+    )
+    await forge.client.put(f"{ROUTE}/shared/personne", json={"content": PERSONNE}, timeout=120)
+    await forge.publish()
+    saved = await forge.client.post(
+        "/api/workspaces/retrait/versions", json={"label": "Complet"}, timeout=120
+    )
+
+    assert blocked.status_code == 422, blocked.text
+    assert blocked.json()["detail"]["reports"] == [
+        {
+            "path": "shared/messages/personne.yaml",
+            "problems": [{"path": "proprietes", "code": "proprietes_vides", "detail": None}],
+        }
+    ]
+    assert saved.status_code == 201, saved.text
+
+
+async def test_deleting_a_declared_model_removes_its_label_too(forge: Forge) -> None:
+    await _declare(forge, scope="suivi")
+
+    deleted = await forge.client.delete(f"{ROUTE}/suivi/personne", timeout=120)
+
+    assert deleted.status_code == 204, deleted.text
+    assert await forge.file("domains/suivi/messages/personne.meta.yaml") is None
+    assert await forge.file("domains/suivi/messages/personne.yaml") is None

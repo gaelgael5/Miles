@@ -20,6 +20,8 @@ export type WorkspaceSelection = {
   chain?: string;
   // Une source de données ouverte, avec la vue « sources ».
   source?: string;
+  // Un modèle de données ouvert (« portée/nom »), avec la vue « dataModels ».
+  model?: string;
 } | null;
 
 /** Slug de la branche de base : celle qu'ouvrent les boutons de la liste des workspaces. */
