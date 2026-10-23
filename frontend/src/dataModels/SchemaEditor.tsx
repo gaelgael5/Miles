@@ -81,13 +81,13 @@ export default function SchemaEditor({
           </p>
         )}
         {references.length > 0 && (
-          <details className="panel">
+          <details className="panel model-references">
             <summary>{t("dataModels.schema.references")}</summary>
             <p className="help">{t("dataModels.schema.referencesHelp")}</p>
             <ul className="plain-list">
               {references.map((m) => (
-                <li key={m.path} className="field-row">
-                  <span className="mono">{modelUri(m.scope, m.name)}</span>
+                <li key={m.path}>
+                  <span className="model-reference-uri mono">{modelUri(m.scope, m.name)}</span>
                   <span className="muted">{m.label ?? m.name}</span>
                   <CopyButton text={modelUri(m.scope, m.name)} label={t("dataModels.schema.copy")} />
                 </li>

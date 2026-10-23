@@ -14,7 +14,7 @@
     "@tanstack/react-query": "^5.104.4",
     "i18next": "^23.16.8",
     "jsonjoy-builder": "file:vendor/jsonjoy-builder-1.0.4-89529b6.tgz",
-    "monaco-editor": "~0.55.1",
+    "monaco-editor": "~0.52.2",
     "monaco-yaml": "^5.5.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

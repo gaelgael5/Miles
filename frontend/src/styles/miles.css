@@ -256,3 +256,8 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 @media (max-width: 960px) { .model-editor { grid-template-columns: minmax(0, 1fr); } }
 .tree-node { border-left: 3px solid var(--bordure-carte); padding: 8px 0 8px 12px; margin-bottom: 12px; }
 .tree-nested { margin-left: 16px; padding-left: 12px; border-left: 2px dashed var(--bordure-carte); }
+/* Modèles référençables (e38806f3) : résumé sur sa ligne, puis une ligne par modèle. */
+.model-references summary { display: list-item; cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+.model-references .help { margin: 0 0 8px; }
+.model-references li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 6px 0; }
+.model-reference-uri { overflow-wrap: anywhere; }

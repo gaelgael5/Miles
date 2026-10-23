@@ -69,6 +69,19 @@ describe("schema editor", () => {
     expect(calls.some((c) => c.key.startsWith("PUT"))).toBe(false);
   });
 
+  it("follows a change of an existing property made in the YAML", async () => {
+    open();
+    const yaml = await screen.findByLabelText("YAML");
+    const described = YAML + "    description: Ancienne\n";
+    fireEvent.change(yaml, { target: { value: described } });
+    expect(await screen.findByText("Ancienne")).toBeInTheDocument();
+
+    fireEvent.change(yaml, { target: { value: described.replace("Ancienne", "Nouvelle") } });
+
+    expect(await screen.findByText("Nouvelle")).toBeInTheDocument();
+    expect(screen.queryByText("Ancienne")).toBeNull();
+  });
+
   it("saves the schema, and asks before leaving unsaved work", async () => {
     const changed = YAML + "  age:\n    type: integer\n";
     const calls = open({

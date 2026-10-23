@@ -1,5 +1,5 @@
 import type { JsonSchema } from "jsonjoy-builder";
-import { type FormEvent, Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -58,8 +58,7 @@ function Editor({
     changed(next);
   }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
+  function save() {
     replace.mutate(text, {
       onSuccess: () => {
         onDirty(false);
@@ -69,7 +68,9 @@ function Editor({
   }
 
   return (
-    <form className="card" onSubmit={submit} aria-label={t("dataModels.editor.title")}>
+    // Pas de <form> ici, exprès : JSONJoy porte ses propres formulaires (ajout d'une
+    // définition) ; imbriqués dans le nôtre, leur envoi rechargeait toute la page.
+    <div className="card" role="group" aria-label={t("dataModels.editor.title")}>
       <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
         <SchemaEditor
           target={target}
@@ -85,13 +86,18 @@ function Editor({
       {replace.isError && <ModelRefusal error={replace.error} />}
       {!target.readOnly && (
         <div className="actions">
-          <button type="submit" className="btn btn-primary" disabled={replace.isPending || !dirty}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={replace.isPending || !dirty}
+            onClick={save}
+          >
             {t("dataModels.editor.save")}
           </button>
           {dirty && <span className="badge badge-warning">{t("dataModels.editor.unsaved")}</span>}
         </div>
       )}
-    </form>
+    </div>
   );
 }
 
