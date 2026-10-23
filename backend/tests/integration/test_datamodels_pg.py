@@ -9,6 +9,7 @@ import pytest
 
 from miles.datamodels.schema import normalized, target_of
 from tests.integration.git_stack import create_workspace
+from tests.integration.test_domains_pg import add_domain
 from tests.integration.work_stack import Forge, open_work_forge
 
 pytestmark = pytest.mark.integration
@@ -65,6 +66,7 @@ async def test_model_is_written_to_the_work_branch_then_read_back_and_listed(
     forge: Forge,
 ) -> None:
     await _create(forge, PERSONNE)
+    await add_domain(forge)
 
     created = await _create(forge, COLIS)
     read = await forge.client.get(f"{ROUTE}/suivi/colis", timeout=120)
@@ -107,6 +109,8 @@ async def test_replay_writes_nothing_and_a_different_content_is_a_conflict(forge
 
 
 async def test_refusals_write_nothing_and_say_why(forge: Forge) -> None:
+    no_domain = await _create(forge, COLIS)
+    await add_domain(forge)
     before = await forge.commits()
 
     syntax = await _create(forge, PERSONNE, content="type: object\nproperties: [\n")
@@ -115,6 +119,8 @@ async def test_refusals_write_nothing_and_say_why(forge: Forge) -> None:
     )
     missing = await _create(forge, COLIS)
 
+    # Un domaine qui n'est pas déclaré ne se crée plus au passage (story 7fa00f56).
+    assert (no_domain.status_code, no_domain.json()["detail"]) == (409, "domaine_inconnu")
     assert syntax.status_code == 422
     assert syntax.json()["detail"]["code"] == "yaml_invalide"
     assert syntax.json()["detail"]["line"] is not None
@@ -133,6 +139,7 @@ async def test_refusals_write_nothing_and_say_why(forge: Forge) -> None:
 
 
 async def test_a_shared_model_cannot_reference_a_domain_model(forge: Forge) -> None:
+    await add_domain(forge)
     await _create(forge, COLIS.replace("$ref: miles:/shared/personne", "type: string"))
     leaking = PERSONNE + "  colis:\n    $ref: miles:/domains/suivi/colis\n"
 
@@ -145,6 +152,7 @@ async def test_a_shared_model_cannot_reference_a_domain_model(forge: Forge) -> N
 
 async def test_referenced_model_cannot_be_deleted_until_its_user_is(forge: Forge) -> None:
     await _create(forge, PERSONNE)
+    await add_domain(forge)
     await _create(forge, COLIS)
 
     refused = await forge.client.delete(f"{ROUTE}/shared/personne", timeout=120)
@@ -276,10 +284,15 @@ async def test_an_empty_model_is_kept_as_a_draft_but_blocks_a_version(forge: For
 
 
 async def test_deleting_a_declared_model_removes_its_metadata_too(forge: Forge) -> None:
+    unknown = await _declare(forge, scope="suivi")
+    await add_domain(forge)
     await _declare(forge, scope="suivi")
 
     deleted = await forge.client.delete(f"{ROUTE}/suivi/personne", timeout=120)
 
+    assert (unknown.status_code, unknown.json()["detail"]) == (409, "domaine_inconnu")
     assert deleted.status_code == 204, deleted.text
     assert await forge.file("domains/suivi/messages/personne.meta.yaml") is None
+    # Le domaine survit à son dernier modèle : il a été déclaré, il ne se retire pas seul.
+    assert await forge.file("domains/suivi/.gitkeep") == ""
     assert await forge.file("domains/suivi/messages/personne.yaml") is None

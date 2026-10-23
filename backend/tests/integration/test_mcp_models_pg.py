@@ -153,6 +153,9 @@ async def test_invalid_content_gets_every_problem_the_screen_gets(m: McpForge) -
 
     by_mcp = await m.refused("create_data_model", EDIT | body)
     yaml = await m.refused("create_data_model", EDIT | body | {"content": "a: [b"})
+    # Le domaine se déclare d'abord (story 7fa00f56) ; ensuite seulement, la référence.
+    no_domain = await m.refused("create_data_model", EDIT | body_of(COLIS))
+    await m.ok("create_domain", EDIT | {"name": "suivi"})
     dangling = await m.refused("create_data_model", EDIT | body_of(COLIS))
 
     assert by_mcp == {
@@ -161,12 +164,14 @@ async def test_invalid_content_gets_every_problem_the_screen_gets(m: McpForge) -
     }
     assert len(by_mcp["problems"]) >= 2
     assert yaml["code"] == "yaml_invalide" and yaml["line"] is not None
+    assert no_domain == {"code": "domaine_inconnu"}
     assert dangling["code"] == "modele_non_conforme"
     assert {p["code"] for p in dangling["problems"]} == {"modele_inconnu"}
 
 
 async def test_unknown_or_used_models_name_what_exists_and_who_uses_them(m: McpForge) -> None:
     await m.ok("create_data_model", EDIT | body_of(PERSONNE))
+    await m.ok("create_domain", EDIT | {"name": "suivi"})
     await m.ok("create_data_model", EDIT | body_of(COLIS))
 
     unknown = await m.refused("get_data_model", EDIT | {"scope": "shared", "name": "absent"})
@@ -211,3 +216,18 @@ async def test_a_change_made_through_oauth_is_signed_by_the_person_via_the_clien
     assert event is not None
     assert (event["author_directory"], event["author_subject"]) == ("local", "admin")
     assert '"via_oauth_grant"' in event["properties"]
+
+
+async def test_a_domain_is_created_once_and_its_name_is_checked(m: McpForge) -> None:
+    created = await m.ok("create_domain", EDIT | {"name": "suivi"})
+    replay = await m.ok("create_domain", EDIT | {"name": "suivi"})
+    bad = await m.refused("create_domain", EDIT | {"name": "../x"})
+    listed = await m.ok("list_domains", EDIT)
+
+    assert created["commit"] and created["unchanged"] is False
+    assert (replay["unchanged"], replay["commit"]) == (True, None)
+    assert (bad["code"], bad["champ"]) == ("champ_invalide", "name")
+    assert listed["domains"] == ["suivi"]
+    assert await m.forge.file("domains/suivi/.gitkeep") == ""
+    # Écrit dans la branche enfant seulement : la racine reste en lecture seule.
+    assert await m.forge.file("domains/suivi/.gitkeep", "work/atelier") is None

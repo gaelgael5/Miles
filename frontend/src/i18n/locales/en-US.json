@@ -465,7 +465,7 @@
     },
     "form": {
       "title": "New data model",
-      "domainHelp": "Leave empty for a shared model (shared/messages). Move a model to shared only once a second domain really uses it.",
+      "domainHelp": "Shared: shared/messages, used by every domain. A model is promoted to shared only on its second real use by another domain. A domain missing from the list is added with “Add a domain”.",
       "submit": "Create the model",
       "cancel": "Cancel",
       "slugHelp": "Proposed from the label; it is the name of the model and of its file, frozen once created. Lowercase letters, digits, hyphens and underscores."
@@ -491,7 +491,8 @@
         "name": "Invalid slug: lowercase letters, digits, hyphens and underscores.",
         "git_connection_id": "The workspace's git connection is unusable.",
         "repo_url": "The workspace's repository address is invalid.",
-        "label": "Label: required, at most 120 characters, on a single line."
+        "label": "Label: required, at most 120 characters, on a single line.",
+        "domain": "Domain name: lowercase letters, digits, hyphens and underscores, 63 characters at most, starting with a letter or a digit."
       },
       "conflict": {
         "nom_pris": "A different model with this name already exists at this location.",
@@ -502,7 +503,8 @@
         "modele_inconnu": "This model no longer exists.",
         "branche_inconnue": "This branch is unknown to the workspace.",
         "prise_de_main_requise": "Take over this branch in “All workspaces” to change it.",
-        "nom_fige": "The model name (nom:) does not change: it is frozen at creation."
+        "nom_fige": "The model name (nom:) does not change: it is frozen at creation.",
+        "domaine_inconnu": "This domain does not exist on the branch: add it first."
       },
       "unexpected": "The operation failed. See the back-office logs."
     },
@@ -564,6 +566,14 @@
       "refDescription": "Points at another schema: a definition of this document (#/$defs/…), or another model by its URI (miles:/…), copied from “Referenceable models” — without a leading “#”.",
       "refPlaceholder": "#/$defs/<name> or miles:/shared/<name>",
       "refBroken": "This reference points at nothing: neither a definition of this document nor a Miles model."
+    },
+    "addDomain": "Add a domain",
+    "domainForm": {
+      "title": "New domain",
+      "name": "Domain name",
+      "help": "The name of the domains/<name>/ directory: lowercase letters, digits, hyphens and underscores, 63 characters at most. It is then picked from the list when creating a model.",
+      "submit": "Add the domain",
+      "added": "Domain {{name}} added: it can now be picked when creating a model."
     }
   },
   "versions": {

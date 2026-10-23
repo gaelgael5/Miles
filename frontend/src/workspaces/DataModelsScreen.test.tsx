@@ -6,6 +6,7 @@ import { BARE, CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtu
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/data-models";
+const DOMAINS = "/api/workspaces/retrait/domains";
 const NO_VERSION = { "GET /api/workspaces/retrait/versions?branch=edition": { status: 200, body: [] } };
 const PERSONNE = {
   scope: "shared",
@@ -62,6 +63,7 @@ describe("DataModelsScreen", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
       [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${DOMAINS}?branch=edition`]: { status: 200, body: [{ name: "suivi" }] },
       [`POST ${ROUTE}/declarations?branch=edition`]: { status: 201, body: PERSONNE },
       [`GET ${ROUTE}/shared/personne?branch=edition`]: [
         { status: 200, body: { ...PERSONNE, content: DRAFT } },
@@ -168,5 +170,89 @@ describe("DataModelsScreen", () => {
     expect(
       await screen.findByText(`Other models use this one: ${COLIS.path}.`),
     ).toBeInTheDocument();
+  });
+
+  it("adds a domain, refusing a bad name as it is typed, then offers it in the list", async () => {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...NO_VERSION,
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${DOMAINS}?branch=edition`]: [
+        { status: 200, body: [] },
+        { status: 200, body: [{ name: "suivi" }] },
+      ],
+      [`POST ${DOMAINS}?branch=edition`]: { status: 201, body: { name: "suivi" } },
+      [`POST ${ROUTE}/declarations?branch=edition`]: { status: 201, body: COLIS },
+      [`GET ${ROUTE}/suivi/colis?branch=edition`]: { status: 200, body: { ...COLIS, content: DRAFT } },
+    });
+    await openModels();
+    // Formulaire de modèle déjà ouvert, sa liste lue sans domaine : l'ajout la fait relire.
+    fireEvent.click(await screen.findByText("Add a model"));
+    expect(await screen.findByRole("option", { name: "Shared" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Add a domain"));
+    const form = screen.getByRole("form", { name: "New domain" });
+
+    fill("Domain name", "Suivi.colis");
+    expect(within(form).getByRole("alert")).toHaveTextContent("Domain name: lowercase letters");
+    expect(within(form).getByRole("button", { name: "Add the domain" })).toBeDisabled();
+    fill("Domain name", "suivi");
+    fireEvent.click(within(form).getByRole("button", { name: "Add the domain" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Domain suivi added");
+    expect(calls.find((c) => c.key === `POST ${DOMAINS}?branch=edition`)?.body).toEqual({
+      name: "suivi",
+    });
+    const domain = screen.getByLabelText("Domain");
+    // Pas de saisie libre : la liste, transverse par défaut, puis les domaines de la branche.
+    expect(domain.tagName).toBe("SELECT");
+    expect(domain).toHaveValue("shared");
+    await within(domain).findByRole("option", { name: "suivi" });
+    fireEvent.change(domain, { target: { value: "suivi" } });
+    fill("Label", "Colis");
+    fireEvent.click(screen.getByText("Create the model"));
+
+    expect(await screen.findByLabelText("YAML")).toHaveValue(DRAFT);
+    expect(calls.find((c) => c.key === `POST ${ROUTE}/declarations?branch=edition`)?.body).toEqual({
+      scope: "suivi",
+      label: "Colis",
+      slug: "colis",
+    });
+  });
+
+  it("says a domain must be added first when the server does not know it", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...NO_VERSION,
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${DOMAINS}?branch=edition`]: { status: 200, body: [{ name: "suivi" }] },
+      [`POST ${ROUTE}/declarations?branch=edition`]: {
+        status: 409,
+        body: { detail: "domaine_inconnu" },
+      },
+    });
+    await openModels();
+    fireEvent.click(await screen.findByText("Add a model"));
+    await within(screen.getByLabelText("Domain")).findByRole("option", { name: "suivi" });
+    fireEvent.change(screen.getByLabelText("Domain"), { target: { value: "suivi" } });
+    fill("Label", "Colis");
+    fireEvent.click(screen.getByText("Create the model"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This domain does not exist on the branch: add it first.",
+    );
+  });
+
+  it("offers no domain button without the hold", async () => {
+    mockApi({
+      "GET /api/workspaces/retrait/holds": { status: 200, body: [] },
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+    });
+    await openModels();
+
+    expect(await screen.findByText("No data model on the work branch.")).toBeInTheDocument();
+    expect(screen.queryByText("Add a domain")).toBeNull();
   });
 });

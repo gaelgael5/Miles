@@ -41,6 +41,7 @@ async def _populate(m: McpForge) -> str:
     await m.ok("create_data_model", EDIT | body_of(PERSONNE))
     await m.forge.publish()
     before = await _head(m)
+    await m.ok("create_domain", EDIT | {"name": "suivi"})
     await m.ok("create_data_model", EDIT | body_of(COLIS))
     assert (await _declare(m.forge)).status_code == 201
     assert (await _import(m.forge, SUIVI)).status_code == 201

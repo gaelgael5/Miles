@@ -11,6 +11,7 @@ from miles.datamodels.layout import ModelEntry
 from miles.datamodels.service import DataModelsService, ModelNotFoundError
 from miles.mcp_api.calls import Caller, caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
+from miles.workshop.domains_service import DomainsService
 
 Workspace = Annotated[str, Field(description="Identifiant du workspace (voir list_workspaces).")]
 ReadBranch = Annotated[
@@ -29,7 +30,17 @@ WriteBranch = Annotated[
     ),
 ]
 Scope = Annotated[
-    str, Field(description="« shared » pour un modèle transverse, sinon le nom du domaine.")
+    str,
+    Field(
+        description=(
+            "« shared » pour un modèle transverse, sinon le nom d'un domaine existant"
+            " (list_domains ; create_domain pour en ajouter un)."
+        )
+    ),
+]
+DomainName = Annotated[
+    str,
+    Field(description="Nom du domaine : minuscules, chiffres, - et _ (63 caractères au plus)."),
 ]
 Name = Annotated[str, Field(description="Nom du modèle (celui de son fichier, sans extension).")]
 Content = Annotated[
@@ -106,7 +117,8 @@ def register(server: MCPServer) -> None:
     @server.tool(
         description=(
             "Crée un modèle de données (JSON Schema 2020-12 en YAML) dans une branche enfant."
-            " Refus structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris."
+            " Refus structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris,"
+            " domaine_inconnu (le domaine se crée d'abord par create_domain)."
         )
     )
     async def create_data_model(
@@ -185,3 +197,24 @@ def register(server: MCPServer) -> None:
 
         element = f"{scope}/{name}"
         return await caller.write("delete_data_model", workspace_id, branch, element, run)
+
+    @server.tool(
+        description=(
+            "Ajoute un domaine (répertoire domains/<nom>/) dans une branche enfant. Un modèle"
+            " de domaine ne peut se créer que dans un domaine existant. Déjà là : sans effet."
+        )
+    )
+    async def create_domain(
+        workspace_id: Workspace,
+        name: DomainName,
+        ctx: Context[Any, Request],
+        branch: WriteBranch = None,
+    ) -> dict[str, Any]:
+        caller = caller_of(ctx)
+        service: DomainsService = caller.services.domains
+
+        async def run(author: Any) -> dict[str, Any]:
+            commit = await service.resolve_add(author, workspace_id, name, branch=branch)
+            return {"domain": name, "commit": commit, "unchanged": commit is None}
+
+        return await caller.write("create_domain", workspace_id, branch, name, run)

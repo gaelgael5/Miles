@@ -105,7 +105,7 @@
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un modèle transverse, sinon le nom du domaine.",
+            "description": "« shared » pour un modèle transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
@@ -139,7 +139,7 @@
     },
     {
       "name": "create_data_model",
-      "description": "Crée un modèle de données (JSON Schema 2020-12 en YAML) dans une branche enfant. Refus structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris.",
+      "description": "Crée un modèle de données (JSON Schema 2020-12 en YAML) dans une branche enfant. Refus structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris, domaine_inconnu (le domaine se crée d'abord par create_domain).",
       "inputSchema": {
         "properties": {
           "workspace_id": {
@@ -148,7 +148,7 @@
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un modèle transverse, sinon le nom du domaine.",
+            "description": "« shared » pour un modèle transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
@@ -197,7 +197,7 @@
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un modèle transverse, sinon le nom du domaine.",
+            "description": "« shared » pour un modèle transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
@@ -246,7 +246,7 @@
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un modèle transverse, sinon le nom du domaine.",
+            "description": "« shared » pour un modèle transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
@@ -275,6 +275,43 @@
           "name"
         ],
         "title": "delete_data_modelArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_domain",
+      "description": "Ajoute un domaine (répertoire domains/<nom>/) dans une branche enfant. Un modèle de domaine ne peut se créer que dans un domaine existant. Déjà là : sans effet.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom du domaine : minuscules, chiffres, - et _ (63 caractères au plus).",
+            "title": "Name",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "name"
+        ],
+        "title": "create_domainArguments",
         "type": "object"
       }
     },

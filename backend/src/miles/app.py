@@ -75,10 +75,12 @@ from miles.transform.api_transform import chains_router
 from miles.transform.api_transform import router as transform_router
 from miles.workshop.api_branches import router as branches_router
 from miles.workshop.api_branches import views_router as branch_views_router
+from miles.workshop.api_domains import router as domains_router
 from miles.workshop.api_holds import me_router as my_shelves_router
 from miles.workshop.api_holds import router as holds_router
 from miles.workshop.api_workshop import router as workshop_router
 from miles.workshop.branches import BranchesService
+from miles.workshop.domains_service import DomainsService
 from miles.workshop.holds import BranchHoldsService
 from miles.workshop.service import WorkshopService
 from miles.workshop.shelving import ShelvesService
@@ -163,6 +165,7 @@ def create_app() -> FastAPI:
             git_hosts,
         )
         app.state.data_models = DataModelsService(pool, branches, catalog, utc_now)
+        app.state.domains = DomainsService(pool, branches, catalog, utc_now)
         app.state.workshop = WorkshopService(pool, branches, catalog, utc_now)
         app.state.contracts = ContractsService(pool, branches, catalog, utc_now)
         app.state.remote_contracts = RemoteContracts(http)
@@ -240,6 +243,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(workspaces_router)
     app.include_router(connections_router)
     app.include_router(data_models_router)
+    app.include_router(domains_router)
     app.include_router(workshop_router)
     app.include_router(contracts_router)
     app.include_router(branches_router)

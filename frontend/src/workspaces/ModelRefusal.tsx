@@ -22,7 +22,7 @@ function detailOf(error: unknown): Detail | null {
 }
 
 /** Message d'un refus ; les manquements à la grammaire s'affichent à part, un par ligne. */
-function errorKey(error: unknown): [string, Record<string, string>] {
+function errorKey(error: unknown, fields: Record<string, string>): [string, Record<string, string>] {
   const detail = detailOf(error);
   if (detail?.code === "yaml_invalide") {
     const at = { line: String(detail.line ?? "?"), column: String(detail.column ?? "?") };
@@ -38,7 +38,7 @@ function errorKey(error: unknown): [string, Record<string, string>] {
     return ["dataModels.errors.access", { reason: detail.reason ?? "echec" }];
   }
   if (detail?.field) {
-    return [`dataModels.errors.invalid.${detail.field}`, {}];
+    return [fields[detail.field] ?? `dataModels.errors.invalid.${detail.field}`, {}];
   }
   if (error instanceof ApiError && typeof error.detail === "string") {
     return [`dataModels.errors.conflict.${error.detail}`, {}];
@@ -46,10 +46,20 @@ function errorKey(error: unknown): [string, Record<string, string>] {
   return ["dataModels.errors.unexpected", {}];
 }
 
-/** Refus d'une écriture de modèle : le message, puis chaque écart à sa place. */
-export function ModelRefusal({ error }: { error: unknown }) {
+/**
+ * Refus d'une écriture de modèle : le message, puis chaque écart à sa place. `fields`
+ * redit un champ refusé quand le même nom ne désigne pas la même chose (le `name` d'un
+ * domaine n'est pas le slug d'un modèle).
+ */
+export function ModelRefusal({
+  error,
+  fields = {},
+}: {
+  error: unknown;
+  fields?: Record<string, string>;
+}) {
   const { t } = useTranslation();
-  const [key, values] = errorKey(error);
+  const [key, values] = errorKey(error, fields);
   const problems = detailOf(error)?.problems ?? [];
   return (
     <div className="alert" role="alert">

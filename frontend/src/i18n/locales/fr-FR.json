@@ -465,7 +465,7 @@
     },
     "form": {
       "title": "Nouveau modèle de données",
-      "domainHelp": "Laissez vide pour un modèle transverse (shared/messages). On ne promeut au transverse qu'au second usage réel par un autre domaine.",
+      "domainHelp": "Transverse : shared/messages, partagé par tous les domaines. On ne promeut au transverse qu'au second usage réel par un autre domaine. Un domaine absent de la liste s'ajoute par « Ajouter un domaine ».",
       "submit": "Créer le modèle",
       "cancel": "Annuler",
       "slugHelp": "Proposé d'après le label ; c'est le nom du modèle et de son fichier, figé une fois créé. Lettres minuscules, chiffres, tirets et soulignés."
@@ -491,7 +491,8 @@
         "name": "Slug invalide : lettres minuscules, chiffres, tirets et soulignés.",
         "git_connection_id": "La connexion git du workspace est inutilisable.",
         "repo_url": "L'adresse du dépôt du workspace est invalide.",
-        "label": "Label : obligatoire, 120 caractères au plus, sur une seule ligne."
+        "label": "Label : obligatoire, 120 caractères au plus, sur une seule ligne.",
+        "domain": "Nom de domaine : lettres minuscules, chiffres, tirets et soulignés, 63 caractères au plus, en commençant par une lettre ou un chiffre."
       },
       "conflict": {
         "nom_pris": "Un autre modèle porte déjà ce nom à cet emplacement.",
@@ -502,7 +503,8 @@
         "modele_inconnu": "Ce modèle n'existe plus.",
         "branche_inconnue": "Cette branche n'est pas connue du workspace.",
         "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier.",
-        "nom_fige": "Le nom du modèle (nom:) ne change pas : il est figé à la création."
+        "nom_fige": "Le nom du modèle (nom:) ne change pas : il est figé à la création.",
+        "domaine_inconnu": "Ce domaine n'existe pas dans la branche : ajoutez-le d'abord."
       },
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     },
@@ -564,6 +566,14 @@
       "refDescription": "Désigne un autre schéma : une définition de ce document (#/$defs/…), ou un autre modèle par son URI (miles:/…), à copier depuis « Modèles référençables » — sans « # » devant.",
       "refPlaceholder": "#/$defs/<nom> ou miles:/shared/<nom>",
       "refBroken": "Cette référence ne désigne rien : ni une définition de ce document, ni un modèle de Miles."
+    },
+    "addDomain": "Ajouter un domaine",
+    "domainForm": {
+      "title": "Nouveau domaine",
+      "name": "Nom du domaine",
+      "help": "Le nom du répertoire domains/<nom>/ : lettres minuscules, chiffres, tirets et soulignés, 63 caractères au plus. Il se choisit ensuite dans la liste à la création d'un modèle.",
+      "submit": "Ajouter le domaine",
+      "added": "Domaine {{name}} ajouté : il se choisit maintenant à la création d'un modèle."
     }
   },
   "versions": {

@@ -9,9 +9,11 @@ import {
   useDeclareDataModel,
   useDeleteDataModel,
 } from "../api/dataModels";
+import { useDomains } from "../api/domains";
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
+import { DomainForm } from "./DomainForm";
 import { ModelRefusal } from "./ModelRefusal";
 
 /**
@@ -32,13 +34,14 @@ function CreateForm({
   const [label, setLabel] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
-  const [domain, setDomain] = useState("");
+  // Transverse par défaut : on ne promeut au transverse qu'au second usage réel, mais un
+  // domaine se choisit dans la liste, jamais ne se tape (story 7fa00f56).
+  const [scope, setScope] = useState(SHARED_SCOPE);
+  const domains = useDomains(target);
   const shownSlug = slugTouched ? slug : proposeSlug(label);
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    // Domaine vide : transverse. On ne promeut au transverse qu'au second usage réel.
-    const scope = domain.trim() || SHARED_SCOPE;
     declare.mutate({ scope, label, slug: shownSlug }, { onSuccess: onCreated });
   }
 
@@ -64,7 +67,14 @@ function CreateForm({
       <p className="help">{t("dataModels.form.slugHelp")}</p>
       <label className="field">
         {t("dataModels.fields.domain")}
-        <input value={domain} onChange={(e) => setDomain(e.target.value)} />
+        <select value={scope} onChange={(e) => setScope(e.target.value)}>
+          <option value={SHARED_SCOPE}>{t("dataModels.list.shared")}</option>
+          {(domains.data ?? []).map((d) => (
+            <option key={d.name} value={d.name}>
+              {d.name}
+            </option>
+          ))}
+        </select>
       </label>
       <p className="help">{t("dataModels.form.domainHelp")}</p>
       {declare.isError && <ModelRefusal error={declare.error} />}
@@ -154,6 +164,8 @@ export function DataModelsScreen({
   const { t } = useTranslation();
   const models = useDataModels(target);
   const [creating, setCreating] = useState(false);
+  const [addingDomain, setAddingDomain] = useState(false);
+  const [added, setAdded] = useState<string | null>(null);
 
   return (
     <section aria-labelledby="data-models-title">
@@ -167,12 +179,43 @@ export function DataModelsScreen({
             {t("dataModels.intro")} <span className="mono">{workspace.work_branch}</span>
           </p>
         </div>
-        {!creating && !target.readOnly && (
-          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
-            {t("dataModels.add")}
-          </button>
+        {!target.readOnly && (
+          <div className="actions">
+            {!addingDomain && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setAdded(null);
+                  setAddingDomain(true);
+                }}
+              >
+                {t("dataModels.addDomain")}
+              </button>
+            )}
+            {!creating && (
+              <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+                {t("dataModels.add")}
+              </button>
+            )}
+          </div>
         )}
       </div>
+      {addingDomain && (
+        <DomainForm
+          target={target}
+          onAdded={(domain) => {
+            setAddingDomain(false);
+            setAdded(domain.name);
+          }}
+          onCancel={() => setAddingDomain(false)}
+        />
+      )}
+      {added !== null && (
+        <p className="notice" role="status">
+          {t("dataModels.domainForm.added", { name: added })}
+        </p>
+      )}
       {creating && (
         <CreateForm target={target} onCreated={onOpen} onCancel={() => setCreating(false)} />
       )}

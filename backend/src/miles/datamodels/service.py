@@ -9,6 +9,7 @@ import structlog
 
 from miles.datamodels.grammar import ModelGrammarError, Problem
 from miles.datamodels.layout import (
+    SHARED,
     ModelEntry,
     checked_name,
     checked_scope,
@@ -27,6 +28,7 @@ from miles.datamodels.schema import (
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
+from miles.workshop.domains import domains_in
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceConflictError, checked_label
 
@@ -177,6 +179,10 @@ class DataModelsService:
         async with self.branches.checkout(
             workspace_id, branch, by=author, gesture=Gesture.EDIT
         ) as copy:
+            # Le domaine se déclare à part (story 7fa00f56) : le créer ici au passage ferait
+            # d'une faute de frappe un domaine de plus, sans que personne ne le voie.
+            if scope != SHARED and scope not in domains_in(await copy.paths()):
+                raise WorkspaceConflictError("domaine_inconnu")
             existing = await copy.read(entry.path)
             if existing is not None:
                 if existing == content:
