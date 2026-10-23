@@ -625,8 +625,8 @@
       "slugHelp": "Proposed from the label. You can change it now only: once declared, the slug, label and direction are frozen."
     },
     "sens": {
-      "sortant": "Outbound — call to a remote service",
-      "entrant": "Inbound — webhook received"
+      "sortant": "External — call to a remote service",
+      "entrant": "Internal — webhook received"
     },
     "warnings": {
       "aucune_operation": "This contract has no operation: it is allowed, but probably the wrong file."
@@ -652,7 +652,7 @@
       "field": {
         "slug": "Slug: lowercase letters, digits and dashes, 2 to 63 characters.",
         "slug_vide": "Nothing usable remains of the title: give a slug.",
-        "sens": "Choose the direction: outbound or inbound.",
+        "sens": "Choose the direction: external or internal.",
         "label": "Label: at most 120 characters, on a single line.",
         "label_vide": "Give the contract a label."
       },
@@ -1096,17 +1096,17 @@
   },
   "contractModels": {
     "nav": {
-      "entrant": "Inbound contracts",
-      "sortant": "Outbound contracts"
+      "entrant": "Internal contracts",
+      "sortant": "External contracts"
     },
     "title": {
-      "entrant": "Inbound contract models — {{name}}",
-      "sortant": "Outbound contract models — {{name}}"
+      "entrant": "Internal contract models — {{name}}",
+      "sortant": "External contract models — {{name}}"
     },
     "intro": "One model per schema of the OpenAPI file, for each contract version. Derived by Miles on integration, read-only: a contract is imposed by its third party.",
     "empty": {
-      "entrant": "No inbound contract on this branch.",
-      "sortant": "No outbound contract on this branch."
+      "entrant": "No internal contract on this branch.",
+      "sortant": "No external contract on this branch."
     },
     "noSchema": "This version declares no schema (components/schemas).",
     "stale": "This version's models no longer match the contract file (missing, extra or edited in git). They block saving a version until they are derived again.",

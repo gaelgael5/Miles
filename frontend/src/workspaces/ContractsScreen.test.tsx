@@ -55,7 +55,7 @@ describe("ContractsScreen", () => {
     expect(screen.getByLabelText("Slug")).toHaveValue("suivi");
     // Pas de sens par défaut : la déclaration attend un choix explicite.
     expect(screen.getByText("Declare the contract")).toBeDisabled();
-    fireEvent.click(screen.getByLabelText("Outbound — call to a remote service"));
+    fireEvent.click(screen.getByLabelText("External — call to a remote service"));
     fireEvent.click(screen.getByText("Declare the contract"));
 
     expect(await screen.findByRole("heading", { name: "Suivi des demandes" })).toBeInTheDocument();
@@ -80,7 +80,7 @@ describe("ContractsScreen", () => {
     await openContracts();
     fireEvent.click((await screen.findByRole("button", { name: "Declare a contract" })));
     fill("Label", "Matériel");
-    fireEvent.click(screen.getByLabelText("Inbound — webhook received"));
+    fireEvent.click(screen.getByLabelText("Internal — webhook received"));
 
     fireEvent.click(screen.getByText("Declare the contract"));
     expect(
@@ -105,7 +105,7 @@ describe("ContractsScreen", () => {
     await openContracts();
 
     const row = (await screen.findByText("Suivi des demandes")).closest("li") as HTMLElement;
-    expect(within(row).getByText("Outbound — call to a remote service")).toBeInTheDocument();
+    expect(within(row).getByText("External — call to a remote service")).toBeInTheDocument();
     expect(within(row).getByText("2 versions (latest v2)")).toBeInTheDocument();
     expect(within(row).queryByText(/rename/i)).not.toBeInTheDocument();
     const empty = screen.getByText("Sans fichier").closest("li") as HTMLElement;

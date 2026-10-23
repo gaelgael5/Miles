@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 describe("ContractModelsScreen", () => {
-  it("lists the models of the outbound contracts only, by contract and version, and opens one read-only", async () => {
+  it("lists the models of the external contracts only, by contract and version, and opens one read-only", async () => {
     mockApi({
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
@@ -115,8 +115,8 @@ describe("ContractModelsScreen", () => {
       </QueryClientProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Inbound contracts" }));
-    fireEvent.click(screen.getByRole("button", { name: "Outbound contracts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Internal contracts" }));
+    fireEvent.click(screen.getByRole("button", { name: "External contracts" }));
 
     expect(onSelect.mock.calls).toEqual([
       [{ id: "retrait", view: "contractModels", branch: "edition", sens: "entrant" }],
