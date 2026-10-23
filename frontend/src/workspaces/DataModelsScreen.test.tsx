@@ -53,7 +53,7 @@ describe("DataModelsScreen", () => {
     fireEvent.click(within(row).getByText("Open"));
 
     expect(await screen.findByRole("heading", { name: "Personne livrée" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Model (YAML)")).toHaveValue(YAML);
+    expect(await screen.findByLabelText("YAML", {}, { timeout: 10_000 })).toHaveValue(YAML);
   });
 
   it("creates a model by label and slug, then opens it to write its YAML", async () => {
@@ -72,20 +72,20 @@ describe("DataModelsScreen", () => {
     await openModels();
     fireEvent.click(await screen.findByText("Add a model"));
     const form = screen.getByRole("form", { name: "New data model" });
-    expect(within(form).queryByLabelText("Model (YAML)")).toBeNull();
+    expect(within(form).queryByLabelText("YAML")).toBeNull();
     fill("Label", "Personne livrée");
     expect(screen.getByLabelText("Slug")).toHaveValue("personne-livree");
     fill("Slug", "personne");
 
     fireEvent.click(screen.getByText("Create the model"));
 
-    expect(await screen.findByLabelText("Model (YAML)")).toHaveValue(DRAFT);
+    expect(await screen.findByLabelText("YAML")).toHaveValue(DRAFT);
     expect(calls.find((c) => c.key === `POST ${ROUTE}/declarations?branch=edition`)?.body).toEqual({
       scope: "shared",
       label: "Personne livrée",
       slug: "personne",
     });
-    fill("Model (YAML)", YAML);
+    fill("YAML", YAML);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Model saved");
     expect(calls.find((c) => c.key === `PUT ${ROUTE}/shared/personne?branch=edition`)?.body).toEqual({
@@ -122,8 +122,8 @@ describe("DataModelsScreen", () => {
       ],
     });
     renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", model: "shared/personne" });
-    await screen.findByLabelText("Model (YAML)");
-    fill("Model (YAML)", "nom: x");
+    await screen.findByLabelText("YAML");
+    fill("YAML", "nom: x");
     fireEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     const alert = await screen.findByRole("alert");
@@ -145,7 +145,7 @@ describe("DataModelsScreen", () => {
     });
     renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", model: "shared/personne" });
 
-    expect(await screen.findByLabelText("Model (YAML)")).toHaveAttribute("readonly");
+    expect(await screen.findByLabelText("YAML")).toHaveAttribute("readonly");
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
   });
 

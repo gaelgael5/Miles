@@ -2,6 +2,8 @@
 FROM node:22-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
+# Paquet vendu (vendor/README.md) : présent avant npm ci, qui le lit depuis le lock.
+COPY vendor ./vendor
 RUN npm ci
 COPY . .
 RUN npm run build

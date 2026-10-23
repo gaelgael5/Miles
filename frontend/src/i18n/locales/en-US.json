@@ -459,7 +459,7 @@
     "empty": "No data model on the work branch.",
     "fields": {
       "domain": "Domain",
-      "content": "Model (YAML)",
+      "content": "Schema (YAML)",
       "label": "Label",
       "slug": "Slug"
     },
@@ -513,8 +513,8 @@
       "version_invalide": "version: an integer from 1",
       "texte_attendu": "text expected",
       "document_non_objet": "the document must be a mapping",
-      "proprietes_vides": "no property: the model is still a draft",
-      "objet_attendu": "a mapping is expected",
+      "proprietes_vides": "no property: the schema is still a draft",
+      "objet_attendu": "the root schema must describe an object (type: object)",
       "nom_de_propriete_invalide": "invalid property name (lowercase letters, digits and _)",
       "booleen_attendu": "true or false expected",
       "type_inconnu": "unknown type “{{detail}}”",
@@ -523,7 +523,7 @@
       "valeurs_textuelles_attendues": "values must be text (quote on, off, yes, no)",
       "valeurs_en_double": "duplicate values",
       "imbrication_trop_profonde": "lists nested deeper than {{detail}} levels",
-      "modele_inconnu": "model “{{detail}}” does not exist",
+      "modele_inconnu": "model “{{detail}}” does not exist or is not visible from here",
       "manifeste_absent": "manifest.json is missing",
       "manifeste_invalide": "manifest.json is invalid",
       "dossier_d_environnement": "folder named after an environment: an environment is a branch",
@@ -535,12 +535,15 @@
       "fichier_de_contrat_inattendu": "unexpected file in a contract",
       "openapi_illisible": "unreadable OpenAPI ({{detail}})",
       "version_non_prise_en_charge": "unsupported OpenAPI version {{detail}}",
-      "openapi_invalide": "{{detail}}"
+      "openapi_invalide": "{{detail}}",
+      "schema_invalide": "not valid JSON Schema 2020-12: {{detail}}",
+      "reference_externe": "“{{detail}}”: only Miles models (miles:/…) and the schema's own definitions (#/…) can be referenced",
+      "id_different_du_fichier": "the $id does not match the file (expected: {{detail}})"
     },
     "editor": {
       "title": "Model YAML",
       "back": "← Back to models",
-      "help": "Edit through the tree or the YAML: they follow each other, and nothing is written before “Save”. The name (nom:) stays the one chosen at creation. A model without properties is a draft: it can be saved, but it blocks saving a version.",
+      "help": "Model through the visual editor or the YAML: they follow each other, and nothing is written before “Save”. The schema follows JSON Schema 2020-12; $schema and $id are set by Miles. A schema without properties is a draft: it can be saved, but it blocks saving a version.",
       "save": "Save",
       "saved": "Model saved in your space: publish to push it.",
       "unsaved": "Unsaved changes",
@@ -548,35 +551,15 @@
       "leaveBody": "Your changes are only in memory: they will be lost.",
       "leave": "Leave"
     },
-    "tree": {
-      "title": "Properties",
-      "version": "Version",
-      "description": "Description",
-      "empty": "No property: the model is a draft.",
-      "add": "Add a property",
-      "remove": "Remove",
-      "name": "Name",
-      "required": "Required",
-      "type": "Type",
-      "values": "Values (comma-separated)",
-      "model": "Referenced model",
-      "chooseModel": "— choose —",
-      "elements": "List elements",
-      "nameInvalid": "Name: a lowercase letter, then lowercase letters, digits or underscores.",
-      "nameTaken": "Another property already has this name.",
-      "unreadable": "Unreadable YAML, line {{line}}, column {{column}}: {{message}}. Fix it on the right to get the tree back.",
-      "unsupported": "The tree cannot represent “{{path}}”: edit the YAML on the right. Saving will tell what the grammar thinks of it."
-    },
-    "types": {
-      "chaine": "String",
-      "entier": "Integer",
-      "decimal": "Decimal",
-      "booleen": "Boolean",
-      "date": "Date",
-      "horodatage": "Timestamp",
-      "enumeration": "Enumeration",
-      "objet": "Object (another model)",
-      "liste": "List"
+    "schema": {
+      "visual": "Visual editor",
+      "unreadable": "Unreadable YAML: {{message}}. Fix it on the right to get the visual editor back.",
+      "references": "Referenceable models",
+      "referencesHelp": "To point at another model, give a property the “$ref” type and paste its URI.",
+      "copy": "Copy the URI",
+      "externalRef": "“{{uri}}” does not designate a Miles model.",
+      "version": "version {{version}}",
+      "versionHelp": "Kept by the system: +1 at each save that changes the schema. Unrelated to the branch versions."
     }
   },
   "versions": {

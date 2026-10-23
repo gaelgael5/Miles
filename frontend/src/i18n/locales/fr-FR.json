@@ -459,7 +459,7 @@
     "empty": "Aucun modèle de données dans la branche de travail.",
     "fields": {
       "domain": "Domaine",
-      "content": "Modèle (YAML)",
+      "content": "Schéma (YAML)",
       "label": "Label",
       "slug": "Slug"
     },
@@ -513,8 +513,8 @@
       "version_invalide": "version : un entier à partir de 1",
       "texte_attendu": "texte attendu",
       "document_non_objet": "le document doit être un objet",
-      "proprietes_vides": "aucune propriété : le modèle est encore un brouillon",
-      "objet_attendu": "un objet est attendu",
+      "proprietes_vides": "aucune propriété : le schéma est encore un brouillon",
+      "objet_attendu": "le schéma racine doit décrire un objet (type: object)",
       "nom_de_propriete_invalide": "nom de propriété invalide (lettres minuscules, chiffres et _)",
       "booleen_attendu": "true ou false attendu",
       "type_inconnu": "type « {{detail}} » inconnu",
@@ -523,7 +523,7 @@
       "valeurs_textuelles_attendues": "les valeurs doivent être du texte (mettez on, off, yes, no entre guillemets)",
       "valeurs_en_double": "valeurs en double",
       "imbrication_trop_profonde": "listes imbriquées sur plus de {{detail}} niveaux",
-      "modele_inconnu": "le modèle « {{detail}} » n'existe pas",
+      "modele_inconnu": "le modèle « {{detail}} » n'existe pas ou n'est pas visible d'ici",
       "manifeste_absent": "manifest.json est absent",
       "manifeste_invalide": "manifest.json est invalide",
       "dossier_d_environnement": "dossier nommé comme un environnement : un environnement est une branche",
@@ -535,12 +535,15 @@
       "fichier_de_contrat_inattendu": "fichier inattendu dans un contrat",
       "openapi_illisible": "OpenAPI illisible ({{detail}})",
       "version_non_prise_en_charge": "version OpenAPI {{detail}} non prise en charge",
-      "openapi_invalide": "{{detail}}"
+      "openapi_invalide": "{{detail}}",
+      "schema_invalide": "non conforme à JSON Schema 2020-12 : {{detail}}",
+      "reference_externe": "« {{detail}} » : seuls les modèles de Miles (miles:/…) et les définitions du schéma (#/…) se désignent",
+      "id_different_du_fichier": "l'$id ne correspond pas au fichier (attendu : {{detail}})"
     },
     "editor": {
       "title": "YAML du modèle",
       "back": "← Retour aux modèles",
-      "help": "Modifiez par l'arbre ou par le YAML : les deux se suivent, et rien n'est écrit avant « Enregistrer ». Le nom (nom:) reste celui choisi à la création. Un modèle sans propriété est un brouillon : il s'enregistre, mais bloque l'enregistrement d'une version.",
+      "help": "Modélisez par l'éditeur visuel ou par le YAML : les deux se suivent, et rien n'est écrit avant « Enregistrer ». Le schéma suit JSON Schema 2020-12 ; $schema et $id sont posés par Miles. Un schéma sans propriété est un brouillon : il s'enregistre, mais bloque l'enregistrement d'une version.",
       "save": "Enregistrer",
       "saved": "Modèle enregistré dans votre espace : publiez pour le pousser.",
       "unsaved": "Modifications non enregistrées",
@@ -548,35 +551,15 @@
       "leaveBody": "Vos modifications ne sont qu'en mémoire : elles seront perdues.",
       "leave": "Quitter"
     },
-    "tree": {
-      "title": "Propriétés",
-      "version": "Version",
-      "description": "Description",
-      "empty": "Aucune propriété : le modèle est un brouillon.",
-      "add": "Ajouter une propriété",
-      "remove": "Retirer",
-      "name": "Nom",
-      "required": "Obligatoire",
-      "type": "Type",
-      "values": "Valeurs (séparées par des virgules)",
-      "model": "Modèle désigné",
-      "chooseModel": "— choisir —",
-      "elements": "Éléments de la liste",
-      "nameInvalid": "Nom : une lettre minuscule, puis lettres minuscules, chiffres ou soulignés.",
-      "nameTaken": "Une autre propriété porte déjà ce nom.",
-      "unreadable": "YAML illisible, ligne {{line}}, colonne {{column}} : {{message}}. Corrigez-le à droite pour retrouver l'arbre.",
-      "unsupported": "L'arbre ne sait pas représenter « {{path}} » : modifiez le YAML à droite. L'enregistrement dira ce que la grammaire en pense."
-    },
-    "types": {
-      "chaine": "Chaîne",
-      "entier": "Entier",
-      "decimal": "Décimal",
-      "booleen": "Booléen",
-      "date": "Date",
-      "horodatage": "Horodatage",
-      "enumeration": "Énumération",
-      "objet": "Objet (autre modèle)",
-      "liste": "Liste"
+    "schema": {
+      "visual": "Éditeur visuel",
+      "unreadable": "YAML illisible : {{message}}. Corrigez-le à droite pour retrouver l'éditeur visuel.",
+      "references": "Modèles référençables",
+      "referencesHelp": "Pour désigner un autre modèle, donnez à une propriété le type « $ref » et collez son URI.",
+      "copy": "Copier l'URI",
+      "externalRef": "« {{uri}} » ne désigne pas un modèle de Miles.",
+      "version": "version {{version}}",
+      "versionHelp": "Tenue par le système : +1 à chaque enregistrement qui change le schéma. Sans rapport avec les versions de la branche."
     }
   },
   "versions": {

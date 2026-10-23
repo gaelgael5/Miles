@@ -1,8 +1,8 @@
-import { type FormEvent, useState } from "react";
+import type { JsonSchema } from "jsonjoy-builder";
+import { type FormEvent, Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
-  type DataModel,
   type DataModelContent,
   SHARED_SCOPE,
   useDataModel,
@@ -10,21 +10,17 @@ import {
   useReplaceDataModel,
 } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
-import { ModelTree } from "../dataModels/ModelTree";
-import { type ModelDoc, parseModel, serializeModel } from "../dataModels/modelTree";
+import { parseSchema, sameSchema, schemaText } from "../dataModels/schemaText";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { ModelRefusal } from "./ModelRefusal";
 
-function visibleModels(models: DataModel[] | undefined, scope: string, own: string): string[] {
-  // Même règle que le serveur : un modèle de domaine voit son domaine et les transverses ;
-  // un transverse, les seuls transverses. Lui-même reste désignable.
-  const visible = (models ?? []).filter((m) => m.scope === SHARED_SCOPE || m.scope === scope);
-  return [...new Set([own, ...visible.map((m) => m.name)])].sort();
-}
+// JSONJoy et Monaco ne se chargent qu'à l'ouverture d'un modèle : le reste du portail ne
+// paie pas leur poids (story e38806f3).
+const SchemaEditor = lazy(() => import("../dataModels/SchemaEditor"));
 
 /**
- * Arbre à gauche, YAML à droite (story 7208ba06), synchronisés et en mémoire seulement :
- * rien ne part au serveur avant « Enregistrer ».
+ * Éditeur visuel à gauche, YAML à droite (story e38806f3), synchronisés et en mémoire
+ * seulement : rien ne part au serveur avant « Enregistrer », qui reste l'arbitre.
  */
 function Editor({
   target,
@@ -41,22 +37,25 @@ function Editor({
   const replace = useReplaceDataModel(target, model);
   const models = useDataModels(target);
   const [text, setText] = useState(model.content);
-  const [state, setState] = useState(() => parseModel(model.content));
-  const dirty = text !== model.content;
+  const [parsed, setParsed] = useState(() => parseSchema(model.content));
+  const dirty = !sameSchema(text, model.content);
 
-  function fromTree(doc: ModelDoc) {
-    // L'arbre fait foi : le YAML est réécrit, sans repasser par la lecture qui
-    // renouvellerait les identifiants et ferait perdre le champ en cours de saisie.
-    const next = serializeModel(doc);
+  function changed(next: string) {
+    onDirty(!sameSchema(next, model.content));
+  }
+
+  function fromVisual(schema: JsonSchema) {
+    // L'éditeur visuel fait foi : le YAML est réécrit, sans le relire.
+    const next = schemaText(schema);
     setText(next);
-    setState({ ok: true, doc });
-    onDirty(next !== model.content);
+    setParsed({ ok: true, schema });
+    changed(next);
   }
 
   function fromYaml(next: string) {
     setText(next);
-    setState(parseModel(next));
-    onDirty(next !== model.content);
+    setParsed(parseSchema(next));
+    changed(next);
   }
 
   function submit(event: FormEvent) {
@@ -71,40 +70,17 @@ function Editor({
 
   return (
     <form className="card" onSubmit={submit} aria-label={t("dataModels.editor.title")}>
-      <div className="model-editor">
-        <section aria-label={t("dataModels.tree.title")}>
-          <h2>{t("dataModels.tree.title")}</h2>
-          {state.ok ? (
-            <ModelTree
-              doc={state.doc}
-              onChange={fromTree}
-              models={visibleModels(models.data, model.scope, model.name)}
-              readOnly={target.readOnly}
-            />
-          ) : (
-            <p className="notice" role="note">
-              {state.reason === "syntax"
-                ? t("dataModels.tree.unreadable", {
-                    line: state.line ?? "?",
-                    column: state.column ?? "?",
-                    message: state.message,
-                  })
-                : t("dataModels.tree.unsupported", { path: state.path })}
-            </p>
-          )}
-        </section>
-        <label className="field">
-          {t("dataModels.fields.content")}
-          <textarea
-            rows={24}
-            className="mono"
-            spellCheck={false}
-            readOnly={target.readOnly}
-            value={text}
-            onChange={(e) => fromYaml(e.target.value)}
-          />
-        </label>
-      </div>
+      <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
+        <SchemaEditor
+          target={target}
+          model={model}
+          models={models.data ?? []}
+          text={text}
+          parsed={parsed}
+          onVisual={fromVisual}
+          onYaml={fromYaml}
+        />
+      </Suspense>
       <p className="help">{t("dataModels.editor.help")}</p>
       {replace.isError && <ModelRefusal error={replace.error} />}
       {!target.readOnly && (
@@ -172,7 +148,11 @@ export function DataModelScreen({
               <h1 id="data-model-title">{data.label ?? data.name}</h1>
               <p className="lead">
                 <span className="mono">{data.path}</span> ·{" "}
-                {scope === SHARED_SCOPE ? t("dataModels.list.shared") : scope}
+                {scope === SHARED_SCOPE ? t("dataModels.list.shared") : scope} ·{" "}
+                {/* Tenue par le système (0f7cda10) : affichée, jamais saisie. */}
+                <span title={t("dataModels.schema.versionHelp")}>
+                  {t("dataModels.schema.version", { version: data.version ?? "—" })}
+                </span>
               </p>
             </div>
           </div>

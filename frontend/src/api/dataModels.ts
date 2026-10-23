@@ -8,8 +8,10 @@ export interface DataModel {
   scope: string;
   name: string;
   path: string;
-  /** null : modèle créé par son YAML (avant le 23/10/2026, ou par MCP), sans label. */
+  /** Le `title` du schéma ; null s'il n'en porte pas. */
   label: string | null;
+  /** Tenue par le système : 1 à la création, +1 à chaque enregistrement qui le change. */
+  version: number | null;
 }
 
 export interface DataModelContent extends DataModel {
@@ -46,12 +48,17 @@ export function useDataModels(target: WorkTarget) {
 
 type ModelRef = Pick<DataModel, "scope" | "name">;
 
-export function useDataModel(target: WorkTarget, model: ModelRef) {
-  return useQuery({
+/** La lecture d'un modèle, partagée par l'écran et l'aperçu des `$ref` de l'éditeur. */
+export function modelQuery(target: WorkTarget, model: ModelRef) {
+  return {
     queryKey: [...key(target), model.scope, model.name],
-    queryFn: ({ signal }) =>
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
       request<DataModelContent>(one(target, model.scope, model.name), { signal }),
-  });
+  };
+}
+
+export function useDataModel(target: WorkTarget, model: ModelRef) {
+  return useQuery(modelQuery(target, model));
 }
 
 function useInvalidating<I, O>(target: WorkTarget, mutationFn: (input: I) => Promise<O>) {
