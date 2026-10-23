@@ -98,9 +98,12 @@ export function ChainsScreen({
       {chains.isSuccess && chains.data.length > 0 && (
         <ul className="card-list plain-list">
           {chains.data.map((c) => (
-            <li key={c.slug} className="row">
+            <li key={c.slug} className="row row-openable">
               <div className="row-main">
-                <div className="row-title">{c.label ?? t("chains.unreadable")}</div>
+                {/* Toute la ligne ouvre la chaîne (fbe9b512) : le bouton du titre la couvre. */}
+                <button type="button" className="row-title row-open" onClick={() => onOpen(c.slug)}>
+                  {c.label ?? t("chains.unreadable")}
+                </button>
                 <div className="row-sub mono">transformations/{c.slug}</div>
               </div>
               <div className="cell">
@@ -108,11 +111,6 @@ export function ChainsScreen({
                 <div className="value">
                   {c.steps === null ? "—" : t("chains.steps", { count: c.steps })}
                 </div>
-              </div>
-              <div className="actions row-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => onOpen(c.slug)}>
-                  {t("contracts.list.open")}
-                </button>
               </div>
             </li>
           ))}

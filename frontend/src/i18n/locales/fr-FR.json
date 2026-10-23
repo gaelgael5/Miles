@@ -473,8 +473,7 @@
     "list": {
       "captionScope": "Emplacement",
       "shared": "Transverse",
-      "delete": "Supprimer",
-      "open": "Ouvrir"
+      "delete": "Supprimer"
     },
     "deleteConfirm": {
       "title": "Supprimer ce modèle ?",

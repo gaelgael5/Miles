@@ -473,8 +473,7 @@
     "list": {
       "captionScope": "Location",
       "shared": "Shared",
-      "delete": "Delete",
-      "open": "Open"
+      "delete": "Delete"
     },
     "deleteConfirm": {
       "title": "Delete this model?",

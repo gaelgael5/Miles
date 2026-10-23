@@ -48,7 +48,8 @@ function routes(extra: Record<string, unknown>) {
 async function openContract() {
   // Une branche enfant : la racine est en lecture seule (story dca0eb0e).
   renderWorkspaces({ id: "retrait", view: "contracts", branch: "edition" });
-  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  // Toute la ligne ouvre le contrat (fbe9b512) : son titre en est le bouton.
+  fireEvent.click(await screen.findByRole("button", { name: "Matériel du tiers" }));
   await screen.findByRole("heading", { name: "Matériel du tiers" });
 }
 

@@ -51,7 +51,9 @@ describe("DataModelsScreen", () => {
     expect(screen.getByText("colis")).toBeInTheDocument();
     const row = screen.getByText("Personne livrée").closest("li") as HTMLElement;
     expect(within(row).getByText("Shared")).toBeInTheDocument();
-    fireEvent.click(within(row).getByText("Open"));
+    // Toute la ligne ouvre le modèle : plus de bouton « Ouvrir » (fbe9b512).
+    expect(within(row).queryByRole("button", { name: "Open" })).toBeNull();
+    fireEvent.click(within(row).getByRole("button", { name: "Personne livrée" }));
 
     expect(await screen.findByRole("heading", { name: "Personne livrée" })).toBeInTheDocument();
     expect(await screen.findByLabelText("YAML", {}, { timeout: 10_000 })).toHaveValue(YAML);
@@ -170,6 +172,8 @@ describe("DataModelsScreen", () => {
     expect(
       await screen.findByText(`Other models use this one: ${COLIS.path}.`),
     ).toBeInTheDocument();
+    // « Supprimer » est au-dessus de la ligne ouvrable : le modèle ne s'est pas ouvert.
+    expect(screen.getByRole("heading", { name: "Data models — Retrait de colis" })).toBeInTheDocument();
   });
 
   it("adds a domain, refusing a bad name as it is typed, then offers it in the list", async () => {

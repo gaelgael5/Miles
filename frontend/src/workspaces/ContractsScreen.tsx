@@ -83,9 +83,12 @@ function ContractRow({ contract, onOpen }: { contract: Contract; onOpen: () => v
   const { t } = useTranslation();
   const latest = contract.versions.at(-1);
   return (
-    <li className="row">
+    <li className="row row-openable">
       <div className="row-main">
-        <div className="row-title">{contract.label}</div>
+        {/* Toute la ligne ouvre le contrat (fbe9b512) : le bouton du titre la couvre. */}
+        <button type="button" className="row-title row-open" onClick={onOpen}>
+          {contract.label}
+        </button>
         <div className="row-sub mono">contracts/{contract.slug}</div>
       </div>
       <div className="cell">
@@ -103,11 +106,6 @@ function ContractRow({ contract, onOpen }: { contract: Contract; onOpen: () => v
             t("contracts.list.versions", { count: contract.versions.length, latest: latest.number })
           )}
         </div>
-      </div>
-      <div className="actions row-actions">
-        <button type="button" className="btn btn-secondary" onClick={onOpen}>
-          {t("contracts.list.open")}
-        </button>
       </div>
     </li>
   );

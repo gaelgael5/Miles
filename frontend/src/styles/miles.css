@@ -129,6 +129,17 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .row:last-child { border-bottom: none; }
 .row-main { flex: 999 1 260px; min-width: 0; }
 .row-title { font-size: 16px; font-weight: 600; }
+/* Ligne ouvrable (fbe9b512) : le bouton du titre couvre la ligne ; les actions et les
+   refus passent au-dessus, pour que « Supprimer » n'ouvre pas l'élément. */
+.row-openable { position: relative; cursor: pointer; }
+.row-openable:hover { background: var(--fond); }
+.row-open {
+  background: none; border: none; padding: 0; margin: 0; color: inherit; font: inherit;
+  font-size: 16px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.row-open::after { content: ""; position: absolute; inset: 0; }
+.row-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row-openable .row-actions, .row-openable .row-detail { position: relative; z-index: 1; }
 .row-sub { margin-top: 6px; font-family: var(--police-mono); font-size: 12px; color: var(--encre-faible); }
 .cell { flex: 0 0 170px; }
 .caption {

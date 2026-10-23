@@ -104,10 +104,14 @@ function ModelRow({
   const remove = useDeleteDataModel(target);
 
   return (
-    <li className="row">
+    <li className="row row-openable">
       <div className="row-main">
-        {/* Un modèle créé par son YAML (avant le 23/10/2026, ou par MCP) n'a pas de label. */}
-        <div className="row-title">{model.label ?? model.name}</div>
+        {/* Toute la ligne ouvre le modèle (fbe9b512) : ce bouton étend sa zone à la ligne
+            par CSS, plutôt qu'un <li> cliquable qui engloberait « Supprimer », mal lu au
+            clavier et par un lecteur d'écran. Un modèle créé par son YAML n'a pas de label. */}
+        <button type="button" className="row-title row-open" onClick={onOpen}>
+          {model.label ?? model.name}
+        </button>
         <div className="row-sub mono">{model.path}</div>
       </div>
       <div className="cell">
@@ -117,9 +121,6 @@ function ModelRow({
         </div>
       </div>
       <div className="actions row-actions">
-        <button type="button" className="btn btn-secondary" onClick={onOpen}>
-          {t("dataModels.list.open")}
-        </button>
         {!target.readOnly && (
           <button type="button" className="btn btn-danger" onClick={() => setConfirming(true)}>
             {t("dataModels.list.delete")}

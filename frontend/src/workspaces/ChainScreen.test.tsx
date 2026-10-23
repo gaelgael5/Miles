@@ -55,6 +55,28 @@ describe("ChainsScreen", () => {
   });
 });
 
+describe("ChainsScreen list", () => {
+  it("opens a chain from its whole row, with no Open button", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}${Q}`]: {
+        status: 200,
+        body: [{ slug: CHAIN.slug, label: CHAIN.label, steps: 2 }],
+      },
+      [`GET ${ROUTE}/${CHAIN.slug}${Q}`]: { status: 200, body: CHAIN },
+    });
+    renderWorkspaces({ id: "retrait", view: "transformations", branch: "edition" });
+    const title = await screen.findByRole("button", { name: CHAIN.label });
+    const row = title.closest("li") as HTMLElement;
+
+    expect(within(row).queryByRole("button", { name: "Open" })).toBeNull();
+    fireEvent.click(title);
+
+    expect(await screen.findByDisplayValue("normaliser")).toBeInTheDocument();
+  });
+});
+
 describe("ChainScreen", () => {
   it("reorders the steps and saves them in the chosen order", async () => {
     const calls = mockApi({
