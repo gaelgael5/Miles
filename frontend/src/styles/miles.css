@@ -91,6 +91,9 @@ code, .mono { font-family: var(--police-mono); font-size: 12.5px; }
 /* En-tête de page : titre, chapeau, action principale. */
 .page-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 28px; }
 .page-head > div { flex: 999 1 300px; min-width: 0; }
+/* Un groupe d'actions de l'en-tête reste à droite, à sa taille : la règle précédente
+   l'étirait comme le titre, et le bouton tombait au milieu de la page (caad743d). */
+.page-head > .actions { flex: 0 0 auto; margin-top: 0; margin-left: auto; }
 h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; }
 h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
 h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
