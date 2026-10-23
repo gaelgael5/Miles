@@ -7,7 +7,10 @@ from urban_json import FunctionRegistry
 from miles.transform.catalog import app_floor, functions_catalog, models_catalog
 from miles.transform.engine import function_registry
 
-PERSONNE = "nom: personne\nversion: 1\nproprietes:\n  nom:\n    type: chaine\n"
+PERSONNE = (
+    "$schema: https://json-schema.org/draft/2020-12/schema\n$id: miles:/shared/personne\n"
+    "title: Personne\ntype: object\nproperties:\n  nom:\n    type: string\n"
+)
 
 
 def _documented(ctx: Any, value: str = "") -> str:
@@ -56,7 +59,7 @@ def test_miles_catalogue_lists_the_strict_cast_and_core_functions() -> None:
 async def test_models_come_from_the_branch_with_their_properties() -> None:
     files = {
         "shared/messages/personne.yaml": PERSONNE,
-        "domains/retrait/messages/casse.yaml": "nom: casse\n",
+        "domains/retrait/messages/casse.yaml": "type: texte\n",
         "manifest.json": '{"format_version": 1, "min_app_version": "2.4.0", "capabilities": []}',
     }
 
@@ -67,7 +70,7 @@ async def test_models_come_from_the_branch_with_their_properties() -> None:
 
     assert [(m.scope, m.name, m.properties) for m in models] == [
         ("retrait", "casse", None),
-        ("shared", "personne", ({"name": "nom", "type": "chaine"},)),
+        ("shared", "personne", ({"name": "nom", "type": "string"},)),
     ]
     assert await app_floor(read) == "2.4.0"
     assert await models_catalog([], read) == []

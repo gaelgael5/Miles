@@ -8,8 +8,8 @@ from typing import Any
 
 from urban_json import FunctionRegistry
 
-from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError, load_yaml, parse_model
 from miles.datamodels.layout import entry_of
+from miles.datamodels.schema import parse_schema
 from miles.git.worktree import MANIFEST
 
 
@@ -74,10 +74,10 @@ def _properties(text: str | None) -> tuple[dict[str, Any], ...] | None:
     if text is None:
         return None
     try:
-        parse_model(text)
-    except (ModelSyntaxError, ModelGrammarError):
+        declared = parse_schema(text).properties
+    except ValueError:
         return None
-    declared = (load_yaml(text) or {}).get("proprietes") or {}
+    # Le schéma de chaque propriété, tel que JSON Schema le décrit (story 0f7cda10).
     return tuple({"name": name} | dict(spec) for name, spec in declared.items())
 
 

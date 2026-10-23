@@ -33,7 +33,7 @@ async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
 
 async def _bob_writes(forge: Forge, content: str = PERSONNE) -> None:
     models = forge.portal.app.state.data_models
-    await models.resolve_create(BOB, "retrait", "shared", content, branch="edition")
+    await models.resolve_create(BOB, "retrait", "shared", "personne", content, branch="edition")
 
 
 async def _shelf_name(forge: Forge) -> str:
@@ -160,7 +160,7 @@ async def test_taking_over_again_merges_the_shelf_into_the_updated_branch(forge:
 async def test_a_conflicting_resume_names_the_files_and_leaves_the_shelf(forge: Forge) -> None:
     await _bob_writes(forge)
     assert (await forge.client.post(UNLOCK, timeout=120)).status_code == 200
-    await _outside(forge, MODEL_PATH, PERSONNE + "  autre:\n    type: chaine\n")
+    await _outside(forge, MODEL_PATH, PERSONNE + "  autre:\n    type: string\n")
     state = forge.portal.app.state
 
     with pytest.raises(ShelfConflictError) as conflict:

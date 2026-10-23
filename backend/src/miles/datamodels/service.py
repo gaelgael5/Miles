@@ -7,22 +7,23 @@ from datetime import datetime
 import asyncpg
 import structlog
 
-from miles.datamodels.grammar import (
-    DataModel,
-    ModelGrammarError,
-    Problem,
-    parse_model,
-    references_of,
-)
+from miles.datamodels.grammar import ModelGrammarError, Problem
 from miles.datamodels.layout import (
     ModelEntry,
     checked_name,
     checked_scope,
     entry_of,
     model_path,
-    visible_from,
+    visible,
 )
-from miles.datamodels.meta import meta_path, meta_text, read_label, skeleton
+from miles.datamodels.meta import meta_path, meta_text, read_version
+from miles.datamodels.schema import (
+    ModelSchema,
+    draft,
+    normalized,
+    parse_schema,
+    references_in,
+)
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
@@ -51,6 +52,8 @@ class ModelInUseError(Exception):
 class DataModelsService:
     """Modèles de données du workspace, écrits dans SA branche de travail (story 266f5ed8).
 
+    Des JSON Schema 2020-12 en YAML depuis le 23/10/2026 (story 0f7cda10).
+
     Jamais en base, même en cache : le catalogue doit refléter exactement la version git.
     """
 
@@ -65,7 +68,7 @@ class DataModelsService:
         async with self.branches.checkout(
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
-            return [await _labelled(copy, e) for e in await _entries(copy)]
+            return [await _described(copy, e) for e in await _entries(copy)]
 
     async def resolve_get(
         self,
@@ -76,15 +79,15 @@ class DataModelsService:
         *,
         branch: str | None = None,
     ) -> tuple[ModelEntry, str]:
-        path = model_path(checked_scope(scope), checked_name(name))
+        scope, name = checked_scope(scope), checked_name(name)
+        entry = ModelEntry(scope, name, model_path(scope, name))
         async with self.branches.checkout(
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
-            content = await copy.read(path)
-            label = read_label(await copy.read(meta_path(path)))
-        if content is None:
-            raise ModelNotFoundError(path)
-        return ModelEntry(scope, name, path, label), content
+            content = await copy.read(entry.path)
+            if content is None:
+                raise ModelNotFoundError(entry.path)
+            return await _described(copy, entry), content
 
     async def resolve_declare(
         self,
@@ -98,53 +101,30 @@ class DataModelsService:
     ) -> tuple[ModelEntry, str | None]:
         """Déclare un modèle par son label et son slug (Gael, 23/10/2026).
 
-        Écrit un brouillon sans propriété et son label ; le YAML se complète ensuite à
-        l'édition. Rejeu à l'identique : sans effet, commit None.
+        Écrit un schéma objet sans propriété, le label en `title`, et la version 1 ; le
+        schéma se complète ensuite à l'édition. Rejeu à l'identique : sans effet, None.
         """
         scope, name, label = checked_scope(scope), checked_name(slug), checked_label(label)
-        entry = ModelEntry(scope, name, model_path(scope, name), label)
-        async with self.branches.checkout(
-            workspace_id, branch, by=author, gesture=Gesture.EDIT
-        ) as copy:
-            if await copy.read(entry.path) is not None:
-                if read_label(await copy.read(meta_path(entry.path))) == label:
-                    return entry, None
-                raise WorkspaceConflictError("nom_pris")
-            await copy.write(entry.path, skeleton(name))
-            await copy.write(meta_path(entry.path), meta_text(label))
-            commit = await self.branches.commit(copy, f"Modèle de données {entry.path}", author)
-        await self._event(workspace_id, CREATED_EVENT, author, entry, commit, copy.branch)
-        log.info("modele_de_donnees_declare", workspace=workspace_id, path=entry.path)
-        return entry, commit
+        content = draft(scope, name, label)
+        return await self._create(author, workspace_id, scope, name, content, branch)
 
     async def resolve_create(
         self,
         author: EventAuthor,
         workspace_id: str,
         scope: str,
+        name: str,
         content: str,
         *,
         branch: str | None = None,
     ) -> tuple[ModelEntry, str | None]:
-        """Écrit un modèle ; rend (modèle, commit). Rejeu du même contenu : sans effet, None."""
-        scope = checked_scope(scope)
+        """Écrit un modèle depuis son schéma ; rejeu du même schéma : sans effet, None."""
+        scope, name = checked_scope(scope), checked_name(name)
         # Vérifié avant tout accès au dépôt : un document refusé ne coûte aucun clone.
-        model = parse_model(content)
-        entry = ModelEntry(scope, model.name, model_path(scope, model.name))
-        async with self.branches.checkout(
-            workspace_id, branch, by=author, gesture=Gesture.EDIT
-        ) as copy:
-            existing = await copy.read(entry.path)
-            if existing is not None:
-                if existing == content:
-                    return entry, None
-                raise WorkspaceConflictError("nom_pris")
-            await _check_references(copy, scope, model)
-            await copy.write(entry.path, content)
-            commit = await self.branches.commit(copy, f"Modèle de données {entry.path}", author)
-        await self._event(workspace_id, CREATED_EVENT, author, entry, commit, copy.branch)
-        log.info("modele_de_donnees_cree", workspace=workspace_id, path=entry.path)
-        return entry, commit
+        parse_schema(content)
+        return await self._create(
+            author, workspace_id, scope, name, normalized(content, scope, name), branch
+        )
 
     async def resolve_replace(
         self,
@@ -156,15 +136,14 @@ class DataModelsService:
         *,
         branch: str | None = None,
     ) -> tuple[ModelEntry, str | None]:
-        """Remplace un modèle existant ; rend (modèle, commit). Même contenu : sans effet, None.
+        """Remplace le schéma d'un modèle ; même schéma : sans effet, None.
 
-        Le nom ne change pas par un remplacement : les modèles qui le désignent par son nom
-        resteraient sans cible. Renommer, c'est créer l'autre et supprimer celui-ci.
+        Le nom ne change pas : c'est le fichier et l'`$id`, que le système réécrit. La
+        version monte de 1, tenue par le système (Gael, 23/10/2026).
         """
         scope, name = checked_scope(scope), checked_name(name)
-        model = parse_model(content)
-        if model.name != name:
-            raise WorkspaceConflictError("nom_fige")
+        schema = parse_schema(content)
+        content = normalized(content, scope, name)
         entry = ModelEntry(scope, name, model_path(scope, name))
         async with self.branches.checkout(
             workspace_id, branch, by=author, gesture=Gesture.EDIT
@@ -172,14 +151,45 @@ class DataModelsService:
             existing = await copy.read(entry.path)
             if existing is None:
                 raise ModelNotFoundError(entry.path)
-            entry = await _labelled(copy, entry)
             if existing == content:
-                return entry, None
-            await _check_references(copy, scope, model)
+                return await _described(copy, entry), None
+            await _check_references(copy, entry, schema)
+            version = read_version(await copy.read(meta_path(entry.path))) + 1
             await copy.write(entry.path, content)
+            await copy.write(meta_path(entry.path), meta_text(version))
             commit = await self.branches.commit(copy, f"Modèle de données {entry.path}", author)
+            entry = await _described(copy, entry)
         await self._event(workspace_id, REPLACED_EVENT, author, entry, commit, copy.branch)
         log.info("modele_de_donnees_remplace", workspace=workspace_id, path=entry.path)
+        return entry, commit
+
+    async def _create(
+        self,
+        author: EventAuthor,
+        workspace_id: str,
+        scope: str,
+        name: str,
+        content: str,
+        branch: str | None,
+    ) -> tuple[ModelEntry, str | None]:
+        schema = parse_schema(content)
+        entry = ModelEntry(scope, name, model_path(scope, name))
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
+            existing = await copy.read(entry.path)
+            if existing is not None:
+                if existing == content:
+                    return await _described(copy, entry), None
+                raise WorkspaceConflictError("nom_pris")
+            await _check_references(copy, entry, schema)
+            await copy.write(entry.path, content)
+            # Un modèle naît en version 1 : la version est au système, jamais au client.
+            await copy.write(meta_path(entry.path), meta_text(1))
+            commit = await self.branches.commit(copy, f"Modèle de données {entry.path}", author)
+            entry = await _described(copy, entry)
+        await self._event(workspace_id, CREATED_EVENT, author, entry, commit, copy.branch)
+        log.info("modele_de_donnees_cree", workspace=workspace_id, path=entry.path)
         return entry, commit
 
     async def resolve_delete(
@@ -231,12 +241,12 @@ class DataModelsService:
             await db_write_event(conn, event, self.catalog, self.now)
 
 
-async def _check_references(copy: WorkCopy, scope: str, model: DataModel) -> None:
-    visible = visible_from(await _entries(copy), scope)
+async def _check_references(copy: WorkCopy, entry: ModelEntry, schema: ModelSchema) -> None:
+    known = {(e.scope, e.name) for e in await _entries(copy)} | {(entry.scope, entry.name)}
     missing = [
-        Problem(path, "modele_inconnu", target)
-        for path, target in model.references
-        if target not in visible and target != model.name
+        Problem(where, "modele_inconnu", f"{scope}/{name}")
+        for where, (scope, name) in schema.references
+        if (scope, name) not in known or not visible(entry, (scope, name))
     ]
     if missing:
         raise ModelGrammarError(missing)
@@ -246,17 +256,25 @@ async def _entries(copy: WorkCopy) -> list[ModelEntry]:
     return [e for e in map(entry_of, await copy.paths()) if e is not None]
 
 
-async def _labelled(copy: WorkCopy, entry: ModelEntry) -> ModelEntry:
-    label = read_label(await copy.read(meta_path(entry.path)))
-    return ModelEntry(entry.scope, entry.name, entry.path, label)
+async def _described(copy: WorkCopy, entry: ModelEntry) -> ModelEntry:
+    """Le modèle avec son label (le `title` du schéma) et sa version (ses métadonnées)."""
+    text = await copy.read(entry.path)
+    try:
+        label = parse_schema(text or "").title
+    except ValueError:
+        # Illisible (retouché hors de Miles) : listé quand même, sans label ; la
+        # validation de la branche dira pourquoi.
+        label = None
+    version = read_version(await copy.read(meta_path(entry.path)))
+    return ModelEntry(entry.scope, entry.name, entry.path, label, version or None)
 
 
 async def _users(copy: WorkCopy, entries: list[ModelEntry], target: ModelEntry) -> list[str]:
-    """Modèles qui désignent `target` : sa suppression les casserait (critère 9)."""
+    """Modèles qui désignent `target` : sa suppression les casserait."""
     users = []
     for other in entries:
-        if other == target or visible_from(entries, other.scope).get(target.name) != target:
+        if other == target:
             continue
-        if target.name in references_of(await copy.read(other.path) or ""):
+        if (target.scope, target.name) in references_in(await copy.read(other.path) or ""):
             users.append(other.path)
     return users

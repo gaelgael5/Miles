@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from tests.integration.mcp_stack import McpForge, open_mcp_forge
+from tests.integration.test_datamodels_pg import body_of
 from tests.integration.test_sources_pg import ADRESSE, COMPTE, SOURCE
 
 pytestmark = pytest.mark.integration
@@ -77,7 +78,7 @@ async def test_unknown_or_designated_chains_name_what_exists_and_who_uses_them(
     m: McpForge,
 ) -> None:
     for model in (ADRESSE, COMPTE):
-        await m.ok("create_data_model", EDIT | {"scope": "shared", "content": model})
+        await m.ok("create_data_model", EDIT | body_of(model))
     await m.ok("save_chain", EDIT | {"slug": "comptes-import", "label": "Import", "steps": STEPS})
     declared = await m.forge.client.post(
         "/api/workspaces/retrait/sources", json=SOURCE, timeout=120

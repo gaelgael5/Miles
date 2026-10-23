@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from miles.datamodels.grammar import NAME_RE
@@ -24,8 +23,10 @@ class ModelEntry:
     scope: str  # « shared », ou le nom du domaine
     name: str
     path: str
-    # Hors de l'égalité : un modèle reste le même quel que soit son label.
+    # Hors de l'égalité : un modèle reste le même quel que soit son label ou sa version.
     label: str | None = field(default=None, compare=False)
+    # Tenue par le système (métadonnées) ; None si le modèle n'en a pas encore.
+    version: int | None = field(default=None, compare=False)
 
 
 def model_path(scope: str, name: str) -> str:
@@ -43,19 +44,6 @@ def entry_of(path: str) -> ModelEntry | None:
     return ModelEntry(match["domain"], match["name"], path)
 
 
-def visible_from(entries: Sequence[ModelEntry], scope: str) -> dict[str, ModelEntry]:
-    """Modèles qu'un document de `scope` peut désigner, par nom.
-
-    Un modèle de domaine voit ceux de son domaine puis les transverses, le sien masquant
-    un transverse de même nom ; un transverse ne voit que les transverses — il ne peut
-    pas dépendre d'un domaine sans cesser d'être transverse.
-    """
-    visible = {e.name: e for e in entries if e.scope == SHARED}
-    if scope != SHARED:
-        visible |= {e.name: e for e in entries if e.scope == scope}
-    return visible
-
-
 def checked_scope(scope: str) -> str:
     if scope != SHARED and not NAME_RE.match(scope):
         raise WorkspaceInputError("scope")
@@ -66,3 +54,10 @@ def checked_name(name: str) -> str:
     if not NAME_RE.match(name):
         raise WorkspaceInputError("name")
     return name
+
+
+def visible(entry: ModelEntry, target: tuple[str, str]) -> bool:
+    """Un modèle de domaine voit son domaine et les transverses ; un transverse, les seuls
+    transverses : il ne peut pas dépendre d'un domaine sans cesser d'être transverse."""
+    scope, _ = target
+    return scope == "shared" or (entry.scope != "shared" and scope == entry.scope)

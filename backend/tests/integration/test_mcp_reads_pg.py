@@ -8,7 +8,7 @@ import pytest
 
 from tests.integration.mcp_stack import McpForge, open_mcp_forge
 from tests.integration.test_contracts_pg import SUIVI, _declare, _import
-from tests.integration.test_datamodels_pg import COLIS, PERSONNE
+from tests.integration.test_datamodels_pg import COLIS, PERSONNE, body_of
 from tests.integration.work_stack import EDITED
 
 pytestmark = pytest.mark.integration
@@ -38,10 +38,10 @@ async def _outside(m: McpForge, path: str, content: str) -> None:
 
 async def _populate(m: McpForge) -> str:
     """Un pivot transverse, un domaine « suivi », un contrat ; rend la tête d'avant."""
-    await m.ok("create_data_model", EDIT | {"scope": "shared", "content": PERSONNE})
+    await m.ok("create_data_model", EDIT | body_of(PERSONNE))
     await m.forge.publish()
     before = await _head(m)
-    await m.ok("create_data_model", EDIT | {"scope": "suivi", "content": COLIS})
+    await m.ok("create_data_model", EDIT | body_of(COLIS))
     assert (await _declare(m.forge)).status_code == 201
     assert (await _import(m.forge, SUIVI)).status_code == 201
     await m.forge.publish()

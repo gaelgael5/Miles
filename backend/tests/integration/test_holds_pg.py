@@ -11,7 +11,7 @@ from miles.events.model import EventAuthor
 from miles.workshop.holds import AlreadyHoldingError, BranchHeldError
 from tests.integration.git_stack import env
 from tests.integration.test_contracts_pg import EMPTY
-from tests.integration.test_datamodels_pg import PERSONNE
+from tests.integration.test_datamodels_pg import PERSONNE, body_of
 from tests.integration.test_sources_pg import SOURCE
 from tests.integration.work_stack import (
     EDITED,
@@ -124,7 +124,7 @@ async def test_without_the_hold_every_workshop_write_is_refused_but_reads_stay_o
     forge: Forge,
 ) -> None:
     writes = [
-        ("POST", MODELS, {"scope": "shared", "content": PERSONNE}),
+        ("POST", MODELS, body_of(PERSONNE)),
         ("DELETE", f"{MODELS}/shared/personne", None),
         ("POST", f"{WS}/contracts", {"slug": "suivi", "label": "Suivi", "sens": "sortant"}),
         ("POST", f"{WS}/contracts/suivi/versions", {"content": EMPTY}),
@@ -163,9 +163,7 @@ async def test_a_change_is_local_and_only_its_author_sees_it_until_published(
     assert (await take_hold(forge.client)).status_code == 201
     head = await _remote_head(forge)
 
-    created = await forge.client.post(
-        MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120
-    )
+    created = await forge.client.post(MODELS, json=body_of(PERSONNE), timeout=120)
     mine = await forge.client.get(MODELS)
     others = await forge.portal.app.state.data_models.resolve_list(BOB, "retrait", branch="edition")
     status = await forge.client.get(HOLD)
@@ -195,7 +193,7 @@ async def test_a_change_is_local_and_only_its_author_sees_it_until_published(
 async def test_a_refused_publication_loses_nothing_and_says_why(forge: Forge) -> None:
     await register_identity(forge.client)
     assert (await take_hold(forge.client)).status_code == 201
-    await forge.client.post(MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120)
+    await forge.client.post(MODELS, json=body_of(PERSONNE), timeout=120)
     outside = await forge.api.post(
         f"/api/v1/repos/miles/{forge.name}/contents/hors-miles.txt",
         json={
@@ -220,7 +218,7 @@ async def test_a_refused_publication_loses_nothing_and_says_why(forge: Forge) ->
 async def test_releasing_publishes_frees_the_branch_and_removes_the_space(forge: Forge) -> None:
     await register_identity(forge.client)
     assert (await take_hold(forge.client)).status_code == 201
-    await forge.client.post(MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120)
+    await forge.client.post(MODELS, json=body_of(PERSONNE), timeout=120)
     space = forge.portal.app.state.branch_holds.branches.holds.directory("retrait", "edition")
     existed = space.is_dir()
 
@@ -245,7 +243,7 @@ async def test_releasing_publishes_frees_the_branch_and_removes_the_space(forge:
 async def test_a_version_needs_everything_published_first(forge: Forge) -> None:
     await register_identity(forge.client)
     assert (await take_hold(forge.client)).status_code == 201
-    await forge.client.post(MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120)
+    await forge.client.post(MODELS, json=body_of(PERSONNE), timeout=120)
 
     early = await forge.client.post(f"{WS}/versions", json={"label": "Trop tôt"}, timeout=120)
     await forge.client.post(f"{HOLD}/publish", timeout=120)

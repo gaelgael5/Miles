@@ -7,7 +7,7 @@ import pytest
 
 from tests.integration.mcp_stack import McpForge, issue_key, open_mcp_forge
 from tests.integration.oauth_helpers import obtain_tokens, open_oauth
-from tests.integration.test_datamodels_pg import COLIS, PERSONNE
+from tests.integration.test_datamodels_pg import COLIS, PERSONNE, body_of
 
 pytestmark = pytest.mark.integration
 
@@ -32,9 +32,9 @@ async def _commit(m: McpForge, sha: str) -> dict[str, str]:
 
 
 async def test_a_model_is_created_read_replaced_and_deleted_on_a_child_branch(m: McpForge) -> None:
-    created = await m.ok("create_data_model", EDIT | {"scope": "shared", "content": PERSONNE})
-    replay = await m.ok("create_data_model", EDIT | {"scope": "shared", "content": PERSONNE})
-    changed = PERSONNE + "  prenom:\n    type: chaine\n"
+    created = await m.ok("create_data_model", EDIT | body_of(PERSONNE))
+    replay = await m.ok("create_data_model", EDIT | body_of(PERSONNE))
+    changed = PERSONNE + "  prenom:\n    type: string\n"
     replaced = await m.ok(
         "replace_data_model", EDIT | {"scope": "shared", "name": "personne", "content": changed}
     )
@@ -59,9 +59,7 @@ async def _forge_identity(m: McpForge) -> tuple[str, str]:
 async def test_a_key_alone_cannot_change_anything(m: McpForge) -> None:
     key_only = {"Authorization": f"Bearer {m.secret}"}
 
-    refused = await m.refused(
-        "create_data_model", EDIT | {"scope": "shared", "content": PERSONNE}, headers=key_only
-    )
+    refused = await m.refused("create_data_model", EDIT | body_of(PERSONNE), headers=key_only)
     read = await m.ok("list_data_models", WS, headers=key_only)
 
     assert refused == {"code": "personne_requise"}
@@ -70,7 +68,7 @@ async def test_a_key_alone_cannot_change_anything(m: McpForge) -> None:
 
 async def test_a_change_for_the_holder_is_local_until_published_then_theirs(m: McpForge) -> None:
     before = await m.forge.remote_file("shared/messages/personne.yaml")
-    created = await m.ok("create_data_model", EDIT | {"scope": "shared", "content": PERSONNE})
+    created = await m.ok("create_data_model", EDIT | body_of(PERSONNE))
     unpublished = await m.forge.remote_file("shared/messages/personne.yaml")
     published = await m.ok("publish_branch", EDIT)
     again = await m.ok("publish_branch", EDIT)
@@ -95,7 +93,7 @@ async def test_a_change_for_the_holder_is_local_until_published_then_theirs(m: M
 async def test_a_person_without_the_hold_is_refused_and_told_who_holds_it(m: McpForge) -> None:
     released = await m.forge.client.delete("/api/workspaces/retrait/branches/edition/hold")
 
-    free = await m.refused("create_data_model", EDIT | {"scope": "shared", "content": PERSONNE})
+    free = await m.refused("create_data_model", EDIT | body_of(PERSONNE))
     publish = await m.refused("publish_branch", EDIT)
 
     assert released.json() == {"released": True}
@@ -105,7 +103,7 @@ async def test_a_person_without_the_hold_is_refused_and_told_who_holds_it(m: Mcp
 
 async def test_a_change_needs_a_named_child_branch(m: McpForge) -> None:
     before = await m.forge.commits("work/atelier")
-    body = {"scope": "shared", "content": PERSONNE}
+    body = body_of(PERSONNE)
 
     missing = await m.refused("create_data_model", WS | body)
     root = await m.refused("create_data_model", WS | body | {"branch": "atelier"})
@@ -134,7 +132,7 @@ async def test_a_change_needs_a_named_child_branch(m: McpForge) -> None:
 
 async def test_rights_refusals_are_named_and_distinct_from_validation(m: McpForge) -> None:
     reader = await issue_key(m.forge, {"retrait": "lecture"}, label="Lecteur")
-    body = EDIT | {"scope": "shared", "content": PERSONNE}
+    body = EDIT | body_of(PERSONNE)
     as_reader = {"Authorization": f"Bearer {reader['secret']}"}
 
     denied = await m.refused("create_data_model", body, headers=as_reader)
@@ -149,14 +147,13 @@ async def test_rights_refusals_are_named_and_distinct_from_validation(m: McpForg
 
 
 async def test_invalid_content_gets_every_problem_the_screen_gets(m: McpForge) -> None:
-    broken = "nom: colis\nversion: 1\nproprietes:\n  a:\n    type: inconnu\n  b:\n    type: objet\n"
-    by_screen = await m.forge.client.post(
-        "/api/workspaces/retrait/data-models", json={"scope": "shared", "content": broken}
-    )
+    broken = "type: object\nproperties:\n  a:\n    type: inconnu\n  b:\n    minLength: -1\n"
+    body = {"scope": "shared", "name": "colis", "content": broken}
+    by_screen = await m.forge.client.post("/api/workspaces/retrait/data-models", json=body)
 
-    by_mcp = await m.refused("create_data_model", EDIT | {"scope": "shared", "content": broken})
-    yaml = await m.refused("create_data_model", EDIT | {"scope": "shared", "content": "a: [b"})
-    dangling = await m.refused("create_data_model", EDIT | {"scope": "suivi", "content": COLIS})
+    by_mcp = await m.refused("create_data_model", EDIT | body)
+    yaml = await m.refused("create_data_model", EDIT | body | {"content": "a: [b"})
+    dangling = await m.refused("create_data_model", EDIT | body_of(COLIS))
 
     assert by_mcp == {
         "code": "modele_non_conforme",
@@ -169,14 +166,18 @@ async def test_invalid_content_gets_every_problem_the_screen_gets(m: McpForge) -
 
 
 async def test_unknown_or_used_models_name_what_exists_and_who_uses_them(m: McpForge) -> None:
-    await m.ok("create_data_model", EDIT | {"scope": "shared", "content": PERSONNE})
-    await m.ok("create_data_model", EDIT | {"scope": "suivi", "content": COLIS})
+    await m.ok("create_data_model", EDIT | body_of(PERSONNE))
+    await m.ok("create_data_model", EDIT | body_of(COLIS))
 
     unknown = await m.refused("get_data_model", EDIT | {"scope": "shared", "name": "absent"})
-    renamed = await m.refused(
+    external = await m.refused(
         "replace_data_model",
         EDIT
-        | {"scope": "shared", "name": "personne", "content": PERSONNE.replace("personne", "autre")},
+        | {
+            "scope": "shared",
+            "name": "personne",
+            "content": PERSONNE + "  x:\n    $ref: https://ailleurs/x.json\n",
+        },
     )
     used = await m.refused("delete_data_model", EDIT | {"scope": "shared", "name": "personne"})
 
@@ -185,7 +186,8 @@ async def test_unknown_or_used_models_name_what_exists_and_who_uses_them(m: McpF
         "path": "shared/messages/absent.yaml",
         "existants": ["domains/suivi/messages/colis.yaml", "shared/messages/personne.yaml"],
     }
-    assert renamed == {"code": "nom_fige"}
+    assert external["code"] == "modele_non_conforme"
+    assert {p["code"] for p in external["problems"]} == {"reference_externe"}
     assert used == {"code": "modele_utilise", "par": ["domains/suivi/messages/colis.yaml"]}
 
 
@@ -196,9 +198,7 @@ async def test_a_change_made_through_oauth_is_signed_by_the_person_via_the_clien
     _, tokens = await obtain_tokens(m.forge.client, m.mcp, {"retrait": "ecriture"})
     as_person = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-    created = await m.ok(
-        "create_data_model", EDIT | {"scope": "shared", "content": PERSONNE}, headers=as_person
-    )
+    created = await m.ok("create_data_model", EDIT | body_of(PERSONNE), headers=as_person)
 
     await m.forge.publish()
     commit = await _commit(m, created["commit"])

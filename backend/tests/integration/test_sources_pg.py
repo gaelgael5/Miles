@@ -8,6 +8,8 @@ from typing import Any
 import httpx
 import pytest
 
+from miles.datamodels.schema import normalized
+from tests.integration.test_datamodels_pg import body_of
 from tests.integration.work_stack import Forge, open_work_forge
 
 pytestmark = pytest.mark.integration
@@ -15,11 +17,13 @@ pytestmark = pytest.mark.integration
 ROUTE = "/api/workspaces/retrait/sources"
 MODELS = "/api/workspaces/retrait/data-models"
 CHAINS = "/api/workspaces/retrait/transformations"
-ADRESSE = "nom: adresse\nversion: 1\nproprietes:\n  ville:\n    type: chaine\n"
-COMPTE = (
-    "nom: compte\nversion: 1\nproprietes:\n  code:\n    type: chaine\n"
-    "  adresse:\n    type: objet\n    modele: adresse\n"
-    "  enseignes:\n    type: liste\n    elements:\n      type: chaine\n"
+ADRESSE = normalized("type: object\nproperties:\n  ville:\n    type: string\n", "shared", "adresse")
+COMPTE = normalized(
+    "type: object\nproperties:\n  code:\n    type: string\n"
+    "  adresse:\n    $ref: miles:/shared/adresse\n"
+    "  enseignes:\n    type: array\n    items:\n      type: string\n",
+    "shared",
+    "compte",
 )
 SOURCE: dict[str, Any] = {
     "name": "comptes",
@@ -40,9 +44,7 @@ SOURCE: dict[str, Any] = {
 async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
     async with open_work_forge(blank_db, tmp_path) as opened:
         for model in (ADRESSE, COMPTE):
-            created = await opened.client.post(
-                MODELS, json={"scope": "shared", "content": model}, timeout=120
-            )
+            created = await opened.client.post(MODELS, json=body_of(model), timeout=120)
             assert created.status_code == 201, created.text
         chain = {"label": "Import", "steps": [{"name": "copier", "template": '{ "code": $.code }'}]}
         saved = await opened.client.put(f"{CHAINS}/comptes-import", json=chain, timeout=120)

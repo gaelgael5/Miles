@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.integration.test_datamodels_pg import PERSONNE
+from tests.integration.test_datamodels_pg import PERSONNE, body_of
 from tests.integration.work_stack import Forge, open_work_forge
 
 pytestmark = pytest.mark.integration
@@ -28,7 +28,7 @@ async def _head(forge: Forge) -> str:
 async def test_catalogue_follows_the_branch_and_answers_for_a_past_commit(forge: Forge) -> None:
     fresh = await forge.client.get(ROUTE, timeout=120)
     before = await _head(forge)
-    await forge.client.post(MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120)
+    await forge.client.post(MODELS, json=body_of(PERSONNE), timeout=120)
 
     now = await forge.client.get(ROUTE, timeout=120)
     then = await forge.client.get(ROUTE, params={"commit": before}, timeout=120)
@@ -38,7 +38,7 @@ async def test_catalogue_follows_the_branch_and_answers_for_a_past_commit(forge:
     assert fresh.json()["models"] == []
     assert {"convert", "concat"} <= {f["name"] for f in fresh.json()["functions"]}
     assert [m["name"] for m in now.json()["models"]] == ["personne"]
-    assert now.json()["models"][0]["properties"] == [{"name": "nom", "type": "chaine"}]
+    assert now.json()["models"][0]["properties"] == [{"name": "nom", "type": "string"}]
     # La personne qui a la main lit sa tête locale ; publiée, c'est celle de la forge.
     await forge.publish()
     assert now.json()["commit"] == await _head(forge)

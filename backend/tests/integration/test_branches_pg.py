@@ -8,7 +8,7 @@ import pytest
 
 from miles.events.model import EventAuthor
 from tests.integration.test_contracts_pg import EMPTY
-from tests.integration.test_datamodels_pg import PERSONNE
+from tests.integration.test_datamodels_pg import PERSONNE, body_of
 from tests.integration.test_sources_pg import SOURCE
 from tests.integration.work_stack import Forge, open_work_forge, register_identity, take_hold
 
@@ -79,7 +79,7 @@ async def test_writes_on_a_child_branch_stay_in_it(forge: Forge) -> None:
     written = await forge.client.post(
         MODELS,
         params={"branch": "essai"},
-        json={"scope": "shared", "content": PERSONNE},
+        json=body_of(PERSONNE),
         timeout=120,
     )
     on_child = await forge.client.get(MODELS, params={"branch": "essai"}, timeout=120)
@@ -100,7 +100,7 @@ async def test_versions_belong_to_their_branch_and_share_one_numbering(forge: Fo
     await forge.client.post(
         MODELS,
         params={"branch": "essai"},
-        json={"scope": "shared", "content": PERSONNE},
+        json=body_of(PERSONNE),
         timeout=120,
     )
     await _publish(forge)
@@ -198,7 +198,7 @@ async def test_the_root_refuses_every_content_write_but_can_be_frozen(forge: For
     # La racine est en lecture seule (story dca0eb0e) : on modifie dans une branche enfant.
     workspace = "/api/workspaces/retrait"
     writes = [
-        ("POST", MODELS, {"scope": "shared", "content": PERSONNE}),
+        ("POST", MODELS, body_of(PERSONNE)),
         ("DELETE", f"{MODELS}/shared/personne", None),
         ("POST", f"{workspace}/contracts", {"slug": "suivi", "label": "Suivi", "sens": "sortant"}),
         ("POST", f"{workspace}/contracts/suivi/versions", {"content": EMPTY}),

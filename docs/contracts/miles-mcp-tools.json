@@ -139,7 +139,7 @@
     },
     {
       "name": "create_data_model",
-      "description": "Crée un modèle de données dans une branche enfant. Le nom vient du YAML. Refus structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris.",
+      "description": "Crée un modèle de données (JSON Schema 2020-12 en YAML) dans une branche enfant. Refus structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris.",
       "inputSchema": {
         "properties": {
           "workspace_id": {
@@ -152,8 +152,13 @@
             "title": "Scope",
             "type": "string"
           },
+          "name": {
+            "description": "Nom du modèle (celui de son fichier, sans extension).",
+            "title": "Name",
+            "type": "string"
+          },
           "content": {
-            "description": "Le modèle en YAML, selon la grammaire des modèles de Miles.",
+            "description": "Le modèle : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son label. `$schema` et `$id` sont posés par Miles. Un autre modèle se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom>.",
             "title": "Content",
             "type": "string"
           },
@@ -174,6 +179,7 @@
         "required": [
           "workspace_id",
           "scope",
+          "name",
           "content"
         ],
         "title": "create_data_modelArguments",
@@ -182,7 +188,7 @@
     },
     {
       "name": "replace_data_model",
-      "description": "Remplace le YAML d'un modèle existant, dans une branche enfant. Le nom ne change pas par un remplacement (nom_fige) : renommer, c'est créer puis supprimer.",
+      "description": "Remplace le schéma d'un modèle existant, dans une branche enfant. Le nom ne change pas : renommer, c'est créer puis supprimer. La version monte de 1, tenue par Miles.",
       "inputSchema": {
         "properties": {
           "workspace_id": {
@@ -201,7 +207,7 @@
             "type": "string"
           },
           "content": {
-            "description": "Le modèle en YAML, selon la grammaire des modèles de Miles.",
+            "description": "Le modèle : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son label. `$schema` et `$id` sont posés par Miles. Un autre modèle se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom>.",
             "title": "Content",
             "type": "string"
           },

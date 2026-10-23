@@ -16,8 +16,10 @@ SECTIONS = (
 )
 SHARED_MESSAGES = "shared/messages/"
 DOMAINS = "domains/"
-# Fichiers de place que git exige pour un répertoire vide : jamais un élément.
+# Fichiers de place que git exige pour un répertoire vide : jamais un élément. Les
+# métadonnées d'un modèle (`<nom>.meta.yaml`, sa version) sont au système, pas au domaine.
 _PLACEHOLDERS = {".gitkeep"}
+_META_SUFFIX = ".meta.yaml"
 _DOMAIN_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 # Borne d'une réponse : au-delà, la suite se demande par `after` (critère 11). Assez pour
 # un domaine ordinaire, assez peu pour ne pas saturer le contexte d'un agent.
@@ -74,7 +76,11 @@ def section_of(relative: str) -> str | None:
 def domain_files(paths: list[str], name: str) -> list[str]:
     prefix = f"{DOMAINS}{name}/"
     return sorted(
-        p for p in paths if p.startswith(prefix) and p.rsplit("/", 1)[-1] not in _PLACEHOLDERS
+        p
+        for p in paths
+        if p.startswith(prefix)
+        and p.rsplit("/", 1)[-1] not in _PLACEHOLDERS
+        and not p.endswith(_META_SUFFIX)
     )
 
 
@@ -85,4 +91,5 @@ def shared_messages(paths: list[str]) -> list[str]:
         if p.startswith(SHARED_MESSAGES)
         and "/" not in p[len(SHARED_MESSAGES) :]
         and p.rsplit("/", 1)[-1] not in _PLACEHOLDERS
+        and not p.endswith(_META_SUFFIX)
     )

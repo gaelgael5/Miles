@@ -16,6 +16,8 @@ PATHS = [
     "domains/suivi/notes.txt",
     "domains/vide/.gitkeep",
     "shared/messages/personne.yaml",
+    "shared/messages/personne.meta.yaml",
+    "domains/suivi/messages/colis.meta.yaml",
     "shared/messages/.gitkeep",
     "shared/messages/archive/vieux.yaml",
 ]

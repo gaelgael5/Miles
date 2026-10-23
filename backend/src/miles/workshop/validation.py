@@ -10,8 +10,9 @@ from miles.contracts.openapi import (
     UnsupportedVersionError,
     parse_contract,
 )
-from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError, Problem, parse_model
-from miles.datamodels.layout import ModelEntry, entry_of, visible_from
+from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError, Problem
+from miles.datamodels.layout import ModelEntry, entry_of, visible
+from miles.datamodels.schema import model_id, parse_schema
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import MANIFEST, diagnose
 from miles.workshop.chain_validation import chain_reports, source_reports
@@ -68,26 +69,27 @@ async def _model_problems(
 ) -> tuple[Problem, ...]:
     text = await copy.read(entry.path) or ""
     try:
-        model = parse_model(text)
+        schema = parse_schema(text)
     except ModelSyntaxError as exc:
         where = f"ligne {exc.line}, colonne {exc.column}" if exc.line else None
         return (Problem("", "yaml_invalide", where),)
     except ModelGrammarError as exc:
         return tuple(exc.problems)
     problems = []
-    if model.empty:
+    if schema.empty:
         # Brouillon admis à l'écriture, pas dans une version : un modèle sans propriété
         # ne décrit rien qu'un terminal puisse recevoir (Gael, 23/10/2026).
-        problems.append(Problem("proprietes", "proprietes_vides"))
-    # Retouché hors de Miles, un fichier peut ne plus porter le nom de son emplacement :
-    # les références, qui se font par nom, ne le retrouveraient plus.
-    if model.name != entry.name:
-        problems.append(Problem("nom", "nom_different_du_fichier", entry.name))
-    visible = visible_from(entries, entry.scope)
+        problems.append(Problem("properties", "proprietes_vides"))
+    # Retouché hors de Miles, un fichier peut ne plus porter l'`$id` de son emplacement :
+    # les références, qui se font par cet URI, ne le retrouveraient plus.
+    expected = model_id(entry.scope, entry.name)
+    if schema.identifier != expected:
+        problems.append(Problem("$id", "id_different_du_fichier", expected))
+    known = {(e.scope, e.name) for e in entries}
     problems += [
-        Problem(path, "modele_inconnu", target)
-        for path, target in model.references
-        if target not in visible
+        Problem(where, "modele_inconnu", f"{scope}/{name}")
+        for where, (scope, name) in schema.references
+        if (scope, name) not in known or not visible(entry, (scope, name))
     ]
     return tuple(problems)
 

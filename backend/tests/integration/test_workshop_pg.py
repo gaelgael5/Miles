@@ -7,14 +7,17 @@ from pathlib import Path
 import httpx
 import pytest
 
-from tests.integration.test_datamodels_pg import PERSONNE
+from miles.datamodels.schema import normalized
+from tests.integration.test_datamodels_pg import PERSONNE, body_of
 from tests.integration.work_stack import Forge, open_work_forge
 
 pytestmark = pytest.mark.integration
 
 VERSIONS = "/api/workspaces/retrait/versions"
 MODELS = "/api/workspaces/retrait/data-models"
-COLIS = "nom: colis\nversion: 1\nproprietes:\n  p:\n    type: objet\n    modele: personne\n"
+COLIS = normalized(
+    "type: object\nproperties:\n  p:\n    $ref: miles:/shared/personne\n", "shared", "colis"
+)
 
 
 @pytest.fixture
@@ -33,7 +36,7 @@ async def _tags(forge: Forge) -> list[str]:
 
 
 async def test_version_freezes_the_head_with_its_label_and_author(forge: Forge) -> None:
-    await forge.client.post(MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120)
+    await forge.client.post(MODELS, json=body_of(PERSONNE), timeout=120)
     # Une version fige la tête publiée (9def0adc) : on publie d'abord.
     await forge.publish()
     head = await forge.api.get(f"/api/v1/repos/miles/{forge.name}/branches/work/edition")
@@ -87,7 +90,11 @@ async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
             {
                 "path": "shared/messages/colis.yaml",
                 "problems": [
-                    {"path": "proprietes.p.modele", "code": "modele_inconnu", "detail": "personne"}
+                    {
+                        "path": "properties.p.$ref",
+                        "code": "modele_inconnu",
+                        "detail": "shared/personne",
+                    }
                 ],
             }
         ],
@@ -96,10 +103,10 @@ async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
 
 
 async def test_returning_to_a_version_adds_a_new_state(forge: Forge) -> None:
-    await forge.client.post(MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120)
+    await forge.client.post(MODELS, json=body_of(PERSONNE), timeout=120)
     await forge.publish()
     await _save(forge, "Avec personne")
-    await forge.client.post(MODELS, json={"scope": "suivi", "content": COLIS}, timeout=120)
+    await forge.client.post(MODELS, json=body_of(COLIS), timeout=120)
     await forge.publish()
     await _save(forge, "Avec colis")
     before = await forge.commits()

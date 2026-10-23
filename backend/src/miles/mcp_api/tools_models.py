@@ -33,7 +33,15 @@ Scope = Annotated[
 ]
 Name = Annotated[str, Field(description="Nom du modèle (celui de son fichier, sans extension).")]
 Content = Annotated[
-    str, Field(description="Le modèle en YAML, selon la grammaire des modèles de Miles.")
+    str,
+    Field(
+        description=(
+            "Le modèle : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet"
+            " (type: object). `title` est son label. `$schema` et `$id` sont posés par Miles."
+            " Un autre modèle se désigne par $ref: miles:/shared/<nom> ou"
+            " miles:/domains/<domaine>/<nom>."
+        )
+    ),
 ]
 
 
@@ -97,13 +105,14 @@ def register(server: MCPServer) -> None:
 
     @server.tool(
         description=(
-            "Crée un modèle de données dans une branche enfant. Le nom vient du YAML. Refus"
-            " structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris."
+            "Crée un modèle de données (JSON Schema 2020-12 en YAML) dans une branche enfant."
+            " Refus structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris."
         )
     )
     async def create_data_model(
         workspace_id: Workspace,
         scope: Scope,
+        name: Name,
         content: Content,
         ctx: Context[Any, Request],
         branch: WriteBranch = None,
@@ -113,16 +122,17 @@ def register(server: MCPServer) -> None:
 
         async def run(author: Any) -> dict[str, Any]:
             entry, commit = await service.resolve_create(
-                author, workspace_id, scope, content, branch=branch
+                author, workspace_id, scope, name, content, branch=branch
             )
             return _written(entry, commit)
 
-        return await caller.write("create_data_model", workspace_id, branch, scope, run)
+        element = f"{scope}/{name}"
+        return await caller.write("create_data_model", workspace_id, branch, element, run)
 
     @server.tool(
         description=(
-            "Remplace le YAML d'un modèle existant, dans une branche enfant. Le nom ne change"
-            " pas par un remplacement (nom_fige) : renommer, c'est créer puis supprimer."
+            "Remplace le schéma d'un modèle existant, dans une branche enfant. Le nom ne change"
+            " pas : renommer, c'est créer puis supprimer. La version monte de 1, tenue par Miles."
         )
     )
     async def replace_data_model(

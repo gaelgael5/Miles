@@ -37,8 +37,10 @@ class ModelOut(BaseModel):
     scope: str
     name: str
     path: str
-    # Absent pour un modèle créé par son YAML (avant le 23/10/2026, ou par MCP).
+    # Le `title` du schéma ; absent s'il n'en porte pas.
     label: str | None
+    # Tenue par le système : 1 à la création, +1 à chaque enregistrement qui le change.
+    version: int | None
 
 
 class ModelContentOut(ModelOut):
@@ -49,7 +51,8 @@ class ModelContentOut(ModelOut):
 class ModelCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     scope: str
-    # Le nom du modèle et donc du fichier se lit dans le document (`nom`).
+    # Le nom du fichier et de l'`$id` : un JSON Schema n'a pas de clé de nom.
+    name: str
     content: str
 
 
@@ -68,7 +71,13 @@ class ModelReplace(BaseModel):
 
 
 def _out(entry: ModelEntry) -> ModelOut:
-    return ModelOut(scope=entry.scope, name=entry.name, path=entry.path, label=entry.label)
+    return ModelOut(
+        scope=entry.scope,
+        name=entry.name,
+        path=entry.path,
+        label=entry.label,
+        version=entry.version,
+    )
 
 
 def _error(code: int, detail: object) -> JSONResponse:
@@ -156,7 +165,12 @@ async def create_model(
 ) -> object:
     try:
         entry, commit = await service.resolve_create(
-            request_author(request), workspace_id, body.scope, body.content, branch=branch
+            request_author(request),
+            workspace_id,
+            body.scope,
+            body.name,
+            body.content,
+            branch=branch,
         )
     except _REFUSALS as exc:
         return _refusal(exc)

@@ -24,7 +24,10 @@ TOKEN = GitAccess(token=Secret("jeton-local"))
 AUTHOR = "alice via Miles <alice@annuaire.miles.invalid>"
 BRANCH = "work/atelier"
 MANIFEST = json.dumps({"format_version": 1, "min_app_version": None, "capabilities": []})
-PERSONNE = "nom: personne\nversion: 1\nproprietes:\n  nom:\n    type: chaine\n"
+PERSONNE = (
+    "$schema: https://json-schema.org/draft/2020-12/schema\n$id: miles:/shared/personne\n"
+    "title: Personne\ntype: object\nproperties:\n  nom:\n    type: string\n"
+)
 
 
 def _git(*args: str) -> str:
@@ -148,10 +151,10 @@ async def test_valid_configuration_has_no_report(tmp_path: Path) -> None:
 async def test_every_faulty_file_is_reported(tmp_path: Path) -> None:
     files = {
         "prod/x.json": "{}",
-        "shared/messages/colis.yaml": "nom: colis\nversion: 1\nproprietes:\n  d:\n    type: objet\n"
-        "    modele: personne\n",
-        "domains/suivi/messages/lot.yaml": PERSONNE.replace("nom: personne", "nom: autre"),
-        "shared/messages/casse.yaml": "nom: [\n",
+        "shared/messages/colis.yaml": "$id: miles:/shared/colis\ntype: object\nproperties:\n"
+        "  d:\n    $ref: miles:/shared/absent\n",
+        "domains/suivi/messages/lot.yaml": PERSONNE,
+        "shared/messages/casse.yaml": "type: [\n",
     }
     async with checkout(_repo(tmp_path, files), TOKEN, BRANCH) as copy:
         reports = await validate_branch(copy)
@@ -159,13 +162,14 @@ async def test_every_faulty_file_is_reported(tmp_path: Path) -> None:
     assert reports == [
         FileReport("", (Problem("prod", "dossier_d_environnement"),)),
         FileReport(
-            "domains/suivi/messages/lot.yaml", (Problem("nom", "nom_different_du_fichier", "lot"),)
+            "domains/suivi/messages/lot.yaml",
+            (Problem("$id", "id_different_du_fichier", "miles:/domains/suivi/lot"),),
         ),
         FileReport(
             "shared/messages/casse.yaml", (Problem("", "yaml_invalide", "ligne 2, colonne 1"),)
         ),
         FileReport(
             "shared/messages/colis.yaml",
-            (Problem("proprietes.d.modele", "modele_inconnu", "personne"),),
+            (Problem("properties.d.$ref", "modele_inconnu", "shared/absent"),),
         ),
     ]
