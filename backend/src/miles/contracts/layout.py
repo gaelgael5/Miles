@@ -18,7 +18,9 @@ DIRECTIONS = frozenset({"externe", "interne"})
 # sens inconnu — un contrat existant disparaîtrait de l'écran sans message plutôt que
 # d'échouer bruyamment. Toute écriture repose la valeur canonique, donc un contrat migre
 # à sa première modification. À retirer quand plus aucun dépôt de paramétrage ne porte
-# l'ancien vocabulaire.
+# l'ancien vocabulaire. La correspondance ne va que dans ce sens : un retour arrière de
+# Miles après migration demande de revenir aussi sur les commits de paramétrage, sinon
+# l'ancienne version ne lira plus « externe » et fera disparaître le contrat.
 _LEGACY_DIRECTIONS = {"sortant": "externe", "entrant": "interne"}
 META = "contract.yaml"
 VERSION_RE = re.compile(r"^v(?P<number>[1-9]\d{0,5})\.yaml$")
@@ -75,11 +77,15 @@ def read_meta(text: str | None) -> ContractMeta | None:
     if not isinstance(data, dict):
         return None
     slug, label, direction = data.get("slug"), data.get("label"), data.get("sens")
-    # Testé avant l'appel : une valeur non hachable (« sens: [x] ») ferait lever .get(),
-    # là où une déclaration malformée doit seulement être déclarée illisible.
-    if isinstance(direction, str):
-        direction = _LEGACY_DIRECTIONS.get(direction, direction)
-    if not isinstance(slug, str) or direction not in DIRECTIONS:
+    # Le type se vérifie AVANT toute correspondance : un sens non textuel (« sens: [x] »,
+    # écrit par une retouche hors de Miles) n'est pas hachable, et ferait lever aussi bien
+    # le .get() ci-dessous que le test d'appartenance à DIRECTIONS. Un TypeError n'est pas
+    # un refus connu : il rendrait 500 sur tout l'écran des contrats et sur la validation
+    # de branche, là où un fichier malformé doit seulement être déclaré illisible.
+    if not isinstance(slug, str) or not isinstance(direction, str):
+        return None
+    direction = _LEGACY_DIRECTIONS.get(direction, direction)
+    if direction not in DIRECTIONS:
         return None
     # Repli volontaire : les contrats importés avant la déclaration explicite (22/10/2026)
     # n'ont pas de label. Leur slug en tient lieu plutôt que de les rendre invalides.

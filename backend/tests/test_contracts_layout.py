@@ -35,9 +35,31 @@ def test_declaration_stored_before_the_rename_reads_as_its_current_direction(
     assert read_meta(f"slug: suivi\nsens: {stored}\n") == ContractMeta("suivi", "suivi", expected)
 
 
+@pytest.mark.parametrize(("stored", "canonical"), [("sortant", "externe"), ("entrant", "interne")])
+def test_rewriting_a_declaration_stored_before_the_rename_poses_the_current_direction(
+    stored: str, canonical: str
+) -> None:
+    """La relecture-réécriture migre le fichier : c'est tout le chemin de reprise prévu."""
+    meta = read_meta(f"slug: suivi\nsens: {stored}\n")
+
+    assert meta is not None
+    assert f"sens: {canonical}\n" in meta_text(meta)
+    assert f"sens: {stored}\n" not in meta_text(meta)
+
+
 @pytest.mark.parametrize(
     "text",
-    [None, "", "- a\n", "slug: suivi\nsens: lateral\n", "slug: suivi\nlabel: [x]\nsens: interne\n"],
+    [
+        None,
+        "",
+        "- a\n",
+        "slug: suivi\nsens: lateral\n",
+        "slug: suivi\nlabel: [x]\nsens: interne\n",
+        # Un sens non textuel vient d'une retouche hors de Miles : il rend la
+        # déclaration illisible, il ne fait pas tomber l'écran des contrats.
+        "slug: suivi\nsens: [x]\n",
+        "slug: suivi\nsens: {a: b}\n",
+    ],
 )
 def test_unreadable_declaration_is_none(text: str | None) -> None:
     assert read_meta(text) is None
