@@ -125,7 +125,7 @@ def _resolves(data: Any, ref: str) -> bool:
 
 def _operations(data: dict[str, Any]) -> list[Operation]:
     # Les webhooks d'un contrat 3.1 sont des opérations comme les autres : un contrat
-    # entrant ne porte souvent qu'eux.
+    # interne ne porte souvent qu'eux.
     operations = []
     for section in ("paths", "webhooks"):
         for route, item in sorted((data.get(section) or {}).items()):

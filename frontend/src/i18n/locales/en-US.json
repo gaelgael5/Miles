@@ -625,8 +625,8 @@
       "slugHelp": "Proposed from the label. You can change it now only: once declared, the slug, label and direction are frozen."
     },
     "sens": {
-      "sortant": "External — call to a remote service",
-      "entrant": "Internal — webhook received"
+      "externe": "External — call to a remote service",
+      "interne": "Internal — webhook received"
     },
     "warnings": {
       "aucune_operation": "This contract has no operation: it is allowed, but probably the wrong file."
@@ -1096,17 +1096,17 @@
   },
   "contractModels": {
     "nav": {
-      "entrant": "Internal contracts",
-      "sortant": "External contracts"
+      "interne": "Internal contracts",
+      "externe": "External contracts"
     },
     "title": {
-      "entrant": "Internal contract models — {{name}}",
-      "sortant": "External contract models — {{name}}"
+      "interne": "Internal contract models — {{name}}",
+      "externe": "External contract models — {{name}}"
     },
     "intro": "One model per schema of the OpenAPI file, for each contract version. Derived by Miles on integration, read-only: a contract is imposed by its third party.",
     "empty": {
-      "entrant": "No internal contract on this branch.",
-      "sortant": "No external contract on this branch."
+      "interne": "No internal contract on this branch.",
+      "externe": "No external contract on this branch."
     },
     "noSchema": "This version declares no schema (components/schemas).",
     "stale": "This version's models no longer match the contract file (missing, extra or edited in git). They block saving a version until they are derived again.",

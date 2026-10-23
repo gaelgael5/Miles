@@ -200,7 +200,7 @@ async def test_the_root_refuses_every_content_write_but_can_be_frozen(forge: For
     writes = [
         ("POST", MODELS, body_of(PERSONNE)),
         ("DELETE", f"{MODELS}/shared/personne", None),
-        ("POST", f"{workspace}/contracts", {"slug": "suivi", "label": "Suivi", "sens": "sortant"}),
+        ("POST", f"{workspace}/contracts", {"slug": "suivi", "label": "Suivi", "sens": "externe"}),
         ("POST", f"{workspace}/contracts/suivi/versions", {"content": EMPTY}),
         ("DELETE", f"{workspace}/contracts/suivi", None),
         ("PUT", f"{workspace}/transformations/import", {"label": "Import", "steps": []}),

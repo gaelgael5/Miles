@@ -7,7 +7,7 @@ import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/contracts";
-const DECLARED = { slug: "suivi", label: "Suivi des demandes", sens: "sortant", versions: [] };
+const DECLARED = { slug: "suivi", label: "Suivi des demandes", sens: "externe", versions: [] };
 const V1 = { number: 1, title: "Suivi des demandes", operations: 1, warnings: [] };
 
 afterEach(() => {
@@ -63,7 +63,7 @@ describe("ContractsScreen", () => {
     expect(calls.find((c) => c.key === `POST ${ROUTE}?branch=edition`)?.body).toEqual({
       label: "Suivi des demandes du tiers",
       slug: "suivi",
-      sens: "sortant",
+      sens: "externe",
     });
   });
 
@@ -98,7 +98,7 @@ describe("ContractsScreen", () => {
         status: 200,
         body: [
           { ...DECLARED, versions: [V1, { ...V1, number: 2 }] },
-          { slug: "vide", label: "Sans fichier", sens: "entrant", versions: [] },
+          { slug: "vide", label: "Sans fichier", sens: "interne", versions: [] },
         ],
       },
     });

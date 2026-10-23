@@ -187,7 +187,7 @@ describe("App", () => {
   });
 
   it("lists the declared contracts under the branch viewed, and opens one from the menu", async () => {
-    const declared = { slug: "suivi", label: "Suivi des demandes", sens: "sortant", versions: [] };
+    const declared = { slug: "suivi", label: "Suivi des demandes", sens: "externe", versions: [] };
     mockApi({
       ...ADMIN,
       "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },

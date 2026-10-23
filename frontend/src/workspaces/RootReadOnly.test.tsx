@@ -41,7 +41,7 @@ function onRoot(selection: Omit<NonNullable<WorkspaceSelection>, "id" | "branch"
     [`GET ${WS}/contracts${Q}`]: { status: 200, body: [] },
     [`GET ${WS}/contracts/suivi${Q}`]: {
       status: 200,
-      body: { slug: "suivi", label: "Suivi", sens: "sortant", versions: [] },
+      body: { slug: "suivi", label: "Suivi", sens: "externe", versions: [] },
     },
     [`GET ${WS}/transformations${Q}`]: { status: 200, body: [{ slug: "import", label: "Import", steps: 1 }] },
     [`GET ${WS}/transformations/import${Q}`]: { status: 200, body: CHAIN },

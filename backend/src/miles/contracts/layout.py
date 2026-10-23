@@ -8,12 +8,18 @@ from miles.contracts.openapi import SLUG_RE
 from miles.datamodels.grammar import ModelSyntaxError, load_yaml
 from miles.workspaces.model import WorkspaceInputError
 
-# Sortant : appel d'un service distant ; entrant : webhook reçu. Pas de valeur par
-# défaut : un webhook pris pour un appel sortant produirait un mapping à l'envers.
-# À l'écran et dans la documentation, un contrat sortant se nomme « contrat externe » et
-# un entrant « contrat interne » (Gael, 23/10/2026) ; les valeurs stockées restent celles-ci,
-# volontairement : les renommer romprait les contrats déjà déclarés et le contrat MCP.
-DIRECTIONS = frozenset({"sortant", "entrant"})
+# Externe : appel d'un service distant ; interne : webhook reçu. Pas de valeur par
+# défaut : un webhook pris pour un appel externe produirait un mapping à l'envers.
+DIRECTIONS = frozenset({"externe", "interne"})
+# Ces valeurs se nommaient « sortant » et « entrant » jusqu'au 23/10/2026 (Gael) : le
+# vocabulaire métier est externe/interne, jusque dans la donnée stockée. Les déclarations
+# déjà commitées dans les dépôts de paramétrage, eux hors de Miles, portent encore les
+# anciennes ; elles sont acceptées EN LECTURE SEULE parce que read_meta rend None sur un
+# sens inconnu — un contrat existant disparaîtrait de l'écran sans message plutôt que
+# d'échouer bruyamment. Toute écriture repose la valeur canonique, donc un contrat migre
+# à sa première modification. À retirer quand plus aucun dépôt de paramétrage ne porte
+# l'ancien vocabulaire.
+_LEGACY_DIRECTIONS = {"sortant": "externe", "entrant": "interne"}
 META = "contract.yaml"
 VERSION_RE = re.compile(r"^v(?P<number>[1-9]\d{0,5})\.yaml$")
 _FILE_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/(?P<file>[^/]+)$")
@@ -69,6 +75,10 @@ def read_meta(text: str | None) -> ContractMeta | None:
     if not isinstance(data, dict):
         return None
     slug, label, direction = data.get("slug"), data.get("label"), data.get("sens")
+    # Testé avant l'appel : une valeur non hachable (« sens: [x] ») ferait lever .get(),
+    # là où une déclaration malformée doit seulement être déclarée illisible.
+    if isinstance(direction, str):
+        direction = _LEGACY_DIRECTIONS.get(direction, direction)
     if not isinstance(slug, str) or direction not in DIRECTIONS:
         return None
     # Repli volontaire : les contrats importés avant la déclaration explicite (22/10/2026)

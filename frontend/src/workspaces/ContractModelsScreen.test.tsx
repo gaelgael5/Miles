@@ -21,8 +21,8 @@ const VERSION = {
   models: ["pickup-point", "statut"],
   models_state: "a_jour",
 };
-const MATERIEL = { slug: "materiel", label: "Matériel", sens: "sortant", versions: [VERSION] };
-const WEBHOOK = { slug: "retours", label: "Retours", sens: "entrant", versions: [] };
+const MATERIEL = { slug: "materiel", label: "Matériel", sens: "externe", versions: [VERSION] };
+const WEBHOOK = { slug: "retours", label: "Retours", sens: "interne", versions: [] };
 const POINT = [
   "$schema: https://json-schema.org/draft/2020-12/schema",
   "$id: miles:/contracts/materiel/v1/pickup-point",
@@ -49,7 +49,7 @@ describe("ContractModelsScreen", () => {
         body: { name: "pickup-point", path: "contracts/materiel/models/v1/pickup-point.yaml", content: POINT },
       },
     });
-    renderWorkspaces({ id: "retrait", view: "contractModels", branch: "edition", sens: "sortant" });
+    renderWorkspaces({ id: "retrait", view: "contractModels", branch: "edition", sens: "externe" });
 
     // D'abord les contrats du sens choisi (story a3988aaf), puis les modèles de l'un.
     const row = (await screen.findByRole("button", { name: "Matériel" })).closest("li") as HTMLElement;
@@ -90,7 +90,7 @@ describe("ContractModelsScreen", () => {
       id: "retrait",
       view: "contractModels",
       branch: "edition",
-      sens: "sortant",
+      sens: "externe",
       contract: "materiel",
     });
 
@@ -114,7 +114,7 @@ describe("ContractModelsScreen", () => {
       id: "retrait",
       view: "contractModels",
       branch: "edition",
-      sens: "sortant",
+      sens: "externe",
       contract: "materiel",
     });
 
@@ -141,8 +141,8 @@ describe("ContractModelsScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "External contracts" }));
 
     expect(onSelect.mock.calls).toEqual([
-      [{ id: "retrait", view: "contractModels", branch: "edition", sens: "entrant" }],
-      [{ id: "retrait", view: "contractModels", branch: "edition", sens: "sortant" }],
+      [{ id: "retrait", view: "contractModels", branch: "edition", sens: "interne" }],
+      [{ id: "retrait", view: "contractModels", branch: "edition", sens: "externe" }],
     ]);
   });
 });

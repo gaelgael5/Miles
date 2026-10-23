@@ -34,7 +34,7 @@ async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
 
 
 async def _declare(
-    forge: Forge, slug: str = "suivi", label: str = LABEL, sens: str | None = "sortant"
+    forge: Forge, slug: str = "suivi", label: str = LABEL, sens: str | None = "externe"
 ) -> httpx.Response:
     body = {"slug": slug, "label": label} | ({"sens": sens} if sens else {})
     return await forge.client.post(ROUTE, json=body, timeout=120)
@@ -52,14 +52,14 @@ async def test_contract_is_declared_then_its_files_coexist_as_versions(forge: Fo
     detail = await forge.client.get(f"{ROUTE}/suivi", timeout=120)
 
     assert declared.status_code == 201, declared.text
-    assert declared.json() == {"slug": "suivi", "label": LABEL, "sens": "sortant", "versions": []}
+    assert declared.json() == {"slug": "suivi", "label": LABEL, "sens": "externe", "versions": []}
     assert (first.status_code, first.json()["number"]) == (201, 1)
     assert (second.status_code, second.json()["number"]) == (201, 2)
     assert await forge.file("contracts/suivi/v1.yaml") == SUIVI
     assert await forge.file("contracts/suivi/v2.yaml") == SUIVI_V2
     meta = await forge.file("contracts/suivi/contract.yaml")
     assert meta is not None
-    assert meta.startswith('slug: suivi\nlabel: "Suivi : demandes # tiers"\nsens: sortant\n')
+    assert meta.startswith('slug: suivi\nlabel: "Suivi : demandes # tiers"\nsens: externe\n')
     versions = detail.json()["versions"]
     assert [v["number"] for v in versions] == [1, 2]
     assert versions[0]["operation_list"] == [
@@ -101,18 +101,18 @@ async def test_a_new_version_shows_what_it_adds_and_what_it_no_longer_exposes(
 
 async def test_declared_contracts_are_listed_with_their_versions(forge: Forge) -> None:
     await _declare(forge)
-    await _declare(forge, "vide", "Sans opération", "entrant")
+    await _declare(forge, "vide", "Sans opération", "interne")
     await _import(forge, EMPTY, "vide")
 
     listed = await forge.client.get(ROUTE, timeout=120)
 
     assert listed.json()[1]["versions"][0]["imported_at"] is not None
     assert listed.json() == [
-        {"slug": "suivi", "label": LABEL, "sens": "sortant", "versions": []},
+        {"slug": "suivi", "label": LABEL, "sens": "externe", "versions": []},
         {
             "slug": "vide",
             "label": "Sans opération",
-            "sens": "entrant",
+            "sens": "interne",
             "versions": [
                 {
                     "number": 1,
@@ -138,7 +138,7 @@ async def test_replays_write_nothing_and_a_taken_slug_names_its_occupant(forge: 
     redeclared = await _declare(forge)
     reimported = await _import(forge, SUIVI)
     taken = await _declare(forge, label="Autre chose")
-    turned = await _declare(forge, sens="entrant")
+    turned = await _declare(forge, sens="interne")
 
     assert (redeclared.status_code, redeclared.headers["x-miles-already-exists"]) == (200, "true")
     assert (reimported.status_code, reimported.json()["number"]) == (200, 1)
@@ -152,7 +152,7 @@ async def test_declaration_is_frozen(forge: Forge) -> None:
 
     renamed = await forge.client.patch(f"{ROUTE}/suivi", json={"slug": "autre"})
     relabelled = await forge.client.patch(f"{ROUTE}/suivi", json={"label": "Autre"})
-    turned = await forge.client.patch(f"{ROUTE}/suivi", json={"sens": "entrant"})
+    turned = await forge.client.patch(f"{ROUTE}/suivi", json={"sens": "interne"})
 
     assert (renamed.status_code, renamed.json()["detail"]) == (409, "slug_fige")
     assert relabelled.json()["detail"] == "label_fige"

@@ -54,7 +54,7 @@ function DeclareForm({
       <p className="help">{t("contracts.form.slugHelp")}</p>
       <fieldset>
         <legend>{t("contracts.fields.sens")}</legend>
-        {(["sortant", "entrant"] as const).map((value) => (
+        {(["externe", "interne"] as const).map((value) => (
           <label key={value} className="choice">
             <input
               type="radio"

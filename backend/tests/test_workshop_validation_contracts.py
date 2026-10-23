@@ -23,7 +23,7 @@ CONTRACT = {
     },
 }
 FILE = yaml.safe_dump(CONTRACT)
-META = meta_text(ContractMeta("materiel", "Matériel", "sortant"))
+META = meta_text(ContractMeta("materiel", "Matériel", "externe"))
 
 
 def _files(**extra: str) -> dict[str, str]:

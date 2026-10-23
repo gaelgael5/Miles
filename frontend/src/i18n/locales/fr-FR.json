@@ -625,8 +625,8 @@
       "slugHelp": "Proposé d'après le label. Modifiable maintenant seulement : une fois le contrat déclaré, slug, label et sens sont figés."
     },
     "sens": {
-      "sortant": "Externe — appel d'un service distant",
-      "entrant": "Interne — webhook reçu"
+      "externe": "Externe — appel d'un service distant",
+      "interne": "Interne — webhook reçu"
     },
     "warnings": {
       "aucune_operation": "Ce contrat n'a aucune opération : c'est licite, mais probablement le mauvais fichier."
@@ -1096,17 +1096,17 @@
   },
   "contractModels": {
     "nav": {
-      "entrant": "Contrats internes",
-      "sortant": "Contrats externes"
+      "interne": "Contrats internes",
+      "externe": "Contrats externes"
     },
     "title": {
-      "entrant": "Modèles des contrats internes — {{name}}",
-      "sortant": "Modèles des contrats externes — {{name}}"
+      "interne": "Modèles des contrats internes — {{name}}",
+      "externe": "Modèles des contrats externes — {{name}}"
     },
     "intro": "Un modèle par schéma du fichier OpenAPI, pour chaque version du contrat. Dérivés par Miles à l'intégration, en lecture seule : un contrat est subi.",
     "empty": {
-      "entrant": "Aucun contrat interne dans cette branche.",
-      "sortant": "Aucun contrat externe dans cette branche."
+      "interne": "Aucun contrat interne dans cette branche.",
+      "externe": "Aucun contrat externe dans cette branche."
     },
     "noSchema": "Cette version ne déclare aucun schéma (components/schemas).",
     "stale": "Les modèles de cette version ne correspondent plus au fichier du contrat (absents, en trop ou retouchés dans git). Ils bloquent l'enregistrement d'une version tant qu'ils ne sont pas redérivés.",

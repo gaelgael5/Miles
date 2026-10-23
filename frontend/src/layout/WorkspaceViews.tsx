@@ -6,7 +6,7 @@ import { ContractLinks } from "./ContractLinks";
 import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
 
 const VIEWS: WorkspaceView[] = ["branch", "dataModels", "contracts", "transformations", "sources"];
-const SENSES: Direction[] = ["entrant", "sortant"];
+const SENSES: Direction[] = ["interne", "externe"];
 
 /**
  * Vues de la branche que la personne regarde (Gael, 22/10/2026) : le menu ne liste pas

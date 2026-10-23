@@ -19,18 +19,25 @@ from miles.workspaces.model import WorkspaceInputError, checked_label
     ["Suivi : demandes # v2", 'Guillemets "doubles" et \\ barre', "Évènements — colis"],
 )
 def test_label_is_written_so_that_it_reads_back_unchanged(label: str) -> None:
-    meta = ContractMeta("suivi", label, "entrant")
+    meta = ContractMeta("suivi", label, "interne")
 
     assert read_meta(meta_text(meta)) == meta
 
 
 def test_contract_imported_before_labels_takes_its_slug_as_label() -> None:
-    assert read_meta("slug: suivi\nsens: sortant\n") == ContractMeta("suivi", "suivi", "sortant")
+    assert read_meta("slug: suivi\nsens: externe\n") == ContractMeta("suivi", "suivi", "externe")
+
+
+@pytest.mark.parametrize(("stored", "expected"), [("sortant", "externe"), ("entrant", "interne")])
+def test_declaration_stored_before_the_rename_reads_as_its_current_direction(
+    stored: str, expected: str
+) -> None:
+    assert read_meta(f"slug: suivi\nsens: {stored}\n") == ContractMeta("suivi", "suivi", expected)
 
 
 @pytest.mark.parametrize(
     "text",
-    [None, "", "- a\n", "slug: suivi\nsens: lateral\n", "slug: suivi\nlabel: [x]\nsens: entrant\n"],
+    [None, "", "- a\n", "slug: suivi\nsens: lateral\n", "slug: suivi\nlabel: [x]\nsens: interne\n"],
 )
 def test_unreadable_declaration_is_none(text: str | None) -> None:
     assert read_meta(text) is None
@@ -71,14 +78,14 @@ def test_label_and_slug_are_trimmed() -> None:
 
 def test_deposits_are_written_and_read_back_with_the_declaration() -> None:
     deposit = VersionImport("2026-10-22T08:00:00+00:00", "Gaël via Miles <g@x.miles.invalid>")
-    meta = ContractMeta("suivi", "Suivi", "sortant").with_import(2, deposit)
+    meta = ContractMeta("suivi", "Suivi", "externe").with_import(2, deposit)
 
     back = read_meta(meta_text(meta))
 
     assert back == meta
     assert back is not None and back.imported(2) == deposit and back.imported(1) is None
     # Un dépôt ne change pas l'identité déclarée : le rejeu de la déclaration reste égal.
-    assert back.declaration() == ("suivi", "Suivi", "sortant")
+    assert back.declaration() == ("suivi", "Suivi", "externe")
 
 
 @pytest.mark.parametrize(
@@ -86,4 +93,4 @@ def test_deposits_are_written_and_read_back_with_the_declaration() -> None:
     ["versions: [1]\n", "versions:\n  un: {imported_at: x, by: y}\n", "versions:\n  1: {by: y}\n"],
 )
 def test_malformed_deposits_make_the_declaration_unreadable(versions: str) -> None:
-    assert read_meta("slug: suivi\nsens: sortant\n" + versions) is None
+    assert read_meta("slug: suivi\nsens: externe\n" + versions) is None

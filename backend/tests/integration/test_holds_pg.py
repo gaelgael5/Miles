@@ -126,7 +126,7 @@ async def test_without_the_hold_every_workshop_write_is_refused_but_reads_stay_o
     writes = [
         ("POST", MODELS, body_of(PERSONNE)),
         ("DELETE", f"{MODELS}/shared/personne", None),
-        ("POST", f"{WS}/contracts", {"slug": "suivi", "label": "Suivi", "sens": "sortant"}),
+        ("POST", f"{WS}/contracts", {"slug": "suivi", "label": "Suivi", "sens": "externe"}),
         ("POST", f"{WS}/contracts/suivi/versions", {"content": EMPTY}),
         ("DELETE", f"{WS}/contracts/suivi", None),
         ("PUT", f"{WS}/transformations/import", {"label": "Import", "steps": []}),

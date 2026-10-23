@@ -121,7 +121,7 @@ function viewScreen(
     );
   }
   if (selection.view === "contractModels") {
-    const sens = selection.sens ?? "entrant";
+    const sens = selection.sens ?? "interne";
     const at = (contract?: string) =>
       onSelect({ id: workspace.id, view: "contractModels", branch, sens, contract });
     if (selection.derived !== undefined) {

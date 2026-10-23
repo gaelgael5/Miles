@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "./http";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
-/** Sortant : appel d'un service distant ; entrant : webhook reçu. Jamais de défaut. */
-export type Direction = "sortant" | "entrant";
+/** Externe : appel d'un service distant ; interne : webhook reçu. Jamais de défaut.
+ * Valeurs stockées dans git ; nommées « sortant »/« entrant » avant le 23/10/2026. */
+export type Direction = "externe" | "interne";
 
 export interface Operation {
   method: string;

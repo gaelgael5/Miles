@@ -35,7 +35,7 @@ const V2 = {
   compared_with: 1,
   removed: [OPERATION],
 };
-const DECLARED = { slug: "materiel", label: "Matériel du tiers", sens: "entrant", versions: [] };
+const DECLARED = { slug: "materiel", label: "Matériel du tiers", sens: "interne", versions: [] };
 const CONTENT = "OpenAPI contract (YAML or JSON)";
 
 afterEach(() => {
