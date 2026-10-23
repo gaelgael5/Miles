@@ -9,6 +9,7 @@ import {
   usePreviewContract,
 } from "../api/contracts";
 import type { WorkTarget } from "../api/workTarget";
+import { ContractDelete } from "./ContractDelete";
 import { ContractRefusal } from "./ContractRefusal";
 import { ContractSource } from "./ContractSource";
 
@@ -203,6 +204,15 @@ export function ContractScreen({
                 <span className="badge badge-accent">{t(`contracts.sens.${detail.sens}`)}</span>
               </p>
             </div>
+            {/* Comme toute modification : sur une branche enfant dont on a la main. */}
+            {!target.readOnly && (
+              <ContractDelete
+                target={target}
+                slug={detail.slug}
+                versions={detail.versions.length}
+                onDeleted={onBack}
+              />
+            )}
           </div>
           {!target.readOnly && <IntegrateForm target={target} slug={detail.slug} />}
           <h2>{t("contracts.versions.title")}</h2>

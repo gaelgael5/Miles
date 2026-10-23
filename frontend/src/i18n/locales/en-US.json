@@ -648,6 +648,13 @@
       "new": "New",
       "unmapped": "Not mapped",
       "removed": "Exposed by v{{number}}, no longer by this version (their mappings still serve v{{number}}):"
+    },
+    "delete": {
+      "action": "Delete the contract",
+      "title": "Delete contract {{slug}}?",
+      "body_zero": "Its declaration will be removed from the branch. It has no imported version.",
+      "body_one": "Its declaration and its imported version will be removed from the branch, in one commit in your name.",
+      "body_other": "Its declaration and its {{count}} imported versions will be removed from the branch, in one commit in your name."
     }
   },
   "branches": {

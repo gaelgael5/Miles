@@ -12,6 +12,7 @@ from miles.contracts.layout import (
     ContractMeta,
     VersionImport,
     checked_slug,
+    contract_dir,
     meta_path,
     meta_text,
     read_meta,
@@ -31,7 +32,8 @@ log = structlog.get_logger(__name__)
 
 DECLARED_EVENT = "contract.declared"
 VERSION_EVENT = "contract.version_imported"
-EVENT_TYPES = frozenset({DECLARED_EVENT, VERSION_EVENT})
+DELETED_EVENT = "contract.deleted"
+EVENT_TYPES = frozenset({DECLARED_EVENT, VERSION_EVENT, DELETED_EVENT})
 
 
 class ContractNotFoundError(Exception):
@@ -169,6 +171,33 @@ class ContractsService:
         await self._journal(VERSION_EVENT, workspace_id, author, properties)
         log.info("contrat_integre", workspace=workspace_id, slug=slug, version=number)
         return contract, number, False
+
+    async def resolve_delete(
+        self, author: EventAuthor, workspace_id: str, slug: str, *, branch: str | None = None
+    ) -> str:
+        """Supprime le contrat entier, déclaration et versions ; rend le commit local.
+
+        Jamais une version isolée (Gael, 23/10/2026) : le contrat est importé, pas édité,
+        et retirer une version du milieu fausserait numérotation et comparaisons. Aucune
+        référence entrante n'existe encore ; quand des appels sortants désigneront un
+        contrat (ae8a3d99), sa suppression devra être refusée tant qu'il est désigné.
+        """
+        slug = checked_slug(slug)
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
+            prefix = contract_dir(slug) + "/"
+            files = [p for p in await copy.paths() if p.startswith(prefix)]
+            if not files:
+                raise ContractNotFoundError(slug)
+            versions = len(versions_in(files, slug))
+            for path in files:
+                await copy.remove(path)
+            commit = await self.branches.commit(copy, f"Suppression du contrat {slug}", author)
+        properties = {"slug": slug, "versions": versions, "commit": commit, "branch": copy.branch}
+        await self._journal(DELETED_EVENT, workspace_id, author, properties)
+        log.info("contrat_supprime", workspace=workspace_id, slug=slug, versions=versions)
+        return commit
 
     async def _journal(
         self, kind: str, workspace_id: str, author: EventAuthor, properties: dict[str, object]

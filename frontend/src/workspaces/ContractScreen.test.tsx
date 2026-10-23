@@ -190,4 +190,26 @@ describe("ContractScreen", () => {
     expect(within(row).getByText(/Exposed by v1, no longer by this version/)).toBeInTheDocument();
     expect(within(row).getByText(/GET \/demandes — lister/)).toBeInTheDocument();
   });
+
+  it("deletes the contract with its versions only after confirmation, then goes back", async () => {
+    const calls = mockApi(
+      routes({
+        [`GET ${ROUTE}/materiel?branch=edition`]: {
+          status: 200,
+          body: { ...DECLARED, versions: [V1] },
+        },
+        [`DELETE ${ROUTE}/materiel?branch=edition`]: { status: 204 },
+      }),
+    );
+    await openContract();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete the contract" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Its declaration and its imported version will be removed");
+    expect(calls.some((c) => c.key.startsWith("DELETE"))).toBe(false);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete the contract" }));
+
+    expect(await screen.findByRole("button", { name: "Declare a contract" })).toBeInTheDocument();
+    expect(calls.some((c) => c.key === `DELETE ${ROUTE}/materiel?branch=edition`)).toBe(true);
+  });
 });

@@ -648,6 +648,13 @@
       "new": "Nouvelle",
       "unmapped": "Non mappée",
       "removed": "Exposées par la v{{number}}, plus par celle-ci (leurs mappings servent encore la v{{number}}) :"
+    },
+    "delete": {
+      "action": "Supprimer le contrat",
+      "title": "Supprimer le contrat {{slug}} ?",
+      "body_zero": "Sa déclaration sera retirée de la branche. Il n'a aucune version intégrée.",
+      "body_one": "Sa déclaration et sa version intégrée seront retirées de la branche, en un commit à votre nom.",
+      "body_other": "Sa déclaration et ses {{count}} versions intégrées seront retirées de la branche, en un commit à votre nom."
     }
   },
   "branches": {

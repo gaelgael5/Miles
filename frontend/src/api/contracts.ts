@@ -124,6 +124,20 @@ export function useImportVersion(target: WorkTarget, slug: string) {
   });
 }
 
+/** Supprime le contrat entier, déclaration et versions (ticket 6e15d4cd). */
+export function useDeleteContract(target: WorkTarget, slug: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      request<undefined>(atBranch(target, "contracts", slug), { method: "DELETE" }),
+    onSuccess: () => {
+      // Le détail n'existe plus : on l'oublie plutôt que de le relire pour un 404.
+      client.removeQueries({ queryKey: [...key(target), slug] });
+      return client.invalidateQueries({ queryKey: key(target) });
+    },
+  });
+}
+
 /** Lecture d'un contrat publié à une adresse : le back-office le lit, rien n'est écrit. */
 export function useFetchContract(target: WorkTarget) {
   return useMutation({

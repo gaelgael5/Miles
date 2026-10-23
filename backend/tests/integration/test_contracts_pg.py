@@ -250,3 +250,25 @@ async def test_reading_an_address_refuses_the_server_itself_and_names_why(forge:
         {"code": "lecture_distante", "reason": "adresse_interdite"},
     )
     assert malformed.json()["detail"] == {"code": "lecture_distante", "reason": "adresse_invalide"}
+
+
+async def test_a_contract_is_deleted_with_all_its_versions(forge: Forge) -> None:
+    await _declare(forge)
+    await _import(forge, SUIVI)
+    await _import(forge, SUIVI_V2)
+    before = await forge.commits()
+
+    deleted = await forge.client.delete(f"{ROUTE}/suivi", timeout=120)
+    again = await forge.client.delete(f"{ROUTE}/suivi", timeout=120)
+    listed = await forge.client.get(ROUTE, timeout=120)
+
+    assert deleted.status_code == 204, deleted.text
+    assert (again.status_code, again.json()["detail"]) == (404, "contrat_inconnu")
+    assert listed.json() == []
+    for path in ("contract.yaml", "v1.yaml", "v2.yaml"):
+        assert await forge.file(f"contracts/suivi/{path}") is None
+    assert await forge.commits() == before + 1
+    event = await forge.portal.pool.fetchrow(
+        "SELECT properties FROM events WHERE type = 'contract.deleted'"
+    )
+    assert event is not None and '"versions": 2' in event["properties"]
