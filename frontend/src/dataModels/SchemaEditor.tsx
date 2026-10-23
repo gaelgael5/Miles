@@ -72,7 +72,11 @@ export default function SchemaEditor({
             onChange={onVisual}
             readOnly={target.readOnly}
             locale={i18n.language.startsWith("fr") ? fr : en}
-            messages={{ refTargetPlaceholder: "miles:/shared/<nom> ou #/$defs/<nom>" }}
+            messages={{
+              refDescription: t("dataModels.schema.refDescription"),
+              refTargetPlaceholder: t("dataModels.schema.refPlaceholder"),
+              refBrokenWarning: t("dataModels.schema.refBroken"),
+            }}
             resolveExternalRef={resolve}
           />
         ) : (

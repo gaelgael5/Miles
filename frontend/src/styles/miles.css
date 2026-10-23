@@ -261,3 +261,7 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 .model-references .help { margin: 0 0 8px; }
 .model-references li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 6px 0; }
 .model-reference-uri { overflow-wrap: anywhere; }
+/* JSONJoy borne sa racine en `overflow: auto`, pensée pour un panneau de hauteur fixe :
+   ici la page défile, et ce rognage coupait la liste « Choisir une définition » qui
+   déborde du champ. On laisse déborder plutôt que de déplacer la liste. */
+.model-editor .jsonjoy, .model-editor .jsonjoy .grow.overflow-auto { overflow: visible; }

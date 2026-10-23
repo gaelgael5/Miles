@@ -69,6 +69,25 @@ def _refs(node: Any, path: tuple[Any, ...] = ()) -> Iterator[tuple[str, str]]:
             yield from _refs(value, (*path, index))
 
 
+def _resolves(root: Any, ref: str) -> bool:
+    """Le pointeur JSON `#/…` désigne-t-il un nœud du document ?"""
+    fragment = ref.removeprefix("#")
+    if fragment == "":
+        return True
+    if not fragment.startswith("/"):
+        return False
+    node = root
+    for part in fragment[1:].split("/"):
+        part = part.replace("~1", "/").replace("~0", "~")
+        if isinstance(node, dict) and part in node:
+            node = node[part]
+        elif isinstance(node, list) and part.isdigit() and int(part) < len(node):
+            node = node[int(part)]
+        else:
+            return False
+    return True
+
+
 def parse_schema(text: str) -> ModelSchema:
     """Lit et vérifie un modèle ; lève ModelSyntaxError ou ModelGrammarError (tous les écarts)."""
     data = load_yaml(text)
@@ -89,6 +108,10 @@ def parse_schema(text: str) -> ModelSchema:
             references.append((where, target))
         elif not ref.startswith("#"):
             problems.append(Problem(where, "reference_externe", ref))
+        elif not _resolves(data, ref):
+            # Une référence interne qui ne désigne rien passe le méta-schéma ; elle
+            # casserait à l'usage (ex. « #miles:/… », un URI collé derrière le « # »).
+            problems.append(Problem(where, "reference_interne_introuvable", ref))
     if problems:
         raise ModelGrammarError(problems)
     properties = data.get("properties") or {}

@@ -75,8 +75,12 @@ def test_every_meta_schema_mistake_is_named_with_its_place() -> None:
             "type: object\nproperties:\n  a: {$ref: 'https://ailleurs/x.json'}\n",
             ("properties.a.$ref", "reference_externe"),
         ),
+        (
+            "type: object\nproperties:\n  a: {$ref: '#miles:/shared/x'}\n",
+            ("properties.a.$ref", "reference_interne_introuvable"),
+        ),
     ],
-    ids=["racine-non-objet", "liste", "ref-externe"],
+    ids=["racine-non-objet", "liste", "ref-externe", "ref-interne-cassee"],
 )
 def test_miles_rules_come_on_top_of_the_meta_schema(text: str, expected: tuple[str, str]) -> None:
     assert expected in _codes(text)

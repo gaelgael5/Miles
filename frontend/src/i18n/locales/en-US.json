@@ -538,7 +538,8 @@
       "openapi_invalide": "{{detail}}",
       "schema_invalide": "not valid JSON Schema 2020-12: {{detail}}",
       "reference_externe": "“{{detail}}”: only Miles models (miles:/…) and the schema's own definitions (#/…) can be referenced",
-      "id_different_du_fichier": "the $id does not match the file (expected: {{detail}})"
+      "id_different_du_fichier": "the $id does not match the file (expected: {{detail}})",
+      "reference_interne_introuvable": "“{{detail}}” points at no part of this schema (for another model: miles:/…, without “#”)"
     },
     "editor": {
       "title": "Model YAML",
@@ -559,7 +560,10 @@
       "copy": "Copy the URI",
       "externalRef": "“{{uri}}” does not designate a Miles model.",
       "version": "version {{version}}",
-      "versionHelp": "Kept by the system: +1 at each save that changes the schema. Unrelated to the branch versions."
+      "versionHelp": "Kept by the system: +1 at each save that changes the schema. Unrelated to the branch versions.",
+      "refDescription": "Points at another schema: a definition of this document (#/$defs/…), or another model by its URI (miles:/…), copied from “Referenceable models” — without a leading “#”.",
+      "refPlaceholder": "#/$defs/<name> or miles:/shared/<name>",
+      "refBroken": "This reference points at nothing: neither a definition of this document nor a Miles model."
     }
   },
   "versions": {

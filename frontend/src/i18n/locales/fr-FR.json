@@ -538,7 +538,8 @@
       "openapi_invalide": "{{detail}}",
       "schema_invalide": "non conforme à JSON Schema 2020-12 : {{detail}}",
       "reference_externe": "« {{detail}} » : seuls les modèles de Miles (miles:/…) et les définitions du schéma (#/…) se désignent",
-      "id_different_du_fichier": "l'$id ne correspond pas au fichier (attendu : {{detail}})"
+      "id_different_du_fichier": "l'$id ne correspond pas au fichier (attendu : {{detail}})",
+      "reference_interne_introuvable": "« {{detail}} » ne désigne aucune partie de ce schéma (pour un autre modèle : miles:/…, sans « # »)"
     },
     "editor": {
       "title": "YAML du modèle",
@@ -559,7 +560,10 @@
       "copy": "Copier l'URI",
       "externalRef": "« {{uri}} » ne désigne pas un modèle de Miles.",
       "version": "version {{version}}",
-      "versionHelp": "Tenue par le système : +1 à chaque enregistrement qui change le schéma. Sans rapport avec les versions de la branche."
+      "versionHelp": "Tenue par le système : +1 à chaque enregistrement qui change le schéma. Sans rapport avec les versions de la branche.",
+      "refDescription": "Désigne un autre schéma : une définition de ce document (#/$defs/…), ou un autre modèle par son URI (miles:/…), à copier depuis « Modèles référençables » — sans « # » devant.",
+      "refPlaceholder": "#/$defs/<nom> ou miles:/shared/<nom>",
+      "refBroken": "Cette référence ne désigne rien : ni une définition de ce document, ni un modèle de Miles."
     }
   },
   "versions": {
