@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Me, useLogout } from "./api/auth";
