@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from miles.contracts.derived import STALE, UNDERIVABLE, derived_state
 from miles.contracts.layout import META, VERSION_RE, read_meta, versions_in
 from miles.contracts.openapi import (
     ContractInvalidError,
@@ -18,6 +19,7 @@ from miles.git.worktree import MANIFEST, diagnose
 from miles.workshop.chain_validation import chain_reports, source_reports
 
 _CONTRACT_FILE_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/(?P<file>[^/]+)$")
+_DERIVED_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/models/v(?P<number>\d+)/[^/]+$")
 
 
 @dataclass(frozen=True)
@@ -95,6 +97,12 @@ async def _model_problems(
 
 
 async def _contract_problems(copy: WorkCopy, paths: list[str], path: str) -> tuple[Problem, ...]:
+    derived = _DERIVED_RE.match(path)
+    if derived is not None:
+        # Un modèle dérivé sans la version dont il vient ne dit plus rien du contrat.
+        if int(derived["number"]) not in versions_in(paths, derived["slug"]):
+            return (Problem("", "modele_derive_orphelin"),)
+        return ()
     match = _CONTRACT_FILE_RE.match(path)
     if match is None or match["file"] == ".gitkeep":
         return ()
@@ -113,11 +121,19 @@ async def _contract_problems(copy: WorkCopy, paths: list[str], path: str) -> tup
     if not VERSION_RE.match(match["file"]):
         return (Problem("", "fichier_de_contrat_inattendu"),)
     try:
-        parse_contract(text or "")
+        parsed = parse_contract(text or "")
     except ContractSyntaxError as exc:
         return (Problem("", "openapi_illisible", f"ligne {exc.line}, colonne {exc.column}"),)
     except UnsupportedVersionError as exc:
         return (Problem("openapi", "version_non_prise_en_charge", str(exc.found)),)
     except ContractInvalidError as exc:
         return tuple(Problem(p.path, "openapi_invalide", p.message) for p in exc.problems)
+    number = int(match["file"].removeprefix("v").removesuffix(".yaml"))
+    state = await derived_state(copy.read, paths, match["slug"], number, parsed.document)
+    if state.state == UNDERIVABLE:
+        return state.problems
+    if state.state == STALE:
+        # Absents, en trop ou retouchés : les modèles ne sont plus ce que dit le contrat
+        # (story 47f55d8b). « Redériver les modèles » les réécrit d'après le fichier.
+        return (Problem("models", "modeles_derives_desynchronises"),)
     return ()

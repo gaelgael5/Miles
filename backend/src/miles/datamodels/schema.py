@@ -106,6 +106,11 @@ def parse_schema(text: str) -> ModelSchema:
         target = target_of(ref)
         if target is not None:
             references.append((where, target))
+        elif ref.startswith(f"{ID_PREFIX}contracts/"):
+            # « Chacun chez soi » (Gael, 23/10/2026) : un pivot ne désigne jamais un modèle
+            # de contrat ; le lien vers un tiers passe par une chaîne, pour qu'une nouvelle
+            # version de contrat ne casse aucun pivot.
+            problems.append(Problem(where, "modele_de_contrat_interdit", ref))
         elif not ref.startswith("#"):
             problems.append(Problem(where, "reference_externe", ref))
         elif not _resolves(data, ref):

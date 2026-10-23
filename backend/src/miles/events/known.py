@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from miles.apikeys import service as apikeys_events
 from miles.chains import service as chains_events
+from miles.contracts import models_service as contract_models_events
 from miles.contracts import service as contracts_events
 from miles.cultures import service as cultures_events
 from miles.datamodels import service as datamodels_events
@@ -30,6 +31,7 @@ def code_event_types() -> frozenset[str]:
         apikeys_events.EVENT_TYPES
         | chains_events.EVENT_TYPES
         | contracts_events.EVENT_TYPES
+        | contract_models_events.EVENT_TYPES
         | cultures_events.EVENT_TYPES
         | datamodels_events.EVENT_TYPES
         | gitaccess_events.EVENT_TYPES

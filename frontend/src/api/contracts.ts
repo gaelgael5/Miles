@@ -21,6 +21,27 @@ export interface ContractVersion {
   /** null : version déposée hors de Miles, sans date ni auteur connus. */
   imported_at: string | null;
   imported_by: string | null;
+  /** Modèles dérivés présents dans git, un par schéma du contrat (story 47f55d8b). */
+  models: string[];
+  /** Leur état face au fichier ; null si le fichier est illisible. */
+  models_state: DerivedState | null;
+}
+
+/** « a_rederiver » : absents, en trop ou retouchés dans git ; « non_derivable » : refusés. */
+export type DerivedState = "a_jour" | "a_rederiver" | "non_derivable";
+
+/** Un modèle dérivé, tel qu'il est dans git : il se lit et se copie, il ne s'édite pas. */
+export interface DerivedModel {
+  name: string;
+  path: string;
+  content: string;
+}
+
+/** Désigne un modèle dérivé : contrat, version, nom. */
+export interface DerivedRef {
+  slug: string;
+  version: number;
+  name: string;
 }
 
 export interface VersionOperation extends Operation {
@@ -54,6 +75,8 @@ export interface ContractPreview {
   openapi: string;
   operations: Operation[];
   warnings: string[];
+  /** Les modèles que l'intégration écrira. */
+  models: string[];
 }
 
 /**
@@ -146,5 +169,31 @@ export function useFetchContract(target: WorkTarget) {
         method: "POST",
         body: JSON.stringify({ url }),
       }),
+  });
+}
+
+export function derivedModelQuery(target: WorkTarget, ref: DerivedRef) {
+  const segments = ["contracts", ref.slug, "versions", String(ref.version), "models", ref.name];
+  return {
+    queryKey: [...key(target), ref.slug, "models", ref.version, ref.name],
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      request<DerivedModel>(atBranch(target, ...segments), { signal }),
+  };
+}
+
+export function useDerivedModel(target: WorkTarget, ref: DerivedRef) {
+  return useQuery(derivedModelQuery(target, ref));
+}
+
+/** Réécrit les modèles d'une version d'après son fichier : le contrat fait foi. */
+export function useRederive(target: WorkTarget, slug: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (version: number) =>
+      request<ContractVersionDetail>(
+        atBranch(target, "contracts", slug, "versions", String(version), "models"),
+        { method: "POST" },
+      ),
+    onSuccess: () => client.invalidateQueries({ queryKey: key(target) }),
   });
 }

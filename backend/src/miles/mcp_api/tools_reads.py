@@ -73,6 +73,9 @@ def _contract(contract: Contract) -> dict[str, Any]:
                 "title": None if v.parsed is None else v.parsed.title,
                 "openapi": None if v.parsed is None else v.parsed.openapi,
                 "operations": None if v.parsed is None else len(v.parsed.operations),
+                # Modèles dérivés présents dans git, et leur état face au fichier.
+                "models": [] if v.models is None else list(v.models.present),
+                "models_state": None if v.models is None else v.models.state,
             }
             for v in contract.versions
         ],
@@ -183,8 +186,10 @@ def register(server: MCPServer) -> None:
     @server.tool(
         description=(
             "Rend un contrat et ses versions ; avec `version`, les opérations de cette"
-            " version (méthode, chemin, operationId). Refus : contrat_inconnu ou"
-            " version_inconnue, avec ce qui existe."
+            " version (méthode, chemin, operationId) et ses modèles dérivés (un JSON Schema"
+            " par schéma du contrat, en lecture seule), bornés : si `truncated`, redemander"
+            " avec after = next_after. Refus : contrat_inconnu ou version_inconnue, avec ce"
+            " qui existe."
         )
     )
     async def get_contract(
@@ -194,12 +199,13 @@ def register(server: MCPServer) -> None:
         version: Annotated[int | None, Field(description="Numéro de version.")] = None,
         branch: ReadBranch = None,
         commit: Commit = None,
+        after: After = None,
     ) -> dict[str, Any]:
         caller = caller_of(ctx)
         await caller.readable(workspace_id)
         try:
-            at, found = await _reads(caller).resolve_contract(
-                caller.viewer, workspace_id, contract, branch, commit
+            at, found, models = await _reads(caller).resolve_contract(
+                caller.viewer, workspace_id, contract, branch, commit, version, after
             )
         except Exception as exc:
             raise _refused(exc) from None
@@ -216,7 +222,20 @@ def register(server: MCPServer) -> None:
                 {"method": o.method, "path": o.path, "operation_id": o.operation_id}
                 for o in chosen.parsed.operations
             ]
-        return described | {"version": version, "operations": operations}
+        page = {"elements": [], "truncated": False, "next_after": None}
+        if models is not None:
+            page = {
+                "elements": _elements(models.elements),
+                "truncated": models.truncated,
+                "next_after": models.next_after,
+            }
+        return described | {
+            "version": version,
+            "operations": operations,
+            "models": page["elements"],
+            "truncated": page["truncated"],
+            "next_after": page["next_after"],
+        }
 
     @server.tool(
         description=(

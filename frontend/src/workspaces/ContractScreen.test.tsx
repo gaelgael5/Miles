@@ -7,7 +7,13 @@ import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/contracts";
 const YAML = "openapi: 3.1.0\ninfo: {title: Matériel, version: '2'}\npaths: {}\n";
-const PREVIEW = { title: "Matériel", openapi: "3.1.0", operations: [], warnings: ["aucune_operation"] };
+const PREVIEW = {
+  title: "Matériel",
+  openapi: "3.1.0",
+  operations: [],
+  warnings: ["aucune_operation"],
+  models: [],
+};
 const OPERATION = { method: "get", path: "/demandes", operation_id: "lister" };
 const V1 = {
   number: 1,

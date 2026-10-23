@@ -121,6 +121,9 @@ async def test_declared_contracts_are_listed_with_their_versions(forge: Forge) -
                     "warnings": ["aucune_operation"],
                     "imported_at": listed.json()[1]["versions"][0]["imported_at"],
                     "imported_by": listed.json()[1]["versions"][0]["imported_by"],
+                    # Sans `components/schemas` : aucun modèle, et c'est à jour (47f55d8b).
+                    "models": [],
+                    "models_state": "a_jour",
                 }
             ],
         },

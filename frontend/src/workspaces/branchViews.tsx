@@ -7,10 +7,12 @@ import { type WorkspaceSelection, baseBranchOf } from "../layout/WorkspacesNav";
 import { BranchScreen } from "./BranchScreen";
 import { ChainScreen } from "./ChainScreen";
 import { ChainsScreen } from "./ChainsScreen";
+import { ContractModelsScreen } from "./ContractModelsScreen";
 import { ContractScreen } from "./ContractScreen";
 import { ContractsScreen } from "./ContractsScreen";
 import { DataModelScreen } from "./DataModelScreen";
 import { DataModelsScreen } from "./DataModelsScreen";
+import { DerivedModelScreen } from "./DerivedModelScreen";
 import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
 
@@ -54,7 +56,7 @@ function viewScreen(
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.
-  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.source ?? ""}/${selection.model ?? ""}`;
+  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.source ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}`;
   if (selection.view === "contracts" && selection.contract !== undefined) {
     return (
       <ContractScreen
@@ -115,6 +117,39 @@ function viewScreen(
         target={target}
         onBack={back}
         onOpen={(source) => onSelect({ id: workspace.id, view: "sources", branch, source })}
+      />
+    );
+  }
+  if (selection.view === "contractModels") {
+    const sens = selection.sens ?? "entrant";
+    const list = () => onSelect({ id: workspace.id, view: "contractModels", branch, sens });
+    if (selection.derived !== undefined) {
+      const [slug = "", version = "0", name = ""] = selection.derived.split("/");
+      return (
+        <DerivedModelScreen
+          key={key}
+          target={target}
+          derived={{ slug, version: Number(version), name }}
+          onBack={list}
+        />
+      );
+    }
+    return (
+      <ContractModelsScreen
+        key={key}
+        workspace={workspace}
+        target={target}
+        sens={sens}
+        onBack={back}
+        onOpen={(ref) =>
+          onSelect({
+            id: workspace.id,
+            view: "contractModels",
+            branch,
+            sens,
+            derived: `${ref.slug}/${ref.version}/${ref.name}`,
+          })
+        }
       />
     );
   }

@@ -51,7 +51,7 @@ Remote = Annotated[RemoteContracts, Depends(remote_contracts)]
 @router.post("/preview", response_model=PreviewOut)
 async def preview_contract(workspace_id: str, body: VersionIn, service: Service) -> object:
     try:
-        parsed = service.resolve_preview(body.content)
+        parsed, models = service.resolve_preview(body.content)
     except _REFUSALS as exc:
         return _refusal(exc)
     operations = operations_out(parsed)
@@ -60,6 +60,7 @@ async def preview_contract(workspace_id: str, body: VersionIn, service: Service)
         openapi=parsed.openapi,
         operations=operations,
         warnings=version_warnings(len(operations)),
+        models=models,
     )
 
 

@@ -61,6 +61,10 @@ async def test_models_come_from_the_branch_with_their_properties() -> None:
         "shared/messages/personne.yaml": PERSONNE,
         "domains/retrait/messages/casse.yaml": "type: texte\n",
         "manifest.json": '{"format_version": 1, "min_app_version": "2.4.0", "capabilities": []}',
+        # Dérivés d'un contrat (47f55d8b) : une énumération n'est pas un objet, et reste listée.
+        "contracts/materiel/models/v2/point.yaml": "type: object\nproperties:\n"
+        "  x: {type: number}\n",
+        "contracts/materiel/models/v2/statut.yaml": "type: string\nenum: [a]\n",
     }
 
     async def read(path: str) -> str | None:
@@ -71,6 +75,8 @@ async def test_models_come_from_the_branch_with_their_properties() -> None:
     assert [(m.scope, m.name, m.properties) for m in models] == [
         ("retrait", "casse", None),
         ("shared", "personne", ({"name": "nom", "type": "string"},)),
+        ("contracts/materiel/v2", "point", ({"name": "x", "type": "number"},)),
+        ("contracts/materiel/v2", "statut", ()),
     ]
     assert await app_floor(read) == "2.4.0"
     assert await models_catalog([], read) == []

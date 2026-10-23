@@ -540,7 +540,8 @@
       "schema_invalide": "not valid JSON Schema 2020-12: {{detail}}",
       "reference_externe": "“{{detail}}”: only Miles models (miles:/…) and the schema's own definitions (#/…) can be referenced",
       "id_different_du_fichier": "the $id does not match the file (expected: {{detail}})",
-      "reference_interne_introuvable": "“{{detail}}” points at no part of this schema (for another model: miles:/…, without “#”)"
+      "reference_interne_introuvable": "“{{detail}}” points at no part of this schema (for another model: miles:/…, without “#”)",
+      "modele_de_contrat_interdit": "a contract model cannot be referenced from a pivot: go through a transformation chain ({{detail}})"
     },
     "editor": {
       "title": "Model YAML",
@@ -666,7 +667,8 @@
         "encodage": "The answer is not text: is it really a contract?"
       },
       "file": "The file could not be read.",
-      "notFound": "This contract is not declared on the work branch."
+      "notFound": "This contract is not declared on the work branch.",
+      "derivation": "This contract's schemas do not convert into models; nothing was written:"
     },
     "source": {
       "file": "From a file",
@@ -682,7 +684,8 @@
       "done": "Integrated as version v{{number}}.",
       "open": "Integrate a version",
       "close": "Close",
-      "where": "Check what was read, then “Integrate as a new version” at the top of the page (or Ctrl+S)."
+      "where": "Check what was read, then “Integrate as a new version” at the top of the page (or Ctrl+S).",
+      "models": "Models to be written: {{list}}"
     },
     "versions": {
       "title": "Versions",
@@ -700,6 +703,14 @@
       "body_zero": "Its declaration will be removed from the branch. It has no imported version.",
       "body_one": "Its declaration and its imported version will be removed from the branch, in one commit in your name.",
       "body_other": "Its declaration and its {{count}} imported versions will be removed from the branch, in one commit in your name."
+    },
+    "derivation": {
+      "nom_de_schema_inconvertible": "this schema name gives no model name ({{detail}})",
+      "noms_de_schema_en_collision": "gives the same model name as schema “{{detail}}”",
+      "reference_non_convertible": "reference to something other than a contract schema ({{detail}})",
+      "borne_exclusive_sans_borne": "exclusiveMinimum/Maximum is true with no bound to exclude",
+      "schema_trop_profond": "schema nested beyond {{detail}} levels",
+      "schema_invalide": "invalid JSON Schema 2020-12: {{detail}}"
     }
   },
   "branches": {
@@ -1082,5 +1093,27 @@
     },
     "shelvedMine": "You have work shelved on this branch: taking over again will merge it into the up-to-date branch.",
     "resume": "Take over again"
+  },
+  "contractModels": {
+    "nav": {
+      "entrant": "Inbound contracts",
+      "sortant": "Outbound contracts"
+    },
+    "title": {
+      "entrant": "Inbound contract models — {{name}}",
+      "sortant": "Outbound contract models — {{name}}"
+    },
+    "intro": "One model per schema of the OpenAPI file, for each contract version. Derived by Miles on integration, read-only: a contract is imposed by its third party.",
+    "empty": {
+      "entrant": "No inbound contract on this branch.",
+      "sortant": "No outbound contract on this branch."
+    },
+    "noSchema": "This version declares no schema (components/schemas).",
+    "stale": "This version's models no longer match the contract file (missing, extra or edited in git). They block saving a version until they are derived again.",
+    "underivable": "This version's schemas do not convert into models: see the branch validation.",
+    "rederive": "Derive the models again",
+    "back": "← Back to the contract models",
+    "derivedFrom": "derived from contract {{slug}}, version {{version}}",
+    "readOnly": "Model derived from the contract: it can be read, not edited. It changes with a new contract version."
   }
 }

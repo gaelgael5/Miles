@@ -36,6 +36,8 @@ class PreviewOut(BaseModel):
     operations: list[OperationOut]
     # Licite mais probablement le mauvais fichier : signalé, pas refusé.
     warnings: list[str]
+    # Les modèles que l'intégration écrira, un par schéma (story 47f55d8b).
+    models: list[str]
 
 
 class VersionOut(BaseModel):
@@ -48,6 +50,10 @@ class VersionOut(BaseModel):
     # None : version déposée hors de Miles, sans date ni auteur connus.
     imported_at: datetime | None
     imported_by: str | None
+    # Modèles dérivés présents dans git (story 47f55d8b), et leur état face au fichier :
+    # « a_jour », « a_rederiver » ou « non_derivable » ; None si le fichier est illisible.
+    models: list[str]
+    models_state: str | None
 
 
 class VersionOperationOut(OperationOut):
@@ -72,6 +78,14 @@ class ContractOut(BaseModel):
 
 class ContractDetailOut(ContractOut):
     versions: list[VersionDetailOut]  # type: ignore[assignment]
+
+
+class DerivedModelOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    path: str
+    # Le YAML tel qu'il est dans git : un modèle dérivé se lit, il ne s'édite pas.
+    content: str
 
 
 class ContractDeclare(BaseModel):
@@ -125,6 +139,8 @@ def version_out(
         warnings=version_warnings(len(operations)),
         imported_at=datetime.fromisoformat(deposit.imported_at) if deposit else None,
         imported_by=deposit.by if deposit else None,
+        models=list(version.models.present) if version.models else [],
+        models_state=version.models.state if version.models else None,
         operation_list=[
             VersionOperationOut(
                 method=o.method,

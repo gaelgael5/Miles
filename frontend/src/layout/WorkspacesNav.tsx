@@ -2,10 +2,18 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useBranchViews } from "../api/branches";
+import type { Direction } from "../api/contracts";
 import { type Workspace, useWorkspaces } from "../api/workspaces";
 import { WorkspaceViews } from "./WorkspaceViews";
 
-export type WorkspaceView = "settings" | "branch" | "dataModels" | "contracts" | "transformations" | "sources";
+export type WorkspaceView =
+  | "settings"
+  | "branch"
+  | "dataModels"
+  | "contractModels"
+  | "contracts"
+  | "transformations"
+  | "sources";
 /**
  * Ce qu'affiche l'écran Workspaces : la liste (null), le paramétrage d'un workspace, ou
  * une vue d'une de ses branches de travail (`branch`, son slug) — l'un de ses contrats
@@ -22,6 +30,10 @@ export type WorkspaceSelection = {
   source?: string;
   // Un modèle de données ouvert (« portée/nom »), avec la vue « dataModels ».
   model?: string;
+  // Le sens des contrats dont on liste les modèles, avec la vue « contractModels ».
+  sens?: Direction;
+  // Un modèle dérivé ouvert (« contrat/version/nom »), avec la vue « contractModels ».
+  derived?: string;
 } | null;
 
 /** Slug de la branche de base : celle qu'ouvrent les boutons de la liste des workspaces. */

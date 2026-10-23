@@ -7,6 +7,7 @@ from datetime import datetime
 import asyncpg
 import structlog
 
+from miles.contracts.derived import derive_models
 from miles.contracts.layout import (
     DIRECTIONS,
     ContractMeta,
@@ -63,9 +64,11 @@ class ContractsService:
     now: Callable[[], datetime]
 
     @staticmethod
-    def resolve_preview(content: str) -> ParsedContract:
-        """Lecture du fichier sans rien écrire : l'écran la montre avant l'intégration."""
-        return parse_contract(content)
+    def resolve_preview(content: str) -> tuple[ParsedContract, list[str]]:
+        """Lecture du fichier et de ses modèles, sans rien écrire : l'écran les montre
+        avant l'intégration, refus de dérivation compris."""
+        parsed = parse_contract(content)
+        return parsed, [m.name for m in derive_models(parsed.document, "apercu", 1)]
 
     async def resolve_list(
         self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
@@ -144,8 +147,10 @@ class ContractsService:
         date de dépôt et sa comparaison à la précédente, comme dans le détail.
         """
         slug = checked_slug(slug)
-        # Vérifié avant tout accès au dépôt : un fichier refusé ne coûte aucun clone.
-        parse_contract(content)
+        # Vérifié avant tout accès au dépôt : un fichier refusé ne coûte aucun clone. Ses
+        # modèles aussi : un schéma non convertible refuse l'intégration (47f55d8b).
+        parsed = parse_contract(content)
+        derive_models(parsed.document, slug, 1)
         async with self.branches.checkout(
             workspace_id, branch, by=author, gesture=Gesture.EDIT
         ) as copy:
@@ -161,6 +166,10 @@ class ContractsService:
                     return await _required(copy, slug), number, True
             number = (numbers[-1] if numbers else 0) + 1
             await copy.write(version_path(slug, number), content)
+            # Les modèles de la version naissent avec elle, dans le même commit : une
+            # version ne se lit jamais sans les schémas qu'elle déclare.
+            for model in derive_models(parsed.document, slug, number):
+                await copy.write(model.path, model.content)
             # Date et auteur du dépôt, écrits dans le même commit que la version.
             deposit = VersionImport(self.now().isoformat(), commit_author(author))
             await copy.write(meta_path(slug), meta_text(meta.with_import(number, deposit)))
@@ -175,7 +184,7 @@ class ContractsService:
     async def resolve_delete(
         self, author: EventAuthor, workspace_id: str, slug: str, *, branch: str | None = None
     ) -> str:
-        """Supprime le contrat entier, déclaration et versions ; rend le commit local.
+        """Supprime le contrat entier, déclaration, versions et modèles dérivés ; rend le commit.
 
         Jamais une version isolée (Gael, 23/10/2026) : le contrat est importé, pas édité,
         et retirer une version du milieu fausserait numérotation et comparaisons. Aucune

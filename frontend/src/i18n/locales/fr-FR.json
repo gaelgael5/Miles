@@ -540,7 +540,8 @@
       "schema_invalide": "non conforme à JSON Schema 2020-12 : {{detail}}",
       "reference_externe": "« {{detail}} » : seuls les modèles de Miles (miles:/…) et les définitions du schéma (#/…) se désignent",
       "id_different_du_fichier": "l'$id ne correspond pas au fichier (attendu : {{detail}})",
-      "reference_interne_introuvable": "« {{detail}} » ne désigne aucune partie de ce schéma (pour un autre modèle : miles:/…, sans « # »)"
+      "reference_interne_introuvable": "« {{detail}} » ne désigne aucune partie de ce schéma (pour un autre modèle : miles:/…, sans « # »)",
+      "modele_de_contrat_interdit": "un modèle de contrat ne se désigne pas depuis un pivot : passez par une chaîne de transformations ({{detail}})"
     },
     "editor": {
       "title": "YAML du modèle",
@@ -666,7 +667,8 @@
         "encodage": "La réponse n'est pas du texte : est-ce bien un contrat ?"
       },
       "file": "Le fichier n'a pas pu être lu.",
-      "notFound": "Ce contrat n'est pas déclaré dans la branche de travail."
+      "notFound": "Ce contrat n'est pas déclaré dans la branche de travail.",
+      "derivation": "Les schémas de ce contrat ne se convertissent pas en modèles ; rien n'a été écrit :"
     },
     "source": {
       "file": "Depuis un fichier",
@@ -682,7 +684,8 @@
       "done": "Intégré en version v{{number}}.",
       "open": "Intégrer une version",
       "close": "Fermer",
-      "where": "Vérifiez ce qui a été lu, puis « Intégrer en nouvelle version » en haut de la page (ou Ctrl+S)."
+      "where": "Vérifiez ce qui a été lu, puis « Intégrer en nouvelle version » en haut de la page (ou Ctrl+S).",
+      "models": "Modèles qui seront écrits : {{list}}"
     },
     "versions": {
       "title": "Versions",
@@ -700,6 +703,14 @@
       "body_zero": "Sa déclaration sera retirée de la branche. Il n'a aucune version intégrée.",
       "body_one": "Sa déclaration et sa version intégrée seront retirées de la branche, en un commit à votre nom.",
       "body_other": "Sa déclaration et ses {{count}} versions intégrées seront retirées de la branche, en un commit à votre nom."
+    },
+    "derivation": {
+      "nom_de_schema_inconvertible": "ce nom de schéma ne donne pas de nom de modèle ({{detail}})",
+      "noms_de_schema_en_collision": "donne le même nom de modèle que le schéma « {{detail}} »",
+      "reference_non_convertible": "référence qui ne désigne pas un schéma du contrat ({{detail}})",
+      "borne_exclusive_sans_borne": "exclusiveMinimum/Maximum vaut true sans borne à exclure",
+      "schema_trop_profond": "schéma imbriqué au-delà de {{detail}} niveaux",
+      "schema_invalide": "schéma invalide en JSON Schema 2020-12 : {{detail}}"
     }
   },
   "branches": {
@@ -1082,5 +1093,27 @@
     },
     "shelvedMine": "Vous avez du travail rangé sur cette branche : en reprenant la main, il sera fusionné dans la branche à jour.",
     "resume": "Reprendre la main"
+  },
+  "contractModels": {
+    "nav": {
+      "entrant": "Contrats entrants",
+      "sortant": "Contrats sortants"
+    },
+    "title": {
+      "entrant": "Modèles des contrats entrants — {{name}}",
+      "sortant": "Modèles des contrats sortants — {{name}}"
+    },
+    "intro": "Un modèle par schéma du fichier OpenAPI, pour chaque version du contrat. Dérivés par Miles à l'intégration, en lecture seule : un contrat est subi.",
+    "empty": {
+      "entrant": "Aucun contrat entrant dans cette branche.",
+      "sortant": "Aucun contrat sortant dans cette branche."
+    },
+    "noSchema": "Cette version ne déclare aucun schéma (components/schemas).",
+    "stale": "Les modèles de cette version ne correspondent plus au fichier du contrat (absents, en trop ou retouchés dans git). Ils bloquent l'enregistrement d'une version tant qu'ils ne sont pas redérivés.",
+    "underivable": "Les schémas de cette version ne se convertissent pas en modèles : voir la validation de la branche.",
+    "rederive": "Redériver les modèles",
+    "back": "← Retour aux modèles du contrat",
+    "derivedFrom": "dérivé du contrat {{slug}}, version {{version}}",
+    "readOnly": "Modèle dérivé du contrat : il se lit, il ne s'édite pas. Il change avec une nouvelle version du contrat."
   }
 }

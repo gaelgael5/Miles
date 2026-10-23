@@ -780,7 +780,7 @@
     },
     {
       "name": "get_contract",
-      "description": "Rend un contrat et ses versions ; avec `version`, les opérations de cette version (méthode, chemin, operationId). Refus : contrat_inconnu ou version_inconnue, avec ce qui existe.",
+      "description": "Rend un contrat et ses versions ; avec `version`, les opérations de cette version (méthode, chemin, operationId) et ses modèles dérivés (un JSON Schema par schéma du contrat, en lecture seule), bornés : si `truncated`, redemander avec after = next_after. Refus : contrat_inconnu ou version_inconnue, avec ce qui existe.",
       "inputSchema": {
         "properties": {
           "workspace_id": {
@@ -831,6 +831,19 @@
             "default": null,
             "description": "Identifiant complet (40 caractères) d'un commit de la branche : lit l'état à ce commit, pas l'état courant. Absent : la tête de la branche.",
             "title": "Commit"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Pour reprendre une réponse tronquée : le `next_after` qu'elle a rendu. Les éléments suivants, par ordre de chemin, sont alors rendus.",
+            "title": "After"
           }
         },
         "required": [

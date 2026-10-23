@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import status
 from fastapi.responses import JSONResponse
 
+from miles.contracts.derived import DerivationError
 from miles.contracts.openapi import (
     SUPPORTED,
     ContractInvalidError,
@@ -24,6 +25,7 @@ def error(code: int, detail: object) -> JSONResponse:
 
 
 REFUSALS = (
+    DerivationError,
     ContractSyntaxError,
     ContractInvalidError,
     UnsupportedVersionError,
@@ -41,6 +43,11 @@ def refusal(exc: Exception) -> JSONResponse:
     if isinstance(exc, ContractSyntaxError):
         detail = {"code": "openapi_illisible", "message": exc.message}
         return error(unprocessable, detail | {"line": exc.line, "column": exc.column})
+    if isinstance(exc, DerivationError):
+        # Avant « openapi_invalide » : le fichier est valide, ce sont ses schémas qui ne se
+        # convertissent pas en modèles (story 47f55d8b).
+        problems = [{"path": p.path, "code": p.code, "detail": p.detail} for p in exc.problems]
+        return error(unprocessable, {"code": "derivation_impossible", "problems": problems})
     if isinstance(exc, ContractInvalidError):
         problems = [{"path": p.path, "message": p.message} for p in exc.problems]
         return error(unprocessable, {"code": "openapi_invalide", "problems": problems})

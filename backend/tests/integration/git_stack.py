@@ -13,6 +13,8 @@ from miles.apikeys.service import ApiKeysService
 from miles.chains.service import EVENT_TYPES as CHAIN_EVENTS
 from miles.chains.service import ChainsService
 from miles.config import Settings
+from miles.contracts.models_service import EVENT_TYPES as CONTRACT_MODEL_EVENTS
+from miles.contracts.models_service import ContractModelsService
 from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import EVENT_TYPES as CONTRACT_EVENTS
 from miles.contracts.service import ContractsService
@@ -74,6 +76,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | DOMAIN_EVENTS
         | WORKSHOP_EVENTS
         | CONTRACT_EVENTS
+        | CONTRACT_MODEL_EVENTS
         | BRANCH_EVENTS
         | HOLD_EVENTS
         | SHELF_EVENTS
@@ -107,6 +110,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.domains = DomainsService(portal.pool, branches, catalog, utc_now)
     state.workshop = WorkshopService(portal.pool, branches, catalog, utc_now)
     state.contracts = ContractsService(portal.pool, branches, catalog, utc_now)
+    state.contract_models = ContractModelsService(portal.pool, branches, catalog, utc_now)
     # Sans connexion ouverte tant que rien n'est lu : les tests n'y font passer que des
     # adresses refusées avant toute requête.
     state.remote_contracts = RemoteContracts(httpx.AsyncClient())

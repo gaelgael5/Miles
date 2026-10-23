@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from miles.contracts.derived import present_models
 from miles.contracts.layout import checked_slug, slugs_in
 from miles.contracts.reading import Contract, contract_at
 from miles.events.model import EventAuthor
@@ -126,11 +127,19 @@ class TargetedReads:
         slug: str,
         branch: str | None,
         commit: str | None,
-    ) -> tuple[str, Contract]:
+        version: int | None = None,
+        after: str | None = None,
+    ) -> tuple[str, Contract, Page | None]:
+        """Le contrat ; avec `version`, aussi les modèles dérivés de cette version (story
+        47f55d8b), bornés comme un domaine."""
         slug = checked_slug(slug)
         async with branch_source(self.branches, viewer, workspace_id, branch, commit) as source:
             paths = await source.paths()
             contract = await contract_at(source.read, paths, slug)
             if contract is None:
                 raise ContractUnknownError(slug, slugs_in(paths))
-            return source.commit, contract
+            models = None
+            if version is not None:
+                files = sorted(present_models(paths, slug, version).values())
+                models = await read_page(source.read, files, after)
+            return source.commit, contract, models

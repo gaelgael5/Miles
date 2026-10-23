@@ -12,7 +12,8 @@ type Detail = {
   found?: string | null;
   accepted?: string[];
   by?: string;
-  problems?: { path: string; message: string }[];
+  // `message` pour un écart OpenAPI ; `code` et `detail` pour un schéma qui ne se dérive pas.
+  problems?: { path: string; message?: string; code?: string; detail?: string | null }[];
   status?: number;
 };
 
@@ -27,6 +28,8 @@ export function ContractRefusal({ error }: { error: unknown }) {
       column: String(detail.column ?? "?"),
       message: detail.message ?? "",
     });
+  } else if (detail?.code === "derivation_impossible") {
+    message = t("contracts.errors.derivation");
   } else if (detail?.code === "openapi_invalide") {
     message = t("contracts.errors.invalid");
   } else if (detail?.code === "version_non_prise_en_charge") {
@@ -55,8 +58,9 @@ export function ContractRefusal({ error }: { error: unknown }) {
       {detail?.problems && (
         <ul>
           {detail.problems.map((p) => (
-            <li key={`${p.path}-${p.message}`}>
-              <span className="mono">{p.path}</span> — {p.message}
+            <li key={`${p.path}-${p.message ?? p.code ?? ""}`}>
+              <span className="mono">{p.path}</span> —{" "}
+              {p.message ?? t(`contracts.derivation.${p.code ?? ""}`, { detail: p.detail ?? "" })}
             </li>
           ))}
         </ul>

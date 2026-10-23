@@ -58,6 +58,9 @@ function IntegrateForm({
             <strong>{read.title}</strong> · OpenAPI {read.openapi} ·{" "}
             {t("contracts.list.operations", { count: read.operations.length })}
           </p>
+          {read.models.length > 0 && (
+            <p className="mono">{t("contracts.integrate.models", { list: read.models.join(", ") })}</p>
+          )}
           {read.warnings.includes("aucune_operation") && (
             <p className="alert">{t("contracts.warnings.aucune_operation")}</p>
           )}

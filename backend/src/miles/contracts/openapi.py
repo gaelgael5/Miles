@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from openapi_spec_validator import OpenAPIV30SpecValidator, OpenAPIV31SpecValidator
@@ -58,6 +58,8 @@ class ParsedContract:
     title: str
     openapi: str
     operations: tuple[Operation, ...]
+    # Le document lu, dont se dérivent les modèles du contrat (story 47f55d8b).
+    document: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
 
 def parse_contract(text: str) -> ParsedContract:
@@ -86,7 +88,7 @@ def parse_contract(text: str) -> ParsedContract:
     ]
     if problems:
         raise ContractInvalidError(problems)
-    return ParsedContract(str(data["info"]["title"]), str(found), tuple(_operations(data)))
+    return ParsedContract(str(data["info"]["title"]), str(found), tuple(_operations(data)), data)
 
 
 def _reference_problems(data: dict[str, Any]) -> list[ContractProblem]:

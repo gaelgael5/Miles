@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
 from urban_json import FunctionRegistry
 
+from miles.datamodels.grammar import load_yaml
 from miles.datamodels.layout import entry_of
 from miles.datamodels.schema import parse_schema
 from miles.git.worktree import MANIFEST
@@ -25,6 +27,11 @@ class FunctionEntry:
     # Vide : documentée. Sinon ce qui manque ; une telle entrée n'est pas présentée
     # comme utilisable (critère 6).
     missing: tuple[str, ...]
+
+
+_DERIVED_RE = re.compile(
+    r"^contracts/(?P<slug>[^/]+)/models/v(?P<number>\d+)/(?P<name>[^/]+)\.yaml$"
+)
 
 
 @dataclass(frozen=True)
@@ -67,7 +74,28 @@ async def models_catalog(
     for entry in filter(None, map(entry_of, paths)):
         text = await read(entry.path)
         entries.append(ModelCatalogEntry(entry.scope, entry.name, entry.path, _properties(text)))
+    # Les modèles dérivés des contrats (story 47f55d8b), portée « contracts/<slug>/v<n> » :
+    # ce sont les entrées et sorties des templates vers et depuis un tiers.
+    for path in paths:
+        match = _DERIVED_RE.match(path)
+        if match is not None:
+            scope = f"contracts/{match['slug']}/v{match['number']}"
+            properties = _derived_properties(await read(path))
+            entries.append(ModelCatalogEntry(scope, match["name"], path, properties))
     return entries
+
+
+def _derived_properties(text: str | None) -> tuple[dict[str, Any], ...] | None:
+    # Un modèle dérivé n'est pas forcément un objet (une énumération du contrat) : ses
+    # propriétés se lisent sans la règle « racine objet » des pivots.
+    try:
+        data = load_yaml(text) if text is not None else None
+    except ValueError:
+        return None
+    declared = data.get("properties") if isinstance(data, dict) else None
+    if not isinstance(declared, dict):
+        return () if isinstance(data, dict) else None
+    return tuple({"name": name} | dict(spec) for name, spec in declared.items())
 
 
 def _properties(text: str | None) -> tuple[dict[str, Any], ...] | None:

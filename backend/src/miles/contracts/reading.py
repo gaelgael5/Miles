@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from miles.contracts.derived import DerivedState, derived_state
 from miles.contracts.layout import ContractMeta, meta_path, read_meta, version_path, versions_in
 from miles.contracts.openapi import ParsedContract, parse_contract
 from miles.workshop.reading import Read
@@ -13,6 +14,8 @@ class ContractVersion:
     # None : retouché hors de Miles et devenu illisible. Listé quand même, la validation
     # de la branche dira pourquoi.
     parsed: ParsedContract | None
+    # Ses modèles dérivés dans git (story 47f55d8b) ; None si le fichier est illisible.
+    models: DerivedState | None = None
 
 
 @dataclass(frozen=True)
@@ -36,5 +39,10 @@ async def contract_at(read: Read, paths: list[str], slug: str) -> Contract | Non
             # Retouché hors de Miles et devenu illisible : listé quand même, la validation
             # de la branche dira pourquoi.
             parsed = None
-        versions.append(ContractVersion(number, parsed))
+        models = (
+            await derived_state(read, paths, slug, number, parsed.document)
+            if parsed is not None
+            else None
+        )
+        versions.append(ContractVersion(number, parsed, models))
     return Contract(meta, tuple(versions))

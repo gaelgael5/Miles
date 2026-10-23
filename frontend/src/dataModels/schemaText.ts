@@ -11,6 +11,15 @@ export function modelUri(scope: string, name: string): string {
   return scope === "shared" ? `miles:/shared/${name}` : `miles:/domains/${scope}/${name}`;
 }
 
+// Un modèle dérivé d'un contrat (story 47f55d8b) : contrat, version, nom.
+const DERIVED_RE = /^miles:\/contracts\/([a-z0-9][a-z0-9-]{1,62})\/v([1-9]\d{0,5})\/([a-z0-9][a-z0-9_-]*)$/;
+
+export function derivedOf(uri: string): { slug: string; version: number; name: string } | null {
+  const match = DERIVED_RE.exec(uri.split("#")[0] ?? "");
+  if (match === null) return null;
+  return { slug: match[1] ?? "", version: Number(match[2]), name: match[3] ?? "" };
+}
+
 export function targetOf(uri: string): [string, string] | null {
   const match = ID_RE.exec(uri.split("#")[0] ?? "");
   if (match === null) return null;

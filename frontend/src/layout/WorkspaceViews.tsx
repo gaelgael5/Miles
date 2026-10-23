@@ -1,10 +1,12 @@
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { Direction } from "../api/contracts";
 import { ContractLinks } from "./ContractLinks";
 import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
 
 const VIEWS: WorkspaceView[] = ["branch", "dataModels", "contracts", "transformations", "sources"];
+const SENSES: Direction[] = ["entrant", "sortant"];
 
 /**
  * Vues de la branche que la personne regarde (Gael, 22/10/2026) : le menu ne liste pas
@@ -46,6 +48,24 @@ export function WorkspaceViews({
           >
             {t(`workspaces.card.${view}`)}
           </button>
+          {view === "dataModels" &&
+            // Modèles dérivés des contrats, par sens (story 47f55d8b).
+            SENSES.map((sens) => (
+              <button
+                key={sens}
+                type="button"
+                className="sidebar-link sidebar-subsublink"
+                aria-current={
+                  here && selection?.view === "contractModels" && selection.sens === sens &&
+                  selection.derived === undefined
+                    ? "page"
+                    : undefined
+                }
+                onClick={() => onSelect({ id: workspaceId, view: "contractModels", branch, sens })}
+              >
+                {t(`contractModels.nav.${sens}`)}
+              </button>
+            ))}
           {view === "contracts" && (
             <ContractLinks
               // Des liens qui ne font que lire : aucun geste d'écriture ne part du menu.

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from tests.integration.mcp_stack import McpForge, open_mcp_forge
+from tests.integration.test_contract_models_pg import MATERIEL
 from tests.integration.test_contracts_pg import SUIVI, _declare, _import
 from tests.integration.test_datamodels_pg import COLIS, PERSONNE, body_of
 from tests.integration.work_stack import EDITED
@@ -119,3 +120,19 @@ async def test_reads_need_a_right_on_the_workspace(m: McpForge) -> None:
     refused = await m.refused("list_domains", {"workspace_id": "caisse"})
 
     assert refused["code"] == "workspace_inconnu"
+
+
+async def test_a_contract_version_comes_with_its_derived_models(m: McpForge) -> None:
+    assert (await _declare(m.forge, "materiel", "Matériel")).status_code == 201
+    assert (await _import(m.forge, MATERIEL, "materiel")).status_code == 201
+
+    one = await m.ok("get_contract", EDIT | {"contract": "materiel", "version": 1})
+
+    assert one["versions"][0]["models"] == ["pickup-point", "statut"]
+    assert one["versions"][0]["models_state"] == "a_jour"
+    assert [e["path"] for e in one["models"]] == [
+        "contracts/materiel/models/v1/pickup-point.yaml",
+        "contracts/materiel/models/v1/statut.yaml",
+    ]
+    assert "miles:/contracts/materiel/v1/statut" in one["models"][1]["content"]
+    assert (one["truncated"], one["next_after"]) == (False, None)

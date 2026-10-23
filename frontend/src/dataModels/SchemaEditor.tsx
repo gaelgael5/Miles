@@ -5,10 +5,11 @@ import { lazy, Suspense, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { parse } from "yaml";
 
+import { derivedModelQuery } from "../api/contracts";
 import { type DataModel, type DataModelContent, SHARED_SCOPE, modelQuery } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
 import { CopyButton } from "../layout/CopyButton";
-import { type Parsed, modelUri, targetOf } from "./schemaText";
+import { type Parsed, derivedOf, modelUri, targetOf } from "./schemaText";
 
 // Monaco ne se charge qu'à l'ouverture de cet écran (story e38806f3).
 const YamlEditor = lazy(async () => {
@@ -54,8 +55,14 @@ export default function SchemaEditor({
   const resolve = useCallback(
     async (uri: string): Promise<JsonSchema> => {
       const found = targetOf(uri);
-      if (found === null) throw new Error(t("dataModels.schema.externalRef", { uri }));
-      const read = await client.fetchQuery(modelQuery(target, { scope: found[0], name: found[1] }));
+      if (found !== null) {
+        const read = await client.fetchQuery(modelQuery(target, { scope: found[0], name: found[1] }));
+        return parse(read.content) as JsonSchema;
+      }
+      // Les schémas d'un modèle dérivé d'un contrat se désignent entre eux (47f55d8b).
+      const derived = derivedOf(uri);
+      if (derived === null) throw new Error(t("dataModels.schema.externalRef", { uri }));
+      const read = await client.fetchQuery(derivedModelQuery(target, derived));
       return parse(read.content) as JsonSchema;
     },
     [client, target, t],

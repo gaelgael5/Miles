@@ -26,6 +26,8 @@ from miles.chains.api_chains import router as chains_api_router
 from miles.chains.service import ChainsService
 from miles.config import Settings
 from miles.contracts.api_contracts import router as contracts_router
+from miles.contracts.api_models import router as contract_models_router
+from miles.contracts.models_service import ContractModelsService
 from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import ContractsService
 from miles.cultures.api_cultures import public_router as login_cultures_router
@@ -168,6 +170,7 @@ def create_app() -> FastAPI:
         app.state.domains = DomainsService(pool, branches, catalog, utc_now)
         app.state.workshop = WorkshopService(pool, branches, catalog, utc_now)
         app.state.contracts = ContractsService(pool, branches, catalog, utc_now)
+        app.state.contract_models = ContractModelsService(pool, branches, catalog, utc_now)
         app.state.remote_contracts = RemoteContracts(http)
         app.state.transform_budget = settings.transform_budget
         app.state.branches = BranchesService(pool, branches, catalog, utc_now)
@@ -246,6 +249,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(domains_router)
     app.include_router(workshop_router)
     app.include_router(contracts_router)
+    app.include_router(contract_models_router)
     app.include_router(branches_router)
     app.include_router(branch_views_router)
     app.include_router(holds_router)

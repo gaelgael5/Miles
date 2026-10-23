@@ -79,8 +79,12 @@ def test_every_meta_schema_mistake_is_named_with_its_place() -> None:
             "type: object\nproperties:\n  a: {$ref: '#miles:/shared/x'}\n",
             ("properties.a.$ref", "reference_interne_introuvable"),
         ),
+        (
+            "type: object\nproperties:\n  a: {$ref: 'miles:/contracts/materiel/v1/point'}\n",
+            ("properties.a.$ref", "modele_de_contrat_interdit"),
+        ),
     ],
-    ids=["racine-non-objet", "liste", "ref-externe", "ref-interne-cassee"],
+    ids=["racine-non-objet", "liste", "ref-externe", "ref-interne-cassee", "ref-contrat"],
 )
 def test_miles_rules_come_on_top_of_the_meta_schema(text: str, expected: tuple[str, str]) -> None:
     assert expected in _codes(text)
