@@ -57,7 +57,7 @@ export function WorkspaceViews({
                 className="sidebar-link sidebar-subsublink"
                 aria-current={
                   here && selection?.view === "contractModels" && selection.sens === sens &&
-                  selection.derived === undefined
+                  selection.contract === undefined
                     ? "page"
                     : undefined
                 }

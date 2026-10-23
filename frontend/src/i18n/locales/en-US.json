@@ -1114,6 +1114,10 @@
     "rederive": "Derive the models again",
     "back": "← Back to the contract models",
     "derivedFrom": "derived from contract {{slug}}, version {{version}}",
-    "readOnly": "Model derived from the contract: it can be read, not edited. It changes with a new contract version."
+    "readOnly": "Model derived from the contract: it can be read, not edited. It changes with a new contract version.",
+    "captionModels": "Models",
+    "backToContracts": "← Back to the contracts",
+    "contractTitle": "Models of contract “{{label}}”",
+    "noVersion": "No version integrated: this contract has no model yet."
   }
 }

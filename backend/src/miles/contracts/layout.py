@@ -10,6 +10,9 @@ from miles.workspaces.model import WorkspaceInputError
 
 # Sortant : appel d'un service distant ; entrant : webhook reçu. Pas de valeur par
 # défaut : un webhook pris pour un appel sortant produirait un mapping à l'envers.
+# À l'écran et dans la documentation, un contrat sortant se nomme « contrat externe » et
+# un entrant « contrat interne » (Gael, 23/10/2026) ; les valeurs stockées restent celles-ci,
+# volontairement : les renommer romprait les contrats déjà déclarés et le contrat MCP.
 DIRECTIONS = frozenset({"sortant", "entrant"})
 META = "contract.yaml"
 VERSION_RE = re.compile(r"^v(?P<number>[1-9]\d{0,5})\.yaml$")

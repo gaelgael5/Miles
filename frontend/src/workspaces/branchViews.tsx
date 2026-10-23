@@ -122,7 +122,8 @@ function viewScreen(
   }
   if (selection.view === "contractModels") {
     const sens = selection.sens ?? "entrant";
-    const list = () => onSelect({ id: workspace.id, view: "contractModels", branch, sens });
+    const at = (contract?: string) =>
+      onSelect({ id: workspace.id, view: "contractModels", branch, sens, contract });
     if (selection.derived !== undefined) {
       const [slug = "", version = "0", name = ""] = selection.derived.split("/");
       return (
@@ -130,7 +131,7 @@ function viewScreen(
           key={key}
           target={target}
           derived={{ slug, version: Number(version), name }}
-          onBack={list}
+          onBack={() => at(slug)}
         />
       );
     }
@@ -140,13 +141,16 @@ function viewScreen(
         workspace={workspace}
         target={target}
         sens={sens}
+        contract={selection.contract}
         onBack={back}
+        onContract={at}
         onOpen={(ref) =>
           onSelect({
             id: workspace.id,
             view: "contractModels",
             branch,
             sens,
+            contract: ref.slug,
             derived: `${ref.slug}/${ref.version}/${ref.name}`,
           })
         }

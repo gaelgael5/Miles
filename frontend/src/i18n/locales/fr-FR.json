@@ -1114,6 +1114,10 @@
     "rederive": "Redériver les modèles",
     "back": "← Retour aux modèles du contrat",
     "derivedFrom": "dérivé du contrat {{slug}}, version {{version}}",
-    "readOnly": "Modèle dérivé du contrat : il se lit, il ne s'édite pas. Il change avec une nouvelle version du contrat."
+    "readOnly": "Modèle dérivé du contrat : il se lit, il ne s'édite pas. Il change avec une nouvelle version du contrat.",
+    "captionModels": "Modèles",
+    "backToContracts": "← Retour aux contrats",
+    "contractTitle": "Modèles du contrat « {{label}} »",
+    "noVersion": "Aucune version intégrée : ce contrat n'a pas encore de modèle."
   }
 }
