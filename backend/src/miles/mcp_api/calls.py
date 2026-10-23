@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -14,7 +13,7 @@ from miles.apikeys.model import KEY_DIRECTORY, KeyPrincipal
 from miles.chains.service import ChainInUseError, ChainNotFoundError
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError
 from miles.datamodels.service import ModelInUseError, ModelNotFoundError
-from miles.events.model import DelegatedAuthor
+from miles.events.model import DelegatedAuthor, EventAuthor
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE
 from miles.mcp_api.errors import refusal, refusal_code
 from miles.obo.service import Actor
@@ -22,17 +21,17 @@ from miles.transform.api_transform import step_problem_out
 from miles.transform.chain import ChainInvalidError
 from miles.workspaces.model import (
     BranchNotFoundError,
+    HoldRequiredError,
     RepositoryUnavailableError,
     WorkspaceConflictError,
     WorkspaceInputError,
     WorkspaceNotFoundError,
+    git_signature,
 )
 
 log = structlog.get_logger(__name__)
 
 T = TypeVar("T")
-# Ce qu'un nom ou un e-mail lu ailleurs ne peut pas porter dans un auteur git.
-_UNSAFE_IDENTITY = re.compile(r"[<>\x00-\x1f\x7f]")
 
 
 @dataclass(frozen=True)
@@ -42,6 +41,14 @@ class Caller:
     principal: KeyPrincipal
     actor: Actor | None
     services: Any
+
+    @property
+    def viewer(self) -> EventAuthor:
+        """Qui lit : la personne signée, sinon la clé ; la personne qui a la main lit ses
+        commits non publiés (9def0adc), les autres ce qui est publié."""
+        if self.actor is not None:
+            return self.actor.author
+        return EventAuthor(KEY_DIRECTORY, self.principal.key_id)
 
     async def readable(self, workspace_id: str) -> None:
         """Lecture : un workspace hors des droits de la clé n'existe pas pour elle (0d4e4f75)."""
@@ -66,14 +73,15 @@ class Caller:
             raise ToolError(refusal("branche_racine_lecture_seule", branches=children))
         if branch not in children:
             raise ToolError(refusal("branche_inconnue", branche=branch, branches=children))
-        return await self._author(workspace_id)
-
-    async def _author(self, workspace_id: str) -> DelegatedAuthor:
-        key = self.principal
         if self.actor is None:
-            identity = f"{_clean(key.label)} via Miles <{key.key_id}@{KEY_DIRECTORY}.miles.invalid>"
-            return DelegatedAuthor(KEY_DIRECTORY, key.key_id, key.key_id, key.label, identity)
-        person = self.actor.author
+            # Une écriture MCP agit comme la personne (Gael, 23/10/2026) : elle suppose sa
+            # prise de main et son PAT. Une clé seule n'est personne, elle ne modifie rien.
+            raise ToolError(refusal("personne_requise"))
+        return await self._author(workspace_id, self.actor)
+
+    async def _author(self, workspace_id: str, actor: Actor) -> DelegatedAuthor:
+        key = self.principal
+        person = actor.author
         workspace = await self.services.workspaces.resolve_get(workspace_id)
         signature = None
         if workspace.git_connection_id is not None:
@@ -83,9 +91,9 @@ class Caller:
         if signature is not None:
             name, email = signature
         else:
-            name = self.actor.display_name
-            email = self.actor.email or f"{person.subject}@{person.directory}.miles.invalid"
-        identity = f"{_clean(name)} <{_clean(email)}>"
+            name = actor.display_name
+            email = actor.email or f"{person.subject}@{person.directory}.miles.invalid"
+        identity = git_signature(name, email)
         return DelegatedAuthor(
             person.directory, person.subject, key.key_id, key.label, identity, key.kind
         )
@@ -157,6 +165,9 @@ def tool_refusal(exc: Exception) -> ToolError | None:
         code, detail = "chaine_utilisee", {"par": exc.users}
     elif isinstance(exc, WorkspaceInputError):
         code, detail = "champ_invalide", {"champ": exc.field, "raison": exc.reason}
+    elif isinstance(exc, HoldRequiredError):
+        # Nommer qui tient la branche : l'agent sait alors à qui s'adresser.
+        code, detail = exc.code, {"par": exc.holder}
     elif isinstance(exc, WorkspaceConflictError):
         code, detail = exc.code, {}
     elif isinstance(exc, RepositoryUnavailableError):
@@ -170,7 +181,3 @@ def tool_refusal(exc: Exception) -> ToolError | None:
     if detail is None:
         return None
     return ToolError(refusal(code, **detail))
-
-
-def _clean(text: str) -> str:
-    return _UNSAFE_IDENTITY.sub("", text).strip()[:100] or "inconnu"

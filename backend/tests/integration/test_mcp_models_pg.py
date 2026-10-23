@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
 
-from miles.obo.signature import sign_actor
 from tests.integration.mcp_stack import McpForge, issue_key, open_mcp_forge
 from tests.integration.oauth_helpers import obtain_tokens, open_oauth
 from tests.integration.test_datamodels_pg import COLIS, PERSONNE
@@ -52,49 +50,57 @@ async def test_a_model_is_created_read_replaced_and_deleted_on_a_child_branch(m:
     assert await m.forge.file("shared/messages/personne.yaml", "work/atelier") is None
 
 
-async def test_a_change_is_signed_by_the_key_and_journaled_with_it(m: McpForge) -> None:
+async def _forge_identity(m: McpForge) -> tuple[str, str]:
+    """Nom et e-mail du compte de forge de l'administrateur, comme Miles les a lus."""
+    me = (await m.forge.api.get("/api/v1/user")).json()
+    return me.get("full_name") or me["login"], me["email"]
+
+
+async def test_a_key_alone_cannot_change_anything(m: McpForge) -> None:
+    key_only = {"Authorization": f"Bearer {m.secret}"}
+
+    refused = await m.refused(
+        "create_data_model", EDIT | {"scope": "shared", "content": PERSONNE}, headers=key_only
+    )
+    read = await m.ok("list_data_models", WS, headers=key_only)
+
+    assert refused == {"code": "personne_requise"}
+    assert read == []
+
+
+async def test_a_change_for_the_holder_is_local_until_published_then_theirs(m: McpForge) -> None:
+    before = await m.forge.remote_file("shared/messages/personne.yaml")
     created = await m.ok("create_data_model", EDIT | {"scope": "shared", "content": PERSONNE})
+    unpublished = await m.forge.remote_file("shared/messages/personne.yaml")
+    published = await m.ok("publish_branch", EDIT)
+    again = await m.ok("publish_branch", EDIT)
 
     commit = await _commit(m, created["commit"])
     event = await m.forge.portal.pool.fetchrow(
         "SELECT author_directory, author_subject, properties FROM events"
         " WHERE type = 'data_model.created'"
     )
-
-    assert commit["name"] == "Gateway via Miles"
-    assert commit["email"] == f"{m.key_id}@apikey.miles.invalid"
-    assert "Via la clé d'API « Gateway »." in commit["message"]
-    assert event is not None
-    assert (event["author_directory"], event["author_subject"]) == ("apikey", m.key_id)
-    assert f'"via_api_key": "{m.key_id}"' in event["properties"]
-
-
-async def test_a_change_made_for_a_signed_person_is_theirs_via_the_key(m: McpForge) -> None:
-    guid = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
-    assert (
-        await m.forge.client.put("/api/auth/me/identity", json={"actor": guid})
-    ).status_code == 200
-    at = int(time.time())
-    headers = {
-        "x-portal-actor": guid,
-        "x-portal-actor-timestamp": str(at),
-        "x-portal-actor-signature": sign_actor(guid, at, m.secret),
-    }
-
-    created = await m.ok(
-        "create_data_model", EDIT | {"scope": "shared", "content": PERSONNE}, headers=headers
+    assert (before, unpublished) == (None, None)
+    assert (published, again) == (
+        {"branch": "edition", "published": 1},
+        {"branch": "edition", "published": 0},
     )
-
-    commit = await _commit(m, created["commit"])
-    event = await m.forge.portal.pool.fetchrow(
-        "SELECT author_directory, author_subject, properties FROM events"
-        " WHERE type = 'data_model.created'"
-    )
-    assert (commit["name"], commit["email"]) == ("admin", "admin@miles.invalid")
+    assert (commit["name"], commit["email"]) == await _forge_identity(m)
     assert "Via la clé d'API « Gateway »." in commit["message"]
     assert event is not None
     assert (event["author_directory"], event["author_subject"]) == ("local", "admin")
     assert f'"via_api_key": "{m.key_id}"' in event["properties"]
+
+
+async def test_a_person_without_the_hold_is_refused_and_told_who_holds_it(m: McpForge) -> None:
+    released = await m.forge.client.delete("/api/workspaces/retrait/branches/edition/hold")
+
+    free = await m.refused("create_data_model", EDIT | {"scope": "shared", "content": PERSONNE})
+    publish = await m.refused("publish_branch", EDIT)
+
+    assert released.json() == {"released": True}
+    assert free == {"code": "prise_de_main_requise", "par": None}
+    assert publish == {"code": "prise_de_main_requise"}
 
 
 async def test_a_change_needs_a_named_child_branch(m: McpForge) -> None:
@@ -111,9 +117,17 @@ async def test_a_change_needs_a_named_child_branch(m: McpForge) -> None:
     assert root == {"code": "branche_racine_lecture_seule", "branches": ["edition"]}
     assert unknown == {"code": "branche_inconnue", "branche": "nulle", "branches": ["edition"]}
     assert read_root == []
+    name, _ = await _forge_identity(m)
+    login = (await m.forge.api.get("/api/v1/user")).json()["login"]
     assert branches == [
-        {"slug": "atelier", "label": "atelier", "base": True},
-        {"slug": "edition", "label": "Édition", "base": False},
+        {"slug": "atelier", "label": "atelier", "base": True, "held_by": None, "held_by_me": False},
+        {
+            "slug": "edition",
+            "label": "Édition",
+            "base": False,
+            "held_by": f"{name} ({login})",
+            "held_by_me": True,
+        },
     ]
     assert await m.forge.commits("work/atelier") == before
 
@@ -186,12 +200,13 @@ async def test_a_change_made_through_oauth_is_signed_by_the_person_via_the_clien
         "create_data_model", EDIT | {"scope": "shared", "content": PERSONNE}, headers=as_person
     )
 
+    await m.forge.publish()
     commit = await _commit(m, created["commit"])
     event = await m.forge.portal.pool.fetchrow(
         "SELECT author_directory, author_subject, properties FROM events"
         " WHERE type = 'data_model.created'"
     )
-    assert (commit["name"], commit["email"]) == ("admin", "admin@miles.invalid")
+    assert (commit["name"], commit["email"]) == await _forge_identity(m)
     assert "Via le client OAuth « claude.ai »." in commit["message"]
     assert event is not None
     assert (event["author_directory"], event["author_subject"]) == ("local", "admin")

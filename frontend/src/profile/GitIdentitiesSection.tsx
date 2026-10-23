@@ -26,6 +26,22 @@ function refusal(error: unknown): string {
   return "profile.git.errors.unexpected";
 }
 
+/** Retirer son jeton est refusé pendant une prise de main (9def0adc, critère 12). */
+function RemoveRefusal({ error }: { error: unknown }) {
+  const { t } = useTranslation();
+  const detail =
+    error instanceof ApiError && typeof error.detail === "object" && error.detail !== null
+      ? (error.detail as { code?: string; workspace_id?: string; branch?: string })
+      : null;
+  return (
+    <p className="alert" role="alert">
+      {detail?.code === "prise_de_main_en_cours"
+        ? t("profile.git.errors.holding", { workspace: detail.workspace_id, branch: detail.branch })
+        : t("profile.git.errors.removal")}
+    </p>
+  );
+}
+
 function Connection({ identity }: { identity: GitIdentity }) {
   const { t } = useTranslation();
   const register = useRegisterGitIdentity(identity.connection_id);
@@ -85,6 +101,7 @@ function Connection({ identity }: { identity: GitIdentity }) {
               {t(refusal(register.error))}
             </p>
           )}
+          {remove.isError && <RemoveRefusal error={remove.error} />}
           <div className="actions">
             <button type="submit" className="btn btn-primary" disabled={register.isPending}>
               {t(account ? "profile.git.replace" : "profile.git.save")}

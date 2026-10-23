@@ -14,7 +14,8 @@ import {
 } from "../layout/WorkspacesNav";
 import { BranchForm } from "./BranchForm";
 import { BranchPicker } from "./BranchPicker";
-import { branchScreen } from "./branchViews";
+import { HoldControl } from "./HoldControl";
+import { BranchViewScreen, hasBranchScreen } from "./branchViews";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
 function errorKey(error: unknown): string {
@@ -114,7 +115,10 @@ function WorkspaceRow({
           <div className="value mono">—</div>
         </div>
       ) : (
-        <BranchPicker workspace={workspace} />
+        <>
+          <BranchPicker workspace={workspace} />
+          <HoldControl workspace={workspace} />
+        </>
       )}
       <div className="actions row-actions">
         {workspace.work_branch !== null && (
@@ -146,10 +150,8 @@ export function WorkspacesScreen({
   const [branching, setBranching] = useState<Workspace | null>(null);
   const views = useBranchViews();
   const current = workspaces.data?.find((w) => w.id === selection?.id);
-  const screen = current && selection ? branchScreen(current, selection, onSelect) : null;
-
-  if (screen) {
-    return screen;
+  if (current && selection && hasBranchScreen(current, selection)) {
+    return <BranchViewScreen workspace={current} selection={selection} onSelect={onSelect} />;
   }
   if (current) {
     return <WorkspaceSettings workspace={current} onBack={() => onSelect(null)} />;

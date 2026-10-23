@@ -41,6 +41,7 @@ from miles.datamodels.service import DataModelsService
 from miles.db.migration_files import file_load_migrations
 from miles.db.pool import db_create_pool
 from miles.events.model import EventTypeCatalog
+from miles.git.holdspace import HOLDS_DIR, HoldSpaces
 from miles.git.workdirs import WorkDirs
 from miles.gitaccess import model as gitaccess_events
 from miles.gitaccess.api_gitaccess import connections_router
@@ -84,11 +85,14 @@ from miles.transform.api_catalog import router as catalog_router
 from miles.transform.api_transform import chains_router
 from miles.transform.api_transform import router as transform_router
 from miles.workshop import branches as branches_events
+from miles.workshop import holds as holds_events
 from miles.workshop import service as workshop_events
 from miles.workshop.api_branches import router as branches_router
 from miles.workshop.api_branches import views_router as branch_views_router
+from miles.workshop.api_holds import router as holds_router
 from miles.workshop.api_workshop import router as workshop_router
 from miles.workshop.branches import BranchesService
+from miles.workshop.holds import BranchHoldsService
 from miles.workshop.service import WorkshopService
 from miles.workshop.target import WorkBranches
 from miles.workspaces import model as workspace_events
@@ -126,6 +130,7 @@ def create_app() -> FastAPI:
         | workshop_events.EVENT_TYPES
         | contracts_events.EVENT_TYPES
         | branches_events.EVENT_TYPES
+        | holds_events.EVENT_TYPES
         | identities_events.EVENT_TYPES
         | chains_events.EVENT_TYPES
         | sources_events.EVENT_TYPES
@@ -172,14 +177,29 @@ def create_app() -> FastAPI:
             pool, resolver, verifier, catalog, utc_now, git_hosts
         )
         app.state.workspaces = WorkspacesService(pool, resolver, catalog, utc_now, git_hosts)
+        app.state.git_identities = GitIdentitiesService(
+            pool, cipher, http, catalog, utc_now, git_hosts
+        )
         workdirs = WorkDirs(settings.workcopies_dir)
-        branches = WorkBranches(pool, app.state.workspaces, resolver, workdirs, git_hosts)
+        # Espaces de prise de main sur le même volume, à part des copies de lecture : un
+        # identifiant de workspace ne commence jamais par « _ », aucun ne s'y confond.
+        holds = HoldSpaces(settings.workcopies_dir / HOLDS_DIR)
+        branches = WorkBranches(
+            pool,
+            app.state.workspaces,
+            resolver,
+            workdirs,
+            holds,
+            app.state.git_identities,
+            git_hosts,
+        )
         app.state.data_models = DataModelsService(pool, branches, catalog, utc_now)
         app.state.workshop = WorkshopService(pool, branches, catalog, utc_now)
         app.state.contracts = ContractsService(pool, branches, catalog, utc_now)
         app.state.remote_contracts = RemoteContracts(http)
         app.state.transform_budget = settings.transform_budget
         app.state.branches = BranchesService(pool, branches, catalog, utc_now)
+        app.state.branch_holds = BranchHoldsService(pool, branches, catalog, utc_now)
         app.state.template_catalog = CatalogService(branches)
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
@@ -191,9 +211,6 @@ def create_app() -> FastAPI:
         app.state.oauth_flow = OAuthFlow(pool, app.state.oauth_clients, catalog, utc_now, resource)
         app.state.oauth_access = OAuthAccess(pool, store, catalog, utc_now)
         app.state.actor_identities = ActorIdentitiesService(pool, utc_now)
-        app.state.git_identities = GitIdentitiesService(
-            pool, cipher, http, catalog, utc_now, git_hosts
-        )
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -256,6 +273,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(contracts_router)
     app.include_router(branches_router)
     app.include_router(branch_views_router)
+    app.include_router(holds_router)
     app.include_router(preferences_router)
     app.include_router(identities_router)
     app.include_router(transform_router)

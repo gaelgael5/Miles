@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
-import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const VERSIONS = "/api/workspaces/retrait/versions";
@@ -37,6 +37,7 @@ async function openWorkshop() {
 describe("VersionsPanel", () => {
   it("saves a version with its label, then lists it", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
@@ -62,6 +63,7 @@ describe("VersionsPanel", () => {
 
   it("shows, file by file, why the configuration cannot be frozen", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
@@ -97,6 +99,7 @@ describe("VersionsPanel", () => {
 
   it("says there is nothing to freeze", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
@@ -115,6 +118,7 @@ describe("VersionsPanel", () => {
 
   it("returns to a version after confirmation, by a new commit", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       [MODELS]: { status: 200, body: [] },

@@ -143,6 +143,7 @@ async def test_a_chain_designated_by_a_source_cannot_be_deleted(forge: Forge) ->
 
 async def test_a_version_cannot_freeze_a_source_broken_outside_miles(forge: Forge) -> None:
     await _declare(forge)
+    await forge.publish()
     path = "sources/comptes.yaml"
     meta = await forge.api.get(
         f"/api/v1/repos/miles/{forge.name}/contents/{path}", params={"ref": "work/edition"}

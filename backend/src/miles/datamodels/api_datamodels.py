@@ -101,19 +101,33 @@ def _refusal(exc: Exception) -> JSONResponse:
 
 
 @router.get("", response_model=list[ModelOut])
-async def list_models(workspace_id: str, service: Service, branch: str | None = None) -> object:
+async def list_models(
+    workspace_id: str, request: Request, service: Service, branch: str | None = None
+) -> object:
     try:
-        return [_out(e) for e in await service.resolve_list(workspace_id, branch=branch)]
+        return [
+            _out(e)
+            for e in await service.resolve_list(
+                request_author(request), workspace_id, branch=branch
+            )
+        ]
     except _REFUSALS as exc:
         return _refusal(exc)
 
 
 @router.get("/{scope}/{name}", response_model=ModelContentOut)
 async def get_model(
-    workspace_id: str, scope: str, name: str, service: Service, branch: str | None = None
+    workspace_id: str,
+    request: Request,
+    scope: str,
+    name: str,
+    service: Service,
+    branch: str | None = None,
 ) -> object:
     try:
-        entry, content = await service.resolve_get(workspace_id, scope, name, branch=branch)
+        entry, content = await service.resolve_get(
+            request_author(request), workspace_id, scope, name, branch=branch
+        )
     except _REFUSALS as exc:
         return _refusal(exc)
     return ModelContentOut(scope=entry.scope, name=entry.name, path=entry.path, content=content)

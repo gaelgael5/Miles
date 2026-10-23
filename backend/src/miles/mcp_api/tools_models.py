@@ -21,7 +21,9 @@ WriteBranch = Annotated[
     Field(
         description=(
             "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en"
-            " lecture seule. Le refus liste les branches enfants existantes."
+            " lecture seule. Le refus liste les branches enfants existantes. La personne pour"
+            " qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la"
+            " modification reste locale jusqu'à publish_branch."
         )
     ),
 ]
@@ -50,7 +52,9 @@ async def _models(caller: Caller) -> DataModelsService:
 
 async def _unknown(caller: Caller, workspace_id: str, branch: str | None, path: str) -> ToolError:
     """Un modèle inconnu, avec ce qui existe : l'agent se corrige sans appel exploratoire."""
-    existing = await (await _models(caller)).resolve_list(workspace_id, branch=branch)
+    existing = await (await _models(caller)).resolve_list(
+        caller.viewer, workspace_id, branch=branch
+    )
     return ToolError(refusal("modele_inconnu", path=path, existants=[e.path for e in existing]))
 
 
@@ -62,7 +66,9 @@ def register(server: MCPServer) -> None:
         caller = caller_of(ctx)
         await caller.readable(workspace_id)
         try:
-            entries = await (await _models(caller)).resolve_list(workspace_id, branch=branch)
+            entries = await (await _models(caller)).resolve_list(
+                caller.viewer, workspace_id, branch=branch
+            )
         except Exception as exc:
             raise tool_refusal(exc) or exc from None
         return [_entry(e) for e in entries]
@@ -79,7 +85,9 @@ def register(server: MCPServer) -> None:
         await caller.readable(workspace_id)
         service = await _models(caller)
         try:
-            entry, content = await service.resolve_get(workspace_id, scope, name, branch=branch)
+            entry, content = await service.resolve_get(
+                caller.viewer, workspace_id, scope, name, branch=branch
+            )
         except ModelNotFoundError as exc:
             raise await _unknown(caller, workspace_id, branch, str(exc)) from None
         except Exception as exc:

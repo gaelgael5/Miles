@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
-import { BARE, CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
+import { BARE, CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/data-models";
@@ -31,6 +31,7 @@ describe("DataModelsScreen", () => {
 
   it("lists the models of the work branch and shows one exactly as stored", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
       [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [COLIS, PERSONNE] },
@@ -51,6 +52,7 @@ describe("DataModelsScreen", () => {
 
   it("writes a shared model when no domain is given", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
       [`GET ${ROUTE}?branch=edition`]: [
@@ -60,7 +62,7 @@ describe("DataModelsScreen", () => {
       [`POST ${ROUTE}?branch=edition`]: { status: 201, body: PERSONNE },
     });
     await openModels();
-    fireEvent.click(screen.getByText("Add a model"));
+    fireEvent.click((await screen.findByText("Add a model")));
     fill("Model (YAML)", YAML);
 
     fireEvent.click(screen.getByText("Write to the work branch"));
@@ -74,6 +76,7 @@ describe("DataModelsScreen", () => {
 
   it("lists every grammar problem with its place in the document", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
       [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
@@ -91,7 +94,7 @@ describe("DataModelsScreen", () => {
       },
     });
     await openModels();
-    fireEvent.click(screen.getByText("Add a model"));
+    fireEvent.click((await screen.findByText("Add a model")));
     fill("Domain", "suivi");
     fill("Model (YAML)", "nom: x");
     fireEvent.click(screen.getByText("Write to the work branch"));
@@ -104,6 +107,7 @@ describe("DataModelsScreen", () => {
 
   it("names the YAML position and the models that still use one being deleted", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
       [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [PERSONNE] },
@@ -117,7 +121,7 @@ describe("DataModelsScreen", () => {
       },
     });
     await openModels();
-    fireEvent.click(screen.getByText("Add a model"));
+    fireEvent.click((await screen.findByText("Add a model")));
     fill("Model (YAML)", "nom: [");
     fireEvent.click(screen.getByText("Write to the work branch"));
     expect(await screen.findByText("Invalid YAML, line 3, column 7: bad")).toBeInTheDocument();

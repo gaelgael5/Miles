@@ -19,7 +19,7 @@ from miles.datamodels.grammar import (
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
-from miles.workshop.target import WorkBranches
+from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceConflictError, WorkspaceInputError
 
 log = structlog.get_logger(__name__)
@@ -96,16 +96,26 @@ class DataModelsService:
     now: Callable[[], datetime]
 
     async def resolve_list(
-        self, workspace_id: str, *, branch: str | None = None
+        self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
     ) -> list[ModelEntry]:
-        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
             return await _entries(copy)
 
     async def resolve_get(
-        self, workspace_id: str, scope: str, name: str, *, branch: str | None = None
+        self,
+        viewer: EventAuthor,
+        workspace_id: str,
+        scope: str,
+        name: str,
+        *,
+        branch: str | None = None,
     ) -> tuple[ModelEntry, str]:
         path = model_path(_scope(scope), _name(name))
-        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
             content = await copy.read(path)
         if content is None:
             raise ModelNotFoundError(path)
@@ -125,7 +135,9 @@ class DataModelsService:
         # Vérifié avant tout accès au dépôt : un document refusé ne coûte aucun clone.
         model = parse_model(content)
         entry = ModelEntry(scope, model.name, model_path(scope, model.name))
-        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
             existing = await copy.read(entry.path)
             if existing is not None:
                 if existing == content:
@@ -133,7 +145,7 @@ class DataModelsService:
                 raise WorkspaceConflictError("nom_pris")
             await _check_references(copy, scope, model)
             await copy.write(entry.path, content)
-            commit = await self.branches.push(copy, f"Modèle de données {entry.path}", author)
+            commit = await self.branches.commit(copy, f"Modèle de données {entry.path}", author)
         await self._event(workspace_id, CREATED_EVENT, author, entry, commit, copy.branch)
         log.info("modele_de_donnees_cree", workspace=workspace_id, path=entry.path)
         return entry, commit
@@ -158,7 +170,9 @@ class DataModelsService:
         if model.name != name:
             raise WorkspaceConflictError("nom_fige")
         entry = ModelEntry(scope, name, model_path(scope, name))
-        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
             existing = await copy.read(entry.path)
             if existing is None:
                 raise ModelNotFoundError(entry.path)
@@ -166,7 +180,7 @@ class DataModelsService:
                 return entry, None
             await _check_references(copy, scope, model)
             await copy.write(entry.path, content)
-            commit = await self.branches.push(copy, f"Modèle de données {entry.path}", author)
+            commit = await self.branches.commit(copy, f"Modèle de données {entry.path}", author)
         await self._event(workspace_id, REPLACED_EVENT, author, entry, commit, copy.branch)
         log.info("modele_de_donnees_remplace", workspace=workspace_id, path=entry.path)
         return entry, commit
@@ -182,7 +196,9 @@ class DataModelsService:
     ) -> str:
         scope, name = _scope(scope), _name(name)
         entry = ModelEntry(scope, name, model_path(scope, name))
-        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
             entries = await _entries(copy)
             if entry not in entries:
                 raise ModelNotFoundError(entry.path)
@@ -190,7 +206,7 @@ class DataModelsService:
             if users:
                 raise ModelInUseError(users)
             await copy.remove(entry.path)
-            commit = await self.branches.push(copy, f"Suppression du modèle {entry.path}", author)
+            commit = await self.branches.commit(copy, f"Suppression du modèle {entry.path}", author)
         await self._event(workspace_id, DELETED_EVENT, author, entry, commit, copy.branch)
         log.info("modele_de_donnees_supprime", workspace=workspace_id, path=entry.path)
         return commit

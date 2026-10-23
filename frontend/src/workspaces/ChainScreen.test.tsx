@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
-import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/transformations";
@@ -27,6 +27,7 @@ function openChain() {
 describe("ChainsScreen", () => {
   it("creates a chain with its label and proposed slug, then opens it", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
       [`PUT ${ROUTE}/import-des-comptes${Q}`]: {
@@ -57,6 +58,7 @@ describe("ChainsScreen", () => {
 describe("ChainScreen", () => {
   it("reorders the steps and saves them in the chosen order", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
       [`PUT ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
@@ -77,6 +79,7 @@ describe("ChainScreen", () => {
 
   it("tries the chain on a sample and shows the message after each step", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
       "POST /api/transformations/check": {
@@ -105,6 +108,7 @@ describe("ChainScreen", () => {
 
   it("shows each refusal next to its step and an invalid sample before running", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
       [`PUT ${ROUTE}/comptes-import${Q}`]: {
@@ -133,6 +137,7 @@ describe("ChainScreen", () => {
 
   it("deletes the chain only after confirmation", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
       [`DELETE ${ROUTE}/comptes-import${Q}`]: { status: 204 },

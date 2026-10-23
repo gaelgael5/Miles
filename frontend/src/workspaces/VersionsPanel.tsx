@@ -148,13 +148,14 @@ export function VersionsPanel({ target }: { target: WorkTarget }) {
     <section className="card" aria-labelledby="versions-title">
       <div className="card-head">
         <h2 id="versions-title">{t("versions.title")}</h2>
-        {!saving && (
+        {/* Racine : toujours. Branche enfant : par qui en a la main (9def0adc). */}
+        {!saving && target.canFreeze && (
           <button type="button" className="btn btn-primary" onClick={() => setSaving(true)}>
             {t("versions.save")}
           </button>
         )}
       </div>
-      {saving && <SaveForm target={target} onDone={() => setSaving(false)} />}
+      {saving && target.canFreeze && <SaveForm target={target} onDone={() => setSaving(false)} />}
       {versions.isError && <VersionRefusal error={versions.error} />}
       {versions.isSuccess && versions.data.length === 0 && (
         <p className="muted">{t("versions.empty")}</p>

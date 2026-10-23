@@ -100,4 +100,21 @@ describe("GitIdentitiesSection", () => {
     expect(await screen.findByText("No token registered for this connection.")).toBeInTheDocument();
     expect(calls.some((c) => c.key === `DELETE ${ROUTE}/acme`)).toBe(true);
   });
+
+  it("refuses to remove the token while a branch is held, naming it", async () => {
+    mockApi({
+      [`GET ${ROUTE}`]: { status: 200, body: [REGISTERED] },
+      [`DELETE ${ROUTE}/acme`]: {
+        status: 409,
+        body: { detail: { code: "prise_de_main_en_cours", workspace_id: "retrait", branch: "edition" } },
+      },
+    });
+    renderSection();
+    fireEvent.click(await screen.findByText("Remove the token"));
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove the token" }).at(-1) as HTMLElement);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You hold branch edition of workspace retrait: release it first",
+    );
+  });
 });

@@ -189,11 +189,14 @@ async def test_refusals_write_nothing_and_say_why(forge: Forge) -> None:
 
 async def test_a_version_cannot_freeze_a_declared_contract_without_file(forge: Forge) -> None:
     await _declare(forge)
+    # Une version fige la tête publiée (9def0adc) : on publie avant chaque enregistrement.
+    await forge.publish()
 
     refused = await forge.client.post(
         "/api/workspaces/retrait/versions", json={"label": "Contrat vide"}, timeout=120
     )
     await _import(forge, SUIVI)
+    await forge.publish()
     saved = await forge.client.post(
         "/api/workspaces/retrait/versions", json={"label": "Contrat complet"}, timeout=120
     )
@@ -210,6 +213,7 @@ async def test_a_version_cannot_freeze_a_declared_contract_without_file(forge: F
 async def test_a_version_cannot_freeze_a_contract_broken_outside_miles(forge: Forge) -> None:
     await _declare(forge)
     await _import(forge, SUIVI)
+    await forge.publish()
     meta = await forge.api.get(
         f"/api/v1/repos/miles/{forge.name}/contents/contracts/suivi/contract.yaml",
         params={"ref": "work/edition"},

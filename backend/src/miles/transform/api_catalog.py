@@ -7,10 +7,12 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
+from miles.auth.author import request_author
+from miles.events.model import EventAuthor
 from miles.git.snapshot import CommitNotFoundError, snapshot
 from miles.transform.catalog import app_floor, functions_catalog, models_catalog
 from miles.transform.engine import function_registry
-from miles.workshop.target import WorkBranches
+from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,
@@ -35,9 +37,11 @@ class CatalogService:
     branches: WorkBranches
 
     async def resolve(
-        self, workspace_id: str, branch: str | None, commit: str | None
+        self, viewer: EventAuthor, workspace_id: str, branch: str | None, commit: str | None
     ) -> dict[str, Any]:
-        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
             source = await snapshot(copy, commit) if commit else None
             paths = await (source.paths() if source else copy.paths())
             read = source.read if source else copy.read
@@ -117,10 +121,14 @@ def _refusal(exc: Exception) -> JSONResponse:
 
 @router.get("", response_model=CatalogOut)
 async def get_catalog(
-    workspace_id: str, service: Service, branch: str | None = None, commit: str | None = None
+    workspace_id: str,
+    request: Request,
+    service: Service,
+    branch: str | None = None,
+    commit: str | None = None,
 ) -> object:
     try:
-        found = await service.resolve(workspace_id, branch, commit)
+        found = await service.resolve(request_author(request), workspace_id, branch, commit)
     except _REFUSALS as exc:
         return _refusal(exc)
     functions = [

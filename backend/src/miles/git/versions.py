@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from miles.git.rights import classify
-from miles.git.workcopy import WorkCopy
+from miles.git.workcopy import WorkCopy, author_parts
 from miles.git.worktree import RepositoryAccessError
 
 # Une version est une étiquette annotée posée sur un commit de la branche de travail :
@@ -13,7 +13,6 @@ from miles.git.worktree import RepositoryAccessError
 # auteur et date, et le retour arrière ou la revue avant homologation visent ce commit.
 TAG_PREFIX = "version/"
 _TAG_RE = re.compile(r"^version/(\d+)$")
-_AUTHOR_RE = re.compile(r"^(?P<name>[^<>]+) <(?P<email>[^<>]+)>$")
 _FIELD = "\x1f"
 # La branche d'où vient une version, en ligne de pied du message de l'étiquette : le nom
 # `version/<n>` reste unique au dépôt (Gael, 22/10/2026), la branche ne s'y lit donc pas.
@@ -100,17 +99,15 @@ async def tag_head(copy: WorkCopy, number: int, label: str, author: str) -> None
 
     Le message porte le libellé, puis la branche de la copie en ligne de pied.
     """
-    match = _AUTHOR_RE.match(author)
-    if match is None:
-        raise ValueError("auteur de commit mal formé")
+    tagger, email = author_parts(author)
     name = f"{TAG_PREFIX}{number}"
     # Les -c passés ici viennent après ceux du lanceur : l'étiqueteur est la personne,
     # pas le compte technique de Miles.
     tagged = await copy.git(
         "-c",
-        f"user.name={match['name']}",
+        f"user.name={tagger}",
         "-c",
-        f"user.email={match['email']}",
+        f"user.email={email}",
         "tag",
         "-a",
         name,

@@ -16,7 +16,7 @@ from miles.git.worktree import RepositoryAccessError
 
 # Segments de chemin : un identifiant de workspace et un nom de branche déjà validés par
 # leurs propres règles. Revalidés ici parce qu'ils deviennent des chemins sur le volume.
-_SEGMENT_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+SEGMENT_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 _REMOTE = "origin"
 
 
@@ -37,7 +37,7 @@ class WorkDirs:
 
     def directory(self, workspace_id: str, branch: str) -> Path:
         name = branch.removeprefix("work/")
-        if not (_SEGMENT_RE.match(workspace_id) and _SEGMENT_RE.match(name)):
+        if not (SEGMENT_RE.match(workspace_id) and SEGMENT_RE.match(name)):
             raise ValueError("segment de copie de travail invalide")
         target = (self.root / workspace_id / name).resolve()
         if not target.is_relative_to(self.root.resolve()):

@@ -3,7 +3,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import "../i18n/i18n";
 import { proposeSlug } from "../api/contracts";
 import { mockApi } from "../test/mockApi";
-import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/contracts";
@@ -35,6 +35,7 @@ describe("proposeSlug", () => {
 describe("ContractsScreen", () => {
   it("declares a contract with its label, proposed slug and direction, then opens it", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}?branch=edition`]: [
         { status: 200, body: [] },
@@ -44,7 +45,7 @@ describe("ContractsScreen", () => {
       [`GET ${ROUTE}/suivi?branch=edition`]: { status: 200, body: DECLARED },
     });
     await openContracts();
-    fireEvent.click(screen.getByRole("button", { name: "Declare a contract" }));
+    fireEvent.click((await screen.findByRole("button", { name: "Declare a contract" })));
 
     fill("Label", "Suivi des demandes");
     expect(screen.getByLabelText("Slug")).toHaveValue("suivi-des-demandes");
@@ -68,6 +69,7 @@ describe("ContractsScreen", () => {
 
   it("names the occupant of a taken slug and the missing label", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
       [`POST ${ROUTE}?branch=edition`]: [
@@ -76,7 +78,7 @@ describe("ContractsScreen", () => {
       ],
     });
     await openContracts();
-    fireEvent.click(screen.getByRole("button", { name: "Declare a contract" }));
+    fireEvent.click((await screen.findByRole("button", { name: "Declare a contract" })));
     fill("Label", "Matériel");
     fireEvent.click(screen.getByLabelText("Inbound — webhook received"));
 
@@ -90,6 +92,7 @@ describe("ContractsScreen", () => {
 
   it("lists contracts with their direction and versions, flagging the ones without file", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}?branch=edition`]: {
         status: 200,

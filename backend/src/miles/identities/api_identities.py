@@ -15,6 +15,7 @@ from miles.identities.service import (
     EmptyTokenError,
     GitIdentitiesService,
     GitIdentity,
+    TokenInUseError,
 )
 
 # Ouvertes à toute session, OIDC sans droit comprise (préfixe OIDC_SESSION_PREFIXES de la
@@ -119,6 +120,10 @@ async def register_identity(
 
 @router.delete("/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_identity(connection_id: str, request: Request, service: Service) -> Response:
-    await service.resolve_remove(request_author(request), connection_id)
+    try:
+        await service.resolve_remove(request_author(request), connection_id)
+    except TokenInUseError as exc:
+        held = {"workspace_id": exc.workspace_id, "branch": exc.slug}
+        return _error(status.HTTP_409_CONFLICT, {"code": "prise_de_main_en_cours"} | held)
     # Rejeu sans effet : retirer ce qui n'est plus là rend la même réponse.
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -62,6 +62,17 @@ export const SETTINGS: Routes = {
   "GET /api/security-services": { status: 200, body: [] },
 };
 
+/**
+ * La personne connectée a la main sur la branche enfant « edition » (story 9def0adc) :
+ * sans elle, les écrans n'offrent aucun bouton de modification.
+ */
+export const HELD: Routes = {
+  "GET /api/workspaces/retrait/holds": {
+    status: 200,
+    body: [{ slug: "edition", holder: "Gael (gael)", mine: true, taken_at: "2026-10-23T08:00:00Z" }],
+  },
+};
+
 /** L'écran avec la sélection que lui tient le portail, ici tenue localement. */
 function Workspaces({ initial }: { initial: WorkspaceSelection }) {
   const [selection, setSelection] = useState<WorkspaceSelection>(initial);

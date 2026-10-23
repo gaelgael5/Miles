@@ -38,6 +38,14 @@ class EmptyTokenError(Exception):
     pass
 
 
+class TokenInUseError(Exception):
+    """Le PAT sert une prise de main en cours (9def0adc, critère 12) : on nomme laquelle."""
+
+    def __init__(self, workspace_id: str, slug: str) -> None:
+        super().__init__(f"prise de main en cours sur {workspace_id}/{slug}")
+        self.workspace_id, self.slug = workspace_id, slug
+
+
 @dataclass(frozen=True)
 class RepositoryCheck:
     workspace_id: str
@@ -124,6 +132,18 @@ class GitIdentitiesService:
     async def resolve_remove(self, viewer: EventAuthor, connection_id: str) -> bool:
         """Retire le jeton ; rend False s'il n'y en avait pas (rejeu sans effet)."""
         async with self.pool.acquire() as conn, conn.transaction():
+            # Verrouillée dans la transaction du retrait : une prise de main ne peut pas
+            # s'appuyer sur ce jeton entre la vérification et la suppression.
+            held = await conn.fetchrow(
+                "SELECT workspace_id, slug FROM branch_holds WHERE holder_directory = $1"
+                " AND holder_subject = $2 AND connection_id = $3 FOR UPDATE",
+                viewer.directory,
+                viewer.subject,
+                connection_id,
+            )
+            if held is not None:
+                # Sans lui, les commits locaux ne pourraient plus être publiés (critère 12).
+                raise TokenInUseError(held["workspace_id"], held["slug"])
             removed = await conn.fetchval(
                 "DELETE FROM user_git_identities WHERE viewer_directory = $1"
                 " AND viewer_subject = $2 AND connection_id = $3 RETURNING login",

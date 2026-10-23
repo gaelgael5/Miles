@@ -1,5 +1,8 @@
+import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
+import { HoldNotice } from "./HoldNotice";
 import { RootReadOnlyNotice } from "./RootReadOnlyNotice";
+import { useWorkTarget } from "./useWorkTarget";
 import { type WorkspaceSelection, baseBranchOf } from "../layout/WorkspacesNav";
 import { BranchScreen } from "./BranchScreen";
 import { ChainScreen } from "./ChainScreen";
@@ -10,21 +13,32 @@ import { DataModelsScreen } from "./DataModelsScreen";
 import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
 
-/** Écran d'une vue de branche, avec l'avis de lecture seule sur la racine ; null pour le paramétrage. */
-export function branchScreen(
-  workspace: Workspace,
-  selection: NonNullable<WorkspaceSelection>,
-  onSelect: (selection: WorkspaceSelection) => void,
-) {
-  const screen = viewScreen(workspace, selection, onSelect);
-  const branch = selection.branch ?? baseBranchOf(workspace);
-  if (screen === null || branch !== baseBranchOf(workspace)) {
-    return screen;
-  }
+/** Une vue de branche s'affiche-t-elle ? Non pour le paramétrage, ni sans branche de base. */
+export function hasBranchScreen(workspace: Workspace, selection: NonNullable<WorkspaceSelection>) {
+  return selection.view !== "settings" && (selection.branch ?? baseBranchOf(workspace)) !== null;
+}
+
+/**
+ * Écran d'une vue de branche, avec ce qui dit pourquoi rien ne s'y modifie : la racine
+ * en lecture seule, ou une branche enfant dont on n'a pas la main (9def0adc).
+ */
+export function BranchViewScreen({
+  workspace,
+  selection,
+  onSelect,
+}: {
+  workspace: Workspace;
+  selection: NonNullable<WorkspaceSelection>;
+  onSelect: (selection: WorkspaceSelection) => void;
+}) {
+  const branch = selection.branch ?? baseBranchOf(workspace) ?? "";
+  const target = useWorkTarget(workspace, branch);
+  const root = branch === baseBranchOf(workspace);
   return (
     <>
-      <RootReadOnlyNotice />
-      {screen}
+      {root && <RootReadOnlyNotice />}
+      {!root && target.readOnly && <HoldNotice workspaceId={workspace.id} branch={branch} />}
+      {viewScreen(workspace, selection, target, onSelect)}
     </>
   );
 }
@@ -32,13 +46,10 @@ export function branchScreen(
 function viewScreen(
   workspace: Workspace,
   selection: NonNullable<WorkspaceSelection>,
+  target: WorkTarget,
   onSelect: (selection: WorkspaceSelection) => void,
 ) {
-  const branch = selection.branch ?? baseBranchOf(workspace);
-  if (selection.view === "settings" || branch === null) {
-    return null;
-  }
-  const target = { workspaceId: workspace.id, branch, readOnly: branch === baseBranchOf(workspace) };
+  const branch = target.branch;
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.

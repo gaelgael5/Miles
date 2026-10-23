@@ -497,7 +497,8 @@
         "branche_modifiee": "The work branch changed meanwhile: nothing was written. Try again.",
         "depot_non_configure": "This workspace has no repository yet.",
         "modele_inconnu": "This model no longer exists.",
-        "branche_inconnue": "This branch is unknown to the workspace."
+        "branche_inconnue": "This branch is unknown to the workspace.",
+        "prise_de_main_requise": "Take over this branch in “All workspaces” to change it."
       },
       "unexpected": "The operation failed. See the back-office logs."
     },
@@ -557,7 +558,9 @@
       "conflict": {
         "rien_a_figer": "Nothing changed since the last version: nothing to freeze.",
         "version_concurrente": "Another version was saved at the same time: nothing was frozen. Try again.",
-        "deja_a_cette_version": "The work branch already has this content."
+        "deja_a_cette_version": "The work branch already has this content.",
+        "publication_requise": "Some changes are not published yet: publish them in “All workspaces”, then save the version.",
+        "prise_de_main_requise": "Take over this branch in “All workspaces” to change it."
       },
       "unexpected": "The operation failed. See the back-office logs."
     }
@@ -723,7 +726,9 @@
         "reponse_inattendue": "The forge gave an unexpected answer.",
         "forge": "This forge is not supported.",
         "empty": "Enter a token.",
-        "unexpected": "The token could not be saved. See the back-office logs."
+        "unexpected": "The token could not be saved. See the back-office logs.",
+        "holding": "You hold branch {{branch}} of workspace {{workspace}}: release it first, otherwise your unpublished changes could no longer be published.",
+        "removal": "The token could not be removed. See the back-office logs."
       }
     },
     "actor": {
@@ -977,6 +982,32 @@
         "redirect_uris": "Return addresses: HTTPS without fragment (HTTP only towards localhost), at least one."
       },
       "unexpected": "The OAuth clients could not be handled. See the back-office logs."
+    }
+  },
+  "holds": {
+    "caption": "Holder",
+    "take": "Take over",
+    "mine": "You hold this branch",
+    "heldBy": "Held by {{holder}}",
+    "unpublished_one": "{{count}} unpublished change",
+    "unpublished_other": "{{count}} unpublished changes",
+    "publish": "Publish",
+    "published_one": "{{count}} change published.",
+    "published_other": "{{count}} changes published.",
+    "release": "Release",
+    "notice": {
+      "free": "Nobody holds this branch: take it over in “All workspaces” to change it.",
+      "heldBy": "{{holder}} holds this branch: you see it as published, without being able to change it."
+    },
+    "errors": {
+      "branche_tenue": "{{by}} already holds this branch.",
+      "deja_une_branche": "You already hold branch {{branch}} of workspace {{workspace}}: release it first.",
+      "identite_git_requise": "First register your personal git token for this workspace's connection, in “My profile”.",
+      "branche_racine_lecture_seule": "The root branch is read-only: nobody takes it over.",
+      "branche_modifiee": "The branch moved in the forge since your last publication: nothing was overwritten, your changes stay here.",
+      "prise_de_main_requise": "You do not hold this branch.",
+      "prise_concurrente": "Another takeover happened at the same time: try again.",
+      "unexpected": "The operation failed. See the back-office logs."
     }
   }
 }

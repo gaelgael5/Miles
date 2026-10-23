@@ -26,6 +26,8 @@ SELECT = (
     " LEFT JOIN workspace_work_branches b ON b.workspace_id = w.id"
 )
 _COMMIT_IDENTITY_RE = re.compile(r"[^A-Za-z0-9._-]")
+# Ce qu'un nom ou un e-mail lu ailleurs (forge, portail) ne peut pas porter dans un auteur git.
+_UNSAFE_IDENTITY_RE = re.compile(r"[<>\x00-\x1f\x7f]")
 
 
 class WorkspaceError(Exception):
@@ -54,6 +56,17 @@ class BranchNotFoundError(WorkspaceNotFoundError):
     Fille de WorkspaceNotFoundError pour que tout point d'entrée de l'atelier la refuse
     déjà ; chacun la nomme avant le cas général, sinon elle se lirait « workspace inconnu ».
     """
+
+
+class HoldRequiredError(WorkspaceConflictError):
+    """Modifier une branche fille suppose d'en avoir la main (story 9def0adc, critère 5).
+
+    `holder` : qui la tient, pour que le refus le nomme ; None si personne.
+    """
+
+    def __init__(self, holder: str | None) -> None:
+        super().__init__("prise_de_main_requise")
+        self.holder = holder
 
 
 class RepositoryUnavailableError(WorkspaceError):
@@ -119,6 +132,15 @@ def commit_author(author: EventAuthor) -> str:
     subject = _COMMIT_IDENTITY_RE.sub("-", author.subject)[:60] or "inconnu"
     directory = _COMMIT_IDENTITY_RE.sub("-", author.directory)[:60] or "inconnu"
     return f"{subject} via Miles <{subject}@{directory}.miles.invalid>"
+
+
+def git_signature(name: str, email: str) -> str:
+    """« Nom <e-mail> » sûr pour git, depuis des valeurs lues hors de Miles."""
+    return f"{_clean_identity(name)} <{_clean_identity(email)}>"
+
+
+def _clean_identity(text: str) -> str:
+    return _UNSAFE_IDENTITY_RE.sub("", text).strip()[:100] or "inconnu"
 
 
 MAX_LABEL = 120

@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
-import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/sources";
@@ -35,6 +35,7 @@ afterEach(() => {
 describe("SourcesScreen", () => {
   it("declares a source with its model, chain, keys and filterables, then opens it", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...PICKERS,
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
@@ -64,6 +65,7 @@ describe("SourcesScreen", () => {
 
   it("shows every refusal with the path it concerns", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...PICKERS,
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
@@ -93,6 +95,7 @@ describe("SourcesScreen", () => {
 
   it("refuses a name already taken by a different source", async () => {
     mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...PICKERS,
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
@@ -109,6 +112,7 @@ describe("SourcesScreen", () => {
 describe("SourceScreen", () => {
   it("keeps the name frozen and announces the rewrite a change will cause", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...PICKERS,
       [`GET ${ROUTE}/comptes${Q}`]: { status: 200, body: SOURCE },
@@ -131,6 +135,7 @@ describe("SourceScreen", () => {
 
   it("deletes the source after confirmation and returns to the list", async () => {
     const calls = mockApi({
+      ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...PICKERS,
       [`GET ${ROUTE}/comptes${Q}`]: { status: 200, body: SOURCE },

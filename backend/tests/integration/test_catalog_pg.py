@@ -39,6 +39,8 @@ async def test_catalogue_follows_the_branch_and_answers_for_a_past_commit(forge:
     assert {"convert", "concat"} <= {f["name"] for f in fresh.json()["functions"]}
     assert [m["name"] for m in now.json()["models"]] == ["personne"]
     assert now.json()["models"][0]["properties"] == [{"name": "nom", "type": "chaine"}]
+    # La personne qui a la main lit sa tête locale ; publiée, c'est celle de la forge.
+    await forge.publish()
     assert now.json()["commit"] == await _head(forge)
     # À un commit passé : ce qui était disponible alors, pas l'état courant.
     assert (then.json()["commit"], then.json()["models"]) == (before, [])

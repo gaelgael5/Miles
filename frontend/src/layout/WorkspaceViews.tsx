@@ -13,7 +13,6 @@ const VIEWS: WorkspaceView[] = ["branch", "dataModels", "contracts", "transforma
 export function WorkspaceViews({
   workspaceId,
   branch,
-  readOnly,
   open,
   active,
   selection,
@@ -21,7 +20,6 @@ export function WorkspaceViews({
 }: {
   workspaceId: string;
   branch: string;
-  readOnly: boolean;
   open: boolean;
   active: boolean;
   selection: WorkspaceSelection;
@@ -49,7 +47,8 @@ export function WorkspaceViews({
           </button>
           {view === "contracts" && (
             <ContractLinks
-              target={{ workspaceId, branch, readOnly }}
+              // Des liens qui ne font que lire : aucun geste d'écriture ne part du menu.
+              target={{ workspaceId, branch, readOnly: true, canFreeze: false }}
               open={open}
               current={here ? selection?.contract : undefined}
               onSelect={(contract) => onSelect({ id: workspaceId, view, branch, contract })}

@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
-import { CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
 const ROUTE = "/api/workspaces/retrait/contracts";
@@ -38,6 +38,7 @@ afterEach(() => {
 
 function routes(extra: Record<string, unknown>) {
   return {
+    ...HELD,
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [DECLARED] },
     ...extra,

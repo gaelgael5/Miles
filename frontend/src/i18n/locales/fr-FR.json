@@ -497,7 +497,8 @@
         "branche_modifiee": "La branche de travail a changé entre-temps : rien n'a été écrit. Réessayez.",
         "depot_non_configure": "Ce workspace n'a pas encore de dépôt.",
         "modele_inconnu": "Ce modèle n'existe plus.",
-        "branche_inconnue": "Cette branche n'est pas connue du workspace."
+        "branche_inconnue": "Cette branche n'est pas connue du workspace.",
+        "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier."
       },
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     },
@@ -557,7 +558,9 @@
       "conflict": {
         "rien_a_figer": "Rien n'a changé depuis la dernière version : rien à figer.",
         "version_concurrente": "Une autre version a été enregistrée au même moment : rien n'a été figé. Réessayez.",
-        "deja_a_cette_version": "La branche de travail a déjà ce contenu."
+        "deja_a_cette_version": "La branche de travail a déjà ce contenu.",
+        "publication_requise": "Des modifications ne sont pas encore publiées : publiez-les dans « Tous les workspaces », puis enregistrez la version.",
+        "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier."
       },
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }
@@ -723,7 +726,9 @@
         "reponse_inattendue": "La forge a répondu de façon inattendue.",
         "forge": "Cette forge n'est pas prise en charge.",
         "empty": "Saisissez un jeton.",
-        "unexpected": "Le jeton n'a pas pu être enregistré. Voir les journaux du back-office."
+        "unexpected": "Le jeton n'a pas pu être enregistré. Voir les journaux du back-office.",
+        "holding": "Vous avez la main sur la branche {{branch}} du workspace {{workspace}} : rendez-la d'abord, sinon vos modifications non publiées ne pourraient plus l'être.",
+        "removal": "Le jeton n'a pas pu être retiré. Voir les journaux du back-office."
       }
     },
     "actor": {
@@ -977,6 +982,32 @@
         "redirect_uris": "Adresses de retour : HTTPS sans fragment (HTTP seulement vers localhost), au moins une."
       },
       "unexpected": "Les clients OAuth n'ont pas pu être traités. Voir les journaux du back-office."
+    }
+  },
+  "holds": {
+    "caption": "Main",
+    "take": "Prendre la main",
+    "mine": "Vous avez la main",
+    "heldBy": "Tenue par {{holder}}",
+    "unpublished_one": "{{count}} modification non publiée",
+    "unpublished_other": "{{count}} modifications non publiées",
+    "publish": "Publier",
+    "published_one": "{{count}} modification publiée.",
+    "published_other": "{{count}} modifications publiées.",
+    "release": "Rendre la main",
+    "notice": {
+      "free": "Personne n'a la main sur cette branche : prenez-la dans « Tous les workspaces » pour la modifier.",
+      "heldBy": "{{holder}} a la main sur cette branche : vous la voyez telle qu'elle est publiée, sans pouvoir la modifier."
+    },
+    "errors": {
+      "branche_tenue": "{{by}} a déjà la main sur cette branche.",
+      "deja_une_branche": "Vous avez déjà la main sur la branche {{branch}} du workspace {{workspace}} : rendez-la d'abord.",
+      "identite_git_requise": "Enregistrez d'abord votre jeton git personnel pour la connexion de ce workspace, dans « Mon profil ».",
+      "branche_racine_lecture_seule": "La branche racine est en lecture seule : personne n'en prend la main.",
+      "branche_modifiee": "La branche a bougé dans la forge depuis votre dernière publication : rien n'a été écrasé, vos modifications restent ici.",
+      "prise_de_main_requise": "Vous n'avez pas la main sur cette branche.",
+      "prise_concurrente": "Une autre prise de main a eu lieu au même moment : réessayez.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }
   }
 }

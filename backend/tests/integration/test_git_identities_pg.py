@@ -17,7 +17,7 @@ ADMIN = EventAuthor(LOCAL_DIRECTORY, "admin")
 
 @pytest.fixture
 async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
-    async with open_work_forge(blank_db, tmp_path) as opened:
+    async with open_work_forge(blank_db, tmp_path, hold=False) as opened:
         yield opened
 
 

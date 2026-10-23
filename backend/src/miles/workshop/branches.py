@@ -12,7 +12,7 @@ from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRe
 from miles.git.rights import classify
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import WORK_BRANCH_PREFIX, WORK_NAME_RE
-from miles.workshop.target import WorkBranches, base_slug
+from miles.workshop.target import Gesture, WorkBranches, base_slug
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,
@@ -113,7 +113,7 @@ class BranchesService:
                 if existing == entry:
                     return existing, True
                 raise BranchTakenError(existing.label)
-        async with self.branches.checkout(workspace_id, edit=False) as copy:
+        async with self.branches.checkout(workspace_id, by=author, gesture=Gesture.READ) as copy:
             await _push_new_branch(copy, entry.branch)
             base_commit = copy.head
         async with self.pool.acquire() as conn, conn.transaction():

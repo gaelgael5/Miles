@@ -23,7 +23,7 @@ from miles.contracts.openapi import ParsedContract, parse_contract
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
-from miles.workshop.target import WorkBranches
+from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceInputError, checked_label, commit_author
 
 log = structlog.get_logger(__name__)
@@ -78,17 +78,23 @@ class ContractsService:
         """Lecture du fichier sans rien écrire : l'écran la montre avant l'intégration."""
         return parse_contract(content)
 
-    async def resolve_list(self, workspace_id: str, *, branch: str | None = None) -> list[Contract]:
-        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
+    async def resolve_list(
+        self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
+    ) -> list[Contract]:
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
             paths = await copy.paths()
             found = [await _contract(copy, paths, slug) for slug in slugs_in(paths)]
         return [c for c in found if c is not None]
 
     async def resolve_get(
-        self, workspace_id: str, slug: str, *, branch: str | None = None
+        self, viewer: EventAuthor, workspace_id: str, slug: str, *, branch: str | None = None
     ) -> Contract:
         slug = checked_slug(slug)
-        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
             contract = await _contract(copy, await copy.paths(), slug)
         if contract is None:
             raise ContractNotFoundError(slug)
@@ -109,7 +115,9 @@ class ContractsService:
         Rejeu à l'identique : sans effet. Le fichier vient ensuite, par `resolve_import`.
         """
         meta = ContractMeta(checked_slug(slug), checked_label(label), _direction(direction))
-        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
             paths = await copy.paths()
             existing = await _contract(copy, paths, meta.slug)
             if existing is not None:
@@ -122,7 +130,7 @@ class ContractsService:
             if versions_in(paths, meta.slug):
                 raise ContractTakenError(meta.slug)
             await copy.write(meta_path(meta.slug), meta_text(meta))
-            commit = await self.branches.push(copy, f"Déclaration du contrat {meta.slug}", author)
+            commit = await self.branches.commit(copy, f"Déclaration du contrat {meta.slug}", author)
         await self._journal(
             DECLARED_EVENT,
             workspace_id,
@@ -149,7 +157,9 @@ class ContractsService:
         slug = checked_slug(slug)
         # Vérifié avant tout accès au dépôt : un fichier refusé ne coûte aucun clone.
         parse_contract(content)
-        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
             paths = await copy.paths()
             meta = read_meta(await copy.read(meta_path(slug)))
             if meta is None:
@@ -166,7 +176,7 @@ class ContractsService:
             deposit = VersionImport(self.now().isoformat(), commit_author(author))
             await copy.write(meta_path(slug), meta_text(meta.with_import(number, deposit)))
             message = f"Intégration du contrat {slug} (v{number})"
-            commit = await self.branches.push(copy, message, author)
+            commit = await self.branches.commit(copy, message, author)
             contract = await _required(copy, slug)
         properties = {"slug": slug, "version": number, "commit": commit, "branch": copy.branch}
         await self._journal(VERSION_EVENT, workspace_id, author, properties)

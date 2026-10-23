@@ -108,9 +108,11 @@ def _refusal(exc: Exception) -> JSONResponse:
 
 
 @router.get("", response_model=list[ChainSummaryOut])
-async def list_chains(workspace_id: str, service: Service, branch: str | None = None) -> object:
+async def list_chains(
+    workspace_id: str, request: Request, service: Service, branch: str | None = None
+) -> object:
     try:
-        found = await service.resolve_list(workspace_id, branch=branch)
+        found = await service.resolve_list(request_author(request), workspace_id, branch=branch)
     except _REFUSALS as exc:
         return _refusal(exc)
     return [
@@ -123,10 +125,12 @@ async def list_chains(workspace_id: str, service: Service, branch: str | None = 
 
 @router.get("/{slug}", response_model=ChainOut)
 async def get_chain(
-    workspace_id: str, slug: str, service: Service, branch: str | None = None
+    workspace_id: str, request: Request, slug: str, service: Service, branch: str | None = None
 ) -> object:
     try:
-        return _out(await service.resolve_get(workspace_id, slug, branch=branch))
+        return _out(
+            await service.resolve_get(request_author(request), workspace_id, slug, branch=branch)
+        )
     except _REFUSALS as exc:
         return _refusal(exc)
 

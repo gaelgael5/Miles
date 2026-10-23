@@ -14,7 +14,7 @@
     },
     {
       "name": "list_branches",
-      "description": "Liste les branches d'un workspace : la branche de base (base: true, lecture seule) et ses branches enfants, seules cibles possibles d'une modification.",
+      "description": "Liste les branches d'un workspace : la branche de base (base: true, lecture seule) et ses branches enfants, seules cibles possibles d'une modification. held_by : qui a la main sur la branche ; held_by_me : c'est vous.",
       "inputSchema": {
         "properties": {
           "workspace_id": {
@@ -27,6 +27,30 @@
           "workspace_id"
         ],
         "title": "list_branchesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "publish_branch",
+      "description": "Publie dans la forge les commits locaux de votre prise de main sur une branche enfant, avec votre propre PAT. Refus : prise_de_main_requise, branche_modifiee (la branche a bougé dans la forge : rien n'est perdu, rien n'est écrasé).",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace.",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "description": "Slug de la branche enfant tenue.",
+            "title": "Branch",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "branch"
+        ],
+        "title": "publish_branchArguments",
         "type": "object"
       }
     },
@@ -143,7 +167,7 @@
               }
             ],
             "default": null,
-            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
             "title": "Branch"
           }
         },
@@ -191,7 +215,7 @@
               }
             ],
             "default": null,
-            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
             "title": "Branch"
           }
         },
@@ -235,7 +259,7 @@
               }
             ],
             "default": null,
-            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
             "title": "Branch"
           }
         },
@@ -390,7 +414,7 @@
               }
             ],
             "default": null,
-            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
             "title": "Branch"
           }
         },
@@ -429,7 +453,7 @@
               }
             ],
             "default": null,
-            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes.",
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
             "title": "Branch"
           }
         },

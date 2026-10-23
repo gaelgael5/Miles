@@ -10,7 +10,7 @@ from miles.events.model import EventAuthor
 from tests.integration.test_contracts_pg import EMPTY
 from tests.integration.test_datamodels_pg import PERSONNE
 from tests.integration.test_sources_pg import SOURCE
-from tests.integration.work_stack import Forge, open_work_forge
+from tests.integration.work_stack import Forge, open_work_forge, register_identity, take_hold
 
 pytestmark = pytest.mark.integration
 
@@ -59,8 +59,21 @@ async def test_child_branch_starts_at_the_base_head_and_is_listed_after_it(forge
     assert event is not None
 
 
+async def _hold(forge: Forge, slug: str = "essai") -> None:
+    """On ne modifie une branche enfant qu'en en ayant la main (9def0adc)."""
+    await register_identity(forge.client)
+    taken = await take_hold(forge.client, slug)
+    assert taken.status_code == 201, taken.text
+
+
+async def _publish(forge: Forge, slug: str = "essai") -> None:
+    published = await forge.client.post(f"{ROUTE}/{slug}/hold/publish", timeout=120)
+    assert published.status_code == 200, published.text
+
+
 async def test_writes_on_a_child_branch_stay_in_it(forge: Forge) -> None:
     await _create(forge)
+    await _hold(forge)
     base_commits = await forge.commits()
 
     written = await forge.client.post(
@@ -73,6 +86,7 @@ async def test_writes_on_a_child_branch_stay_in_it(forge: Forge) -> None:
     on_base = await forge.client.get(MODELS, timeout=120)
 
     assert written.status_code == 201, written.text
+    await _publish(forge)
     assert await forge.file(MODEL_PATH, "work/essai") == PERSONNE
     assert await forge.file(MODEL_PATH) is None
     assert await forge.commits() == base_commits
@@ -82,12 +96,14 @@ async def test_writes_on_a_child_branch_stay_in_it(forge: Forge) -> None:
 
 async def test_versions_belong_to_their_branch_and_share_one_numbering(forge: Forge) -> None:
     await _create(forge)
+    await _hold(forge)
     await forge.client.post(
         MODELS,
         params={"branch": "essai"},
         json={"scope": "shared", "content": PERSONNE},
         timeout=120,
     )
+    await _publish(forge)
 
     base_version = await forge.client.post(VERSIONS, json={"label": "Base"}, timeout=120)
     child_version = await forge.client.post(

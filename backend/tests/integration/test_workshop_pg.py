@@ -34,6 +34,8 @@ async def _tags(forge: Forge) -> list[str]:
 
 async def test_version_freezes_the_head_with_its_label_and_author(forge: Forge) -> None:
     await forge.client.post(MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120)
+    # Une version fige la tête publiée (9def0adc) : on publie d'abord.
+    await forge.publish()
     head = await forge.api.get(f"/api/v1/repos/miles/{forge.name}/branches/work/edition")
 
     saved = await _save(forge, "Recette du 21 octobre")
@@ -43,7 +45,8 @@ async def test_version_freezes_the_head_with_its_label_and_author(forge: Forge) 
     body = saved.json()
     assert (body["number"], body["label"]) == (1, "Recette du 21 octobre")
     assert body["commit"] == head.json()["commit"]["id"]
-    assert body["author"].startswith("admin via Miles <")
+    # Sur une branche tenue, l'étiqueteur est la personne telle que la forge la connaît.
+    assert body["author"] == await forge.identity()
     assert await _tags(forge) == ["version/1"]
     assert [(v["number"], v["commit"]) for v in listed.json()] == [(1, body["commit"])]
     event = await forge.portal.pool.fetchrow(
@@ -94,8 +97,10 @@ async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
 
 async def test_returning_to_a_version_adds_a_new_state(forge: Forge) -> None:
     await forge.client.post(MODELS, json={"scope": "shared", "content": PERSONNE}, timeout=120)
+    await forge.publish()
     await _save(forge, "Avec personne")
     await forge.client.post(MODELS, json={"scope": "suivi", "content": COLIS}, timeout=120)
+    await forge.publish()
     await _save(forge, "Avec colis")
     before = await forge.commits()
 

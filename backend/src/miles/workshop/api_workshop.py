@@ -110,9 +110,16 @@ def _refusal(exc: Exception) -> JSONResponse:
 
 
 @router.get("", response_model=list[VersionOut])
-async def list_versions(workspace_id: str, service: Service, branch: str | None = None) -> object:
+async def list_versions(
+    workspace_id: str, request: Request, service: Service, branch: str | None = None
+) -> object:
     try:
-        return [_out(v) for v in await service.resolve_list(workspace_id, branch=branch)]
+        return [
+            _out(v)
+            for v in await service.resolve_list(
+                request_author(request), workspace_id, branch=branch
+            )
+        ]
     except _REFUSALS as exc:
         return _refusal(exc)
 

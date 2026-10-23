@@ -204,19 +204,28 @@ async def fetch_contract(workspace_id: str, body: FetchIn, remote: Remote) -> ob
 
 
 @router.get("", response_model=list[ContractOut])
-async def list_contracts(workspace_id: str, service: Service, branch: str | None = None) -> object:
+async def list_contracts(
+    workspace_id: str, request: Request, service: Service, branch: str | None = None
+) -> object:
     try:
-        return [_out(c) for c in await service.resolve_list(workspace_id, branch=branch)]
+        return [
+            _out(c)
+            for c in await service.resolve_list(
+                request_author(request), workspace_id, branch=branch
+            )
+        ]
     except _REFUSALS as exc:
         return _refusal(exc)
 
 
 @router.get("/{slug}", response_model=ContractDetailOut)
 async def get_contract(
-    workspace_id: str, slug: str, service: Service, branch: str | None = None
+    workspace_id: str, request: Request, slug: str, service: Service, branch: str | None = None
 ) -> object:
     try:
-        contract = await service.resolve_get(workspace_id, slug, branch=branch)
+        contract = await service.resolve_get(
+            request_author(request), workspace_id, slug, branch=branch
+        )
     except _REFUSALS as exc:
         return _refusal(exc)
     versions = _versions(contract)

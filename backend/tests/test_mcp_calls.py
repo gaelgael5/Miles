@@ -13,7 +13,7 @@ from miles.apikeys.model import Access, Grant, KeyPrincipal
 from miles.events.model import DelegatedAuthor, EventAuthor
 from miles.mcp_api.calls import Caller, tool_refusal
 from miles.obo.service import Actor
-from miles.workspaces.model import WorkspaceConflictError
+from miles.workspaces.model import HoldRequiredError, WorkspaceConflictError
 
 KEY = KeyPrincipal(
     "a" * 32, "Gateway", (Grant("retrait", Access.WRITE), Grant("caisse", Access.READ))
@@ -55,16 +55,18 @@ def _code(exc: pytest.ExceptionInfo[ToolError]) -> Any:
     return json.loads(str(exc.value))
 
 
-async def test_the_key_alone_signs_as_itself() -> None:
-    author = await _caller().writer("retrait", "edition")
+async def test_the_key_alone_cannot_write_since_writes_act_as_a_person() -> None:
+    with pytest.raises(ToolError) as refused:
+        await _caller().writer("retrait", "edition")
 
-    assert isinstance(author, DelegatedAuthor)
-    assert (author.directory, author.subject, author.via_key_label) == (
-        "apikey",
-        "a" * 32,
-        "Gateway",
-    )
-    assert author.commit_identity == f"Gateway via Miles <{'a' * 32}@apikey.miles.invalid>"
+    assert _code(refused) == {"code": "personne_requise"}
+
+
+async def test_the_key_alone_reads_as_itself_and_a_person_as_themselves() -> None:
+    lea = Actor(EventAuthor("maison", "sub-lea"), "Léa", None)
+
+    assert _caller().viewer == EventAuthor("apikey", "a" * 32)
+    assert _caller(lea).viewer == EventAuthor("maison", "sub-lea")
 
 
 async def test_a_signed_person_signs_with_their_git_identity_when_they_have_one() -> None:
@@ -113,15 +115,30 @@ async def test_every_write_is_traced_with_its_verdict_refusals_included() -> Non
     async def conflict(author: DelegatedAuthor) -> str:
         raise WorkspaceConflictError("nom_pris")
 
+    lea = Actor(EventAuthor("maison", "sub-lea"), "Léa", None)
     with capture_logs() as logs:
-        assert await _caller().write("t", "retrait", "edition", "x", accepted) == "fait"
+        assert await _caller(lea).write("t", "retrait", "edition", "x", accepted) == "fait"
         with pytest.raises(ToolError):
-            await _caller().write("t", "retrait", "edition", "x", conflict)
+            await _caller(lea).write("t", "retrait", "edition", "x", conflict)
         with pytest.raises(ToolError):
-            await _caller().write("t", "retrait", None, "x", accepted)
+            await _caller(lea).write("t", "retrait", None, "x", accepted)
 
     traced = [(e["verdict"], e["key"]) for e in logs if e["event"] == "mcp_ecriture"]
     assert traced == [("accepte", "a" * 32), ("nom_pris", "a" * 32), ("branche_requise", "a" * 32)]
+
+
+async def test_a_write_without_the_hold_names_who_holds_the_branch() -> None:
+    held = tool_refusal(HoldRequiredError("Bob Martin (bob)"))
+    free = tool_refusal(HoldRequiredError(None))
+
+    assert held is not None and json.loads(str(held)) == {
+        "code": "prise_de_main_requise",
+        "par": "Bob Martin (bob)",
+    }
+    assert free is not None and json.loads(str(free)) == {
+        "code": "prise_de_main_requise",
+        "par": None,
+    }
 
 
 async def test_an_unexpected_failure_is_not_disguised_as_a_refusal() -> None:

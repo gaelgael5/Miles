@@ -26,7 +26,7 @@ from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRe
 from miles.git.workcopy import WorkCopy
 from miles.sources.layout import names_in, read_source, source_path
 from miles.transform.chain import StepSpec, compile_chain
-from miles.workshop.target import WorkBranches
+from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import checked_label
 
 log = structlog.get_logger(__name__)
@@ -77,10 +77,12 @@ class ChainsService:
     now: Callable[[], datetime]
 
     async def resolve_list(
-        self, workspace_id: str, *, branch: str | None = None
+        self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
     ) -> list[StoredChain | str]:
         """Les chaînes lisibles, et le slug seul de celles dont l'enchaînement ne l'est pas."""
-        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
             paths = await copy.paths()
             found: list[StoredChain | str] = []
             for slug in slugs_in(paths):
@@ -89,10 +91,12 @@ class ChainsService:
             return found
 
     async def resolve_get(
-        self, workspace_id: str, slug: str, *, branch: str | None = None
+        self, viewer: EventAuthor, workspace_id: str, slug: str, *, branch: str | None = None
     ) -> StoredChain:
         slug = checked_slug(slug)
-        async with self.branches.checkout(workspace_id, branch, edit=False) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
             stored = await stored_chain(copy, slug)
         if stored is None:
             raise ChainNotFoundError(slug)
@@ -122,13 +126,15 @@ class ChainsService:
                 StoredStep(d.name, s.template, d.target) for s, d in zip(steps, docs, strict=True)
             ),
         )
-        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
             await _write(copy, doc, stored)
             changed = await copy.git("status", "--porcelain", "--", chain_dir(slug))
             if not changed.stdout.strip():
                 return stored, None
             message = f"Chaîne de transformations {slug}"
-            commit = await self.branches.push(copy, message, author)
+            commit = await self.branches.commit(copy, message, author)
         await self._journal(SAVED_EVENT, workspace_id, author, slug, commit, copy.branch)
         log.info("chaine_enregistree", workspace=workspace_id, slug=slug, steps=len(docs))
         return stored, commit
@@ -137,7 +143,9 @@ class ChainsService:
         self, author: EventAuthor, workspace_id: str, slug: str, *, branch: str | None = None
     ) -> str:
         slug = checked_slug(slug)
-        async with self.branches.checkout(workspace_id, branch, edit=True) as copy:
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
             paths = await copy.paths()
             files = files_of(paths, slug)
             if not files:
@@ -153,7 +161,7 @@ class ChainsService:
                 raise ChainInUseError(users)
             for name in files:
                 await copy.remove(f"{chain_dir(slug)}/{name}")
-            commit = await self.branches.push(copy, f"Suppression de la chaîne {slug}", author)
+            commit = await self.branches.commit(copy, f"Suppression de la chaîne {slug}", author)
         await self._journal(DELETED_EVENT, workspace_id, author, slug, commit, copy.branch)
         log.info("chaine_supprimee", workspace=workspace_id, slug=slug)
         return commit

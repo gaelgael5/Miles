@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import shutil
 import tempfile
 from collections.abc import AsyncIterator
@@ -13,6 +14,16 @@ from miles.git.forge import Repository
 from miles.git.rights import classify
 from miles.git.runner import GitResult, run_git
 from miles.git.worktree import RepositoryAccessError, WorkBranchError
+
+_AUTHOR_RE = re.compile(r"^(?P<name>[^<>]+) <(?P<email>[^<>]+)>$")
+
+
+def author_parts(author: str) -> tuple[str, str]:
+    """(nom, e-mail) d'un auteur git « Nom <e-mail> » ; refus s'il est mal formé."""
+    match = _AUTHOR_RE.match(author)
+    if match is None:
+        raise ValueError("auteur de commit mal formé")
+    return match["name"], match["email"]
 
 
 class BranchMissingError(WorkBranchError):

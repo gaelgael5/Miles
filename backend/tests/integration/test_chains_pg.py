@@ -98,6 +98,7 @@ async def test_deleting_a_chain_removes_its_directory(forge: Forge) -> None:
 
 async def test_a_version_cannot_freeze_a_chain_broken_outside_miles(forge: Forge) -> None:
     await _save(forge, STEPS)
+    await forge.publish()
     path = "transformations/comptes-import/enrichir.jslt"
     meta = await forge.api.get(
         f"/api/v1/repos/miles/{forge.name}/contents/{path}", params={"ref": "work/edition"}

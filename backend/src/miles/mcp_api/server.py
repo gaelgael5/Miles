@@ -28,6 +28,9 @@ INSTRUCTIONS = (
     " chaînes de transformations…) vit dans des branches de travail d'un workspace."
     " Commencez par list_workspaces : seuls les workspaces ouverts à votre clé y figurent."
     " Une modification exige une branche enfant ; la branche de base est en lecture seule."
+    " Elle agit au nom de la personne pour qui le portail appelle, qui doit avoir pris la"
+    " main sur cette branche dans Miles : chaque modification y devient un commit local,"
+    " que publish_branch pousse dans la forge."
 )
 
 
@@ -90,6 +93,7 @@ def build_server() -> MCPServer:
         description=(
             "Liste les branches d'un workspace : la branche de base (base: true, lecture"
             " seule) et ses branches enfants, seules cibles possibles d'une modification."
+            " held_by : qui a la main sur la branche ; held_by_me : c'est vous."
         )
     )
     async def list_branches(
@@ -100,9 +104,44 @@ def build_server() -> MCPServer:
         await caller.readable(workspace_id)
         try:
             entries = await caller.services.branches.resolve_list(workspace_id)
+            holds = await caller.services.branch_holds.resolve_holds(workspace_id)
         except Exception as exc:
             raise tool_refusal(exc) or exc from None
-        return [{"slug": e.slug, "label": e.label, "base": e.base} for e in entries]
+        listed = []
+        for e in entries:
+            hold = holds.get(e.slug)
+            listed.append(
+                {
+                    "slug": e.slug,
+                    "label": e.label,
+                    "base": e.base,
+                    "held_by": None if hold is None else hold.holder_label,
+                    "held_by_me": hold is not None and hold.held_by(caller.viewer),
+                }
+            )
+        return listed
+
+    @server.tool(
+        description=(
+            "Publie dans la forge les commits locaux de votre prise de main sur une branche"
+            " enfant, avec votre propre PAT. Refus : prise_de_main_requise, branche_modifiee"
+            " (la branche a bougé dans la forge : rien n'est perdu, rien n'est écrasé)."
+        )
+    )
+    async def publish_branch(
+        workspace_id: Annotated[str, Field(description="Identifiant du workspace.")],
+        branch: Annotated[str, Field(description="Slug de la branche enfant tenue.")],
+        ctx: Context[Any, Request],
+    ) -> dict[str, Any]:
+        caller = caller_of(ctx)
+
+        async def run(author: Any) -> dict[str, Any]:
+            published = await caller.services.branch_holds.resolve_publish(
+                author, workspace_id, branch
+            )
+            return {"branch": branch, "published": published}
+
+        return await caller.write("publish_branch", workspace_id, branch, branch, run)
 
     @server.tool(
         description=(

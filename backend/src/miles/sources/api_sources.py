@@ -132,9 +132,11 @@ def _refusal(exc: Exception) -> JSONResponse:
 
 
 @router.get("", response_model=list[SourceSummaryOut])
-async def list_sources(workspace_id: str, service: Service, branch: str | None = None) -> object:
+async def list_sources(
+    workspace_id: str, request: Request, service: Service, branch: str | None = None
+) -> object:
     try:
-        found = await service.resolve_list(workspace_id, branch=branch)
+        found = await service.resolve_list(request_author(request), workspace_id, branch=branch)
     except _REFUSALS as exc:
         return _refusal(exc)
     return [
@@ -147,10 +149,12 @@ async def list_sources(workspace_id: str, service: Service, branch: str | None =
 
 @router.get("/{name}", response_model=SourceIO)
 async def get_source(
-    workspace_id: str, name: str, service: Service, branch: str | None = None
+    workspace_id: str, request: Request, name: str, service: Service, branch: str | None = None
 ) -> object:
     try:
-        return _io(await service.resolve_get(workspace_id, name, branch=branch))
+        return _io(
+            await service.resolve_get(request_author(request), workspace_id, name, branch=branch)
+        )
     except _REFUSALS as exc:
         return _refusal(exc)
 

@@ -47,7 +47,7 @@ async def _chains(caller: Caller) -> ChainsService:
 
 
 async def _unknown(caller: Caller, workspace_id: str, branch: str | None, slug: str) -> ToolError:
-    found = await (await _chains(caller)).resolve_list(workspace_id, branch=branch)
+    found = await (await _chains(caller)).resolve_list(caller.viewer, workspace_id, branch=branch)
     slugs = [c if isinstance(c, str) else c.slug for c in found]
     return ToolError(refusal("chaine_inconnue", slug=slug, existants=slugs))
 
@@ -65,7 +65,9 @@ def register(server: MCPServer) -> None:
         caller = caller_of(ctx)
         await caller.readable(workspace_id)
         try:
-            found = await (await _chains(caller)).resolve_list(workspace_id, branch=branch)
+            found = await (await _chains(caller)).resolve_list(
+                caller.viewer, workspace_id, branch=branch
+            )
         except Exception as exc:
             raise tool_refusal(exc) or exc from None
         return [
@@ -82,7 +84,9 @@ def register(server: MCPServer) -> None:
         caller = caller_of(ctx)
         await caller.readable(workspace_id)
         try:
-            chain = await (await _chains(caller)).resolve_get(workspace_id, slug, branch=branch)
+            chain = await (await _chains(caller)).resolve_get(
+                caller.viewer, workspace_id, slug, branch=branch
+            )
         except ChainNotFoundError:
             raise await _unknown(caller, workspace_id, branch, slug) from None
         except Exception as exc:
