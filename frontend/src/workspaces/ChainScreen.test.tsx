@@ -99,6 +99,26 @@ describe("ChainScreen", () => {
     expect(body.steps.map((s) => s.name)).toEqual(["statut", "normaliser"]);
   });
 
+  it("saves with Ctrl+S from a step field, the save button standing at the top", async () => {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`PUT ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    openChain();
+    const field = await screen.findByDisplayValue("normaliser");
+    // En haut à droite : dans l'en-tête de la page, avec le titre (caad743d).
+    const head = screen.getByRole("heading", { level: 1 }).closest(".page-head") as HTMLElement;
+    expect(within(head).getByRole("button", { name: "Save the chain" })).toBeInTheDocument();
+
+    fireEvent.keyDown(field, { key: "s", ctrlKey: true });
+
+    expect(await screen.findByText("Chain saved.")).toBeInTheDocument();
+    expect(calls.filter((c) => c.key === `PUT ${ROUTE}/comptes-import${Q}`)).toHaveLength(1);
+  });
+
   it("tries the chain on a sample and shows the message after each step", async () => {
     const calls = mockApi({
       ...HELD,

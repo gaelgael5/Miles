@@ -551,7 +551,8 @@
       "unsaved": "Unsaved changes",
       "leaveTitle": "Leave without saving?",
       "leaveBody": "Your changes are only in memory: they will be lost.",
-      "leave": "Leave"
+      "leave": "Leave",
+      "saveShortcut": "Ctrl+S (⌘S on Mac)"
     },
     "schema": {
       "visual": "Visual editor",
@@ -680,7 +681,8 @@
       "submit": "Integrate as a new version",
       "done": "Integrated as version v{{number}}.",
       "open": "Integrate a version",
-      "close": "Close"
+      "close": "Close",
+      "where": "Check what was read, then “Integrate as a new version” at the top of the page (or Ctrl+S)."
     },
     "versions": {
       "title": "Versions",

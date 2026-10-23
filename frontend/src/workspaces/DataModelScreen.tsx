@@ -12,6 +12,7 @@ import {
 import type { WorkTarget } from "../api/workTarget";
 import { parseSchema, sameSchema, schemaText } from "../dataModels/schemaText";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
+import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { ModelRefusal } from "./ModelRefusal";
 
 // JSONJoy et Monaco ne se chargent qu'à l'ouverture d'un modèle : le reste du portail ne
@@ -25,11 +26,13 @@ const SchemaEditor = lazy(() => import("../dataModels/SchemaEditor"));
 function Editor({
   target,
   model,
+  saved,
   onDirty,
   onSaved,
 }: {
   target: WorkTarget;
   model: DataModelContent;
+  saved: boolean;
   onDirty: (dirty: boolean) => void;
   onSaved: () => void;
 }) {
@@ -67,37 +70,64 @@ function Editor({
     });
   }
 
+  // Ctrl+S fait ce que fait le bouton, aux mêmes conditions (story caad743d).
+  const canSave = !target.readOnly && dirty && !replace.isPending;
+  useSaveShortcut(canSave ? save : null);
+
   return (
-    // Pas de <form> ici, exprès : JSONJoy porte ses propres formulaires (ajout d'une
-    // définition) ; imbriqués dans le nôtre, leur envoi rechargeait toute la page.
-    <div className="card" role="group" aria-label={t("dataModels.editor.title")}>
-      <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
-        <SchemaEditor
-          target={target}
-          model={model}
-          models={models.data ?? []}
-          text={text}
-          parsed={parsed}
-          onVisual={fromVisual}
-          onYaml={fromYaml}
-        />
-      </Suspense>
-      <p className="help">{t("dataModels.editor.help")}</p>
-      {replace.isError && <ModelRefusal error={replace.error} />}
-      {!target.readOnly && (
-        <div className="actions">
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={replace.isPending || !dirty}
-            onClick={save}
-          >
-            {t("dataModels.editor.save")}
-          </button>
-          {dirty && <span className="badge badge-warning">{t("dataModels.editor.unsaved")}</span>}
+    <>
+      {/* L'en-tête vit ici, avec l'état de l'édition : « Enregistrer » y est en haut à
+          droite (story caad743d). */}
+      <div className="page-head">
+        <div>
+          <h1 id="data-model-title">{model.label ?? model.name}</h1>
+          <p className="lead">
+            <span className="mono">{model.path}</span> ·{" "}
+            {model.scope === SHARED_SCOPE ? t("dataModels.list.shared") : model.scope} ·{" "}
+            {/* Tenue par le système (0f7cda10) : affichée, jamais saisie. */}
+            <span title={t("dataModels.schema.versionHelp")}>
+              {t("dataModels.schema.version", { version: model.version ?? "—" })}
+            </span>
+          </p>
         </div>
+        {!target.readOnly && (
+          <div className="actions">
+            {dirty && <span className="badge badge-warning">{t("dataModels.editor.unsaved")}</span>}
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!canSave}
+              title={t("dataModels.editor.saveShortcut")}
+              onClick={save}
+            >
+              {t("dataModels.editor.save")}
+            </button>
+          </div>
+        )}
+      </div>
+      {saved && !dirty && (
+        <p className="notice" role="status">
+          {t("dataModels.editor.saved")}
+        </p>
       )}
-    </div>
+      {replace.isError && <ModelRefusal error={replace.error} />}
+      {/* Pas de <form> ici, exprès : JSONJoy porte ses propres formulaires (ajout d'une
+          définition) ; imbriqués dans le nôtre, leur envoi rechargeait toute la page. */}
+      <div className="card" role="group" aria-label={t("dataModels.editor.title")}>
+        <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
+          <SchemaEditor
+            target={target}
+            model={model}
+            models={models.data ?? []}
+            text={text}
+            parsed={parsed}
+            onVisual={fromVisual}
+            onYaml={fromYaml}
+          />
+        </Suspense>
+        <p className="help">{t("dataModels.editor.help")}</p>
+      </div>
+    </>
   );
 }
 
@@ -149,29 +179,12 @@ export function DataModelScreen({
       {model.isError && <ModelRefusal error={model.error} />}
       {data && (
         <>
-          <div className="page-head">
-            <div>
-              <h1 id="data-model-title">{data.label ?? data.name}</h1>
-              <p className="lead">
-                <span className="mono">{data.path}</span> ·{" "}
-                {scope === SHARED_SCOPE ? t("dataModels.list.shared") : scope} ·{" "}
-                {/* Tenue par le système (0f7cda10) : affichée, jamais saisie. */}
-                <span title={t("dataModels.schema.versionHelp")}>
-                  {t("dataModels.schema.version", { version: data.version ?? "—" })}
-                </span>
-              </p>
-            </div>
-          </div>
           {/* Clé de contenu : une relecture après enregistrement repart du texte du dépôt. */}
-          {saved && !dirty && (
-            <p className="notice" role="status">
-              {t("dataModels.editor.saved")}
-            </p>
-          )}
           <Editor
             key={data.content}
             target={target}
             model={data}
+            saved={saved}
             onDirty={(value) => {
               setDirty(value);
               if (value) setSaved(false);

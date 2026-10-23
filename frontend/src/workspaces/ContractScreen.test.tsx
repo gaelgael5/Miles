@@ -82,6 +82,40 @@ describe("ContractScreen", () => {
     });
   });
 
+  it("reads with Ctrl+S, then integrates with Ctrl+S, from the top-right button's rules", async () => {
+    const calls = mockApi(
+      routes({
+        [`GET ${ROUTE}/materiel?branch=edition`]: [
+          { status: 200, body: DECLARED },
+          { status: 200, body: { ...DECLARED, versions: [V1] } },
+        ],
+        [`POST ${ROUTE}/preview?branch=edition`]: { status: 200, body: PREVIEW },
+        [`POST ${ROUTE}/materiel/versions?branch=edition`]: { status: 201, body: V1 },
+      }),
+    );
+    await openContract();
+    const integrate = screen.getByRole("button", { name: "Integrate as a new version" });
+    expect(integrate).toBeDisabled();
+
+    fill(CONTENT, YAML);
+    // Pas encore lu : Ctrl+S lit d'abord, il n'intègre pas un texte qu'on n'a pas vu.
+    fireEvent.keyDown(screen.getByLabelText(CONTENT), { key: "s", ctrlKey: true });
+    expect(await screen.findByText(/has no operation/)).toBeInTheDocument();
+    expect(calls.some((c) => c.key === `POST ${ROUTE}/materiel/versions?branch=edition`)).toBe(false);
+    expect(integrate).toBeEnabled();
+    // Modifié après lecture : il faut relire.
+    fill(CONTENT, `${YAML}# retouche\n`);
+    expect(integrate).toBeDisabled();
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await screen.findByText(/has no operation/);
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+
+    expect(await screen.findByText("Integrated as version v1.")).toBeInTheDocument();
+    expect(calls.find((c) => c.key === `POST ${ROUTE}/materiel/versions?branch=edition`)?.body).toEqual({
+      content: `${YAML}# retouche\n`,
+    });
+  });
+
   it("loads a chosen file into the contract text and reads it at once", async () => {
     const calls = mockApi(
       routes({
@@ -96,7 +130,9 @@ describe("ContractScreen", () => {
     Object.defineProperty(file, "text", { value: () => Promise.resolve(YAML) });
     fireEvent.change(screen.getByLabelText("From a file"), { target: { files: [file] } });
 
-    expect(await screen.findByText("Integrate as a new version")).toBeInTheDocument();
+    // Lu aussitôt : « Intégrer », en haut de la page, devient possible (caad743d).
+    expect(await screen.findByText(/has no operation/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Integrate as a new version" })).toBeEnabled();
     expect(screen.getByLabelText(CONTENT)).toHaveValue(YAML);
     expect(calls.find((c) => c.key === `POST ${ROUTE}/preview?branch=edition`)?.body).toEqual({ content: YAML });
   });
@@ -115,7 +151,9 @@ describe("ContractScreen", () => {
     fill("From an address", "https://tiers.example/openapi.yaml");
     fireEvent.click(screen.getByText("Fetch"));
 
-    expect(await screen.findByText("Integrate as a new version")).toBeInTheDocument();
+    // Lu aussitôt : « Intégrer », en haut de la page, devient possible (caad743d).
+    expect(await screen.findByText(/has no operation/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Integrate as a new version" })).toBeEnabled();
     expect(screen.getByLabelText(CONTENT)).toHaveValue(YAML);
     expect(calls.find((c) => c.key === `POST ${ROUTE}/fetch?branch=edition`)?.body).toEqual({
       url: "https://tiers.example/openapi.yaml",

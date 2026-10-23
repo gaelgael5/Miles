@@ -551,7 +551,8 @@
       "unsaved": "Modifications non enregistrées",
       "leaveTitle": "Quitter sans enregistrer ?",
       "leaveBody": "Vos modifications ne sont qu'en mémoire : elles seront perdues.",
-      "leave": "Quitter"
+      "leave": "Quitter",
+      "saveShortcut": "Ctrl+S (⌘S sur Mac)"
     },
     "schema": {
       "visual": "Éditeur visuel",
@@ -680,7 +681,8 @@
       "submit": "Intégrer en nouvelle version",
       "done": "Intégré en version v{{number}}.",
       "open": "Intégrer une version",
-      "close": "Fermer"
+      "close": "Fermer",
+      "where": "Vérifiez ce qui a été lu, puis « Intégrer en nouvelle version » en haut de la page (ou Ctrl+S)."
     },
     "versions": {
       "title": "Versions",

@@ -13,6 +13,7 @@ import {
 import { ApiError } from "../api/http";
 import type { WorkTarget } from "../api/workTarget";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
+import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { ChainStepsEditor } from "./ChainStepsEditor";
 
 function savedProblems(error: unknown): StepProblem[] {
@@ -50,6 +51,15 @@ function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain
   const sampleValue = parsedSample(sample);
   const problems = [...savedProblems(save.error), ...(check.data?.problems ?? [])];
 
+  function saveChain() {
+    check.reset();
+    save.mutate({ label, steps });
+  }
+
+  // Ctrl+S fait ce que fait le bouton, aux mêmes conditions (story caad743d).
+  const canSave = !target.readOnly && !save.isPending;
+  useSaveShortcut(canSave ? saveChain : null);
+
   function test() {
     if (sampleValue !== null) {
       save.reset();
@@ -59,6 +69,32 @@ function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain
 
   return (
     <>
+      {/* L'en-tête vit ici, avec l'état de l'édition : « Enregistrer » y est en haut à
+          droite (story caad743d). */}
+      <div className="page-head">
+        <div>
+          <h1 id="chain-title">
+            {chain.label} <span className="mono muted">transformations/{chain.slug}</span>
+          </h1>
+        </div>
+        {!target.readOnly && (
+          <div className="actions">
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!canSave}
+              title={t("dataModels.editor.saveShortcut")}
+              onClick={saveChain}
+            >
+              {t("chains.editor.save")}
+            </button>
+          </div>
+        )}
+      </div>
+      {save.isSuccess && <p className="notice" role="status">{t("chains.editor.saved")}</p>}
+      {save.isError && problems.length === 0 && (
+        <p className="alert" role="alert">{t("chains.errors.unexpected")}</p>
+      )}
       <label className="field">
         {t("chains.fields.label")}
         <input required readOnly={target.readOnly} value={label} onChange={(e) => setLabel(e.target.value)} />
@@ -96,28 +132,13 @@ function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain
           </ol>
         )}
       </section>
-      {save.isSuccess && <p className="muted" role="status">{t("chains.editor.saved")}</p>}
-      {save.isError && problems.length === 0 && (
-        <p className="alert" role="alert">{t("chains.errors.unexpected")}</p>
-      )}
       {/* L'essai sur échantillon reste offert sur la racine : il n'écrit rien. */}
       {!target.readOnly && (
-      <div className="actions">
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={save.isPending}
-          onClick={() => {
-            check.reset();
-            save.mutate({ label, steps });
-          }}
-        >
-          {t("chains.editor.save")}
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={() => setConfirming(true)}>
-          {t("chains.editor.delete")}
-        </button>
-      </div>
+        <div className="actions">
+          <button type="button" className="btn btn-secondary" onClick={() => setConfirming(true)}>
+            {t("chains.editor.delete")}
+          </button>
+        </div>
       )}
       {confirming && (
         <ConfirmDialog
@@ -155,9 +176,11 @@ export function ChainScreen({
       <button type="button" className="btn btn-secondary back" onClick={onBack}>
         {t("chains.back")}
       </button>
-      <h1 id="chain-title">
-        {chain.data?.label ?? slug} <span className="mono muted">transformations/{slug}</span>
-      </h1>
+      {!chain.data && (
+        <h1 id="chain-title">
+          {slug} <span className="mono muted">transformations/{slug}</span>
+        </h1>
+      )}
       {chain.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
       {chain.isError && <p className="alert" role="alert">{t("chains.errors.unreadable")}</p>}
       {chain.data && <Editor key={slug} target={target} chain={chain.data} onDeleted={onBack} />}

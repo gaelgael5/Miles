@@ -1,64 +1,36 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  type ContractVersionDetail,
-  type Operation,
-  useContract,
-  useImportVersion,
-  usePreviewContract,
-} from "../api/contracts";
+import { type ContractVersionDetail, type Operation, useContract } from "../api/contracts";
 import type { WorkTarget } from "../api/workTarget";
+import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { ContractDelete } from "./ContractDelete";
 import { ContractRefusal } from "./ContractRefusal";
 import { ContractSource } from "./ContractSource";
+import { type Integration, useIntegration } from "./contractIntegration";
 
 function IntegrateForm({
   target,
-  slug,
-  onIntegrated,
+  integration,
   onClose,
 }: {
   target: WorkTarget;
-  slug: string;
-  onIntegrated: (number: number) => void;
+  integration: Integration;
   // Absent : contrat sans version, le bloc reste ouvert, rien à fermer.
   onClose?: () => void;
 }) {
   const { t } = useTranslation();
-  const preview = usePreviewContract(target);
-  const save = useImportVersion(target, slug);
-  const [content, setContent] = useState("");
-  const read = preview.data;
-
-  // Un fichier ou une adresse chargés sont lus aussitôt : ils remplacent le texte et
-  // l'aperçu précédents.
-  function loaded(text: string) {
-    setContent(text);
-    save.reset();
-    preview.mutate(text);
-  }
+  const { preview, save, content, read } = integration;
 
   function readContract(event: FormEvent) {
     event.preventDefault();
-    save.reset();
-    preview.mutate(content);
-  }
-
-  function integrate() {
-    save.mutate(content, {
-      onSuccess: (version) => {
-        setContent("");
-        preview.reset();
-        onIntegrated(version.number);
-      },
-    });
+    integration.readContent();
   }
 
   return (
     <form className="card" onSubmit={readContract} aria-label={t("contracts.integrate.title")}>
       <h2>{t("contracts.integrate.title")}</h2>
-      <ContractSource target={target} onContent={loaded} />
+      <ContractSource target={target} onContent={integration.load} />
       <label className="field">
         {t("contracts.fields.content")}
         <textarea
@@ -66,7 +38,7 @@ function IntegrateForm({
           rows={12}
           spellCheck={false}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => integration.setContent(e.target.value)}
         />
       </label>
       <div className="actions">
@@ -90,16 +62,8 @@ function IntegrateForm({
             <p className="alert">{t("contracts.warnings.aucune_operation")}</p>
           )}
           {save.isError && <ContractRefusal error={save.error} />}
-          <div className="actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={save.isPending}
-              onClick={integrate}
-            >
-              {t("contracts.integrate.submit")}
-            </button>
-          </div>
+          {/* « Intégrer » est en haut à droite de la page, comme Ctrl+S (caad743d). */}
+          <p className="help">{t("contracts.integrate.where")}</p>
         </div>
       )}
     </form>
@@ -204,6 +168,11 @@ export function ContractScreen({
   // (Gael, 23/10/2026). Sans version, rien à lire : le bloc reste ouvert d'emblée.
   const hasVersions = (detail?.versions.length ?? 0) > 0;
   const showForm = !target.readOnly && (!hasVersions || integrating);
+  const integration = useIntegration(target, slug, (number) => {
+    setIntegrated(number);
+    setIntegrating(false);
+  });
+  useSaveShortcut(showForm ? integration.shortcut : null);
 
   return (
     <section aria-labelledby="contract-title">
@@ -223,6 +192,17 @@ export function ContractScreen({
               </p>
             </div>
             {/* Comme toute modification : sur une branche enfant dont on a la main. */}
+            {showForm && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={integration.read === null || integration.busy}
+                title={t("dataModels.editor.saveShortcut")}
+                onClick={integration.integrate}
+              >
+                {t("contracts.integrate.submit")}
+              </button>
+            )}
             {!target.readOnly && hasVersions && !integrating && (
               <button
                 type="button"
@@ -252,12 +232,16 @@ export function ContractScreen({
           {showForm && (
             <IntegrateForm
               target={target}
-              slug={detail.slug}
-              onIntegrated={(number) => {
-                setIntegrated(number);
-                setIntegrating(false);
-              }}
-              onClose={hasVersions ? () => setIntegrating(false) : undefined}
+              integration={integration}
+              onClose={
+                hasVersions
+                  ? () => {
+                      // Fermé, le bloc oublie le texte : rouvert, il repart à vide.
+                      integration.clear();
+                      setIntegrating(false);
+                    }
+                  : undefined
+              }
             />
           )}
           <h2>{t("contracts.versions.title")}</h2>

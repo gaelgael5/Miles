@@ -138,6 +138,32 @@ describe("DataModelsScreen", () => {
     expect(await screen.findByText("Invalid YAML, line 3, column 7: bad")).toBeInTheDocument();
   });
 
+  it("saves with Ctrl+S once changed, the save button standing at the top right", async () => {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...NO_VERSION,
+      [`GET ${ROUTE}/shared/personne?branch=edition`]: [
+        { status: 200, body: { ...PERSONNE, content: DRAFT } },
+        { status: 200, body: { ...PERSONNE, content: YAML } },
+      ],
+      [`PUT ${ROUTE}/shared/personne?branch=edition`]: { status: 200, body: PERSONNE },
+    });
+    renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", model: "shared/personne" });
+    const yaml = await screen.findByLabelText("YAML");
+    const head = screen.getByRole("heading", { name: "Personne livrée" }).closest(".page-head") as HTMLElement;
+    const save = within(head).getByRole("button", { name: "Save" });
+    expect(save).toBeDisabled();
+
+    // Rien de changé : Ctrl+S n'envoie rien.
+    fireEvent.keyDown(yaml, { key: "s", ctrlKey: true });
+    fill("YAML", YAML);
+    fireEvent.keyDown(yaml, { key: "s", ctrlKey: true });
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Model saved");
+    expect(calls.filter((c) => c.key === `PUT ${ROUTE}/shared/personne?branch=edition`)).toHaveLength(1);
+  });
+
   it("shows the YAML read-only without the hold", async () => {
     mockApi({
       "GET /api/workspaces/retrait/holds": { status: 200, body: [] },
@@ -151,6 +177,9 @@ describe("DataModelsScreen", () => {
 
     expect(await screen.findByLabelText("YAML")).toHaveAttribute("readonly");
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    // Sans la main, Ctrl+S n'enregistre rien, et la boîte du navigateur ne s'ouvre pas.
+    const pressed = fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    expect(pressed).toBe(false);
   });
 
   it("names the models that still use one being deleted", async () => {
