@@ -353,10 +353,12 @@
       "none": "Pas encore de branche de travail : ouvrez-la quand vous commencez à fabriquer le paramétrage.",
       "name": "Nom de la branche de travail (work/…)",
       "open": "Ouvrir la branche de travail",
+      "adopt": "Reprendre cette branche existante",
       "current": "Branche de travail : {{branch}}",
       "outcome": {
         "initialisee": "La branche de travail est ouverte et a reçu l'arborescence de paramétrage et son manifest.json.",
-        "conforme": "La branche de travail est ouverte ; le dépôt avait déjà une arborescence conforme, rien n'a été écrasé."
+        "conforme": "La branche de travail est ouverte ; le dépôt avait déjà une arborescence conforme, rien n'a été écrasé.",
+        "reprise": "La branche existante a été reprise telle quelle : son arborescence est conforme et rien n'y a été écrit."
       },
       "nonConform": "L'arborescence du dépôt n'est pas conforme : rien n'a été modifié.",
       "manifest": {

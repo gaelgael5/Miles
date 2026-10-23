@@ -353,10 +353,12 @@
       "none": "No work branch yet: open one when you start building the configuration.",
       "name": "Work branch name (work/…)",
       "open": "Open the work branch",
+      "adopt": "Take over this existing branch",
       "current": "Work branch: {{branch}}",
       "outcome": {
         "initialisee": "The work branch was opened and received the configuration tree with its manifest.json.",
-        "conforme": "The work branch was opened; the repository already had a conforming tree, nothing was overwritten."
+        "conforme": "The work branch was opened; the repository already had a conforming tree, nothing was overwritten.",
+        "reprise": "The existing branch was taken over as is: its tree is conform and nothing was written to it."
       },
       "nonConform": "The repository tree does not conform: nothing was changed.",
       "manifest": {

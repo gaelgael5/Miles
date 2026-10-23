@@ -162,12 +162,18 @@ def _allowed_in_domain(rest: list[str]) -> bool:
 
 
 async def open_work_branch(
-    repo: Repository, access: GitAccess, name: str, author: str
+    repo: Repository, access: GitAccess, name: str, author: str, *, adopt_existing: bool = False
 ) -> WorkBranch:
+    """Ouvre la branche de travail ; `adopt_existing` reprend celle qui est déjà au dépôt.
+
+    Le rattachement est un second geste, jamais le premier : sans lui, une branche
+    homonyme est refusée (BranchExistsError) et rien n'est touché. C'est l'écran qui
+    demande confirmation, puis rejoue avec adopt_existing (Gael, 23/10/2026).
+    """
     branch = work_branch_name(name)
     workdir = Path(await asyncio.to_thread(tempfile.mkdtemp, prefix="miles-work-"))
     try:
-        return await _Opener(repo, access, workdir, branch, author).run()
+        return await _Opener(repo, access, workdir, branch, author, adopt_existing).run()
     finally:
         await asyncio.to_thread(shutil.rmtree, workdir, True)
 
@@ -179,6 +185,7 @@ class _Opener:
     workdir: Path
     branch: str
     author: str
+    adopt_existing: bool = False
 
     async def git(self, *args: str, cwd: Path | None = None) -> GitResult:
         return await run_git(list(args), cwd or self.workdir, self.access)
@@ -187,23 +194,34 @@ class _Opener:
         heads = await self.git("ls-remote", "--symref", self.repo.url, "HEAD", "refs/heads/*")
         if not heads.ok:
             raise RepositoryAccessError(classify(heads))
-        if f"refs/heads/{self.branch}" in heads.stdout:
+        existing = f"refs/heads/{self.branch}" in heads.stdout
+        if existing and not self.adopt_existing:
             raise BranchExistsError(self.branch)
+        # Reprise demandée mais la branche a disparu entre la confirmation et ici : on la
+        # crée, ce qui est exactement ce que la personne demandait. Un refus l'obligerait
+        # à refaire le même geste pour le même résultat.
         default = _default_branch(heads.stdout)
         clone = self.workdir / "clone"
-        if default is None:
+        # On part de la branche elle-même quand on la reprend : son contenu fait foi, pas
+        # celui de la branche par défaut, qui l'écraserait à la poussée.
+        source = self.branch if existing else default
+        if source is None:
             await self.git("init", "-q", "-b", self.branch, str(clone))
             paths: list[str] = []
         else:
             cloned = await self.git(
-                "clone", "-q", "--depth", "1", "--branch", default, self.repo.url, str(clone)
+                "clone", "-q", "--depth", "1", "--branch", source, self.repo.url, str(clone)
             )
             if not cloned.ok:
                 raise RepositoryAccessError(classify(cloned))
             listed = await self.git("ls-tree", "-r", "--name-only", "HEAD", cwd=clone)
             paths = [line for line in listed.stdout.splitlines() if line]
-            await self.git("checkout", "-q", "-b", self.branch, cwd=clone)
+            if not existing:
+                await self.git("checkout", "-q", "-b", self.branch, cwd=clone)
         outcome = await self._prepare(clone, paths)
+        if existing and outcome == "conforme":
+            # Rien n'a été écrit : la branche reprise reste à l'octet près ce qu'elle était.
+            outcome = "reprise"
         pushed = await self.git(
             "push", "-q", self.repo.url, f"HEAD:refs/heads/{self.branch}", cwd=clone
         )

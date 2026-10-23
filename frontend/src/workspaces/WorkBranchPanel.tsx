@@ -12,6 +12,11 @@ function diagnosisOf(error: unknown): TreeDiagnosis | null {
   return null;
 }
 
+/** Branche homonyme déjà au dépôt : seul refus qui se rattrape, en la reprenant. */
+function isExistingBranch(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409 && error.detail === "branche_existante";
+}
+
 function errorKey(error: unknown): string {
   if (diagnosisOf(error) !== null) {
     return "workspaces.work.nonConform";
@@ -41,7 +46,7 @@ export function WorkBranchPanel({ workspace }: { workspace: Workspace }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    open.mutate(name);
+    open.mutate({ name });
   }
 
   return (
@@ -57,6 +62,16 @@ export function WorkBranchPanel({ workspace }: { workspace: Workspace }) {
       </button>
       {open.data?.outcome && <p className="muted" role="status">{t(`workspaces.work.outcome.${open.data.outcome}`)}</p>}
       {open.isError && <p className="alert" role="alert">{t(errorKey(open.error))}</p>}
+      {isExistingBranch(open.error) && (
+        <button
+          type="button"
+          className="btn"
+          disabled={open.isPending}
+          onClick={() => open.mutate({ name, adoptExisting: true })}
+        >
+          {t("workspaces.work.adopt")}
+        </button>
+      )}
       {diagnosis && (
         <ul className="alert">
           {diagnosis.manifest !== "valide" && (

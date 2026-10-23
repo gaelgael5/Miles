@@ -53,6 +53,21 @@ def _count(repo: Repository, ref: str) -> int:
     return int(_git("--git-dir", repo.url.removeprefix("file://"), "rev-list", "--count", ref))
 
 
+def _seed_branch(repo: Repository, branch: str, files: dict[str, str], tmp_path: Path) -> None:
+    """Pose `branch` dans le dépôt nu avec exactement `files` : la branche qui préexiste."""
+    bare = repo.url.removeprefix("file://")
+    work = tmp_path / f"seed-{branch.replace('/', '-')}"
+    _git("init", "-q", "-b", "tmp", str(work))
+    for path, content in files.items():
+        target = work / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content)
+    _git("-C", str(work), "add", "-A")
+    identity = ["-c", "user.name=t", "-c", "user.email=t@t"]
+    _git("-C", str(work), *identity, "commit", "-q", "--allow-empty", "-m", "preexistante")
+    _git("-C", str(work), "push", "-q", bare, f"HEAD:refs/heads/{branch}")
+
+
 async def test_blank_repository_gets_the_skeleton_and_a_valid_manifest(tmp_path: Path) -> None:
     repo = _repo(tmp_path, {"README.md": "# Config"})
 
@@ -129,6 +144,71 @@ async def test_existing_branch_name_is_refused_without_touching_it(tmp_path: Pat
         await open_work_branch(repo, TOKEN, "atelier", AUTHOR)
 
     assert _count(repo, "work/atelier") == before
+
+
+async def test_existing_conform_branch_is_taken_over_without_writing_to_it(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, {})
+    await open_work_branch(repo, TOKEN, "atelier", AUTHOR)
+    before_count, before_tree = _count(repo, "work/atelier"), _tree(repo, "work/atelier")
+
+    opened = await open_work_branch(repo, TOKEN, "atelier", AUTHOR, adopt_existing=True)
+
+    assert (opened.branch, opened.outcome) == ("work/atelier", "reprise")
+    # « elle n'a pas été touchée » doit rester vrai : ni commit de plus, ni fichier changé.
+    assert _count(repo, "work/atelier") == before_count
+    assert _tree(repo, "work/atelier") == before_tree
+
+
+async def test_taking_over_keeps_the_branch_content_not_the_default_branch(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, {"manifest.json": VALID_MANIFEST, "domains/depuis-main/.gitkeep": ""})
+    _seed_branch(
+        repo,
+        "work/atelier",
+        {"manifest.json": VALID_MANIFEST, "domains/depuis-la-branche/.gitkeep": ""},
+        tmp_path,
+    )
+
+    opened = await open_work_branch(repo, TOKEN, "atelier", AUTHOR, adopt_existing=True)
+
+    assert opened.outcome == "reprise"
+    # Partir de la branche par défaut l'écraserait à la poussée : c'est le défaut guetté.
+    assert _tree(repo, "work/atelier") == ["domains/depuis-la-branche/.gitkeep", "manifest.json"]
+
+
+async def test_taking_over_a_blank_branch_gives_it_the_skeleton(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, {})
+    _seed_branch(repo, "work/atelier", {"README.md": "# rien de Miles"}, tmp_path)
+
+    opened = await open_work_branch(repo, TOKEN, "atelier", AUTHOR, adopt_existing=True)
+
+    assert opened.outcome == "initialisee"
+    tree = _tree(repo, "work/atelier")
+    assert "manifest.json" in tree and "README.md" in tree
+
+
+async def test_taking_over_a_non_conform_branch_is_refused_and_leaves_it_untouched(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path, {})
+    _seed_branch(
+        repo, "work/atelier", {"manifest.json": VALID_MANIFEST, "src/app.py": ""}, tmp_path
+    )
+    before = _count(repo, "work/atelier")
+
+    with pytest.raises(NonConformTreeError) as caught:
+        await open_work_branch(repo, TOKEN, "atelier", AUTHOR, adopt_existing=True)
+
+    assert caught.value.diagnosis.unexpected == ["src/app.py"]
+    assert _count(repo, "work/atelier") == before
+
+
+async def test_taking_over_a_branch_that_vanished_opens_it_normally(tmp_path: Path) -> None:
+    """La confirmation et la reprise sont deux appels : la branche peut disparaître entre eux."""
+    repo = _repo(tmp_path, {"README.md": "# Config"})
+
+    opened = await open_work_branch(repo, TOKEN, "atelier", AUTHOR, adopt_existing=True)
+
+    assert (opened.branch, opened.outcome) == ("work/atelier", "initialisee")
 
 
 async def test_unreachable_repository_designates_access(tmp_path: Path) -> None:

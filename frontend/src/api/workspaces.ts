@@ -83,13 +83,16 @@ export function useRecheckWorkspace(id: string) {
   });
 }
 
+/** « reprise » : la branche existait déjà au dépôt et n'a pas été modifiée. */
+export type WorkBranchOutcome = "initialisee" | "conforme" | "reprise";
+
 export function useOpenWorkBranch(id: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) =>
-      request<{ workspace: Workspace; outcome: "initialisee" | "conforme" | null }>(
+    mutationFn: ({ name, adoptExisting = false }: { name: string; adoptExisting?: boolean }) =>
+      request<{ workspace: Workspace; outcome: WorkBranchOutcome | null }>(
         `/api/workspaces/${encodeURIComponent(id)}/work-branch`,
-        { method: "POST", body: JSON.stringify({ name }) },
+        { method: "POST", body: JSON.stringify({ name, adopt_existing: adoptExisting }) },
       ),
     onSuccess: () => client.invalidateQueries({ queryKey: KEY }),
   });

@@ -72,6 +72,9 @@ class SecurityServiceBody(BaseModel):
 class WorkBranchBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
+    # Reprendre une branche homonyme déjà au dépôt. Faux par défaut : la première demande
+    # ne touche jamais une branche existante, c'est l'écran qui fait confirmer puis rejoue.
+    adopt_existing: bool = False
 
 
 class RecheckBody(BaseModel):
@@ -219,7 +222,7 @@ async def open_work_branch(
 ) -> object:
     try:
         workspace, outcome = await service.resolve_open_work_branch(
-            request_author(request), workspace_id, body.name
+            request_author(request), workspace_id, body.name, adopt_existing=body.adopt_existing
         )
     except _REFUSALS as exc:
         return _refusal(exc)

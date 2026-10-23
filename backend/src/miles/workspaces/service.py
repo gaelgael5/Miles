@@ -192,12 +192,16 @@ class WorkspacesService:
         return report
 
     async def resolve_open_work_branch(
-        self, author: EventAuthor, workspace_id: str, name: str
+        self, author: EventAuthor, workspace_id: str, name: str, *, adopt_existing: bool = False
     ) -> tuple[Workspace, str | None]:
         """Ouvre LA branche de travail du workspace ; rend (workspace, issue ou None si rejeu).
 
         Une seule par workspace (choix du 21/10/2026) : la seconde demande, sous le même
         nom, est un rejeu sans effet ; sous un autre nom, un refus.
+
+        `adopt_existing` reprend une branche homonyme déjà au dépôt, au lieu de la refuser
+        (Gael, 23/10/2026) : recâbler un workspace sur un nouvel environnement retombe
+        toujours sur une branche qui existe. La confirmation vient de l'écran, jamais d'ici.
         """
         try:
             branch = work_branch_name(name)
@@ -210,7 +214,9 @@ class WorkspacesService:
             raise WorkspaceConflictError("branche_de_travail_existante")
         access = await self._access(connection_id)
         try:
-            opened = await open_work_branch(repo, access, name, commit_author(author))
+            opened = await open_work_branch(
+                repo, access, name, commit_author(author), adopt_existing=adopt_existing
+            )
         except RepositoryAccessError as exc:
             raise RepositoryUnavailableError(exc.reason.value) from None
         except BranchExistsError:
