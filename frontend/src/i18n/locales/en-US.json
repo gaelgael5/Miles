@@ -302,7 +302,8 @@
       "contracts": "Contracts",
       "branch": "Versions",
       "transformations": "Transformations",
-      "sources": "Data sources"
+      "sources": "Data sources",
+      "branchGraph": "Branches"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -768,7 +769,14 @@
       "view": "The branch to view could not be chosen."
     },
     "viewed": "Branch viewed",
-    "rootReadOnly": "This is the workspace root branch: it is read-only. To change models, contracts, chains or sources, create or choose a child branch in “All workspaces”. Versions can still be saved here."
+    "rootReadOnly": "This is the workspace root branch: it is read-only. To change models, contracts, chains or sources, create or choose a child branch in “All workspaces”. Versions can still be saved here.",
+    "graph": {
+      "title": "Branches — {{name}}",
+      "lead": "The commits of this workspace's branches, newest first.",
+      "back": "Back to settings",
+      "empty": "Nothing to show: this workspace has no branch yet.",
+      "unreadable": "The repository did not answer: the graph cannot be read."
+    }
   },
   "profile": {
     "title": "My profile",

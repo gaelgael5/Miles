@@ -302,7 +302,8 @@
       "contracts": "Contrats",
       "branch": "Versions",
       "transformations": "Transformations",
-      "sources": "Sources de données"
+      "sources": "Sources de données",
+      "branchGraph": "Branches"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -768,7 +769,14 @@
       "view": "La branche à afficher n'a pas pu être choisie."
     },
     "viewed": "Branche affichée",
-    "rootReadOnly": "Vous êtes sur la branche racine du workspace : elle est en lecture seule. Pour modifier modèles, contrats, chaînes ou sources, créez ou choisissez une branche enfant dans « Tous les workspaces ». Enregistrer une version reste possible ici."
+    "rootReadOnly": "Vous êtes sur la branche racine du workspace : elle est en lecture seule. Pour modifier modèles, contrats, chaînes ou sources, créez ou choisissez une branche enfant dans « Tous les workspaces ». Enregistrer une version reste possible ici.",
+    "graph": {
+      "title": "Branches — {{name}}",
+      "lead": "Les commits des branches de ce workspace, du plus récent au plus ancien.",
+      "back": "Retour au paramétrage",
+      "empty": "Aucun commit à montrer : ce workspace n'a pas encore de branche.",
+      "unreadable": "Le dépôt n'a pas répondu : le graphe ne peut pas être lu."
+    }
   },
   "profile": {
     "title": "Mon profil",

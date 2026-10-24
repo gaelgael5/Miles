@@ -135,6 +135,21 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .row-sample { border-bottom: none; padding-left: 0; padding-right: 0; }
 /* Hôte du Web Component JSLT : il porte sa propre hauteur par ses variables CSS. */
 .jslt-editor-host { margin-top: 6px; }
+/* Vue ferroviaire : le dessin et les lignes partagent la MÊME grille, sinon les
+   pastilles ne tombent pas en face de leur commit. */
+.graph { display: flex; gap: 4px; align-items: flex-start; overflow-x: auto; }
+.graph-rails { flex: 0 0 auto; }
+.graph-rows { flex: 1 1 auto; list-style: none; margin: 0; padding: 0; min-width: 0; }
+.graph-row {
+  display: flex; align-items: center; gap: 8px; padding: 0 4px;
+  font-size: 13px; white-space: nowrap; overflow: hidden;
+}
+.graph-subject { overflow: hidden; text-overflow: ellipsis; }
+.graph-meta { margin-left: auto; font-size: 11px; color: var(--encre-faible); }
+.graph-edge { fill: none; stroke: var(--bordure); stroke-width: 2; }
+.graph-dot { fill: var(--surface); stroke: var(--bordure); stroke-width: 2; }
+/* Un commit pointé par une branche se repère d'un coup d'œil. */
+.graph-dot-ref { fill: var(--accent); stroke: var(--accent); }
 .jslt-editor-host jslt-editor { --jslt-ed-height: 520px; display: block; }
 .row-main { flex: 999 1 260px; min-width: 0; }
 .row-title { font-size: 16px; font-weight: 600; }

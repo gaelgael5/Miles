@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "./http";
+import type { Commit } from "../workspaces/graphLanes";
 
 /** Branche de travail d'un workspace : la base, ou une branche fille tirée d'elle. */
 export interface WorkBranch {
@@ -18,6 +19,15 @@ function root(workspaceId: string) {
 
 function key(workspaceId: string) {
   return ["branches", workspaceId] as const;
+}
+
+/** Le graphe des commits des branches du workspace, du plus récent au plus ancien. */
+export function useBranchGraph(workspaceId: string, limit = 100) {
+  return useQuery({
+    queryKey: ["branch-graph", workspaceId, limit],
+    queryFn: ({ signal }) =>
+      request<Commit[]>(`${root(workspaceId)}/graph?limit=${limit}`, { signal }),
+  });
 }
 
 export function useBranches(workspaceId: string, enabled = true) {

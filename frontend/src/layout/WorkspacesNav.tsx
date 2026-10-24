@@ -9,6 +9,7 @@ import { WorkspaceViews } from "./WorkspaceViews";
 export type WorkspaceView =
   | "settings"
   | "branch"
+  | "branchGraph"
   | "dataModels"
   | "contractModels"
   | "contracts"
@@ -61,7 +62,9 @@ export function viewedBranchOf(
 /** Vues offertes sur la ligne d'un workspace, dans « Tous les workspaces ». */
 export function viewsOf(workspace: Workspace): WorkspaceView[] {
   // Modèles et contrats s'écrivent dans une branche de travail : sans elle, rien à ouvrir.
-  return workspace.work_branch === null ? ["settings"] : ["dataModels", "contracts", "settings"];
+  return workspace.work_branch === null
+    ? ["settings"]
+    : ["dataModels", "contracts", "branchGraph", "settings"];
 }
 
 /**
