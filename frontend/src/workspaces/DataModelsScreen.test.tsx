@@ -17,6 +17,7 @@ const PERSONNE = {
 const COLIS = { scope: "suivi", name: "colis", path: "domains/suivi/messages/colis.yaml", label: null };
 const DRAFT = "nom: personne\nversion: 1\nproprietes: {}\n";
 const YAML = "nom: personne\nversion: 1\nproprietes:\n  nom:\n    type: chaine\n";
+const BLANK = "$schema: https://json-schema.org/draft/2020-12/schema\n$id: miles:/shared/personne\ntitle: Personne livrée\ntype: object\nproperties: {}\n";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -27,6 +28,69 @@ async function openModels() {
   renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition" });
   return screen.findByRole("heading", { name: "Data models — Retrait de colis" });
 }
+
+async function openBlankModel(routes: Record<string, unknown> = {}) {
+  const calls = mockApi({
+    ...HELD,
+    "GET /api/workspaces": { status: 200, body: [WORKING] },
+    ...NO_VERSION,
+    [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [PERSONNE] },
+    [`GET ${ROUTE}/shared/personne?branch=edition`]: {
+      status: 200,
+      body: { ...PERSONNE, content: BLANK },
+    },
+    ...routes,
+  } as never);
+  await openModels();
+  const row = (await screen.findByText("Personne livrée")).closest("li") as HTMLElement;
+  fireEvent.click(within(row).getByRole("button", { name: "Personne livrée" }));
+  await screen.findByLabelText("YAML", {}, { timeout: 10_000 });
+  return calls;
+}
+
+describe("smart import", () => {
+  it("infers the model from a pasted sample, keeping what the declaration gave it", async () => {
+    const calls = await openBlankModel({
+      [`POST ${ROUTE}/inference?branch=edition`]: {
+        status: 200,
+        body: { schema: { type: "object", properties: { nom: { type: "string" } } } },
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Smart import" }));
+    fireEvent.change(await screen.findByLabelText("Sample", {}, { timeout: 10_000 }), {
+      target: { value: '{"nom": "Gaël"}' },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Infer the model" }));
+
+    // Le titre et l'identifiant tenus de la déclaration survivent à l'import.
+    const yaml = (await screen.findByLabelText("YAML")) as HTMLTextAreaElement;
+    expect(yaml.value).toContain("title: Personne livrée");
+    expect(yaml.value).toContain("$id: miles:/shared/personne");
+    expect(yaml.value).toContain("nom:");
+    expect(calls.some((c) => c.key === `POST ${ROUTE}/inference?branch=edition`)).toBe(true);
+  });
+
+  it("is not offered once the model describes something", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...NO_VERSION,
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [PERSONNE] },
+      [`GET ${ROUTE}/shared/personne?branch=edition`]: {
+        status: 200,
+        body: { ...PERSONNE, content: "title: Personne\ntype: object\nproperties:\n  nom:\n    type: string\n" },
+      },
+    });
+    await openModels();
+    const row = (await screen.findByText("Personne livrée")).closest("li") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Personne livrée" }));
+    await screen.findByLabelText("YAML", {}, { timeout: 10_000 });
+
+    // Sur un modèle déjà décrit, l'import écraserait un travail sans le dire.
+    expect(screen.queryByRole("button", { name: "Smart import" })).toBeNull();
+  });
+});
 
 describe("DataModelsScreen", () => {
   it("shows a branch to work in only for the workspace that has one", async () => {

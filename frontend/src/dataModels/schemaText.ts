@@ -7,6 +7,24 @@ export type Parsed = { ok: true; schema: JsonSchema } | { ok: false; message: st
 // Même forme que le serveur (story 0f7cda10) : un modèle se désigne par un URI absolu.
 const ID_RE = /^miles:\/(?:shared\/([a-z0-9][a-z0-9_-]*)|domains\/([a-z0-9][a-z0-9_-]*)\/([a-z0-9][a-z0-9_-]*))$/;
 
+/** Un modèle « entièrement vide » : déclaré, jamais décrit.
+ *
+ * C'est exactement ce que le serveur écrit à la déclaration — un objet sans propriété —
+ * et c'est la seule situation où l'import intelligent est proposé : sur un modèle déjà
+ * décrit, il écraserait un travail sans le dire.
+ */
+export function isBlankSchema(parsed: Parsed): boolean {
+  if (!parsed.ok) {
+    return false;
+  }
+  const schema = parsed.schema as Record<string, unknown>;
+  const described = ["properties", "$defs", "items", "allOf", "anyOf", "oneOf", "enum", "const"];
+  return described.every((key) => {
+    const value = schema[key];
+    return value === undefined || (typeof value === "object" && value !== null && Object.keys(value).length === 0);
+  });
+}
+
 export function modelUri(scope: string, name: string): string {
   return scope === "shared" ? `miles:/shared/${name}` : `miles:/domains/${scope}/${name}`;
 }

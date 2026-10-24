@@ -1,5 +1,8 @@
 import { loader } from "@monaco-editor/react";
 import "monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution.js";
+// JSON sert à coller un échantillon dans l'import intelligent : coloration et
+// repérage des erreurs de syntaxe, rien d'autre — le schéma reste du YAML.
+import "monaco-editor/esm/vs/language/json/monaco.contribution.js";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
 import { configureMonacoYaml } from "monaco-yaml";
 
@@ -17,6 +20,12 @@ self.MonacoEnvironment = {
   getWorker(_moduleId: string, label: string) {
     if (label === "yaml") {
       return new Worker(new URL("./yaml.worker.ts", import.meta.url), { type: "module" });
+    }
+    if (label === "json") {
+      return new Worker(
+        new URL("monaco-editor/esm/vs/language/json/json.worker.js", import.meta.url),
+        { type: "module" },
+      );
     }
     return new Worker(new URL("monaco-editor/esm/vs/editor/editor.worker.js", import.meta.url), {
       type: "module",

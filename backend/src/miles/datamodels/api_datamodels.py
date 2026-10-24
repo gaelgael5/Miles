@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from miles.auth.author import request_author
-from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError
+from miles.datamodels.grammar import MAX_TEXT_BYTES, ModelGrammarError, ModelSyntaxError
+from miles.datamodels.inference import infer, read_sample
 from miles.datamodels.layout import ModelEntry
 from miles.datamodels.service import DataModelsService, ModelInUseError, ModelNotFoundError
 from miles.workspaces.model import (
@@ -179,6 +180,39 @@ async def create_model(
         response.status_code = status.HTTP_200_OK
         response.headers["X-Miles-Already-Exists"] = "true"
     return _out(entry)
+
+
+class SampleIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    format: Literal["json", "yaml"]
+    # Borné comme les schémas eux-mêmes : un échantillon colle, il ne se téléverse pas
+    # sans limite.
+    sample: str = Field(max_length=MAX_TEXT_BYTES)
+
+
+class InferredOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_body: dict[str, Any] = Field(serialization_alias="schema")
+
+
+@router.post("/inference", response_model=InferredOut, response_model_by_alias=True)
+async def infer_from_sample(workspace_id: str, body: SampleIn, service: Service) -> object:
+    """Déduit un schéma d'un échantillon, sans rien écrire ni toucher au dépôt.
+
+    Transformation pure : le workspace n'est là que pour l'autorisation, le résultat
+    n'est enregistré que si la personne le garde et enregistre le modèle.
+    """
+    try:
+        sample = read_sample(body.sample, body.format)
+    except ModelSyntaxError as exc:
+        # Pas « yaml_invalide » : l'échantillon n'est pas le schéma, et il peut être du
+        # JSON. Nommer la bonne chose évite de chercher l'erreur au mauvais endroit.
+        detail = {"code": "echantillon_illisible", "message": exc.message}
+        return _error(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail | {"line": exc.line, "column": exc.column},
+        )
+    return InferredOut(schema_body=infer(sample))
 
 
 @router.post("/declarations", status_code=status.HTTP_201_CREATED, response_model=ModelOut)

@@ -195,6 +195,43 @@ async def test_workspace_without_work_branch_is_refused(forge: Forge) -> None:
     assert bad_scope.json()["detail"] == {"field": "scope"}
 
 
+async def test_a_json_sample_becomes_a_schema_without_writing_anything(forge: Forge) -> None:
+    """L'import intelligent : on déduit, on n'enregistre pas."""
+    before = await forge.client.get(ROUTE, timeout=120)
+
+    inferred = await forge.client.post(
+        f"{ROUTE}/inference",
+        json={"format": "json", "sample": '{"nom": "Gaël", "vu_le": "2026-10-24"}'},
+        timeout=120,
+    )
+    after = await forge.client.get(ROUTE, timeout=120)
+
+    assert inferred.status_code == 200, inferred.text
+    assert inferred.json()["schema"] == {
+        "type": "object",
+        "properties": {
+            "nom": {"type": "string"},
+            "vu_le": {"type": "string", "format": "date"},
+        },
+    }
+    # Transformation pure : la liste des modèles n'a pas bougé.
+    assert after.json() == before.json()
+
+
+async def test_an_unreadable_sample_is_named_as_such_not_as_an_invalid_schema(
+    forge: Forge,
+) -> None:
+    refused = await forge.client.post(
+        f"{ROUTE}/inference", json={"format": "json", "sample": '{"nom": }'}, timeout=120
+    )
+
+    assert refused.status_code == 422
+    # « echantillon_illisible » et non « yaml_invalide » : l'erreur est dans ce qu'on
+    # colle, pas dans le schéma du modèle.
+    assert refused.json()["detail"]["code"] == "echantillon_illisible"
+    assert refused.json()["detail"]["line"] is not None
+
+
 async def _declare(
     forge: Forge, label: str = "Personne livrée", slug: str = "personne", scope: str = "shared"
 ) -> httpx.Response:

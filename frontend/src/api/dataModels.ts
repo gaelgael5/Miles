@@ -39,6 +39,20 @@ function key(target: WorkTarget) {
   return branchKey("data-models", target);
 }
 
+export type SampleFormat = "json" | "yaml";
+
+/** Déduit un schéma d'un échantillon. Rien n'est écrit : le résultat part dans l'éditeur,
+ * et n'atteint le dépôt que si la personne enregistre le modèle. */
+export function useInferSchema(target: WorkTarget) {
+  return useMutation({
+    mutationFn: (body: { format: SampleFormat; sample: string }) =>
+      request<{ schema: Record<string, unknown> }>(atBranch(target, "data-models", "inference"), {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  });
+}
+
 export function useDataModels(target: WorkTarget) {
   return useQuery({
     queryKey: key(target),

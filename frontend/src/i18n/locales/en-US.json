@@ -588,6 +588,22 @@
       "help": "The name of the domains/<name>/ directory: lowercase letters, digits, hyphens and underscores, 63 characters at most. It is then picked from the list when creating a model.",
       "submit": "Add the domain",
       "added": "Domain {{name}} added: it can now be picked when creating a model."
+    },
+    "import": {
+      "action": "Smart import",
+      "title": "Smart import",
+      "explain": "Paste a sample document: Miles infers the shape of the model. Nothing is saved — the schema lands in the editor, and “Save” decides.",
+      "format": "Sample format",
+      "formats": {
+        "json": "JSON",
+        "yaml": "YAML"
+      },
+      "file": "From a file",
+      "sample": "Sample",
+      "submit": "Infer the model",
+      "cancel": "Cancel",
+      "unreadable": "The sample cannot be read (line {{line}}, column {{column}}).",
+      "failed": "Inference failed."
     }
   },
   "versions": {

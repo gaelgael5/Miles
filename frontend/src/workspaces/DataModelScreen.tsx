@@ -10,7 +10,8 @@ import {
   useReplaceDataModel,
 } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
-import { parseSchema, sameSchema, schemaText } from "../dataModels/schemaText";
+import { ImportSmart } from "../dataModels/ImportSmart";
+import { isBlankSchema, parseSchema, sameSchema, schemaText } from "../dataModels/schemaText";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { ModelRefusal } from "./ModelRefusal";
@@ -18,6 +19,25 @@ import { ModelRefusal } from "./ModelRefusal";
 // JSONJoy et Monaco ne se chargent qu'à l'ouverture d'un modèle : le reste du portail ne
 // paie pas leur poids (story e38806f3).
 const SchemaEditor = lazy(() => import("../dataModels/SchemaEditor"));
+
+/** Le schéma déduit, sous l'identité que le modèle tient déjà de sa déclaration.
+ *
+ * `$schema`, `$id` et `title` sont posés à la déclaration : l'échantillon décrit la
+ * forme, il ne renomme pas le modèle ni ne change son identifiant.
+ */
+function withIdentity(current: JsonSchema, inferred: Record<string, unknown>): JsonSchema {
+  const head: Record<string, unknown> = {};
+  // `JsonSchema` admet aussi `true`/`false` : seule la forme objet porte une identité.
+  if (typeof current === "object" && current !== null) {
+    const from = current as Record<string, unknown>;
+    for (const key of ["$schema", "$id", "title"]) {
+      if (typeof from[key] === "string") {
+        head[key] = from[key];
+      }
+    }
+  }
+  return { ...head, ...inferred } as JsonSchema;
+}
 
 /**
  * Éditeur visuel à gauche, YAML à droite (story e38806f3), synchronisés et en mémoire
@@ -41,7 +61,10 @@ function Editor({
   const models = useDataModels(target);
   const [text, setText] = useState(model.content);
   const [parsed, setParsed] = useState(() => parseSchema(model.content));
+  const [importing, setImporting] = useState(false);
   const dirty = !sameSchema(text, model.content);
+  // Proposé seulement sur un modèle encore vide : ailleurs, il écraserait un travail.
+  const blank = isBlankSchema(parsed);
 
   function changed(next: string) {
     onDirty(!sameSchema(next, model.content));
@@ -93,6 +116,15 @@ function Editor({
         {!target.readOnly && (
           <div className="actions">
             {dirty && <span className="badge badge-warning">{t("dataModels.editor.unsaved")}</span>}
+            {blank && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setImporting(true)}
+              >
+                {t("dataModels.import.action")}
+              </button>
+            )}
             <button
               type="button"
               className="btn btn-primary"
@@ -105,6 +137,17 @@ function Editor({
           </div>
         )}
       </div>
+      {importing && (
+        <ImportSmart
+          target={target}
+          path={model.path}
+          onCancel={() => setImporting(false)}
+          onImported={(inferred) => {
+            setImporting(false);
+            fromVisual(withIdentity(parsed.ok ? parsed.schema : {}, inferred));
+          }}
+        />
+      )}
       {saved && !dirty && (
         <p className="notice" role="status">
           {t("dataModels.editor.saved")}

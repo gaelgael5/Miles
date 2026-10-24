@@ -588,6 +588,22 @@
       "help": "Le nom du répertoire domains/<nom>/ : lettres minuscules, chiffres, tirets et soulignés, 63 caractères au plus. Il se choisit ensuite dans la liste à la création d'un modèle.",
       "submit": "Ajouter le domaine",
       "added": "Domaine {{name}} ajouté : il se choisit maintenant à la création d'un modèle."
+    },
+    "import": {
+      "action": "Import intelligent",
+      "title": "Import intelligent",
+      "explain": "Collez un échantillon de document : Miles en déduit la forme du modèle. Rien n'est enregistré — le schéma arrive dans l'éditeur, et c'est « Enregistrer » qui décide.",
+      "format": "Format de l'échantillon",
+      "formats": {
+        "json": "JSON",
+        "yaml": "YAML"
+      },
+      "file": "Depuis un fichier",
+      "sample": "Échantillon",
+      "submit": "Déduire le modèle",
+      "cancel": "Annuler",
+      "unreadable": "L'échantillon ne se lit pas (ligne {{line}}, colonne {{column}}).",
+      "failed": "La déduction a échoué."
     }
   },
   "versions": {
