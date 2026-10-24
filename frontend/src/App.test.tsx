@@ -138,6 +138,9 @@ describe("App", () => {
     // Les branches ne sont pas listées : seules les vues de la branche regardée.
     expect(within(nav).queryByRole("button", { name: "atelier" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+    // La vue ferroviaire s'atteint d'ici : un écran qu'on ne peut pas ouvrir n'existe
+    // pas, et le menu a sa PROPRE liste de vues (relevé par Gael le 24/10/2026).
+    expect(within(nav).getByRole("button", { name: "Branches" })).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole("button", { name: "Data models" }));
 
     expect(

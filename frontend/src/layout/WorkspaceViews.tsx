@@ -5,7 +5,16 @@ import type { Direction } from "../api/contracts";
 import { ContractLinks } from "./ContractLinks";
 import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
 
-const VIEWS: WorkspaceView[] = ["branch", "dataModels", "contracts", "transformations", "sources"];
+// « branchGraph » en tête : c'est la vue d'ensemble des branches, celle qui situe où
+// l'on travaille avant d'ouvrir quoi que ce soit.
+const VIEWS: WorkspaceView[] = [
+  "branchGraph",
+  "branch",
+  "dataModels",
+  "contracts",
+  "transformations",
+  "sources",
+];
 const SENSES: Direction[] = ["interne", "externe"];
 
 /**

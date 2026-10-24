@@ -59,14 +59,6 @@ export function viewedBranchOf(
   return views?.[workspace.id] ?? baseBranchOf(workspace);
 }
 
-/** Vues offertes sur la ligne d'un workspace, dans « Tous les workspaces ». */
-export function viewsOf(workspace: Workspace): WorkspaceView[] {
-  // Modèles et contrats s'écrivent dans une branche de travail : sans elle, rien à ouvrir.
-  return workspace.work_branch === null
-    ? ["settings"]
-    : ["dataModels", "contracts", "branchGraph", "settings"];
-}
-
 /**
  * Sous-menu des workspaces : la liste, puis chaque workspace libellé « nom (branche) »
  * d'après la branche que la personne regarde (Gael, 22/10/2026), déplié sur les vues de
