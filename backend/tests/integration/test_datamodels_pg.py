@@ -358,3 +358,61 @@ async def test_deleting_a_declared_model_removes_its_metadata_too(forge: Forge) 
     # Le domaine survit à son dernier modèle : il a été déclaré, il ne se retire pas seul.
     assert await forge.file("domains/suivi/.gitkeep") == ""
     assert await forge.file("domains/suivi/messages/personne.yaml") is None
+
+
+EXEMPLE_COMPTE = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/shared/compte
+title: Compte
+type: object
+properties:
+  Name: {type: string}
+  Count: {type: integer}
+  IsActive: {type: boolean}
+  Address:
+    type: array
+    items:
+      type: object
+      properties:
+        City: {type: string}
+"""
+EXEMPLE_LIGNE = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/shared/ligne
+title: Ligne
+type: object
+properties:
+  Rue: {type: string}
+"""
+EXEMPLE_RENVOI = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/shared/compte
+title: Compte
+type: object
+properties:
+  Adresse: {$ref: 'miles:/shared/ligne'}
+"""
+
+
+async def test_the_example_shows_the_shape_with_names_zeros_and_one_element(
+    forge: Forge,
+) -> None:
+    """Gabarit du 24/10/2026 : la chaîne porte son nom, et un tableau n'est jamais vide."""
+    await _create(forge, EXEMPLE_COMPTE)
+
+    got = await forge.client.get(f"{ROUTE}/shared/compte/example", timeout=120)
+
+    assert got.status_code == 200, got.text
+    assert got.json()["example"] == {
+        "Name": "Name",
+        "Count": 0,
+        "IsActive": False,
+        "Address": [{"City": "City"}],
+    }
+
+
+async def test_the_example_follows_a_reference_to_another_model(forge: Forge) -> None:
+    """Sans résolution, un modèle qui en désigne un autre rendrait un trou."""
+    await _create(forge, EXEMPLE_LIGNE)
+    await _create(forge, EXEMPLE_RENVOI)
+
+    got = await forge.client.get(f"{ROUTE}/shared/compte/example", timeout=120)
+
+    assert got.json()["example"] == {"Adresse": {"Rue": "Rue"}}

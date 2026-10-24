@@ -3,11 +3,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import asyncpg
 import structlog
 
-from miles.datamodels.grammar import ModelGrammarError, Problem
+from miles.datamodels.example import example_of
+from miles.datamodels.grammar import ModelGrammarError, Problem, load_yaml
 from miles.datamodels.layout import (
     SHARED,
     ModelEntry,
@@ -24,6 +26,7 @@ from miles.datamodels.schema import (
     normalized,
     parse_schema,
     references_in,
+    target_of,
 )
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
@@ -109,6 +112,33 @@ class DataModelsService:
         scope, name, label = checked_scope(scope), checked_name(slug), checked_label(label)
         content = draft(scope, name, label)
         return await self._create(author, workspace_id, scope, name, content, branch)
+
+    async def resolve_example(
+        self,
+        viewer: EventAuthor,
+        workspace_id: str,
+        scope: str,
+        name: str,
+        *,
+        branch: str | None = None,
+    ) -> Any:
+        """Le gabarit JSON de ce modèle, renvois vers d'autres modèles résolus.
+
+        Sert le bouton « remplir depuis le modèle de destination » : sans la résolution,
+        un modèle qui en désigne un autre rendrait un trou là où l'on attend sa forme.
+        Un seul clone : les modèles désignés se lisent dans la même copie.
+        """
+        scope, name = checked_scope(scope), checked_name(name)
+        entry = ModelEntry(scope, name, model_path(scope, name))
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
+            content = await copy.read(entry.path)
+            if content is None:
+                raise ModelNotFoundError(entry.path)
+            schema = load_yaml(content)
+            inlined = await _inlined(copy, schema, {(scope, name)})
+        return example_of(inlined)
 
     async def resolve_create(
         self,
@@ -284,3 +314,32 @@ async def _users(copy: WorkCopy, entries: list[ModelEntry], target: ModelEntry) 
         if (target.scope, target.name) in references_in(await copy.read(other.path) or ""):
             users.append(other.path)
     return users
+
+
+# Profondeur de modèles désignés : un cycle entre deux modèles est déjà arrêté par
+# `seen`, mais une chaîne longue n'a pas non plus d'intérêt dans un gabarit.
+_MAX_MODEL_DEPTH = 8
+
+
+async def _inlined(copy: WorkCopy, node: Any, seen: set[tuple[str, str]], depth: int = 0) -> Any:
+    """Remplace les `$ref` vers d'autres modèles par leur schéma, en place.
+
+    Les `#/…` ne sont pas touchés : `example_of` les suit tout seul dans le document.
+    Un modèle déjà traversé n'est pas rouvert — deux modèles qui se désignent l'un
+    l'autre boucleraient sans fin.
+    """
+    if isinstance(node, list):
+        return [await _inlined(copy, item, seen, depth) for item in node]
+    if not isinstance(node, dict):
+        return node
+    ref = node.get("$ref")
+    if isinstance(ref, str) and (target := target_of(ref)) is not None:
+        if target in seen or depth >= _MAX_MODEL_DEPTH:
+            # Laissé tel quel : example_of rendra une place vide, ce qui se voit, plutôt
+            # qu'une descente sans fin.
+            return node
+        content = await copy.read(model_path(*target))
+        if content is None:
+            return node
+        return await _inlined(copy, load_yaml(content), seen | {target}, depth + 1)
+    return {key: await _inlined(copy, value, seen, depth) for key, value in node.items()}

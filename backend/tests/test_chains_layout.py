@@ -70,3 +70,68 @@ def test_step_names_become_file_names_so_they_are_checked(names: list[str]) -> N
         checked_steps([StepDoc(n, None) for n in names])
 
     assert (caught.value.field, caught.value.reason) == ("steps", "nom_d_etape")
+
+
+def test_a_step_carries_the_models_it_reads_and_produces() -> None:
+    doc = ChainDoc(
+        "import",
+        "Import",
+        (StepDoc("normaliser", None, "miles:/shared/brut", "miles:/domains/pudo/compte"),),
+    )
+
+    back = read_chain(chain_text(doc))
+
+    assert back == doc
+    written = json.loads(chain_text(doc))["steps"][0]
+    assert written["source_model"] == "miles:/shared/brut"
+    assert written["destination_model"] == "miles:/domains/pudo/compte"
+
+
+def test_a_chain_written_before_the_models_existed_still_reads() -> None:
+    """Ajout compatible : une chaîne d'avant le 24/10/2026 n'a pas ces clés."""
+    text = json.dumps(
+        {
+            "format_version": 1,
+            "slug": "import",
+            "label": "Import",
+            "steps": [{"name": "normaliser", "template": "normaliser.jslt", "target": None}],
+        }
+    )
+
+    back = read_chain(text)
+
+    assert back is not None
+    assert back.steps[0].source_model is None and back.steps[0].destination_model is None
+
+
+def test_a_chain_without_models_is_rewritten_byte_for_byte() -> None:
+    """Les clés absentes ne s'écrivent pas : le rejeu ne fait toujours pas de diff."""
+    doc = ChainDoc("import", "Import", (StepDoc("normaliser", None),))
+
+    written = json.loads(chain_text(doc))["steps"][0]
+
+    assert "source_model" not in written and "destination_model" not in written
+
+
+@pytest.mark.parametrize("value", ["pas-une-uri", "miles:/contracts/x/v1/y", 3, {}])
+def test_a_model_reference_that_designates_nothing_makes_the_chain_unreadable(
+    value: object,
+) -> None:
+    """Illisible, et non « absent » : une référence cassée ne doit pas passer pour un vide."""
+    text = json.dumps(
+        {
+            "format_version": 1,
+            "slug": "import",
+            "label": "Import",
+            "steps": [
+                {
+                    "name": "normaliser",
+                    "template": "normaliser.jslt",
+                    "target": None,
+                    "source_model": value,
+                }
+            ],
+        }
+    )
+
+    assert read_chain(text) is None

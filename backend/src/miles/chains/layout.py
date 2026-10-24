@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 
 from miles.contracts.openapi import SLUG_RE
+from miles.datamodels.schema import target_of
 from miles.workspaces.model import WorkspaceInputError
 
 # Une chaîne par répertoire, nommé d'après son slug (Gael, 22/10/2026) : un fichier JSON
@@ -23,6 +24,13 @@ class StepDoc:
     name: str
     # Vide : le résultat du template devient le message (story 66ae5c10).
     target: str | None
+    # Modèles que l'étape lit et produit, en URI de modèle (« miles:/shared/colis »).
+    # Ajout du 24/10/2026 : l'écran s'en sert pour proposer le gabarit du résultat et
+    # pour dire ce que l'étape transforme. Absents sur les chaînes écrites avant, d'où
+    # les valeurs nulles — et d'où leur omission à l'écriture, qui laisse ces chaînes
+    # inchangées à l'octet près tant qu'on ne les renseigne pas.
+    source_model: str | None = None
+    destination_model: str | None = None
 
     @property
     def template_file(self) -> str:
@@ -55,11 +63,24 @@ def chain_text(doc: ChainDoc) -> str:
         "slug": doc.slug,
         "label": doc.label,
         # L'ordre du tableau est l'ordre d'application, choisi par l'utilisateur.
-        "steps": [
-            {"name": s.name, "template": s.template_file, "target": s.target} for s in doc.steps
-        ],
+        "steps": [_step_data(s) for s in doc.steps],
     }
     return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+
+
+def _step_data(step: StepDoc) -> dict[str, object]:
+    data: dict[str, object] = {
+        "name": step.name,
+        "template": step.template_file,
+        "target": step.target,
+    }
+    # Omis tant qu'ils ne sont pas renseignés : une chaîne d'avant le 24/10/2026 se
+    # réécrit alors à l'identique, et le rejeu ne fait toujours pas de diff.
+    if step.source_model is not None:
+        data["source_model"] = step.source_model
+    if step.destination_model is not None:
+        data["destination_model"] = step.destination_model
+    return data
 
 
 def read_chain(text: str | None) -> ChainDoc | None:
@@ -94,7 +115,24 @@ def _step(raw: object) -> StepDoc | None:
         return None
     if target is not None and not isinstance(target, str):
         return None
-    return StepDoc(name, target or None)
+    source = _model_ref(raw.get("source_model"))
+    destination = _model_ref(raw.get("destination_model"))
+    if source is _INVALID or destination is _INVALID:
+        return None
+    return StepDoc(name, target or None, source, destination)
+
+
+# Distingue « absent » d'« illisible » : un None rendu par _model_ref dirait seulement
+# qu'il n'y en a pas, et une référence mal formée passerait pour une absence.
+_INVALID = "  invalide  "
+
+
+def _model_ref(raw: object) -> str | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or target_of(raw) is None:
+        return _INVALID
+    return raw
 
 
 def slugs_in(paths: list[str]) -> list[str]:

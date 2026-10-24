@@ -120,3 +120,61 @@ async def test_a_version_cannot_freeze_a_chain_broken_outside_miles(forge: Forge
             "problems": [{"path": "enrichir", "code": "hors_profil", "detail": "operateur"}],
         }
     ]
+
+
+async def test_a_step_keeps_the_models_it_reads_and_produces(forge: Forge) -> None:
+    steps = [
+        {
+            "name": "normaliser",
+            "template": NORMALISER,
+            "target": None,
+            "source_model": "miles:/shared/brut",
+            "destination_model": "miles:/shared/compte",
+        }
+    ]
+
+    saved = await _save(forge, steps)
+    read = await forge.client.get(f"{ROUTE}/comptes-import", timeout=120)
+
+    assert saved.status_code in (200, 201), saved.text
+    step = read.json()["steps"][0]
+    assert step["source_model"] == "miles:/shared/brut"
+    assert step["destination_model"] == "miles:/shared/compte"
+
+
+async def test_a_model_reference_that_designates_nothing_is_refused(forge: Forge) -> None:
+    steps = [
+        {"name": "normaliser", "template": NORMALISER, "target": None, "source_model": "n'importe"}
+    ]
+
+    refused = await _save(forge, steps)
+
+    assert refused.status_code == 422, refused.text
+
+
+async def test_the_test_sample_lives_in_the_database_not_in_the_repository(
+    forge: Forge,
+) -> None:
+    """Choix du 24/10/2026 : un cas d'essai n'est pas du paramétrage."""
+    await _save(forge, STEPS)
+
+    empty = await forge.client.get(f"{ROUTE}/comptes-import/sample", timeout=120)
+    put = await forge.client.put(
+        f"{ROUTE}/comptes-import/sample", json={"sample": '{"nom": "Gaël"}'}, timeout=120
+    )
+    read = await forge.client.get(f"{ROUTE}/comptes-import/sample", timeout=120)
+
+    assert empty.json()["sample"] is None
+    assert put.status_code == 200, put.text
+    assert read.json()["sample"] == '{"nom": "Gaël"}'
+    # Rien n'en est parti dans le dépôt : ni fichier, ni commit de plus.
+    assert await forge.file("transformations/comptes-import/sample.json") is None
+
+
+async def test_saving_nothing_clears_the_sample(forge: Forge) -> None:
+    await forge.client.put(f"{ROUTE}/comptes-import/sample", json={"sample": "{}"}, timeout=120)
+
+    await forge.client.put(f"{ROUTE}/comptes-import/sample", json={"sample": None}, timeout=120)
+    read = await forge.client.get(f"{ROUTE}/comptes-import/sample", timeout=120)
+
+    assert read.json()["sample"] is None

@@ -10,6 +10,7 @@ from functools import partial
 
 import httpx
 import structlog
+import urban_json_editor
 from fastapi import FastAPI
 
 from miles.api_health import router as health_router
@@ -73,6 +74,8 @@ from miles.sources.api_sources import router as sources_router
 from miles.sources.service import SourcesService
 from miles.transform.api_catalog import CatalogService
 from miles.transform.api_catalog import router as catalog_router
+from miles.transform.api_editor import JSLT_EDITOR_PATH
+from miles.transform.api_editor import router as jslt_editor_router
 from miles.transform.api_transform import chains_router
 from miles.transform.api_transform import router as transform_router
 from miles.workshop.api_branches import router as branches_router
@@ -268,6 +271,13 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(oauth_clients_router)
     app.include_router(oauth_authorize_router)
     app.include_router(oauth_public_router)
+    app.include_router(jslt_editor_router)
+    # Éditeur JSLT (urban-json-editor, 24/10/2026) : le Web Component et sa feuille de
+    # style, servis par Miles lui-même — jamais depuis un CDN, comme Monaco. Monté SOUS
+    # /api parce que c'est le seul préfixe que le nginx du front relaie déjà : ailleurs,
+    # les assets tomberaient sur l'index de l'IHM.
+    urban_json_editor.mount(app, JSLT_EDITOR_PATH)
+
     # Surface MCP (story 0d4e4f75) : hors /api, donc hors de la passerelle des sessions ;
     # gardée par sa propre clé. Adresse publiée : /mcp/.
     app.state.mcp = build_server()

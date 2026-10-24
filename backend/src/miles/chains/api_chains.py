@@ -26,6 +26,9 @@ from miles.workspaces.model import (
 )
 
 # Réservé à l'administrateur tant que les rôles n'existent pas.
+# Borne de la colonne (migration 0025) : refusé ici plutôt qu'au contact de la base.
+MAX_SAMPLE_LENGTH = 65536
+
 router = APIRouter(prefix="/api/workspaces/{workspace_id}/transformations")
 
 
@@ -42,6 +45,10 @@ class StepIO(BaseModel):
     name: str = Field(max_length=63)
     template: str = Field(max_length=MAX_TEMPLATE_LENGTH)
     target: str | None = Field(default=None, max_length=1024)
+    # Facultatifs et par défaut absents : une chaîne écrite avant le 24/10/2026, ou par
+    # un agent qui les ignore, reste acceptée telle quelle.
+    source_model: str | None = Field(default=None, max_length=1024)
+    destination_model: str | None = Field(default=None, max_length=1024)
 
 
 class ChainIn(BaseModel):
@@ -66,7 +73,16 @@ class ChainSummaryOut(BaseModel):
 
 
 def _out(chain: StoredChain) -> ChainOut:
-    steps = [StepIO(name=s.name, template=s.template, target=s.target) for s in chain.steps]
+    steps = [
+        StepIO(
+            name=s.name,
+            template=s.template,
+            target=s.target,
+            source_model=s.source_model,
+            destination_model=s.destination_model,
+        )
+        for s in chain.steps
+    ]
     return ChainOut(slug=chain.slug, label=chain.label, steps=steps)
 
 
@@ -145,7 +161,10 @@ async def save_chain(
     service: Service,
     branch: str | None = None,
 ) -> object:
-    steps = [StoredStep(s.name, s.template, s.target) for s in body.steps]
+    steps = [
+        StoredStep(s.name, s.template, s.target, s.source_model, s.destination_model)
+        for s in body.steps
+    ]
     try:
         chain, commit = await service.resolve_save(
             request_author(request), workspace_id, slug, body.label, steps, branch=branch
@@ -167,3 +186,42 @@ async def delete_chain(
     except _REFUSALS as exc:
         return _refusal(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+class SampleIO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # None : aucun échantillon enregistré pour cette chaîne sur cette branche.
+    sample: str | None = Field(default=None, max_length=MAX_SAMPLE_LENGTH)
+
+
+@router.get("/{slug}/sample", response_model=SampleIO)
+async def get_sample(
+    workspace_id: str, slug: str, service: Service, branch: str | None = None
+) -> object:
+    """L'échantillon de test : en base, jamais dans le dépôt (Gael, 24/10/2026)."""
+    try:
+        return SampleIO(sample=await service.resolve_sample(workspace_id, slug, branch=branch))
+    except _REFUSALS as exc:
+        return _refusal(exc)
+
+
+@router.put("/{slug}/sample", response_model=SampleIO)
+async def put_sample(
+    workspace_id: str,
+    slug: str,
+    body: SampleIO,
+    request: Request,
+    service: Service,
+    branch: str | None = None,
+) -> object:
+    try:
+        if body.sample is None:
+            # Enregistrer « rien » efface : l'écran n'a pas besoin d'un second geste.
+            await service.resolve_clear_sample(workspace_id, slug, branch=branch)
+        else:
+            await service.resolve_save_sample(
+                request_author(request), workspace_id, slug, body.sample, branch=branch
+            )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return body

@@ -198,6 +198,30 @@ class InferredOut(BaseModel):
     unwrapped: bool
 
 
+class ExampleOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    example: Any
+
+
+@router.get("/{scope}/{name}/example", response_model=ExampleOut)
+async def model_example(
+    workspace_id: str,
+    scope: str,
+    name: str,
+    request: Request,
+    service: Service,
+    branch: str | None = None,
+) -> object:
+    """Le gabarit JSON du modèle : la forme à produire, pas une donnée réaliste."""
+    try:
+        example = await service.resolve_example(
+            request_author(request), workspace_id, scope, name, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return ExampleOut(example=example)
+
+
 @router.post("/inference", response_model=InferredOut, response_model_by_alias=True)
 async def infer_from_sample(workspace_id: str, body: SampleIn, service: Service) -> object:
     """Déduit un schéma d'un échantillon, sans rien écrire ni toucher au dépôt.

@@ -996,6 +996,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "structlog" },
     { name = "urban-json" },
+    { name = "urban-json-editor" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -1029,6 +1030,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "structlog", specifier = ">=24.4" },
     { name = "urban-json", specifier = "==0.1.0" },
+    { name = "urban-json-editor", specifier = "==0.1.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
@@ -1757,6 +1759,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/36/93/9d04e0537fc8b04ab36396ac295d9bd9989e52622d350ad0d553b701debb/urban_json-0.1.0.tar.gz", hash = "sha256:adb6e590d36e99f36db83b61118d714cbc1473d49cff4e4b29e6d07b713ce22a", size = 89956, upload-time = "2026-10-21T16:40:01.02Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/dc/5f/eef670b18cc27844dca32d76b6c8b14812da617bf37e0977f6a5462f83c3/urban_json-0.1.0-py3-none-any.whl", hash = "sha256:9989631930a7db6cfdf03915d5c1429617b2c140641e787dbb7937162dcf0e3c", size = 87456, upload-time = "2026-10-21T16:39:59.613Z" },
+]
+
+[[package]]
+name = "urban-json-editor"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "urban-json" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fb/e3/b0ed8530831d08cb6b2f15992ba9c2318bb095326d0f00dcea6ffb16061e/urban_json_editor-0.1.1.tar.gz", hash = "sha256:4e3ac2f6410ab3edfa34e85123bdf9c4e9f129c260c457bc843aef4c3c7ae0a4", size = 10838, upload-time = "2026-10-22T13:43:42.673Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/b4/51682fe38c523eaa3f58642686263c140b5bde56c5da1a94f974bf7b9cf6/urban_json_editor-0.1.1-py3-none-any.whl", hash = "sha256:288577fa734dd8dbbc880f857a8aa2f279e4bd90238c35eeea06874db7632f38", size = 10076, upload-time = "2026-10-22T13:43:41.555Z" },
 ]
 
 [[package]]
