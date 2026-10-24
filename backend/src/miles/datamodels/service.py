@@ -20,6 +20,7 @@ from miles.datamodels.layout import (
     visible,
 )
 from miles.datamodels.meta import meta_path, meta_text, read_version
+from miles.datamodels.paths import PathEntry, paths_of
 from miles.datamodels.schema import (
     ModelSchema,
     draft,
@@ -139,6 +140,31 @@ class DataModelsService:
             schema = load_yaml(content)
             inlined = await _inlined(copy, schema, {(scope, name)})
         return example_of(inlined)
+
+    async def resolve_paths(
+        self,
+        viewer: EventAuthor,
+        workspace_id: str,
+        scope: str,
+        name: str,
+        *,
+        branch: str | None = None,
+    ) -> list[PathEntry]:
+        """Les chemins du modèle, pour l'intellisense de l'éditeur JSLT.
+
+        Mêmes renvois résolus que pour le gabarit, et pour la même raison : un modèle qui
+        en désigne un autre n'offrirait sinon aucun chemin sous ce renvoi.
+        """
+        scope, name = checked_scope(scope), checked_name(name)
+        entry = ModelEntry(scope, name, model_path(scope, name))
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
+            content = await copy.read(entry.path)
+            if content is None:
+                raise ModelNotFoundError(entry.path)
+            inlined = await _inlined(copy, load_yaml(content), {(scope, name)})
+        return paths_of(inlined)
 
     async def resolve_create(
         self,

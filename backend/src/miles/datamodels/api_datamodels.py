@@ -222,6 +222,41 @@ async def model_example(
     return ExampleOut(example=example)
 
 
+class PathOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    path: str
+    # Nom attendu par le composant <jslt-editor> (urban-json-editor >= 0.2.0) : il
+    # affiche « <type> · <description> » sous chaque proposition.
+    type: str
+    description: str
+
+
+class PathsOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    paths: list[PathOut]
+
+
+@router.get("/{scope}/{name}/paths", response_model=PathsOut)
+async def model_paths(
+    workspace_id: str,
+    scope: str,
+    name: str,
+    request: Request,
+    service: Service,
+    branch: str | None = None,
+) -> object:
+    """Les chemins du modèle ($.Account[0].Name), pour l'auto-complétion de l'éditeur."""
+    try:
+        found = await service.resolve_paths(
+            request_author(request), workspace_id, scope, name, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return PathsOut(
+        paths=[PathOut(path=e.path, type=e.kind, description=e.description) for e in found]
+    )
+
+
 @router.post("/inference", response_model=InferredOut, response_model_by_alias=True)
 async def infer_from_sample(workspace_id: str, body: SampleIn, service: Service) -> object:
     """Déduit un schéma d'un échantillon, sans rien écrire ni toucher au dépôt.

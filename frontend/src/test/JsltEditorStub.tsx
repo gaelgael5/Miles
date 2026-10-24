@@ -16,6 +16,8 @@ export default function JsltEditorStub({
   onRun?: () => void;
   readOnly: boolean;
   ariaLabel: string;
+  // Reçue mais ignorée : le vrai composant la consomme, pas le doublon.
+  paths?: unknown[];
 }) {
   return (
     <textarea

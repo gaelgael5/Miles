@@ -41,6 +41,27 @@ function key(target: WorkTarget) {
 
 export type SampleFormat = "json" | "yaml";
 
+/** Un chemin proposé par l'éditeur JSLT : « $.Account[0].PickupReference ». */
+export interface ModelPath {
+  path: string;
+  type: string;
+  description: string;
+}
+
+/** Les chemins du modèle SOURCE d'une étape, pour l'auto-complétion de l'éditeur. */
+export function useModelPaths(target: WorkTarget, scope: string | null, name: string | null) {
+  return useQuery({
+    queryKey: [...branchKey("model-paths", target), scope, name],
+    // Sans modèle source, rien à proposer : on n'interroge pas le serveur pour rien.
+    enabled: scope !== null && name !== null,
+    queryFn: ({ signal }) =>
+      request<{ paths: ModelPath[] }>(
+        atBranch(target, "data-models", scope ?? "", name ?? "", "paths"),
+        { signal },
+      ),
+  });
+}
+
 /** Le gabarit JSON d'un modèle : sa forme, jamais une donnée réaliste. */
 export function useModelExample(target: WorkTarget) {
   return useMutation({

@@ -395,6 +395,62 @@ describe("the step editor (24/10/2026)", () => {
     expect(editor.value).toContain('"Tags"');
   });
 
+  it("asks the paths of the SOURCE model, which is the document the template reads", async () => {
+    const WITH_SOURCE = {
+      ...CHAIN,
+      steps: CHAIN.steps.map((s, i) =>
+        i === 0 ? { ...s, source_model: "miles:/shared/brut" } : s,
+      ),
+    };
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: WITH_SOURCE },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
+      [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: [] },
+      [`GET /api/workspaces/retrait/data-models/shared/brut/paths${Q}`]: {
+        status: 200,
+        body: { paths: [{ path: "$.Name", type: "string", description: "" }] },
+      },
+    });
+    renderWorkspaces({
+      id: "retrait",
+      view: "transformations",
+      branch: "edition",
+      chain: "comptes-import",
+      step: "normaliser",
+    });
+    await screen.findByLabelText("JSLT template");
+
+    expect(
+      calls.some((c) => c.key === `GET /api/workspaces/retrait/data-models/shared/brut/paths${Q}`),
+    ).toBe(true);
+  });
+
+  it("asks for no path when the step has no source model", async () => {
+    const calls = await (async () => {
+      const made = mockApi({
+        ...HELD,
+        "GET /api/workspaces": { status: 200, body: [WORKING] },
+        [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+        [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
+        [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: [] },
+      });
+      renderWorkspaces({
+        id: "retrait",
+        view: "transformations",
+        branch: "edition",
+        chain: "comptes-import",
+        step: "normaliser",
+      });
+      await screen.findByLabelText("JSLT template");
+      return made;
+    })();
+
+    // Sans modèle source, rien à proposer : on n'interroge pas le serveur pour rien.
+    expect(calls.some((c) => c.key.includes("/paths"))).toBe(false);
+  });
+
   it("offers nothing to fill when the step has no destination model", async () => {
     const calls = mockApi({
       ...HELD,

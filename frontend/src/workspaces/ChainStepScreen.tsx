@@ -2,7 +2,7 @@ import { Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Chain, type ChainStep, useChainSample, useCheckChain, useSaveChain } from "../api/chains";
-import { useDataModels, useModelExample } from "../api/dataModels";
+import { useDataModels, useModelExample, useModelPaths } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { modelUri, targetOf } from "../dataModels/schemaText";
@@ -34,6 +34,9 @@ export function ChainStepScreen({
   const stored = useChainSample(target, chain.slug);
   const check = useCheckChain();
   const example = useModelExample(target);
+  // Les chemins du modèle SOURCE : c'est le document que le template lit.
+  const source = targetOf(step.source_model ?? "");
+  const sourcePaths = useModelPaths(target, source?.[0] ?? null, source?.[1] ?? null);
   const [name, setName] = useState(step.name);
   const [template, setTemplate] = useState(step.template);
   const [stepTarget, setStepTarget] = useState(step.target ?? "");
@@ -176,6 +179,7 @@ export function ChainStepScreen({
               onRun={run}
               readOnly={target.readOnly}
               ariaLabel={t("chains.fields.template")}
+              paths={sourcePaths.data?.paths}
             />
           </Suspense>
         </div>

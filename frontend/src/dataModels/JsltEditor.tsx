@@ -27,7 +27,12 @@ function loadComponent(): Promise<void> {
   return loading;
 }
 
-type EditorElement = HTMLElement & { value: string };
+type EditorElement = HTMLElement & {
+  value: string;
+  // Présent à partir d'urban-json-editor 0.2.0 seulement : Miles épingle encore la
+  // 0.1.1, d'où la garde à chaque appel.
+  setPaths?: (paths: unknown[]) => void;
+};
 
 /**
  * L'éditeur JSLT d'`urban-json-editor` (Gael, 24/10/2026) : coloration et auto-complétion
@@ -46,6 +51,7 @@ export default function JsltEditor({
   onRun,
   readOnly,
   ariaLabel,
+  paths,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -53,6 +59,8 @@ export default function JsltEditor({
   onRun?: () => void;
   readOnly: boolean;
   ariaLabel: string;
+  /** Chemins du modèle source, proposés sur « $ » et « @ » (composant >= 0.2.0). */
+  paths?: unknown[];
 }) {
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<EditorElement | null>(null);
@@ -102,6 +110,14 @@ export default function JsltEditor({
   useEffect(() => {
     editor.current?.toggleAttribute("readonly", readOnly);
   }, [readOnly]);
+
+  useEffect(() => {
+    // Garde volontaire : sur la 0.1.1, `setPaths` n'existe pas et l'appel lèverait.
+    // L'éditeur reste alors exactement ce qu'il est aujourd'hui.
+    if (paths !== undefined && typeof editor.current?.setPaths === "function") {
+      editor.current.setPaths(paths);
+    }
+  }, [paths]);
 
   return <div className="jslt-editor-host" ref={host} />;
 }

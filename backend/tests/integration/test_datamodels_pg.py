@@ -416,3 +416,29 @@ async def test_the_example_follows_a_reference_to_another_model(forge: Forge) ->
     got = await forge.client.get(f"{ROUTE}/shared/compte/example", timeout=120)
 
     assert got.json()["example"] == {"Adresse": {"Rue": "Rue"}}
+
+
+async def test_the_paths_follow_arrays_and_references_for_the_editor(forge: Forge) -> None:
+    """Ce que l'éditeur JSLT proposera sur « $ » : les chemins, index compris."""
+    await _create(forge, EXEMPLE_LIGNE)
+    await _create(forge, EXEMPLE_COMPTE)
+
+    got = await forge.client.get(f"{ROUTE}/shared/compte/paths", timeout=120)
+
+    assert got.status_code == 200, got.text
+    paths = [p["path"] for p in got.json()["paths"]]
+    assert "$.Name" in paths
+    assert "$.Address[0].City" in paths
+    # Le type voyage avec le chemin : le composant l'affiche sous la proposition.
+    by_path = {p["path"]: p for p in got.json()["paths"]}
+    assert by_path["$.Count"]["type"] == "integer"
+
+
+async def test_the_paths_go_through_a_reference_to_another_model(forge: Forge) -> None:
+    await _create(forge, EXEMPLE_LIGNE)
+    await _create(forge, EXEMPLE_RENVOI)
+
+    got = await forge.client.get(f"{ROUTE}/shared/compte/paths", timeout=120)
+
+    paths = [p["path"] for p in got.json()["paths"]]
+    assert "$.Adresse.Rue" in paths
