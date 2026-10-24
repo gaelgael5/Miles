@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type ModelPath, useModelPaths } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
 
-interface Node {
+interface PathNode {
   path: string;
   /** Dernier segment, seul affiché : le chemin entier se lit dans l'infobulle. */
   label: string;
   kind: string;
   description: string;
-  children: Node[];
+  children: PathNode[];
 }
 
 /** Un conteneur ne se coche pas : une clé et une ligne d'index portent une seule valeur. */
@@ -35,11 +35,11 @@ export function lastSegment(path: string): string {
  * Un enfant arrive toujours après son parent (parcours descendant côté backend), donc
  * un seul passage suffit : on rattache chaque chemin au plus long préfixe déjà vu.
  */
-export function treeOf(paths: ModelPath[]): Node[] {
-  const roots: Node[] = [];
-  const byPath = new Map<string, Node>();
+export function treeOf(paths: ModelPath[]): PathNode[] {
+  const roots: PathNode[] = [];
+  const byPath = new Map<string, PathNode>();
   for (const entry of paths) {
-    const node: Node = {
+    const node: PathNode = {
       path: entry.path,
       label: lastSegment(entry.path),
       kind: entry.type,
@@ -66,7 +66,7 @@ function Branch({
   disabled,
   onToggle,
 }: {
-  node: Node;
+  node: PathNode;
   selected: string[];
   disabled: boolean;
   onToggle: (path: string) => void;
@@ -136,6 +136,7 @@ export function ModelPathTree({
   selected,
   disabled,
   onToggle,
+  label,
 }: {
   target: WorkTarget;
   /** « portée/nom », ou chaîne vide tant qu'aucun modèle n'est choisi. */
@@ -143,6 +144,8 @@ export function ModelPathTree({
   selected: string[];
   disabled: boolean;
   onToggle: (path: string) => void;
+  /** Nom accessible de l'arbre : il y en a deux dans le formulaire. */
+  label: string;
 }) {
   const { t } = useTranslation();
   const [scope = null, name = null] = model === "" ? [] : model.split("/");
@@ -170,7 +173,7 @@ export function ModelPathTree({
     return <p className="help">{t("paths.empty")}</p>;
   }
   return (
-    <ul className="plain-list tree" aria-label={t("paths.treeLabel")}>
+    <ul className="plain-list tree" aria-label={label}>
       {roots.map((node) => (
         <Branch
           key={node.path}
@@ -181,5 +184,95 @@ export function ModelPathTree({
         />
       ))}
     </ul>
+  );
+}
+
+/**
+ * Le champ qui ouvre l'arbre (Gael, 24/10/2026) : fermé, il montre ce qui est choisi ;
+ * au clic, il déplie l'arbre pour sélectionner. Deux arbres dépliés en permanence
+ * noyaient le formulaire et éloignaient le bouton d'enregistrement.
+ *
+ * Il reste ouvert pendant qu'on coche — la sélection est multiple — et se referme au clic
+ * en dehors ou sur Échap, jamais sur la coche elle-même.
+ */
+export function PathPicker({
+  target,
+  model,
+  selected,
+  disabled,
+  label,
+  summary,
+  onToggle,
+}: {
+  target: WorkTarget;
+  model: string;
+  selected: string[];
+  disabled: boolean;
+  /** Nom accessible du champ : il y en a deux dans le formulaire. */
+  label: string;
+  /** Ce que le champ affiche fermé. */
+  summary: string;
+  onToggle: (path: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    // `mousedown` et non `click` : un clic qui démarre dehors et finit dedans ne doit pas
+    // rouvrir ce qu'il vient de fermer.
+    function outside(event: MouseEvent) {
+      if (box.current !== null && !box.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  return (
+    <div className="path-picker" ref={box}>
+      <button
+        type="button"
+        className="path-field"
+        disabled={disabled}
+        // Nommé par son champ et non par son contenu : la sélection change, pas le champ.
+        aria-label={label}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <span className={selected.length === 0 ? "muted" : "mono"}>{summary}</span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <div className="path-popover">
+          <ModelPathTree
+            target={target}
+            model={model}
+            selected={selected}
+            disabled={disabled}
+            onToggle={onToggle}
+            label={label}
+          />
+          <div className="actions">
+            <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>
+              {t("paths.done")}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

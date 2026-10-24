@@ -1193,7 +1193,8 @@
       "keysHelp": "Coche les propriétés qui identifient un objet d'une écriture à l'autre. Seules les valeurs sont cochables : un tableau ou un objet ne se compare pas.",
       "indexablesHelp": "Coche les propriétés sur lesquelles on pourra filtrer. Chacune reçoit un nom, qui devient son identifiant d'index — jamais un hash du chemin. Un tableau n'est pas cochable : c'est ce qui garantit une ligne d'index unique par objet et par propriété.",
       "nameHelp": "Identifiant du storage, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclaré.",
-      "noKey": "Aucune propriété cochée."
+      "noKey": "Aucune propriété cochée.",
+      "noIndexable": "Aucune propriété cochée."
     },
     "fields": {
       "name": "Nom",
@@ -1235,11 +1236,11 @@
     }
   },
   "paths": {
-    "treeLabel": "Propriétés du modèle",
     "chooseModelFirst": "Choisis d'abord le modèle des objets : l'arbre de ses propriétés s'affichera ici.",
     "unreadable": "Les propriétés de ce modèle n'ont pas pu être lues.",
     "empty": "Ce modèle ne déclare aucune propriété.",
     "expand": "Déplier {{name}}",
-    "collapse": "Replier {{name}}"
+    "collapse": "Replier {{name}}",
+    "done": "Terminé"
   }
 }

@@ -303,6 +303,23 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
    déborde du champ. On laisse déborder plutôt que de déplacer la liste. */
 .model-editor .jsonjoy, .model-editor .jsonjoy .grow.overflow-auto { overflow: visible; }
 
+/* Le champ qui ouvre l'arbre (Gael, 24/10/2026) : fermé il montre la sélection, ouvert
+   il flotte au-dessus du formulaire pour ne pas repousser le bouton d'enregistrement. */
+.path-picker { position: relative; margin-top: 8px; }
+.path-field {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  min-height: 44px; padding: 10px 12px; font-family: inherit; font-size: 14px;
+  font-weight: 400; text-align: left; background: var(--surface, #fff); cursor: pointer;
+  border: 1px solid var(--bordure-champ); border-radius: 6px; color: inherit;
+}
+.path-field:disabled { cursor: default; opacity: 0.6; }
+.path-popover {
+  position: absolute; z-index: 10; left: 0; right: 0; margin-top: 4px; max-height: 320px;
+  overflow: auto; padding: 10px 12px; background: var(--surface, #fff);
+  border: 1px solid var(--bordure-champ); border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
 /* Arbre des propriétés d'un modèle (Gael, 24/10/2026) : on coche un chemin au lieu de
    le taper. L'indentation vient du niveau, pas d'un gabarit : un modèle profond reste
    lisible sans que la colonne de droite ne sorte de l'écran. */

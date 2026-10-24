@@ -5,7 +5,7 @@ import { proposeSlug } from "../api/contracts";
 import { useDataModels } from "../api/dataModels";
 import type { Indexable, Storage, StorageProblem } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
-import { ModelPathTree, lastSegment } from "./ModelPathTree";
+import { PathPicker, lastSegment } from "./ModelPathTree";
 
 export const EMPTY_STORAGE: Storage = {
   name: "",
@@ -159,25 +159,32 @@ export function StorageForm({
         <fieldset className="field">
           <legend>{t("storages.fields.keys")}</legend>
           <p className="help">{t("storages.form.keysHelp")}</p>
-          <ModelPathTree
+          <PathPicker
             target={target}
             model={storage.model}
             selected={storage.keys}
             disabled={target.readOnly}
+            label={t("storages.fields.keys")}
+            summary={
+              storage.keys.length === 0 ? t("storages.form.noKey") : storage.keys.join(", ")
+            }
             onToggle={toggleKey}
           />
-          <p className="mono">
-            {storage.keys.length === 0 ? t("storages.form.noKey") : storage.keys.join(", ")}
-          </p>
         </fieldset>
         <fieldset className="field">
           <legend>{t("storages.fields.indexables")}</legend>
           <p className="help">{t("storages.form.indexablesHelp")}</p>
-          <ModelPathTree
+          <PathPicker
             target={target}
             model={storage.model}
             selected={storage.indexables.map((i) => i.jpath)}
             disabled={target.readOnly}
+            label={t("storages.fields.indexables")}
+            summary={
+              storage.indexables.length === 0
+                ? t("storages.form.noIndexable")
+                : storage.indexables.map((i) => i.jpath).join(", ")
+            }
             onToggle={toggleIndexable}
           />
           <IndexableRows

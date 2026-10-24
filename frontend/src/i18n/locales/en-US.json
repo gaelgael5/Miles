@@ -1193,7 +1193,8 @@
       "keysHelp": "Tick the properties that identify an object from one write to the next. Only values can be ticked: an array or an object cannot be compared.",
       "indexablesHelp": "Tick the properties objects can be filtered on. Each gets a name, which becomes its index identifier — never a hash of the path. An array cannot be ticked: that is what guarantees one index row per object and property.",
       "nameHelp": "Storage identifier, derived from the label: lowercase letters, digits and dashes. It names the file and cannot be renamed once declared.",
-      "noKey": "No property ticked."
+      "noKey": "No property ticked.",
+      "noIndexable": "No property ticked."
     },
     "fields": {
       "name": "Name",
@@ -1235,11 +1236,11 @@
     }
   },
   "paths": {
-    "treeLabel": "Model properties",
     "chooseModelFirst": "Choose the object model first: the tree of its properties will appear here.",
     "unreadable": "The properties of this model could not be read.",
     "empty": "This model declares no property.",
     "expand": "Expand {{name}}",
-    "collapse": "Collapse {{name}}"
+    "collapse": "Collapse {{name}}",
+    "done": "Done"
   }
 }

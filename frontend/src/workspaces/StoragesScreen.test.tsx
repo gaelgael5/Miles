@@ -59,12 +59,19 @@ describe("StoragesScreen (24/10/2026)", () => {
     await screen.findByRole("option", { name: "shared/site" });
     fill("Object model", "shared/site");
 
-    // Deux arbres du même modèle : la clé, puis les propriétés indexables.
-    const [keyTree, indexTree] = await screen.findAllByRole("list", {
-      name: "Model properties",
-    });
-    fireEvent.click(within(keyTree as HTMLElement).getByRole("checkbox", { name: /code/ }));
-    fireEvent.click(within(indexTree as HTMLElement).getByRole("checkbox", { name: /ville/ }));
+    // L'arbre n'est pas affiché : c'est le champ qui l'ouvre (Gael, 24/10/2026).
+    expect(screen.queryByRole("list", { name: "Functional key" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Functional key" }));
+    const keyTree = await screen.findByRole("list", { name: "Functional key" });
+    fireEvent.click(within(keyTree).getByRole("checkbox", { name: /code/ }));
+    // Cocher ne referme pas : la sélection est multiple.
+    expect(screen.getByRole("list", { name: "Functional key" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Done"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Indexable properties" }));
+    const indexTree = await screen.findByRole("list", { name: "Indexable properties" });
+    fireEvent.click(within(indexTree).getByRole("checkbox", { name: /ville/ }));
     // Le nom d'index est proposé depuis le dernier segment du chemin.
     expect(screen.getByLabelText("Name 1")).toHaveValue("ville");
     fireEvent.click(screen.getByText("Declare the storage"));
@@ -140,8 +147,9 @@ describe("StorageScreen (24/10/2026)", () => {
     expect(screen.getByLabelText("Label")).toHaveValue("Sites");
 
     // Décocher la propriété indexable la retire, comme la cocher l'avait ajoutée.
-    const [, indexTree] = await screen.findAllByRole("list", { name: "Model properties" });
-    fireEvent.click(within(indexTree as HTMLElement).getByRole("checkbox", { name: /ville/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Indexable properties" }));
+    const indexTree = await screen.findByRole("list", { name: "Indexable properties" });
+    fireEvent.click(within(indexTree).getByRole("checkbox", { name: /ville/ }));
     fireEvent.click(screen.getByText("Save the storage"));
 
     expect(await screen.findByText(/rewrite every object and its index/)).toBeInTheDocument();
@@ -202,8 +210,8 @@ describe("the property tree (24/10/2026)", () => {
     await screen.findByRole("option", { name: "shared/site" });
     fill("Object model", "shared/site");
 
-    const [keyTree] = await screen.findAllByRole("list", { name: "Model properties" });
-    const tree = keyTree as HTMLElement;
+    fireEvent.click(screen.getByRole("button", { name: "Functional key" }));
+    const tree = await screen.findByRole("list", { name: "Functional key" });
     const names = within(tree)
       .getAllByRole("checkbox")
       .map((box) => box.closest("label")?.textContent ?? "");
@@ -228,7 +236,53 @@ describe("the property tree (24/10/2026)", () => {
     });
     renderWorkspaces({ id: "retrait", view: "storages", branch: "edition" });
     fireEvent.click(await screen.findByText("New storage"));
+    fireEvent.click(screen.getByRole("button", { name: "Functional key" }));
 
-    expect(screen.getAllByText(/Choose the object model first/).length).toBe(2);
+    expect(screen.getByText(/Choose the object model first/)).toBeInTheDocument();
+  });
+});
+
+describe("the picker field (24/10/2026)", () => {
+  function open() {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS,
+      [`GET ${ROUTE}/sites${Q}`]: { status: 200, body: STORAGE },
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition", storage: "sites" });
+  }
+
+  it("shows what is selected while closed", async () => {
+    open();
+
+    expect(await screen.findByRole("button", { name: "Functional key" })).toHaveTextContent(
+      "$.code",
+    );
+    expect(screen.getByRole("button", { name: "Indexable properties" })).toHaveTextContent(
+      "$.adresse.ville",
+    );
+  });
+
+  it("closes on Escape without losing what was ticked", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: "Functional key" }));
+    await screen.findByRole("list", { name: "Functional key" });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("list", { name: "Functional key" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Functional key" })).toHaveTextContent("$.code");
+  });
+
+  it("closes when the click lands outside it", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: "Functional key" }));
+    await screen.findByRole("list", { name: "Functional key" });
+
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByRole("list", { name: "Functional key" })).not.toBeInTheDocument();
   });
 });

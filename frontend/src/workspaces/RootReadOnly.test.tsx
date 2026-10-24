@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
@@ -143,10 +143,9 @@ describe("root branch", () => {
     for (const label of ["Save the storage", "Delete the storage"]) {
       expect(screen.queryByText(label)).toBeNull();
     }
-    // L'arbre se lit, il ne se coche pas : la racine ne se modifie jamais.
-    const [keyTree] = await screen.findAllByRole("list", { name: "Model properties" });
-    for (const box of within(keyTree as HTMLElement).getAllByRole("checkbox")) {
-      expect(box).toBeDisabled();
-    }
+    // Le champ montre la sélection mais ne s'ouvre pas : la racine ne se modifie jamais.
+    const field = screen.getByRole("button", { name: "Functional key" });
+    expect(field).toBeDisabled();
+    expect(field).toHaveTextContent("$.id");
   });
 });
