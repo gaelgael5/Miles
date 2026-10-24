@@ -9,6 +9,7 @@ const ROUTE = "/api/workspaces/retrait/storages";
 const Q = "?branch=edition";
 const STORAGE = {
   name: "sites",
+  label: "Sites",
   model: "shared/site",
   keys: ["$.code"],
   indexables: [{ name: "ville", jpath: "$.adresse.ville" }],
@@ -38,7 +39,10 @@ describe("StoragesScreen (24/10/2026)", () => {
     expect(await screen.findByText("No storage on this branch.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("New storage"));
-    fill("Name", "sites");
+    // Le libellé est libre ; l'identifiant s'en déduit — « Sites » ne se fait pas refuser
+    // sur sa majuscule (Gael, 24/10/2026).
+    fill("Label", "Sites");
+    expect(screen.getByLabelText("Name")).toHaveValue("sites");
     await screen.findByRole("option", { name: "shared/site" });
     fill("Object model", "shared/site");
     // Les lignes vides et les espaces autour ne font pas une clé de plus.
@@ -73,7 +77,7 @@ describe("StoragesScreen (24/10/2026)", () => {
     });
     renderWorkspaces({ id: "retrait", view: "storages", branch: "edition" });
     fireEvent.click(await screen.findByText("New storage"));
-    fill("Name", "sites");
+    fill("Label", "Sites");
     fireEvent.submit(screen.getByRole("form", { name: "Declare the storage" }));
 
     const alert = await screen.findByRole("alert");
@@ -89,12 +93,13 @@ describe("StoragesScreen (24/10/2026)", () => {
       ...MODELS,
       [`GET ${ROUTE}${Q}`]: {
         status: 200,
-        body: [{ name: "sites", model: "shared/site", keys: ["$.code"] }],
+        body: [{ name: "sites", label: "Sites", model: "shared/site", keys: ["$.code"] }],
       },
     });
     renderWorkspaces({ id: "retrait", view: "storages", branch: "edition" });
 
     expect(await screen.findByText("storages/sites.yaml")).toBeInTheDocument();
+    expect(screen.getByText("Sites")).toBeInTheDocument();
     expect(screen.getByText("shared/site")).toBeInTheDocument();
     expect(screen.getByText("$.code")).toBeInTheDocument();
   });
@@ -115,6 +120,7 @@ describe("StorageScreen (24/10/2026)", () => {
     });
     renderWorkspaces({ id: "retrait", view: "storages", branch: "edition", storage: "sites" });
     expect(await screen.findByLabelText("Name")).toBeDisabled();
+    expect(screen.getByLabelText("Label")).toHaveValue("Sites");
     expect(screen.getByLabelText("Functional key")).toHaveValue("$.code");
 
     fireEvent.click(screen.getByText("Remove indexable 1"));

@@ -44,6 +44,7 @@ class IndexableIO(BaseModel):
 class StorageIO(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=63)
+    label: str = Field(max_length=200)
     model: str = Field(max_length=200)
     keys: list[str] = Field(max_length=20)
     indexables: list[IndexableIO] = Field(default=[], max_length=100)
@@ -59,6 +60,7 @@ class StorageSummaryOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
     # None : déclaration illisible (retouchée hors de Miles) ; la validation dit pourquoi.
+    label: str | None
     model: str | None
     keys: list[str] | None
 
@@ -66,6 +68,7 @@ class StorageSummaryOut(BaseModel):
 def _doc(body: StorageIO) -> StorageDoc:
     return StorageDoc(
         body.name.strip(),
+        body.label.strip(),
         body.model.strip(),
         tuple(k.strip() for k in body.keys),
         tuple(Indexable(i.name.strip(), i.jpath.strip()) for i in body.indexables),
@@ -75,6 +78,7 @@ def _doc(body: StorageIO) -> StorageDoc:
 def _io(doc: StorageDoc) -> StorageIO:
     return StorageIO(
         name=doc.name,
+        label=doc.label,
         model=doc.model,
         keys=list(doc.keys),
         indexables=[IndexableIO(name=i.name, jpath=i.jpath) for i in doc.indexables],
@@ -132,9 +136,9 @@ async def list_storages(
     except _REFUSALS as exc:
         return _refusal(exc)
     return [
-        StorageSummaryOut(name=s, model=None, keys=None)
+        StorageSummaryOut(name=s, label=None, model=None, keys=None)
         if isinstance(s, str)
-        else StorageSummaryOut(name=s.name, model=s.model, keys=list(s.keys))
+        else StorageSummaryOut(name=s.name, label=s.label, model=s.model, keys=list(s.keys))
         for s in found
     ]
 

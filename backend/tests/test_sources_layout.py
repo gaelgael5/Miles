@@ -8,7 +8,7 @@ from miles.sources.layout import SourceDoc, form_problems, read_source, source_t
 
 # Depuis la séparation du 24/10/2026 (844f15ad), une source ne dit que COMMENT on remplit
 # un storage : plus de modèle, plus de clé, plus de propriétés filtrables.
-DOC = SourceDoc("comptes", "comptes", "$.accounts[*]", "comptes-import", True, False)
+DOC = SourceDoc("comptes", "Comptes", "comptes", "$.accounts[*]", "comptes-import", True, False)
 
 
 def test_declaration_is_written_and_reads_back_unchanged() -> None:
@@ -20,7 +20,7 @@ def test_declaration_is_written_and_reads_back_unchanged() -> None:
 
 @pytest.mark.parametrize(
     "text",
-    [None, "- a\n", 'nom: "x"\ninconnue: 1\n', 'nom: "x"\nstorage: 3\n', "nom: [\n"],
+    [None, "- a\n", 'nom: "x"\ninconnue: 1\n', 'nom: "x"\nlibelle: 3\n', "nom: [\n"],
     ids=["absente", "liste", "cle-inconnue", "type", "illisible"],
 )
 def test_malformed_declaration_is_unreadable(text: str | None) -> None:
@@ -77,10 +77,11 @@ def test_a_source_without_a_storage_is_refused_and_named() -> None:
 
 
 def test_form_problems_are_all_reported() -> None:
-    bad = SourceDoc("Comptes!", "Pas Un Nom", "", "x", False, False)
+    bad = SourceDoc("Comptes!", "", "Pas Un Nom", "", "x", False, False)
 
     assert {(p.path, p.code) for p in form_problems(bad)} == {
         ("nom", "nom_invalide"),
+        ("libelle", "libelle_vide"),
         ("storage", "nom_invalide"),
         ("decoupage", "decoupage_absent"),
     }

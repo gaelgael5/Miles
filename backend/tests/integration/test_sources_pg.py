@@ -21,6 +21,7 @@ CHAINS = "/api/workspaces/retrait/transformations"
 COMPTE = normalized("type: object\nproperties:\n  code:\n    type: string\n", "shared", "compte")
 STORAGE: dict[str, Any] = {
     "name": "comptes",
+    "label": "Comptes",
     "model": "shared/compte",
     "keys": ["$.code"],
     "indexables": [],
@@ -29,6 +30,7 @@ STORAGE: dict[str, Any] = {
 # le storage : elle le désigne, et ne porte plus ni modèle, ni clé, ni filtrables.
 SOURCE: dict[str, Any] = {
     "name": "comptes",
+    "label": "Comptes",
     "storage": "comptes",
     "split": "$.accounts[*]",
     "chain": "comptes-import",
@@ -68,7 +70,14 @@ async def test_source_is_declared_in_git_and_designates_its_storage_and_chain(
     assert declared.status_code == 201, declared.text
     assert declared.json() == SOURCE | {"rewrite_announced": False}
     assert read.json() == SOURCE
-    assert listed.json() == [{"name": "comptes", "storage": "comptes", "chain": "comptes-import"}]
+    assert listed.json() == [
+        {
+            "name": "comptes",
+            "label": "Comptes",
+            "storage": "comptes",
+            "chain": "comptes-import",
+        }
+    ]
     text = await forge.file("sources/comptes.yaml")
     assert text is not None
     assert 'chaine: "comptes-import"' in text and 'storage: "comptes"' in text

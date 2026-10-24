@@ -21,6 +21,7 @@ const CHAIN = {
 };
 const SOURCE = {
   name: "comptes",
+  label: "Comptes",
   storage: "personnes",
   split: "$.accounts[*]",
   chain: "import",
@@ -29,6 +30,7 @@ const SOURCE = {
 };
 const STORAGE = {
   name: "personnes",
+  label: "Personnes",
   model: "shared/personne",
   keys: ["$.id"],
   indexables: [{ name: "code", jpath: "$.code" }],

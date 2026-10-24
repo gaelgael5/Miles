@@ -956,7 +956,8 @@
       "submit": "Déclarer la source",
       "choose": "Choisir…",
       "storageHelp": "Le storage que cette source remplit. C'est lui qui porte le modèle des objets, leur clé fonctionnelle et leurs propriétés indexables.",
-      "splitHelp": "Chemin du tableau d'items dans le document reçu, par exemple $.accounts[*]. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*]."
+      "splitHelp": "Chemin du tableau d'items dans le document reçu, par exemple $.accounts[*]. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*].",
+      "nameHelp": "Identifiant de la source, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclarée."
     },
     "fields": {
       "name": "Nom",
@@ -964,7 +965,8 @@
       "split": "Chemin de découpage",
       "chain": "Chaîne de transformations",
       "largeFile": "Mode gros fichier (lecture en flux)",
-      "unifiedTransaction": "Une seule transaction pour tout l'import"
+      "unifiedTransaction": "Une seule transaction pour tout l'import",
+      "label": "Libellé"
     },
     "editor": {
       "save": "Enregistrer la source",
@@ -983,7 +985,8 @@
       "non_streamable": "Non streamable — {{detail}} : en mode gros fichier, le document se lit une fois, sans retour en arrière.",
       "declaration_invalide": "Déclaration illisible : une source écrite sous l'ancienne forme (modèle, clé, filtrables) doit désormais désigner un storage.",
       "chaine_inconnue": "La chaîne « {{detail}} » n'existe pas sur cette branche.",
-      "chaine_invalide": "La chaîne est invalide : {{detail}}."
+      "chaine_invalide": "La chaîne est invalide : {{detail}}.",
+      "libelle_vide": "Le libellé est obligatoire."
     },
     "errors": {
       "nom_pris": "Une autre source porte déjà ce nom sur la branche.",
@@ -1190,7 +1193,8 @@
       "keysHelp": "Un chemin par ligne, lu sur l'objet stocké, par exemple $.code. Ensemble, ils identifient un objet d'une écriture à l'autre. Chacun doit désigner une valeur, pas un tableau ni un objet.",
       "indexablesHelp": "Chaque propriété indexable est nommée (son nom devient son identifiant d'index, jamais un hash du chemin) et désignée par un chemin sur le modèle. Un chemin vers un tableau est refusé : c'est ce qui garantit une ligne d'index unique par objet et par propriété.",
       "addIndexable": "Ajouter une propriété indexable",
-      "removeIndexable": "Retirer l'indexable {{rank}}"
+      "removeIndexable": "Retirer l'indexable {{rank}}",
+      "nameHelp": "Identifiant du storage, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclaré."
     },
     "fields": {
       "name": "Nom",
@@ -1198,7 +1202,8 @@
       "keys": "Clé fonctionnelle",
       "indexables": "Propriétés indexables",
       "indexableName": "Nom {{rank}}",
-      "indexableJpath": "Chemin {{rank}}"
+      "indexableJpath": "Chemin {{rank}}",
+      "label": "Libellé"
     },
     "editor": {
       "save": "Enregistrer le storage",
@@ -1220,7 +1225,8 @@
       "tableau_interdit": "« {{detail}} » désigne un tableau : il faut une seule valeur par objet, sinon la ligne d'index n'est plus unique.",
       "valeur_attendue": "« {{detail}} » désigne un objet, pas une valeur.",
       "jpath_double": "Le chemin « {{detail}} » est déclaré deux fois.",
-      "declaration_invalide": "Déclaration illisible : le fichier a été retouché hors de Miles."
+      "declaration_invalide": "Déclaration illisible : le fichier a été retouché hors de Miles.",
+      "libelle_vide": "Le libellé est obligatoire."
     },
     "errors": {
       "nom_pris": "Un autre storage porte déjà ce nom sur la branche.",

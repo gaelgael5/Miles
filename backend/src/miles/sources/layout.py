@@ -21,6 +21,7 @@ NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 _FILE_RE = re.compile(rf"^{ROOT}/(?P<name>[^/]+)\.yaml$")
 _KEYS = {
     "nom",
+    "libelle",
     "storage",
     "decoupage",
     "chaine",
@@ -31,7 +32,10 @@ _KEYS = {
 
 @dataclass(frozen=True)
 class SourceDoc:
+    # Identifiant : il nomme le fichier, et se déduit du libellé à la création.
     name: str
+    # Ce que la personne a écrit, et ce que les écrans affichent.
+    label: str
     # Nom du storage alimenté : la collection, son modèle et sa clé vivent là-bas.
     storage: str
     split: str
@@ -65,6 +69,7 @@ def source_text(doc: SourceDoc) -> str:
         "\n".join(
             [
                 f"nom: {q(doc.name)}",
+                f"libelle: {q(doc.label)}",
                 f"storage: {q(doc.storage)}",
                 f"decoupage: {q(doc.split)}",
                 f"chaine: {q(doc.chain)}",
@@ -93,6 +98,7 @@ def read_source(text: str | None) -> SourceDoc | None:
     try:
         return SourceDoc(
             _text(data.get("nom")),
+            _text(data.get("libelle")),
             _text(data.get("storage")),
             _text(data.get("decoupage")),
             _text(data.get("chaine")),
@@ -123,6 +129,8 @@ def form_problems(doc: SourceDoc) -> list[SourceProblem]:
     problems = []
     if not NAME_RE.match(doc.name):
         problems.append(SourceProblem("nom", "nom_invalide"))
+    if not doc.label.strip():
+        problems.append(SourceProblem("libelle", "libelle_vide"))
     if not doc.storage.strip():
         # Sans storage, une source n'a pas de destination : on ne la devine pas.
         problems.append(SourceProblem("storage", "storage_absent"))

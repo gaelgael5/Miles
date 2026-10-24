@@ -110,7 +110,7 @@ export function StoragesScreen({
           {storages.data.map((s) => (
             <li key={s.name} className="row">
               <div className="row-main">
-                <div className="row-title">{s.name}</div>
+                <div className="row-title">{s.label ?? s.name}</div>
                 <div className="row-sub mono">storages/{s.name}.yaml</div>
               </div>
               <div className="cell">

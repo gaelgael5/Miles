@@ -37,6 +37,7 @@ Service = Annotated[SourcesService, Depends(sources_service)]
 class SourceIO(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=63)
+    label: str = Field(max_length=200)
     # Le storage alimenté : il porte le modèle, la clé et les propriétés indexables.
     storage: str = Field(max_length=63)
     split: str = Field(max_length=1024)
@@ -54,6 +55,7 @@ class SourceSummaryOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
     # None : déclaration illisible (retouchée hors de Miles) ; la validation dit pourquoi.
+    label: str | None
     storage: str | None
     chain: str | None
 
@@ -61,6 +63,7 @@ class SourceSummaryOut(BaseModel):
 def _doc(body: SourceIO) -> SourceDoc:
     return SourceDoc(
         body.name.strip(),
+        body.label.strip(),
         body.storage.strip(),
         body.split.strip(),
         body.chain.strip(),
@@ -72,6 +75,7 @@ def _doc(body: SourceIO) -> SourceDoc:
 def _io(doc: SourceDoc) -> SourceIO:
     return SourceIO(
         name=doc.name,
+        label=doc.label,
         storage=doc.storage,
         split=doc.split,
         chain=doc.chain,
@@ -128,9 +132,9 @@ async def list_sources(
     except _REFUSALS as exc:
         return _refusal(exc)
     return [
-        SourceSummaryOut(name=s, storage=None, chain=None)
+        SourceSummaryOut(name=s, label=None, storage=None, chain=None)
         if isinstance(s, str)
-        else SourceSummaryOut(name=s.name, storage=s.storage, chain=s.chain)
+        else SourceSummaryOut(name=s.name, label=s.label, storage=s.storage, chain=s.chain)
         for s in found
     ]
 

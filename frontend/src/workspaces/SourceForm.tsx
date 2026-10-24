@@ -2,12 +2,14 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useChains } from "../api/chains";
+import { proposeSlug } from "../api/contracts";
 import type { Source, SourceProblem } from "../api/sources";
 import { useStorages } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
 
 export const EMPTY_SOURCE: Source = {
   name: "",
+  label: "",
   storage: "",
   split: "",
   chain: "",
@@ -46,11 +48,15 @@ export function SourceForm({
   const chains = useChains(target);
   // Semé une fois : l'écran est remonté (clé) quand la source affichée change.
   const [source, setSource] = useState<Source>(initial);
+  // L'identifiant suit le libellé tant qu'on ne l'a pas touché ; modifiable à la création
+  // seulement, il est figé ensuite — même geste que les contrats, chaînes et storages.
+  const [name, setName] = useState<string | null>(creating ? null : initial.name);
   const set = (change: Partial<Source>) => setSource((current) => ({ ...current, ...change }));
+  const shownName = name ?? proposeSlug(source.label);
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    onSubmit(source);
+    onSubmit({ ...source, name: shownName });
   }
 
   return (
@@ -58,14 +64,19 @@ export function SourceForm({
       {/* Sur la racine, la déclaration se lit sans se modifier : champs désactivés d'un coup. */}
       <fieldset className="plain-fieldset" disabled={target.readOnly}>
         <label className="field">
+          {t("sources.fields.label")}
+          <input required value={source.label} onChange={(e) => set({ label: e.target.value })} />
+        </label>
+        <label className="field">
           {t("sources.fields.name")}
           <input
             required
             disabled={!creating}
-            value={source.name}
-            onChange={(e) => set({ name: e.target.value })}
+            value={shownName}
+            onChange={(e) => setName(e.target.value)}
           />
         </label>
+        <p className="help">{t("sources.form.nameHelp")}</p>
         <label className="field">
           {t("sources.fields.storage")}
           <select required value={source.storage} onChange={(e) => set({ storage: e.target.value })}>

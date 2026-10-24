@@ -1,11 +1,12 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { proposeSlug } from "../api/contracts";
 import { useDataModels } from "../api/dataModels";
 import type { Indexable, Storage, StorageProblem } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
 
-export const EMPTY_STORAGE: Storage = { name: "", model: "", keys: [], indexables: [] };
+export const EMPTY_STORAGE: Storage = { name: "", label: "", model: "", keys: [], indexables: [] };
 
 function IndexablesEditor({
   rows,
@@ -94,7 +95,12 @@ export function StorageForm({
   // Semé une fois : l'écran est remonté (clé) quand le storage affiché change.
   const [storage, setStorage] = useState<Storage>(initial);
   const [keys, setKeys] = useState(initial.keys.join("\n"));
+  // L'identifiant suit le libellé tant qu'on ne l'a pas touché ; modifiable à la création
+  // seulement, il est figé ensuite — c'est le geste des contrats, des chaînes et des
+  // modèles. Faire saisir le slug à la main revenait à refuser « Sites » sur sa majuscule.
+  const [name, setName] = useState<string | null>(creating ? null : initial.name);
   const set = (change: Partial<Storage>) => setStorage((current) => ({ ...current, ...change }));
+  const shownName = name ?? proposeSlug(storage.label);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -102,7 +108,7 @@ export function StorageForm({
       .split("\n")
       .map((k) => k.trim())
       .filter((k) => k !== "");
-    onSubmit({ ...storage, keys: lines });
+    onSubmit({ ...storage, name: shownName, keys: lines });
   }
 
   return (
@@ -110,14 +116,19 @@ export function StorageForm({
       {/* Sur la racine, la déclaration se lit sans se modifier : champs désactivés d'un coup. */}
       <fieldset className="plain-fieldset" disabled={target.readOnly}>
         <label className="field">
+          {t("storages.fields.label")}
+          <input required value={storage.label} onChange={(e) => set({ label: e.target.value })} />
+        </label>
+        <label className="field">
           {t("storages.fields.name")}
           <input
             required
             disabled={!creating}
-            value={storage.name}
-            onChange={(e) => set({ name: e.target.value })}
+            value={shownName}
+            onChange={(e) => setName(e.target.value)}
           />
         </label>
+        <p className="help">{t("storages.form.nameHelp")}</p>
         <label className="field">
           {t("storages.fields.model")}
           <select required value={storage.model} onChange={(e) => set({ model: e.target.value })}>

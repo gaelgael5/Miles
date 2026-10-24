@@ -17,7 +17,10 @@ export interface Indexable {
  * aussi par API ou par MCP, et la source ne fait que le désigner.
  */
 export interface Storage {
+  /** Identifiant : il nomme le fichier, et se déduit du libellé à la création. */
   name: string;
+  /** Ce que la personne a écrit, et ce que les écrans affichent. */
+  label: string;
   /** « portée/nom » du modèle des objets stockés. */
   model: string;
   /** Jpath évalués sur l'objet STOCKÉ, qui l'identifient d'une écriture à l'autre. */
@@ -33,6 +36,7 @@ export interface SavedStorage extends Storage {
 export interface StorageSummary {
   name: string;
   /** null : déclaration illisible, retouchée hors de Miles. */
+  label: string | null;
   model: string | null;
   keys: string[] | null;
 }

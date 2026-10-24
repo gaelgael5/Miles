@@ -28,6 +28,7 @@ SITE = normalized(
 )
 STORAGE: dict[str, Any] = {
     "name": "sites",
+    "label": "Sites",
     "model": "shared/site",
     "keys": ["$.code"],
     "indexables": [
@@ -59,7 +60,9 @@ async def test_storage_is_declared_in_git_read_back_and_listed(forge: Forge) -> 
     assert declared.status_code == 201, declared.text
     assert declared.json() == STORAGE | {"rewrite_announced": False}
     assert read.json() == STORAGE
-    assert listed.json() == [{"name": "sites", "model": "shared/site", "keys": ["$.code"]}]
+    assert listed.json() == [
+        {"name": "sites", "label": "Sites", "model": "shared/site", "keys": ["$.code"]}
+    ]
     text = await forge.file("storages/sites.yaml")
     assert text is not None
     assert 'modele: "shared/site"' in text and '- "$.code"' in text
@@ -183,6 +186,7 @@ async def test_a_storage_designated_by_a_source_cannot_be_deleted(forge: Forge) 
     await forge.client.put(f"{CHAINS}/sites-import", json=chain, timeout=120)
     source = {
         "name": "crm",
+        "label": "CRM",
         "storage": "sites",
         "split": "$.sites[*]",
         "chain": "sites-import",

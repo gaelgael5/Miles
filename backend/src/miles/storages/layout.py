@@ -17,7 +17,7 @@ ROOT = "storages"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 MODEL_RE = re.compile(r"^(?P<scope>[a-z0-9][a-z0-9-]{0,62})/(?P<name>[a-z][a-z0-9_]{0,62})$")
 _FILE_RE = re.compile(rf"^{ROOT}/(?P<name>[^/]+)\.yaml$")
-_KEYS = {"nom", "modele", "cle", "indexables"}
+_KEYS = {"nom", "libelle", "modele", "cle", "indexables"}
 
 
 @dataclass(frozen=True)
@@ -31,7 +31,12 @@ class Indexable:
 
 @dataclass(frozen=True)
 class StorageDoc:
+    # Identifiant : il nomme le fichier, donc contraint à ce qui fait un nom de fichier.
+    # Il se DÉDUIT du libellé à la création (comme un contrat ou une chaîne) : on ne fait
+    # pas saisir un slug à la main pour se le voir refuser ensuite.
     name: str
+    # Ce que la personne a écrit, et ce que les écrans affichent.
+    label: str
     # « shared/site » ou « <domaine>/site » : le modèle des objets stockés.
     model: str
     # Jpath évalués sur l'objet STOCKÉ, et non sur un document source : une collection
@@ -63,6 +68,7 @@ def storage_text(doc: StorageDoc) -> str:
 
     lines = [
         f"nom: {q(doc.name)}",
+        f"libelle: {q(doc.label)}",
         f"modele: {q(doc.model)}",
         "cle:",
         *(f"  - {q(k)}" for k in doc.keys),
@@ -89,6 +95,7 @@ def read_storage(text: str | None) -> StorageDoc | None:
     try:
         return StorageDoc(
             _text(data.get("nom")),
+            _text(data.get("libelle")),
             _text(data.get("modele")),
             tuple(_text(k) for k in keys),
             tuple(Indexable(_text(i.get("nom")), _text(i.get("jpath"))) for i in indexables),
@@ -108,6 +115,8 @@ def form_problems(doc: StorageDoc) -> list[StorageProblem]:
     problems = []
     if not NAME_RE.match(doc.name):
         problems.append(StorageProblem("nom", "nom_invalide"))
+    if not doc.label.strip():
+        problems.append(StorageProblem("libelle", "libelle_vide"))
     if not MODEL_RE.match(doc.model):
         problems.append(StorageProblem("modele", "modele_invalide", doc.model))
     if not doc.keys:

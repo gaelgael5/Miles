@@ -11,6 +11,7 @@ const Q = "?branch=edition";
 // porte plus ni modèle, ni clé, ni propriétés filtrables.
 const SOURCE = {
   name: "crm",
+  label: "CRM",
   storage: "sites",
   split: "$.accounts[*]",
   chain: "comptes-import",
@@ -20,7 +21,7 @@ const SOURCE = {
 const PICKERS = {
   [`GET /api/workspaces/retrait/storages${Q}`]: {
     status: 200,
-    body: [{ name: "sites", model: "shared/site", keys: ["$.code"] }],
+    body: [{ name: "sites", label: "Sites", model: "shared/site", keys: ["$.code"] }],
   },
   [`GET /api/workspaces/retrait/transformations${Q}`]: {
     status: 200,
@@ -46,7 +47,8 @@ describe("SourcesScreen", () => {
     expect(await screen.findByText("No data source on this branch.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("New source"));
-    fill("Name", "crm");
+    fill("Label", "CRM");
+    expect(screen.getByLabelText("Name")).toHaveValue("crm");
     await screen.findByRole("option", { name: "sites (shared/site)" });
     fill("Storage fed", "sites");
     fill("Split path", "$.accounts[*]");
@@ -96,7 +98,7 @@ describe("SourcesScreen", () => {
     });
     renderWorkspaces({ id: "retrait", view: "sources", branch: "edition" });
     fireEvent.click(await screen.findByText("New source"));
-    fill("Name", "crm");
+    fill("Label", "CRM");
     fireEvent.submit(screen.getByRole("form", { name: "Declare the source" }));
 
     const alert = await screen.findByRole("alert");

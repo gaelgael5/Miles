@@ -11,7 +11,10 @@ import { type WorkTarget, atBranch, branchKey } from "./workTarget";
  * quitté la source pour le storage, qu'elle ne fait que désigner.
  */
 export interface Source {
+  /** Identifiant : il nomme le fichier, et se déduit du libellé à la création. */
   name: string;
+  /** Ce que la personne a écrit, et ce que les écrans affichent. */
+  label: string;
   /** Nom du storage alimenté : il porte le modèle, la clé et les propriétés indexables. */
   storage: string;
   /** Jpath du tableau d'items, streamable. */
@@ -30,6 +33,7 @@ export interface SavedSource extends Source {
 export interface SourceSummary {
   name: string;
   /** null : déclaration illisible, retouchée hors de Miles. */
+  label: string | null;
   storage: string | null;
   chain: string | null;
 }

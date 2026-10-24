@@ -39,6 +39,8 @@ from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles.secrets.service import SecretsService
 from miles.sources.service import EVENT_TYPES as SOURCE_EVENTS
 from miles.sources.service import SourcesService
+from miles.storages.service import EVENT_TYPES as STORAGE_EVENTS
+from miles.storages.service import StoragesService
 from miles.transform.api_catalog import CatalogService
 from miles.workshop.branches import EVENT_TYPES as BRANCH_EVENTS
 from miles.workshop.branches import BranchesService
@@ -83,6 +85,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         | IDENTITY_EVENTS
         | CHAIN_EVENTS
         | SOURCE_EVENTS
+        | STORAGE_EVENTS
         | API_KEY_EVENTS
         | OAUTH_EVENTS
     )
@@ -123,6 +126,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.targeted_reads = TargetedReads(branches)
     state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
     state.sources = SourcesService(portal.pool, branches, catalog, utc_now)
+    state.storages = StoragesService(portal.pool, branches, catalog, utc_now)
     state.api_keys = ApiKeysService(portal.pool, catalog, utc_now)
     # Celui de la configuration par défaut : l'essai d'une chaîne s'évalue sous cette borne.
     state.transform_budget = Settings.model_fields["transform_budget"].default
