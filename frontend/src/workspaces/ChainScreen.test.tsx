@@ -162,8 +162,14 @@ describe("ChainScreen", () => {
 
     fireEvent.click(screen.getByText("Run"));
 
-    expect(await screen.findByText("After step 2")).toBeInTheDocument();
-    expect(screen.getByText(/"statut": "ok"/)).toBeInTheDocument();
+    // Chaque résultat vit DANS la ligne de l'étape qui l'a produit (24/10/2026) : sous
+    // le bouton, il fallait recompter les rangs pour savoir à quoi il se rapportait.
+    const second = await screen.findByRole("listitem", { name: "Step 2" });
+    expect(within(second).getByText("After step 2")).toBeInTheDocument();
+    expect(within(second).getByText(/"statut": "ok"/)).toBeInTheDocument();
+    const first = screen.getByRole("listitem", { name: "Step 1" });
+    expect(within(first).getByText("After step 1")).toBeInTheDocument();
+    expect(within(first).queryByText(/"statut": "ok"/)).toBeNull();
     expect(calls.find((c) => c.key === "POST /api/transformations/check")?.body).toEqual({
       steps: CHAIN.steps.map((s) => ({ template: s.template, target: s.target })),
       sample: { colis: { ref: "C-42" } },

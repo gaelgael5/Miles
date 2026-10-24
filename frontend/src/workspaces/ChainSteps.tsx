@@ -68,6 +68,8 @@ export function ChainSteps({
   target,
   steps,
   problems,
+  trace,
+  failure,
   readOnly,
   onChange,
   onOpen,
@@ -75,6 +77,10 @@ export function ChainSteps({
   target: WorkTarget;
   steps: ChainStep[];
   problems: StepProblem[];
+  /** Message après chaque étape, à son rang ; absent tant qu'on n'a pas lancé l'essai. */
+  trace?: unknown[];
+  /** L'étape qui a refusé, s'il y en a une. */
+  failure?: { step: number; evaluation: { code: string; path: string | null } };
   /** Sur la racine : les étapes se lisent, sans boutons pour les changer. */
   readOnly: boolean;
   onChange: (steps: ChainStep[]) => void;
@@ -171,6 +177,21 @@ export function ChainSteps({
                 >
                   {t("chains.editor.remove")}
                 </button>
+              </div>
+            )}
+            {failure?.step === index && (
+              <p className="alert row-detail" role="alert">
+                {t("chains.editor.failed", {
+                  rank: index + 1,
+                  code: failure.evaluation.code,
+                  path: failure.evaluation.path ?? "",
+                })}
+              </p>
+            )}
+            {trace !== undefined && index < trace.length && (
+              <div className="row-detail">
+                <div className="caption">{t("chains.editor.after", { rank: index + 1 })}</div>
+                <pre className="mono">{JSON.stringify(trace[index], null, 2)}</pre>
               </div>
             )}
             {problems

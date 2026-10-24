@@ -129,30 +129,16 @@ function Editor({
             {t("chains.editor.run")}
           </button>
         </div>
-        {check.data?.failure && (
-          <p className="alert" role="alert">
-            {t("chains.editor.failed", {
-              rank: check.data.failure.step + 1,
-              code: check.data.failure.evaluation.code,
-              path: check.data.failure.evaluation.path ?? "",
-            })}
-          </p>
-        )}
-        {check.data?.valid && !check.data.failure && (
-          <ol className="plain-list">
-            {check.data.trace.map((message, index) => (
-              <li key={index}>
-                <div className="caption">{t("chains.editor.after", { rank: index + 1 })}</div>
-                <pre className="mono">{JSON.stringify(message, null, 2)}</pre>
-              </li>
-            ))}
-          </ol>
-        )}
+        {/* Le résultat de chaque étape s'affiche DANS la ligne de l'étape qui l'a
+            produit (Gael, 24/10/2026) : sous le bouton, il fallait recompter les rangs
+            pour savoir à quoi se rapportait quoi. */}
       </section>
       <ChainSteps
         target={target}
         steps={steps}
         problems={problems}
+        trace={check.data?.valid && !check.data.failure ? check.data.trace : undefined}
+        failure={check.data?.failure ?? undefined}
         readOnly={target.readOnly}
         onChange={setSteps}
         onOpen={onOpenStep}
