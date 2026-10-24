@@ -1190,11 +1190,10 @@
       "title": "Nouveau storage",
       "submit": "Déclarer le storage",
       "choose": "Choisir…",
-      "keysHelp": "Un chemin par ligne, lu sur l'objet stocké, par exemple $.code. Ensemble, ils identifient un objet d'une écriture à l'autre. Chacun doit désigner une valeur, pas un tableau ni un objet.",
-      "indexablesHelp": "Chaque propriété indexable est nommée (son nom devient son identifiant d'index, jamais un hash du chemin) et désignée par un chemin sur le modèle. Un chemin vers un tableau est refusé : c'est ce qui garantit une ligne d'index unique par objet et par propriété.",
-      "addIndexable": "Ajouter une propriété indexable",
-      "removeIndexable": "Retirer l'indexable {{rank}}",
-      "nameHelp": "Identifiant du storage, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclaré."
+      "keysHelp": "Coche les propriétés qui identifient un objet d'une écriture à l'autre. Seules les valeurs sont cochables : un tableau ou un objet ne se compare pas.",
+      "indexablesHelp": "Coche les propriétés sur lesquelles on pourra filtrer. Chacune reçoit un nom, qui devient son identifiant d'index — jamais un hash du chemin. Un tableau n'est pas cochable : c'est ce qui garantit une ligne d'index unique par objet et par propriété.",
+      "nameHelp": "Identifiant du storage, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclaré.",
+      "noKey": "Aucune propriété cochée."
     },
     "fields": {
       "name": "Nom",
@@ -1202,7 +1201,6 @@
       "keys": "Clé fonctionnelle",
       "indexables": "Propriétés indexables",
       "indexableName": "Nom {{rank}}",
-      "indexableJpath": "Chemin {{rank}}",
       "label": "Libellé"
     },
     "editor": {
@@ -1235,5 +1233,13 @@
       "unexpected": "Le storage n'a pas pu être enregistré. Voir les journaux du back-office.",
       "unreadable": "Ce storage ne peut pas être lu."
     }
+  },
+  "paths": {
+    "treeLabel": "Propriétés du modèle",
+    "chooseModelFirst": "Choisis d'abord le modèle des objets : l'arbre de ses propriétés s'affichera ici.",
+    "unreadable": "Les propriétés de ce modèle n'ont pas pu être lues.",
+    "empty": "Ce modèle ne déclare aucune propriété.",
+    "expand": "Déplier {{name}}",
+    "collapse": "Replier {{name}}"
   }
 }

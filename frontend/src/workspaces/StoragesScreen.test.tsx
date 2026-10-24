@@ -19,6 +19,19 @@ const MODELS = {
     status: 200,
     body: [{ scope: "shared", name: "site", path: "data-models/shared/site.yaml" }],
   },
+  // L'arbre se coche : il vient de la route des chemins, celle de l'intellisense JSLT.
+  [`GET /api/workspaces/retrait/data-models/shared/site/paths${Q}`]: {
+    status: 200,
+    body: {
+      paths: [
+        { path: "$.code", type: "string", description: "" },
+        { path: "$.adresse", type: "object", description: "" },
+        { path: "$.adresse.ville", type: "string", description: "Ville" },
+        { path: "$.enseignes", type: "array", description: "" },
+        { path: "$.enseignes[0]", type: "string", description: "" },
+      ],
+    },
+  },
 };
 
 afterEach(() => {
@@ -45,11 +58,15 @@ describe("StoragesScreen (24/10/2026)", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("sites");
     await screen.findByRole("option", { name: "shared/site" });
     fill("Object model", "shared/site");
-    // Les lignes vides et les espaces autour ne font pas une clé de plus.
-    fill("Functional key", "$.code\n\n  ");
-    fireEvent.click(screen.getByText("Add an indexable property"));
-    fill("Name 1", "ville");
-    fill("Path 1", "$.adresse.ville");
+
+    // Deux arbres du même modèle : la clé, puis les propriétés indexables.
+    const [keyTree, indexTree] = await screen.findAllByRole("list", {
+      name: "Model properties",
+    });
+    fireEvent.click(within(keyTree as HTMLElement).getByRole("checkbox", { name: /code/ }));
+    fireEvent.click(within(indexTree as HTMLElement).getByRole("checkbox", { name: /ville/ }));
+    // Le nom d'index est proposé depuis le dernier segment du chemin.
+    expect(screen.getByLabelText("Name 1")).toHaveValue("ville");
     fireEvent.click(screen.getByText("Declare the storage"));
 
     expect(await screen.findByText("storages/sites.yaml")).toBeInTheDocument();
@@ -121,9 +138,10 @@ describe("StorageScreen (24/10/2026)", () => {
     renderWorkspaces({ id: "retrait", view: "storages", branch: "edition", storage: "sites" });
     expect(await screen.findByLabelText("Name")).toBeDisabled();
     expect(screen.getByLabelText("Label")).toHaveValue("Sites");
-    expect(screen.getByLabelText("Functional key")).toHaveValue("$.code");
 
-    fireEvent.click(screen.getByText("Remove indexable 1"));
+    // Décocher la propriété indexable la retire, comme la cocher l'avait ajoutée.
+    const [, indexTree] = await screen.findAllByRole("list", { name: "Model properties" });
+    fireEvent.click(within(indexTree as HTMLElement).getByRole("checkbox", { name: /ville/ }));
     fireEvent.click(screen.getByText("Save the storage"));
 
     expect(await screen.findByText(/rewrite every object and its index/)).toBeInTheDocument();
@@ -167,5 +185,50 @@ describe("StorageScreen (24/10/2026)", () => {
 
     expect(await screen.findByText("No storage on this branch.")).toBeInTheDocument();
     expect(calls.some((c) => c.key === `DELETE ${ROUTE}/sites${Q}`)).toBe(true);
+  });
+});
+
+describe("the property tree (24/10/2026)", () => {
+  it("offers only values, never an array, an object or a path through an array", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS,
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition" });
+    fireEvent.click(await screen.findByText("New storage"));
+    fill("Label", "Sites");
+    await screen.findByRole("option", { name: "shared/site" });
+    fill("Object model", "shared/site");
+
+    const [keyTree] = await screen.findAllByRole("list", { name: "Model properties" });
+    const tree = keyTree as HTMLElement;
+    const names = within(tree)
+      .getAllByRole("checkbox")
+      .map((box) => box.closest("label")?.textContent ?? "");
+
+    // « adresse » (objet) et « enseignes » (tableau) se lisent mais ne se cochent pas ;
+    // « [0] » traverse un tableau, donc ne désigne pas une valeur unique.
+    expect(names.some((n) => n.includes("code"))).toBe(true);
+    expect(names.some((n) => n.includes("ville"))).toBe(true);
+    expect(names.some((n) => n.startsWith("adresse"))).toBe(false);
+    expect(names.some((n) => n.startsWith("enseignes"))).toBe(false);
+    expect(names.some((n) => n.includes("[0]"))).toBe(false);
+    // Elles restent affichées : c'est le chemin pour atteindre leurs enfants.
+    expect(within(tree).getByTitle("$.adresse")).toBeInTheDocument();
+  });
+
+  it("says what to do when no model is chosen yet", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS,
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition" });
+    fireEvent.click(await screen.findByText("New storage"));
+
+    expect(screen.getAllByText(/Choose the object model first/).length).toBe(2);
   });
 });

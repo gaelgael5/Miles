@@ -5,71 +5,77 @@ import { proposeSlug } from "../api/contracts";
 import { useDataModels } from "../api/dataModels";
 import type { Indexable, Storage, StorageProblem } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
+import { ModelPathTree, lastSegment } from "./ModelPathTree";
 
-export const EMPTY_STORAGE: Storage = { name: "", label: "", model: "", keys: [], indexables: [] };
+export const EMPTY_STORAGE: Storage = {
+  name: "",
+  label: "",
+  model: "",
+  keys: [],
+  indexables: [],
+};
 
-function IndexablesEditor({
+/** Nom d'index proposé pour un chemin, jamais en doublon d'un existant. */
+export function indexName(jpath: string, taken: string[]): string {
+  // Un nom d'index fait au moins deux caractères (même règle que les autres noms) :
+  // une propriété d'une lettre donnerait sinon une proposition refusée à l'enregistrement.
+  const slug = proposeSlug(lastSegment(jpath));
+  const base = slug.length < 2 ? "propriete" : slug;
+  if (!taken.includes(base)) {
+    return base;
+  }
+  // Un nom doublé serait refusé à l'enregistrement : on suffixe plutôt que de le laisser.
+  for (let n = 2; n < 100; n += 1) {
+    if (!taken.includes(`${base}-${n}`)) {
+      return `${base}-${n}`;
+    }
+  }
+  return base;
+}
+
+function IndexableRows({
   rows,
-  readOnly,
+  disabled,
   onChange,
 }: {
   rows: Indexable[];
-  readOnly: boolean;
+  disabled: boolean;
   onChange: (rows: Indexable[]) => void;
 }) {
   const { t } = useTranslation();
-  const set = (index: number, row: Indexable) =>
-    onChange(rows.map((r, i) => (i === index ? row : r)));
+  if (rows.length === 0) {
+    return null;
+  }
   return (
-    <fieldset className="field">
-      <legend>{t("storages.fields.indexables")}</legend>
-      <p className="help">{t("storages.form.indexablesHelp")}</p>
+    <ul className="plain-list">
       {rows.map((row, index) => (
-        <div key={index} className="actions">
+        <li key={row.jpath} className="actions">
           <label className="field">
             {t("storages.fields.indexableName", { rank: index + 1 })}
             <input
               required
+              disabled={disabled}
               value={row.name}
-              onChange={(e) => set(index, { ...row, name: e.target.value })}
+              onChange={(e) =>
+                onChange(rows.map((r, i) => (i === index ? { ...r, name: e.target.value } : r)))
+              }
             />
           </label>
-          <label className="field">
-            {t("storages.fields.indexableJpath", { rank: index + 1 })}
-            <input
-              required
-              className="mono"
-              value={row.jpath}
-              onChange={(e) => set(index, { ...row, jpath: e.target.value })}
-            />
-          </label>
-          {!readOnly && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => onChange(rows.filter((_, i) => i !== index))}
-            >
-              {t("storages.form.removeIndexable", { rank: index + 1 })}
-            </button>
-          )}
-        </div>
+          {/* Le chemin vient de l'arbre : il s'affiche, il ne se tape plus. */}
+          <span className="mono">{row.jpath}</span>
+        </li>
       ))}
-      {!readOnly && (
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => onChange([...rows, { name: "", jpath: "" }])}
-        >
-          {t("storages.form.addIndexable")}
-        </button>
-      )}
-    </fieldset>
+    </ul>
   );
 }
 
 /**
  * Formulaire d'un storage, en déclaration comme en modification. Le nom est figé une fois
  * déclaré : c'est l'identité du storage, et le fichier `storages/<nom>.yaml` le porte.
+ *
+ * Clé et propriétés indexables se COCHENT dans l'arbre du modèle (Gael, 24/10/2026) : un
+ * jpath tapé à la main se fait refuser après coup, pour une faute de frappe ou un tableau
+ * traversé. L'arbre ne propose que ce que le modèle offre, et seulement des valeurs.
  */
 export function StorageForm({
   target,
@@ -94,7 +100,6 @@ export function StorageForm({
   const models = useDataModels(target);
   // Semé une fois : l'écran est remonté (clé) quand le storage affiché change.
   const [storage, setStorage] = useState<Storage>(initial);
-  const [keys, setKeys] = useState(initial.keys.join("\n"));
   // L'identifiant suit le libellé tant qu'on ne l'a pas touché ; modifiable à la création
   // seulement, il est figé ensuite — c'est le geste des contrats, des chaînes et des
   // modèles. Faire saisir le slug à la main revenait à refuser « Sites » sur sa majuscule.
@@ -102,13 +107,24 @@ export function StorageForm({
   const set = (change: Partial<Storage>) => setStorage((current) => ({ ...current, ...change }));
   const shownName = name ?? proposeSlug(storage.label);
 
+  function toggleKey(path: string) {
+    const keys = storage.keys.includes(path)
+      ? storage.keys.filter((k) => k !== path)
+      : [...storage.keys, path];
+    set({ keys });
+  }
+
+  function toggleIndexable(path: string) {
+    const rows = storage.indexables;
+    const indexables = rows.some((i) => i.jpath === path)
+      ? rows.filter((i) => i.jpath !== path)
+      : [...rows, { name: indexName(path, rows.map((i) => i.name)), jpath: path }];
+    set({ indexables });
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
-    const lines = keys
-      .split("\n")
-      .map((k) => k.trim())
-      .filter((k) => k !== "");
-    onSubmit({ ...storage, name: shownName, keys: lines });
+    onSubmit({ ...storage, name: shownName });
   }
 
   return (
@@ -140,23 +156,36 @@ export function StorageForm({
             ))}
           </select>
         </label>
-        <label className="field">
-          {t("storages.fields.keys")}
-          <textarea
-            required
-            rows={2}
-            className="mono"
-            spellCheck={false}
-            value={keys}
-            onChange={(e) => setKeys(e.target.value)}
+        <fieldset className="field">
+          <legend>{t("storages.fields.keys")}</legend>
+          <p className="help">{t("storages.form.keysHelp")}</p>
+          <ModelPathTree
+            target={target}
+            model={storage.model}
+            selected={storage.keys}
+            disabled={target.readOnly}
+            onToggle={toggleKey}
           />
-        </label>
-        <p className="help">{t("storages.form.keysHelp")}</p>
-        <IndexablesEditor
-          rows={storage.indexables}
-          readOnly={target.readOnly}
-          onChange={(indexables) => set({ indexables })}
-        />
+          <p className="mono">
+            {storage.keys.length === 0 ? t("storages.form.noKey") : storage.keys.join(", ")}
+          </p>
+        </fieldset>
+        <fieldset className="field">
+          <legend>{t("storages.fields.indexables")}</legend>
+          <p className="help">{t("storages.form.indexablesHelp")}</p>
+          <ModelPathTree
+            target={target}
+            model={storage.model}
+            selected={storage.indexables.map((i) => i.jpath)}
+            disabled={target.readOnly}
+            onToggle={toggleIndexable}
+          />
+          <IndexableRows
+            rows={storage.indexables}
+            disabled={target.readOnly}
+            onChange={(indexables) => set({ indexables })}
+          />
+        </fieldset>
       </fieldset>
       {problems.length > 0 && (
         <ul className="alert plain-list" role="alert">

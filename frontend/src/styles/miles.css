@@ -302,3 +302,17 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
    ici la page défile, et ce rognage coupait la liste « Choisir une définition » qui
    déborde du champ. On laisse déborder plutôt que de déplacer la liste. */
 .model-editor .jsonjoy, .model-editor .jsonjoy .grow.overflow-auto { overflow: visible; }
+
+/* Arbre des propriétés d'un modèle (Gael, 24/10/2026) : on coche un chemin au lieu de
+   le taper. L'indentation vient du niveau, pas d'un gabarit : un modèle profond reste
+   lisible sans que la colonne de droite ne sorte de l'écran. */
+.tree { margin: 0; padding-left: 0; }
+.tree .tree { padding-left: 18px; border-left: 1px solid var(--bordure-champ); margin-left: 7px; }
+.tree-row { display: flex; align-items: baseline; gap: 6px; padding: 2px 0; }
+.tree-twist {
+  flex: 0 0 16px; width: 16px; background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--encre-faible); font-size: 11px; line-height: 1.4;
+}
+.tree-pick { display: flex; align-items: baseline; gap: 6px; font-weight: 400; cursor: pointer; }
+.tree-pick input { margin: 0; }
+.tree-pick .caption { margin-bottom: 0; text-transform: none; letter-spacing: 0; }

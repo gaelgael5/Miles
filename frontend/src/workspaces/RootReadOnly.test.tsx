@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
@@ -62,6 +62,10 @@ function onRoot(selection: Omit<NonNullable<WorkspaceSelection>, "id" | "branch"
     [`GET ${WS}/sources/comptes${Q}`]: { status: 200, body: SOURCE },
     [`GET ${WS}/storages${Q}`]: { status: 200, body: [] },
     [`GET ${WS}/storages/personnes${Q}`]: { status: 200, body: STORAGE },
+    [`GET ${WS}/data-models/shared/personne/paths${Q}`]: {
+      status: 200,
+      body: { paths: [{ path: "$.id", type: "string", description: "" }] },
+    },
   });
   renderWorkspaces({ id: "retrait", branch: "atelier", ...selection });
 }
@@ -135,11 +139,14 @@ describe("root branch", () => {
 
   it("shows a storage with every field disabled and no save or delete", async () => {
     onRoot({ view: "storages", storage: "personnes" });
-    expect(await screen.findByLabelText("Functional key")).toBeInTheDocument();
-    for (const label of ["Save the storage", "Delete the storage", "Add an indexable property"]) {
+    expect(await screen.findByLabelText("Object model")).toBeDisabled();
+    for (const label of ["Save the storage", "Delete the storage"]) {
       expect(screen.queryByText(label)).toBeNull();
     }
-    expect(screen.getByLabelText("Functional key")).toBeDisabled();
-    expect(screen.getByLabelText("Object model")).toBeDisabled();
+    // L'arbre se lit, il ne se coche pas : la racine ne se modifie jamais.
+    const [keyTree] = await screen.findAllByRole("list", { name: "Model properties" });
+    for (const box of within(keyTree as HTMLElement).getAllByRole("checkbox")) {
+      expect(box).toBeDisabled();
+    }
   });
 });

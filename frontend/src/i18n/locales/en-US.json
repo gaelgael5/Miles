@@ -1190,11 +1190,10 @@
       "title": "New storage",
       "submit": "Declare the storage",
       "choose": "Choose…",
-      "keysHelp": "One path per line, read on the stored object, e.g. $.code. Together they identify an object from one write to the next. Each must designate a value, not an array nor an object.",
-      "indexablesHelp": "Each indexable property is named (its name becomes its index identifier, never a hash of the path) and designated by a path on the model. A path to an array is refused: that is what guarantees one index row per object and property.",
-      "addIndexable": "Add an indexable property",
-      "removeIndexable": "Remove indexable {{rank}}",
-      "nameHelp": "Storage identifier, derived from the label: lowercase letters, digits and dashes. It names the file and cannot be renamed once declared."
+      "keysHelp": "Tick the properties that identify an object from one write to the next. Only values can be ticked: an array or an object cannot be compared.",
+      "indexablesHelp": "Tick the properties objects can be filtered on. Each gets a name, which becomes its index identifier — never a hash of the path. An array cannot be ticked: that is what guarantees one index row per object and property.",
+      "nameHelp": "Storage identifier, derived from the label: lowercase letters, digits and dashes. It names the file and cannot be renamed once declared.",
+      "noKey": "No property ticked."
     },
     "fields": {
       "name": "Name",
@@ -1202,7 +1201,6 @@
       "keys": "Functional key",
       "indexables": "Indexable properties",
       "indexableName": "Name {{rank}}",
-      "indexableJpath": "Path {{rank}}",
       "label": "Label"
     },
     "editor": {
@@ -1235,5 +1233,13 @@
       "unexpected": "The storage could not be saved. See the back-office logs.",
       "unreadable": "This storage cannot be read."
     }
+  },
+  "paths": {
+    "treeLabel": "Model properties",
+    "chooseModelFirst": "Choose the object model first: the tree of its properties will appear here.",
+    "unreadable": "The properties of this model could not be read.",
+    "empty": "This model declares no property.",
+    "expand": "Expand {{name}}",
+    "collapse": "Collapse {{name}}"
   }
 }
