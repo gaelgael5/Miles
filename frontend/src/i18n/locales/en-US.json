@@ -674,8 +674,7 @@
       "versions_one": "{{count}} version (latest v{{latest}})",
       "versions_other": "{{count}} versions (latest v{{latest}})",
       "noFile": "No file yet",
-      "open": "Open",
-      "showOperations": "Operations"
+      "open": "Open"
     },
     "errors": {
       "unreadable": "Unreadable file, line {{line}}, column {{column}}: {{message}}",

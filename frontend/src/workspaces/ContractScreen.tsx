@@ -92,11 +92,19 @@ function VersionRow({ version }: { version: ContractVersionDetail }) {
       })
     : t("contracts.versions.outside");
   return (
-    <li className="row">
+    <li className="row row-openable">
       <div className="row-main">
-        <div className="row-title">
+        {/* Toute la ligne déplie les opérations (Gael, 24/10/2026) : le bouton du titre la
+            couvre, et le bouton « Opérations » disparaît. Le détail déplié reste au-dessus
+            de cette couverture (.row-openable .row-detail), donc cliquer dedans ne replie pas. */}
+        <button
+          type="button"
+          className="row-title row-open"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
           v{version.number} — {version.title ?? t("contracts.versions.unreadable")}
-        </div>
+        </button>
         <div className="row-sub">{deposited}</div>
       </div>
       <div className="cell">
@@ -107,16 +115,6 @@ function VersionRow({ version }: { version: ContractVersionDetail }) {
             <span className="badge badge-warning">{t("contracts.list.noOperation")}</span>
           )}
         </div>
-      </div>
-      <div className="actions row-actions">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          {t(open ? "dataModels.list.hide" : "contracts.list.showOperations")}
-        </button>
       </div>
       {open && (
         <div className="row-detail">

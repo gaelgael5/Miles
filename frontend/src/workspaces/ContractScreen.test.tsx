@@ -80,7 +80,9 @@ describe("ContractScreen", () => {
 
     expect(await screen.findByText("Integrated as version v1.")).toBeInTheDocument();
     const row = (await screen.findByText("v1 — Matériel")).closest("li") as HTMLElement;
-    fireEvent.click(within(row).getByRole("button", { name: "Operations" }));
+    // Toute la ligne déplie les opérations (Gael, 24/10/2026) : plus de bouton dédié.
+    expect(within(row).queryByRole("button", { name: "Operations" })).not.toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button", { name: /^v1 — Matériel/ }));
     expect(within(row).getByText(/GET \/demandes — lister/)).toBeInTheDocument();
     expect(within(row).getByText(/Deposited on .* by admin via Miles/)).toBeInTheDocument();
     expect(calls.find((c) => c.key === `POST ${ROUTE}/materiel/versions?branch=edition`)?.body).toEqual({
@@ -227,7 +229,8 @@ describe("ContractScreen", () => {
     const row = (await screen.findByText("v2 — Matériel")).closest("li") as HTMLElement;
     expect(within(row).getByText("Deposited outside Miles: date unknown")).toBeInTheDocument();
 
-    fireEvent.click(within(row).getByRole("button", { name: "Operations" }));
+    expect(within(row).queryByRole("button", { name: "Operations" })).not.toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button", { name: /^v2 — Matériel/ }));
 
     const added = within(row).getByText(/POST \/colis — deposer/);
     expect(within(added).getByText("New")).toBeInTheDocument();
