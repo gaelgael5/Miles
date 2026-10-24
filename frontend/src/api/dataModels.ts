@@ -41,6 +41,16 @@ function key(target: WorkTarget) {
 
 export type SampleFormat = "json" | "yaml";
 
+/** Le gabarit JSON d'un modèle : sa forme, jamais une donnée réaliste. */
+export function useModelExample(target: WorkTarget) {
+  return useMutation({
+    mutationFn: ({ scope, name }: { scope: string; name: string }) =>
+      request<{ example: unknown }>(atBranch(target, "data-models", scope, name, "example"), {
+        signal: undefined,
+      }),
+  });
+}
+
 /** Déduit un schéma d'un échantillon. Rien n'est écrit : le résultat part dans l'éditeur,
  * et n'atteint le dépôt que si la personne enregistre le modèle. */
 export function useInferSchema(target: WorkTarget) {

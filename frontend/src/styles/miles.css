@@ -133,6 +133,9 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 /* Ligne de l'échantillon de test : seule dans sa carte, elle n'a pas de voisine
    dont la séparer. */
 .row-sample { border-bottom: none; padding-left: 0; padding-right: 0; }
+/* Hôte du Web Component JSLT : il porte sa propre hauteur par ses variables CSS. */
+.jslt-editor-host { margin-top: 6px; }
+.jslt-editor-host jslt-editor { --jslt-ed-height: 520px; display: block; }
 .row-main { flex: 999 1 260px; min-width: 0; }
 .row-title { font-size: 16px; font-weight: 600; }
 /* Ligne ouvrable (fbe9b512) : le bouton du titre couvre la ligne ; les actions et les

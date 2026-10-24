@@ -290,7 +290,8 @@ describe("step page (24/10/2026)", () => {
     fireEvent.click(screen.getByRole("button", { name: "normaliser" }));
 
     expect(await screen.findByRole("heading", { level: 1, name: "normaliser" })).toBeInTheDocument();
-    expect(screen.getByLabelText("JSLT template")).toHaveValue('{ "ref": $.colis.ref }');
+    // L'éditeur JSLT se charge à la demande : il arrive au tour suivant.
+    expect(await screen.findByLabelText("JSLT template")).toHaveValue('{ "ref": $.colis.ref }');
   });
 
   it("saves the step through the whole chain, the step having no life of its own", async () => {
@@ -322,5 +323,96 @@ describe("step page (24/10/2026)", () => {
       steps: { name: string; template: string }[];
     };
     expect(body.steps.map((s) => s.template)).toEqual(['{ "ref": 1 }', '"ok"']);
+  });
+});
+
+describe("the step editor (24/10/2026)", () => {
+  const WITH_MODEL = {
+    ...CHAIN,
+    steps: CHAIN.steps.map((s, i) =>
+      i === 0 ? { ...s, destination_model: "miles:/shared/compte" } : s,
+    ),
+  };
+
+  function openStep(routes: Record<string, unknown>) {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: WITH_MODEL },
+      [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: [] },
+      ...routes,
+    } as never);
+    renderWorkspaces({
+      id: "retrait",
+      view: "transformations",
+      branch: "edition",
+      chain: "comptes-import",
+      step: "normaliser",
+    });
+    return calls;
+  }
+
+  it("runs the template on the saved sample when F5 is pressed", async () => {
+    const calls = openStep({
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: {
+        status: 200,
+        body: { sample: '{"colis": {"ref": "C-42"}}' },
+      },
+      "POST /api/transformations/check": {
+        status: 200,
+        body: { valid: true, problems: [], trace: [{ ref: "C-42" }], failure: null },
+      },
+    });
+    await screen.findByLabelText("JSLT template");
+    // On attend que l'échantillon soit là : F5 avant porterait sur rien.
+    await screen.findByText(/sample saved/);
+
+    fireEvent.keyDown(screen.getByLabelText("JSLT template"), { key: "F5" });
+
+    expect(await screen.findByText(/"ref": "C-42"/)).toBeInTheDocument();
+    // Ce template SEUL, pas la chaîne entière : on éprouve l'étape qu'on travaille.
+    expect(calls.find((c) => c.key === "POST /api/transformations/check")?.body).toEqual({
+      steps: [{ template: '{ "ref": $.colis.ref }', target: null }],
+      sample: { colis: { ref: "C-42" } },
+    });
+  });
+
+  it("fills the template with the destination model's skeleton", async () => {
+    openStep({
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
+      [`GET /api/workspaces/retrait/data-models/shared/compte/example${Q}`]: {
+        status: 200,
+        body: { example: { Name: "Name", Tags: ["Tags"] } },
+      },
+    });
+    await screen.findByLabelText("JSLT template");
+
+    fireEvent.click(screen.getByText("Fill from the destination model"));
+
+    const editor = (await screen.findByLabelText("JSLT template")) as HTMLTextAreaElement;
+    expect(editor.value).toContain('"Name": "Name"');
+    // Au moins un élément dans le tableau : c'est ce qu'on vient voir.
+    expect(editor.value).toContain('"Tags"');
+  });
+
+  it("offers nothing to fill when the step has no destination model", async () => {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
+      [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({
+      id: "retrait",
+      view: "transformations",
+      branch: "edition",
+      chain: "comptes-import",
+      step: "normaliser",
+    });
+    await screen.findByLabelText("JSLT template");
+
+    expect(screen.getByText("Fill from the destination model")).toBeDisabled();
+    expect(calls.some((c) => c.key.includes("/example"))).toBe(false);
   });
 });

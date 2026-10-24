@@ -5,3 +5,4 @@ import "./i18n/i18n";
 // sa place partout, avec le même contrat que l'éditeur YAML (story e38806f3).
 vi.mock("./dataModels/monaco", () => ({ MODEL_URI_SUFFIX: ".schema.yaml" }));
 vi.mock("./dataModels/YamlEditor", () => import("./test/YamlEditorStub"));
+vi.mock("./dataModels/JsltEditor", () => import("./test/JsltEditorStub"));

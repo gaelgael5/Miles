@@ -925,7 +925,15 @@
     "steps": {
       "noModel": "—",
       "summary": "{{source}} → {{destination}}",
-      "back": "Retour à la chaîne"
+      "back": "Retour à la chaîne",
+      "fill": "Remplir depuis le modèle de destination",
+      "fillHelp": "Remplace le template par le gabarit JSON du modèle de destination : sa structure, avec au moins un élément par tableau.",
+      "run": "Exécuter (F5)",
+      "runHelp": "Exécute ce template seul sur l'échantillon source de test.",
+      "result": "Résultat de l'étape",
+      "sampleLoading": "échantillon en cours de lecture",
+      "sampleReady": "échantillon enregistré",
+      "sampleMissing": "aucun échantillon"
     }
   },
   "sources": {

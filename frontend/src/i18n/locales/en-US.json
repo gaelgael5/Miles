@@ -925,7 +925,15 @@
     "steps": {
       "noModel": "—",
       "summary": "{{source}} → {{destination}}",
-      "back": "Back to the chain"
+      "back": "Back to the chain",
+      "fill": "Fill from the destination model",
+      "fillHelp": "Replaces the template with the destination model's JSON skeleton: its structure, with at least one element per array.",
+      "run": "Run (F5)",
+      "runHelp": "Runs this template alone on the test source sample.",
+      "result": "Step result",
+      "sampleLoading": "reading the sample",
+      "sampleReady": "sample saved",
+      "sampleMissing": "no sample"
     }
   },
   "sources": {

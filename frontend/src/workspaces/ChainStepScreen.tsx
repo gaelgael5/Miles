@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { type Chain, type ChainStep, useSaveChain } from "../api/chains";
-import { useDataModels } from "../api/dataModels";
+import { type Chain, type ChainStep, useChainSample, useCheckChain, useSaveChain } from "../api/chains";
+import { useDataModels, useModelExample } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
-import { modelUri } from "../dataModels/schemaText";
+import { modelUri, targetOf } from "../dataModels/schemaText";
+
+// Le Web Component et ses assets ne se chargent qu'ici : le reste du portail ne les paie pas.
+const JsltEditor = lazy(() => import("../dataModels/JsltEditor"));
 
 /**
  * Une étape en page pleine (Gael, 24/10/2026) : c'est ici qu'on travaille la
@@ -28,6 +31,9 @@ export function ChainStepScreen({
   const { t } = useTranslation();
   const save = useSaveChain(target, chain.slug);
   const models = useDataModels(target);
+  const stored = useChainSample(target, chain.slug);
+  const check = useCheckChain();
+  const example = useModelExample(target);
   const [name, setName] = useState(step.name);
   const [template, setTemplate] = useState(step.template);
   const [stepTarget, setStepTarget] = useState(step.target ?? "");
@@ -51,6 +57,36 @@ export function ChainStepScreen({
     save.mutate({ label: chain.label, steps }, { onSuccess: name === step.name ? undefined : onBack });
   }
 
+  function fillFromDestination() {
+    const destination = targetOf(step.destination_model ?? "");
+    if (destination === null) {
+      return;
+    }
+    example.mutate(
+      { scope: destination[0], name: destination[1] },
+      // Indenté à deux espaces, comme le template : on le relit et on le retouche.
+      { onSuccess: (got) => setTemplate(JSON.stringify(got.example, null, 2)) },
+    );
+  }
+
+  function run() {
+    if (stored.isPending) {
+      // L'échantillon n'est pas encore là : exécuter maintenant porterait sur rien et
+      // ferait croire que le template rend null.
+      return;
+    }
+    const sample = stored.data?.sample ?? "";
+    let parsed: unknown = null;
+    try {
+      parsed = sample.trim() === "" ? null : JSON.parse(sample);
+    } catch {
+      // Échantillon illisible : l'écran de la chaîne le dit déjà, on n'essaie pas.
+      return;
+    }
+    // La seule étape, sur l'échantillon : on éprouve CE template, pas la chaîne entière.
+    check.mutate({ steps: [{ template, target: stepTarget || null }], sample: parsed });
+  }
+
   // Ctrl+S fait ce que fait le bouton, aux mêmes conditions (story caad743d).
   const canSave = !target.readOnly && dirty && !save.isPending;
   useSaveShortcut(canSave ? saveStep : null);
@@ -69,11 +105,36 @@ export function ChainStepScreen({
               source: labelOf(step.source_model),
               destination: labelOf(step.destination_model),
             })}
+            {" · "}
+            {/* Sur quoi F5 exécute : sans cela, on lance sans savoir. */}
+            {stored.isPending
+              ? t("chains.steps.sampleLoading")
+              : stored.data?.sample
+                ? t("chains.steps.sampleReady")
+                : t("chains.steps.sampleMissing")}
           </p>
         </div>
         {!target.readOnly && (
           <div className="actions">
             {dirty && <span className="badge badge-warning">{t("chains.editor.unsaved")}</span>}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={step.destination_model === null || example.isPending}
+              title={t("chains.steps.fillHelp")}
+              onClick={fillFromDestination}
+            >
+              {t("chains.steps.fill")}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={check.isPending}
+              title={t("chains.steps.runHelp")}
+              onClick={run}
+            >
+              {t("chains.steps.run")}
+            </button>
             <button
               type="button"
               className="btn btn-primary"
@@ -106,17 +167,18 @@ export function ChainStepScreen({
             onChange={(event) => setName(event.target.value)}
           />
         </label>
-        <label className="field">
+        <div className="field">
           {t("chains.fields.template")}
-          <textarea
-            rows={20}
-            spellCheck={false}
-            className="mono"
-            readOnly={target.readOnly}
-            value={template}
-            onChange={(event) => setTemplate(event.target.value)}
-          />
-        </label>
+          <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
+            <JsltEditor
+              value={template}
+              onChange={setTemplate}
+              onRun={run}
+              readOnly={target.readOnly}
+              ariaLabel={t("chains.fields.template")}
+            />
+          </Suspense>
+        </div>
         <label className="field">
           {t("chains.fields.target")}
           <input
@@ -129,6 +191,21 @@ export function ChainStepScreen({
         </label>
         <p className="help">{t("chains.editor.targetHelp")}</p>
       </div>
+      {check.data?.failure && (
+        <p className="alert" role="alert">
+          {t("chains.editor.failed", {
+            rank: 1,
+            code: check.data.failure.evaluation.code,
+            path: check.data.failure.evaluation.path ?? "",
+          })}
+        </p>
+      )}
+      {check.data?.valid && !check.data.failure && (
+        <div className="card">
+          <h2>{t("chains.steps.result")}</h2>
+          <pre className="mono">{JSON.stringify(check.data.trace.at(-1), null, 2)}</pre>
+        </div>
+      )}
     </section>
   );
 }
