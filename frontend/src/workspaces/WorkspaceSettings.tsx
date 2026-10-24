@@ -14,6 +14,8 @@ import {
   verificationBranch,
 } from "../api/workspaces";
 import { AccessReportView } from "./AccessReportView";
+import { BranchForm } from "./BranchForm";
+import { HoldControl } from "./HoldControl";
 import { WorkBranchPanel } from "./WorkBranchPanel";
 
 function failedReport(error: unknown): AccessReport | null {
@@ -184,8 +186,18 @@ function SecurityCard({ workspace }: { workspace: Workspace }) {
 }
 
 /** Sous-écran « Paramétrage » d'un workspace : tout ce que la création ne demande plus. */
-export function WorkspaceSettings({ workspace, onBack }: { workspace: Workspace; onBack: () => void }) {
+export function WorkspaceSettings({
+  workspace,
+  onBack,
+  onOpenBranch,
+}: {
+  workspace: Workspace;
+  onBack: () => void;
+  // Ouvrir la branche qu'on vient de créer. Absent : le paramétrage ne navigue pas.
+  onOpenBranch?: (slug: string) => void;
+}) {
   const { t } = useTranslation();
+  const [branching, setBranching] = useState(false);
   return (
     <section aria-labelledby="workspace-settings-title">
       <button type="button" className="btn btn-secondary back" onClick={onBack}>
@@ -209,7 +221,29 @@ export function WorkspaceSettings({ workspace, onBack }: { workspace: Workspace;
         ) : (
           <p className="muted">{t("workspaces.settings.needsRepository")}</p>
         )}
+        {/* La prise de main suit la création de branche hors de la liste : elle porte sur
+            la branche AFFICHÉE, que le sélecteur de la liste choisit toujours. Sans ce
+            toit, le geste n'aurait plus d'écran du tout. */}
+        {workspace.work_branch !== null && <HoldControl workspace={workspace} />}
+        {/* La création d'une branche a quitté la liste des workspaces (Gael, 24/10/2026) :
+            elle vit là où l'on règle le workspace, à côté de la branche de base. */}
+        {workspace.work_branch !== null && !branching && (
+          <button type="button" className="btn btn-secondary" onClick={() => setBranching(true)}>
+            {t("branches.add")}
+          </button>
+        )}
       </div>
+      {branching && (
+        <BranchForm
+          workspace={workspace}
+          onDone={(slug) => {
+            setBranching(false);
+            if (slug) {
+              onOpenBranch?.(slug);
+            }
+          }}
+        />
+      )}
     </section>
   );
 }

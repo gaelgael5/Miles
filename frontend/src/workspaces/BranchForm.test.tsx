@@ -13,10 +13,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** « Nouvelle branche » vit dans le paramétrage depuis le 24/10/2026, plus sur la ligne. */
 async function openForm() {
   renderWorkspaces();
-  const row = (await screen.findByText("Retrait de colis")).closest("li") as HTMLElement;
-  fireEvent.click(within(row).getByRole("button", { name: "New branch" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Retrait de colis" }));
+  fireEvent.click(await screen.findByRole("button", { name: "New branch" }));
 }
 
 describe("BranchForm", () => {

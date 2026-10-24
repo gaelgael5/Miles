@@ -29,11 +29,13 @@ async function openModels() {
 }
 
 describe("DataModelsScreen", () => {
-  it("is offered only once the workspace has a work branch", async () => {
+  it("shows a branch to work in only for the workspace that has one", async () => {
+    // Les vues ouvrables ont quitté la ligne pour le menu (24/10/2026) ; ce que la liste
+    // dit encore d'un workspace sans branche de travail, c'est qu'elle n'en propose aucune.
     mockApi({ "GET /api/workspaces": { status: 200, body: [{ ...BARE, id: "nu" }, WORKING] } });
     renderWorkspaces();
 
-    expect(await screen.findAllByText("Data models")).toHaveLength(1);
+    expect(await screen.findAllByText("Branch viewed")).toHaveLength(1);
   });
 
   it("lists the models by label, and opens one on its YAML exactly as stored", async () => {

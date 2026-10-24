@@ -13,7 +13,8 @@ import {
 } from "./workspaceFixtures";
 
 async function openSettings() {
-  fireEvent.click(await screen.findByText("Settings"));
+  // La ligne entière mène au paramétrage : c'est le nom du workspace qui porte le geste.
+  fireEvent.click(await screen.findByRole("button", { name: "Retrait de colis" }));
   await screen.findByRole("option", { name: /GitHub Acme/ });
 }
 

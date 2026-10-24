@@ -294,6 +294,7 @@
       "recheck": "Retester les accès",
       "captionRepository": "Dépôt",
       "noRepository": "Dépôt à paramétrer",
+      "open": "Paramétrer le workspace {{name}}",
       "captionSecurity": "Sécurité",
       "captionWorkBranch": "Branche de travail",
       "settings": "Paramétrer",

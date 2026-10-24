@@ -294,6 +294,7 @@
       "recheck": "Test access again",
       "captionRepository": "Repository",
       "noRepository": "Repository to set up",
+      "open": "Configure workspace {{name}}",
       "captionSecurity": "Security",
       "captionWorkBranch": "Work branch",
       "settings": "Settings",

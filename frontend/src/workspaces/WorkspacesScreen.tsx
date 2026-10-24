@@ -10,11 +10,8 @@ import {
   type WorkspaceSelection,
   type WorkspaceView,
   viewedBranchOf,
-  viewsOf,
 } from "../layout/WorkspacesNav";
-import { BranchForm } from "./BranchForm";
 import { BranchPicker } from "./BranchPicker";
-import { HoldControl } from "./HoldControl";
 import { BranchViewScreen, hasBranchScreen } from "./branchViews";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
@@ -79,20 +76,25 @@ function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   );
 }
 
+/** La ligne entière mène au paramétrage (Gael, 24/10/2026) : plus aucun bouton ici, et
+ * seules restent l'adresse du dépôt et la branche affichée. Le sélecteur de branche garde
+ * son propre geste — `stopPropagation` l'empêche d'ouvrir le paramétrage au passage. */
 function WorkspaceRow({
   workspace,
   onOpen,
-  onBranch,
 }: {
   workspace: Workspace;
   onOpen: (view: WorkspaceView) => void;
-  onBranch: () => void;
 }) {
   const { t } = useTranslation();
   return (
-    <li className="row">
+    <li className="row row-openable">
       <div className="row-main">
-        <div className="row-title">{workspace.name}</div>
+        {/* Convention maison des lignes ouvrables : le bouton du titre couvre la ligne,
+            et porte le nom accessible. Ce qui doit rester cliquable passe au-dessus. */}
+        <button type="button" className="row-open" onClick={() => onOpen("settings")}>
+          {workspace.name}
+        </button>
         <div className="row-sub">{workspace.id}</div>
       </div>
       <div className="cell">
@@ -105,33 +107,16 @@ function WorkspaceRow({
           )}
         </div>
       </div>
-      <div className="cell">
-        <div className="caption">{t("workspaces.card.captionSecurity")}</div>
-        <div className="value">{workspace.security_service_id ?? "—"}</div>
-      </div>
-      {workspace.work_branch === null ? (
-        <div className="cell">
-          <div className="caption">{t("workspaces.card.captionWorkBranch")}</div>
-          <div className="value mono">—</div>
-        </div>
-      ) : (
-        <>
+      {workspace.work_branch !== null && (
+        <div
+          className="row-control"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+          role="presentation"
+        >
           <BranchPicker workspace={workspace} />
-          <HoldControl workspace={workspace} />
-        </>
+        </div>
       )}
-      <div className="actions row-actions">
-        {workspace.work_branch !== null && (
-          <button type="button" className="btn btn-secondary" onClick={onBranch}>
-            {t("branches.add")}
-          </button>
-        )}
-        {viewsOf(workspace).map((view) => (
-          <button key={view} type="button" className="btn btn-secondary" onClick={() => onOpen(view)}>
-            {t(`workspaces.card.${view}`)}
-          </button>
-        ))}
-      </div>
     </li>
   );
 }
@@ -147,14 +132,19 @@ export function WorkspacesScreen({
   const { t } = useTranslation();
   const workspaces = useWorkspaces();
   const [creating, setCreating] = useState(false);
-  const [branching, setBranching] = useState<Workspace | null>(null);
   const views = useBranchViews();
   const current = workspaces.data?.find((w) => w.id === selection?.id);
   if (current && selection && hasBranchScreen(current, selection)) {
     return <BranchViewScreen workspace={current} selection={selection} onSelect={onSelect} />;
   }
   if (current) {
-    return <WorkspaceSettings workspace={current} onBack={() => onSelect(null)} />;
+    return (
+      <WorkspaceSettings
+        workspace={current}
+        onBack={() => onSelect(null)}
+        onOpenBranch={(slug) => onSelect({ id: current.id, view: "branch", branch: slug })}
+      />
+    );
   }
   return (
     <section aria-labelledby="workspaces-title">
@@ -170,17 +160,6 @@ export function WorkspacesScreen({
           )
         }
       />
-      {branching && (
-        <BranchForm
-          workspace={branching}
-          onDone={(slug) => {
-            setBranching(null);
-            if (slug) {
-              onSelect({ id: branching.id, view: "branch", branch: slug });
-            }
-          }}
-        />
-      )}
       {creating && (
         <CreateForm
           onDone={(id) => {
@@ -205,7 +184,6 @@ export function WorkspacesScreen({
               onOpen={(view) =>
                 onSelect({ id: w.id, view, branch: viewedBranchOf(w, views.data) ?? undefined })
               }
-              onBranch={() => setBranching(w)}
             />
           ))}
         </ul>

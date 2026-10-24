@@ -3,7 +3,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import "../i18n/i18n";
 import type { Routes } from "../test/mockApi";
 import { mockApi } from "../test/mockApi";
-import { CONFIGURED, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, SETTINGS, renderWorkspaces } from "./workspaceFixtures";
 
 // Prise de main d'une branche enfant (story 9def0adc) : une personne par branche, les
 // autres lisent ce qui est publié sans rien pouvoir modifier.
@@ -21,20 +21,23 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function onList(viewed: string, routes: Routes) {
+/** La prise de main vit dans le paramétrage depuis le 24/10/2026 : on l'ouvre d'abord. */
+async function onSettings(viewed: string, routes: Routes) {
   const calls = mockApi({
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     "GET /api/branch-views": { status: 200, body: { retrait: viewed } },
     [`GET ${WS}/branches`]: { status: 200, body: BRANCHES },
+    ...SETTINGS,
     ...routes,
   });
   renderWorkspaces();
+  fireEvent.click(await screen.findByRole("button", { name: "Retrait de colis" }));
   return calls;
 }
 
 describe("taking over a branch", () => {
   it("offers to take a free branch, then to publish and release it", async () => {
-    const calls = onList("edition", {
+    const calls = await onSettings("edition", {
       [`GET ${WS}/holds`]: [
         { status: 200, body: [] },
         { status: 200, body: [MINE] },
@@ -49,14 +52,14 @@ describe("taking over a branch", () => {
     expect(await screen.findByText("You hold this branch")).toBeInTheDocument();
     expect(await screen.findByText(/2 unpublished changes/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("2 changes published.");
+    expect(await screen.findByText("2 changes published.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Release" })).toBeInTheDocument();
     expect(calls.map((c) => c.key)).toContain(`POST ${HOLD}`);
     expect(calls.map((c) => c.key)).toContain(`POST ${HOLD}/publish`);
   });
 
   it("names who holds the branch and offers nothing else", async () => {
-    onList("edition", { [`GET ${WS}/holds`]: { status: 200, body: [BOBS] } });
+    await onSettings("edition", { [`GET ${WS}/holds`]: { status: 200, body: [BOBS] } });
 
     expect(await screen.findByText("Held by Bob Martin (bob)")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Take over" })).toBeNull();
@@ -64,7 +67,7 @@ describe("taking over a branch", () => {
   });
 
   it("sends to the profile when no personal git token is registered", async () => {
-    onList("edition", {
+    await onSettings("edition", {
       [`GET ${WS}/holds`]: { status: 200, body: [] },
       [`POST ${HOLD}`]: { status: 409, body: { detail: "identite_git_requise" } },
     });
@@ -75,7 +78,7 @@ describe("taking over a branch", () => {
   });
 
   it("names the branch already held elsewhere", async () => {
-    onList("edition", {
+    await onSettings("edition", {
       [`GET ${WS}/holds`]: { status: 200, body: [] },
       [`POST ${HOLD}`]: {
         status: 409,
@@ -91,9 +94,18 @@ describe("taking over a branch", () => {
   });
 
   it("offers no takeover on the read-only root", async () => {
-    onList("atelier", {});
+    mockApi({
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      "GET /api/branch-views": { status: 200, body: { retrait: "atelier" } },
+      [`GET ${WS}/branches`]: { status: 200, body: BRANCHES },
+      ...SETTINGS,
+    });
+    renderWorkspaces();
 
+    // La branche affichée se choisit toujours depuis la ligne ; le reste a déménagé.
     expect(await screen.findByText("Branch viewed")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retrait de colis" }));
+
     expect(screen.queryByRole("button", { name: "Take over" })).toBeNull();
     expect(screen.queryByText("Holder")).toBeNull();
   });
@@ -110,7 +122,7 @@ describe("unlocking and resuming (story fd1eb7da)", () => {
   };
 
   it("unlocks the holder only after confirmation, then says where the work went", async () => {
-    const calls = onList("edition", {
+    const calls = await onSettings("edition", {
       [`GET ${WS}/holds`]: [
         { status: 200, body: [BOBS] },
         { status: 200, body: [] },
@@ -124,14 +136,14 @@ describe("unlocking and resuming (story fd1eb7da)", () => {
     const dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Unlock" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "the unpublished work is shelved on shelve/bob/edition",
-    );
+    expect(
+      await screen.findByText(/the unpublished work is shelved on shelve\/bob\/edition/),
+    ).toBeInTheDocument();
     expect(calls.some((c) => c.key === `POST ${HOLD}/unlock`)).toBe(true);
   });
 
   it("keeps the branch held and asks for a new token when the forge refuses it", async () => {
-    onList("edition", {
+    await onSettings("edition", {
       [`GET ${WS}/holds`]: { status: 200, body: [BOBS] },
       [`GET ${WS}/shelves`]: { status: 200, body: [] },
       [`POST ${HOLD}/unlock`]: { status: 409, body: { detail: "jeton_personnel_refuse" } },
@@ -145,7 +157,7 @@ describe("unlocking and resuming (story fd1eb7da)", () => {
   });
 
   it("offers to take over again when my work is shelved, and names conflicting files", async () => {
-    onList("edition", {
+    await onSettings("edition", {
       [`GET ${WS}/holds`]: { status: 200, body: [] },
       [`GET ${WS}/shelves`]: { status: 200, body: [{ ...SHELF, mine: true }] },
       [`POST ${HOLD}`]: {
