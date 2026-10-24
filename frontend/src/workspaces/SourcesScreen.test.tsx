@@ -107,6 +107,26 @@ describe("SourcesScreen", () => {
     expect(alert).toHaveTextContent("Chain “absente” does not exist on this branch.");
   });
 
+  it("opens a source from its whole row, with no Open button", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...PICKERS,
+      [`GET ${ROUTE}${Q}`]: {
+        status: 200,
+        body: [{ name: "crm", label: "CRM", storage: "sites", chain: "comptes-import" }],
+      },
+      [`GET ${ROUTE}/crm${Q}`]: { status: 200, body: SOURCE },
+    });
+    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition" });
+
+    expect(await screen.findByText("sources/crm.yaml")).toBeInTheDocument();
+    expect(screen.queryByText("Open")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "CRM" }));
+
+    expect(await screen.findByLabelText("Split path")).toBeInTheDocument();
+  });
+
   it("refuses a name already taken by a different source", async () => {
     mockApi({
       ...HELD,

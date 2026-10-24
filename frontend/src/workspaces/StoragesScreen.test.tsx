@@ -127,6 +127,26 @@ describe("StoragesScreen (24/10/2026)", () => {
     expect(screen.getByText("shared/site")).toBeInTheDocument();
     expect(screen.getByText("$.code")).toBeInTheDocument();
   });
+
+  it("opens a storage from its whole row, with no Open button", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS,
+      [`GET ${ROUTE}${Q}`]: {
+        status: 200,
+        body: [{ name: "sites", label: "Sites", model: "shared/site", keys: ["$.code"] }],
+      },
+      [`GET ${ROUTE}/sites${Q}`]: { status: 200, body: STORAGE },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition" });
+
+    expect(await screen.findByText("storages/sites.yaml")).toBeInTheDocument();
+    expect(screen.queryByText("Open")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sites" }));
+
+    expect(await screen.findByLabelText("Object model")).toBeInTheDocument();
+  });
 });
 
 describe("StorageScreen (24/10/2026)", () => {
