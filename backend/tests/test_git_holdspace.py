@@ -13,7 +13,7 @@ from miles.secrets.model import Secret
 
 TOKEN = GitAccess(token=Secret("jeton-de-lea"))
 LEA = "Léa Martin <lea@forge.invalid>"
-BRANCH = "work/edition"
+BRANCH = "back/retrait/edition"
 IDENTITY = ["-c", "user.name=t", "-c", "user.email=t@t"]
 
 

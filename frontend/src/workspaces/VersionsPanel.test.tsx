@@ -4,13 +4,13 @@ import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
 import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
-const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const VERSIONS = "/api/workspaces/retrait/versions";
 const MODELS = "GET /api/workspaces/retrait/data-models?branch=edition";
 const BRANCHES = {
   "GET /api/workspaces/retrait/branches": {
     status: 200,
-    body: [{ slug: "atelier", label: "atelier", branch: "work/atelier", base: true }],
+    body: [{ slug: "atelier", label: "atelier", branch: "back/retrait/atelier", base: true }],
   },
 };
 const V1 = {

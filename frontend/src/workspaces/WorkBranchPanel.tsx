@@ -62,7 +62,7 @@ export function WorkBranchPanel({ workspace }: { workspace: Workspace }) {
       <h3>{t("workspaces.work.title")}</h3>
       <p className="muted">{t("workspaces.work.none")}</p>
       <label className="field">
-        {t("workspaces.work.name")}
+        {t("workspaces.work.name", { workspace: workspace.id })}
         <input required value={name} onChange={(e) => setName(e.target.value)} />
       </label>
       <button type="submit" className="btn btn-primary" disabled={open.isPending}>

@@ -16,8 +16,8 @@ function renderApp() {
 }
 
 const BRANCHES = [
-  { slug: "atelier", label: "atelier", branch: "work/atelier", base: true },
-  { slug: "essai", label: "Essai Gael", branch: "work/essai", base: false },
+  { slug: "atelier", label: "atelier", branch: "back/retrait/atelier", base: true },
+  { slug: "essai", label: "Essai Gael", branch: "back/retrait/essai", base: false },
 ];
 
 const ADMIN = {
@@ -119,7 +119,7 @@ describe("App", () => {
       "GET /api/workspaces": {
         status: 200,
         body: [
-          { ...CONFIGURED, work_branch: "work/atelier" },
+          { ...CONFIGURED, work_branch: "back/retrait/atelier" },
           { ...BARE, id: "caisse", name: "Caisse" },
         ],
       },
@@ -159,7 +159,7 @@ describe("App", () => {
   it("switches the branch viewed from All workspaces, which renames the workspace in the menu", async () => {
     const calls = mockApi({
       ...ADMIN,
-      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
+      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/atelier" }] },
       "GET /api/branch-views": [
         { status: 200, body: {} },
         { status: 200, body: { retrait: "essai" } },
@@ -190,7 +190,7 @@ describe("App", () => {
     const declared = { slug: "suivi", label: "Suivi des demandes", sens: "externe", versions: [] };
     mockApi({
       ...ADMIN,
-      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
+      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/atelier" }] },
       "GET /api/branch-views": { status: 200, body: {} },
       "GET /api/workspaces/retrait/branches": { status: 200, body: BRANCHES },
       "GET /api/workspaces/retrait/contracts?branch=atelier": { status: 200, body: [declared] },

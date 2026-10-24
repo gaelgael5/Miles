@@ -5,7 +5,7 @@ import { proposeSlug } from "../api/contracts";
 import { mockApi } from "../test/mockApi";
 import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
-const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/contracts";
 const DECLARED = { slug: "suivi", label: "Suivi des demandes", sens: "externe", versions: [] };
 const V1 = { number: 1, title: "Suivi des demandes", operations: 1, warnings: [] };

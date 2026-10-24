@@ -47,7 +47,7 @@ async def test_a_model_is_created_read_replaced_and_deleted_on_a_child_branch(m:
     assert replaced["commit"] and read["content"] == changed
     assert [e["path"] for e in listed] == ["shared/messages/personne.yaml"]
     assert deleted["commit"] and await m.forge.file("shared/messages/personne.yaml") is None
-    assert await m.forge.file("shared/messages/personne.yaml", "work/atelier") is None
+    assert await m.forge.file("shared/messages/personne.yaml", "back/retrait/atelier") is None
 
 
 async def _forge_identity(m: McpForge) -> tuple[str, str]:
@@ -102,7 +102,7 @@ async def test_a_person_without_the_hold_is_refused_and_told_who_holds_it(m: Mcp
 
 
 async def test_a_change_needs_a_named_child_branch(m: McpForge) -> None:
-    before = await m.forge.commits("work/atelier")
+    before = await m.forge.commits("back/retrait/atelier")
     body = body_of(PERSONNE)
 
     missing = await m.refused("create_data_model", WS | body)
@@ -127,7 +127,7 @@ async def test_a_change_needs_a_named_child_branch(m: McpForge) -> None:
             "held_by_me": True,
         },
     ]
-    assert await m.forge.commits("work/atelier") == before
+    assert await m.forge.commits("back/retrait/atelier") == before
 
 
 async def test_rights_refusals_are_named_and_distinct_from_validation(m: McpForge) -> None:
@@ -230,4 +230,4 @@ async def test_a_domain_is_created_once_and_its_name_is_checked(m: McpForge) -> 
     assert listed["domains"] == ["suivi"]
     assert await m.forge.file("domains/suivi/.gitkeep") == ""
     # Écrit dans la branche enfant seulement : la racine reste en lecture seule.
-    assert await m.forge.file("domains/suivi/.gitkeep", "work/atelier") is None
+    assert await m.forge.file("domains/suivi/.gitkeep", "back/retrait/atelier") is None

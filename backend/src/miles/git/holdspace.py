@@ -12,7 +12,7 @@ from miles.git.forge import Repository
 from miles.git.rights import classify
 from miles.git.workcopy import BranchMissingError, BranchMovedError, WorkCopy, author_parts
 from miles.git.workdirs import SEGMENT_RE
-from miles.git.worktree import RepositoryAccessError
+from miles.git.worktree import RepositoryAccessError, work_branch_name
 
 _REMOTE = "origin"
 # Sous-répertoire des espaces de prise de main, sur le volume des copies de travail.
@@ -114,7 +114,7 @@ class HoldSpaces:
         directory = self.directory(workspace_id, slug)
         lock = self._locks.setdefault(directory, asyncio.Lock())
         async with lock:
-            copy = HeldCopy(repo, access, f"work/{slug}", directory)
+            copy = HeldCopy(repo, access, work_branch_name(workspace_id, slug), directory)
             copy.signature, copy.published = signature, published
             if (directory / ".git").is_dir():
                 await _tidy(copy)

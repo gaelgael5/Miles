@@ -47,8 +47,8 @@ async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
 async def _outside(forge: Forge, path: str, content: str | None) -> None:
     """Retouche de la branche directement sur la forge, hors de Miles."""
     url = f"/api/v1/repos/miles/{forge.name}/contents/{path}"
-    current = await forge.api.get(url, params={"ref": "work/edition"})
-    body = {"branch": "work/edition", "sha": current.json()["sha"]}
+    current = await forge.api.get(url, params={"ref": "back/retrait/edition"})
+    body = {"branch": "back/retrait/edition", "sha": current.json()["sha"]}
     if content is None:
         done = await forge.api.request("DELETE", url, json=body)
     else:

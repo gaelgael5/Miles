@@ -12,7 +12,7 @@ from miles.git.forge import Repository
 from miles.git.rights import classify
 from miles.git.runner import run_git
 from miles.git.workcopy import BranchMissingError, WorkCopy
-from miles.git.worktree import RepositoryAccessError
+from miles.git.worktree import WORK_BRANCH_ROOT, RepositoryAccessError
 
 # Segments de chemin : un identifiant de workspace et un nom de branche déjà validés par
 # leurs propres règles. Revalidés ici parce qu'ils deviennent des chemins sur le volume.
@@ -36,8 +36,13 @@ class WorkDirs:
     _locks: dict[Path, asyncio.Lock] = field(default_factory=dict)
 
     def directory(self, workspace_id: str, branch: str) -> Path:
-        name = branch.removeprefix("work/")
-        if not (SEGMENT_RE.match(workspace_id) and SEGMENT_RE.match(name)):
+        if not SEGMENT_RE.match(workspace_id):
+            raise ValueError("segment de copie de travail invalide")
+        # On retire le préfixe DE CE workspace : une branche rangée sous un autre garde
+        # ses barres, échoue au contrôle de segment, et n'atteint donc jamais le volume
+        # d'un workspace qui n'est pas le sien.
+        name = branch.removeprefix(f"{WORK_BRANCH_ROOT}{workspace_id}/")
+        if not SEGMENT_RE.match(name):
             raise ValueError("segment de copie de travail invalide")
         target = (self.root / workspace_id / name).resolve()
         if not target.is_relative_to(self.root.resolve()):

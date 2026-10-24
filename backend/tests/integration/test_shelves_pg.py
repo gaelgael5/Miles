@@ -125,7 +125,7 @@ async def test_an_existing_shelf_is_never_overwritten(forge: Forge) -> None:
     name = await _shelf_name(forge)
     made = await forge.api.post(
         f"/api/v1/repos/miles/{forge.name}/branches",
-        json={"new_branch_name": name, "old_ref_name": "work/atelier"},
+        json={"new_branch_name": name, "old_ref_name": "back/retrait/atelier"},
     )
     assert made.status_code == 201, made.text
     before = await _tip(forge, name)

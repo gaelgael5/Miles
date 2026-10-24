@@ -4,7 +4,7 @@ import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
 import { BARE, CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
-const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/data-models";
 const DOMAINS = "/api/workspaces/retrait/domains";
 const NO_VERSION = { "GET /api/workspaces/retrait/versions?branch=edition": { status: 200, body: [] } };

@@ -11,7 +11,7 @@ from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.rights import classify
 from miles.git.workcopy import WorkCopy
-from miles.git.worktree import WORK_BRANCH_PREFIX, WORK_NAME_RE
+from miles.git.worktree import WORK_NAME_RE, work_branch_name
 from miles.workshop.target import Gesture, WorkBranches, base_slug
 from miles.workspaces.model import (
     BranchNotFoundError,
@@ -107,7 +107,7 @@ class BranchesService:
     ) -> tuple[BranchEntry, bool]:
         """Crée la branche fille ; rend (branche, déjà_là). Rejeu à l'identique : sans effet."""
         label, slug = checked_label(label), _slug(slug)
-        entry = BranchEntry(slug, label, WORK_BRANCH_PREFIX + slug, False)
+        entry = BranchEntry(slug, label, work_branch_name(workspace_id, slug), False)
         for existing in await self.resolve_list(workspace_id):
             if existing.slug == slug:
                 if existing == entry:
@@ -164,7 +164,7 @@ def _slug(slug: str) -> str:
     slug = slug.strip()
     if not slug:
         raise WorkspaceInputError("slug", "vide")
-    # Même format que la base (`work/<nom>`) : le slug est le nom de la branche git.
+    # Même format que la base (`back/<workspace>/<nom>`) : le slug nomme la branche git.
     if not WORK_NAME_RE.match(slug):
         raise WorkspaceInputError("slug")
     return slug

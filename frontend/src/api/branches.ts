@@ -7,7 +7,7 @@ export interface WorkBranch {
   /** Figé à la création ; c'est lui qu'affiche le menu. */
   slug: string;
   label: string;
-  /** Nom git : `work/<slug>`. */
+  /** Nom git : `back/<workspace>/<slug>`. */
   branch: string;
   base: boolean;
 }

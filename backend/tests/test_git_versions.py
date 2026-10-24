@@ -22,7 +22,7 @@ from miles.workshop.validation import FileReport, validate_branch
 
 TOKEN = GitAccess(token=Secret("jeton-local"))
 AUTHOR = "alice via Miles <alice@annuaire.miles.invalid>"
-BRANCH = "work/atelier"
+BRANCH = "back/retrait/atelier"
 MANIFEST = json.dumps({"format_version": 1, "min_app_version": None, "capabilities": []})
 PERSONNE = (
     "$schema: https://json-schema.org/draft/2020-12/schema\n$id: miles:/shared/personne\n"
@@ -65,18 +65,18 @@ async def test_version_is_an_annotated_tag_signed_by_the_person(tmp_path: Path) 
 async def test_version_names_its_branch_and_an_older_tag_names_none(tmp_path: Path) -> None:
     repo = _repo(tmp_path, {})
     bare = repo.url.removeprefix("file://")
-    _git("-C", bare, "branch", "work/essai", BRANCH)
+    _git("-C", bare, "branch", "back/retrait/essai", BRANCH)
     # Étiquette posée avant les branches filles : sans ligne de pied « Branche ».
     identity = ["-c", "user.name=t", "-c", "user.email=t@t"]
     _git("-C", bare, *identity, "tag", "-a", "version/1", BRANCH, "-m", "Ancienne")
 
-    async with checkout(repo, TOKEN, "work/essai") as copy:
+    async with checkout(repo, TOKEN, "back/retrait/essai") as copy:
         await tag_head(copy, 2, "Depuis la branche", AUTHOR)
     async with checkout(repo, TOKEN, BRANCH) as copy:
         versions = await fetch_versions(copy)
 
     assert [(v.number, v.label, v.branch) for v in versions] == [
-        (2, "Depuis la branche", "work/essai"),
+        (2, "Depuis la branche", "back/retrait/essai"),
         (1, "Ancienne", None),
     ]
 

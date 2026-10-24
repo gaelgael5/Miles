@@ -36,9 +36,16 @@ export type WorkspaceSelection = {
   derived?: string;
 } | null;
 
-/** Slug de la branche de base : celle qu'ouvrent les boutons de la liste des workspaces. */
+/** Slug de la branche de base : celle qu'ouvrent les boutons de la liste des workspaces.
+ * Le préfixe retiré est celui DE CE workspace (`back/<id>/`) : une branche rangée sous un
+ * autre garderait ses barres, ce qui se voit, plutôt que d'être affichée comme la sienne. */
 export function baseBranchOf(workspace: Workspace): string | null {
-  return workspace.work_branch?.replace(/^work\//, "") ?? null;
+  if (workspace.work_branch === null) {
+    return null;
+  }
+  return workspace.work_branch.startsWith(`back/${workspace.id}/`)
+    ? workspace.work_branch.slice(`back/${workspace.id}/`.length)
+    : workspace.work_branch;
 }
 
 /** Branche que la personne regarde dans ce workspace : son choix, ou la base. */

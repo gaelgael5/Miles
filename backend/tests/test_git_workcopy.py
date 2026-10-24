@@ -13,7 +13,7 @@ from miles.secrets.model import Secret
 
 TOKEN = GitAccess(token=Secret("jeton-local"))
 AUTHOR = "admin via Miles <admin@local.miles.invalid>"
-BRANCH = "work/atelier"
+BRANCH = "back/retrait/atelier"
 
 
 def _git(*args: str) -> str:
@@ -68,10 +68,10 @@ async def test_missing_branch_is_refused_and_never_created(tmp_path: Path) -> No
     repo = _repo(tmp_path)
 
     with pytest.raises(BranchMissingError):
-        async with checkout(repo, TOKEN, "work/absente"):
+        async with checkout(repo, TOKEN, "back/retrait/absente"):
             pass
 
-    assert "work/absente" not in _git("--git-dir", _bare(repo), "branch", "--list")
+    assert "back/retrait/absente" not in _git("--git-dir", _bare(repo), "branch", "--list")
 
 
 async def test_branch_moved_meanwhile_refuses_the_push_and_keeps_the_other_write(

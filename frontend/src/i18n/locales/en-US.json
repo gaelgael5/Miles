@@ -351,7 +351,7 @@
     "work": {
       "title": "Work branch",
       "none": "No work branch yet: open one when you start building the configuration.",
-      "name": "Work branch name (work/…)",
+      "name": "Work branch name (back/{{workspace}}/…)",
       "open": "Open the work branch",
       "adopt": "Take over this existing branch",
       "current": "Work branch: {{branch}}",
@@ -723,7 +723,7 @@
     "form": {
       "title": "New work branch — {{name}}",
       "from": "Drawn from the head of the base branch {{branch}}. What you change in it stays in it.",
-      "slugHelp": "Proposed from the label; frozen once created. Git branch: work/{{slug}}.",
+      "slugHelp": "Proposed from the label; frozen once created. Git branch: back/{{workspace}}/{{slug}}.",
       "submit": "Create the branch"
     },
     "fields": {

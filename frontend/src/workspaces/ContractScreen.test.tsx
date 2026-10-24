@@ -4,7 +4,7 @@ import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
 import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
-const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/contracts";
 const YAML = "openapi: 3.1.0\ninfo: {title: Matériel, version: '2'}\npaths: {}\n";
 const PREVIEW = {

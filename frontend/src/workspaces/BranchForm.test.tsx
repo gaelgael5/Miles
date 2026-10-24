@@ -4,10 +4,10 @@ import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
 import { BARE, CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
 
-const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/branches";
-const BASE = { slug: "atelier", label: "atelier", branch: "work/atelier", base: true };
-const ESSAI = { slug: "essai-de-gael", label: "Essai de Gaël", branch: "work/essai-de-gael", base: false };
+const BASE = { slug: "atelier", label: "atelier", branch: "back/retrait/atelier", base: true };
+const ESSAI = { slug: "essai-de-gael", label: "Essai de Gaël", branch: "back/retrait/essai-de-gael", base: false };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -29,7 +29,7 @@ describe("BranchForm", () => {
       "GET /api/workspaces/retrait/versions?branch=essai-de-gael": { status: 200, body: [] },
     });
     await openForm();
-    expect(screen.getByText(/head of the base branch work\/atelier/)).toBeInTheDocument();
+    expect(screen.getByText(/head of the base branch back\/retrait\/atelier/)).toBeInTheDocument();
 
     fill("Label", "Essai de Gaël");
     expect(screen.getByLabelText("Slug")).toHaveValue("essai-de-gael");
@@ -38,7 +38,7 @@ describe("BranchForm", () => {
     expect(
       await screen.findByRole("heading", { name: "Retrait de colis — branch essai-de-gael" }),
     ).toBeInTheDocument();
-    expect(await screen.findByText("work/essai-de-gael")).toBeInTheDocument();
+    expect(await screen.findByText("back/retrait/essai-de-gael")).toBeInTheDocument();
     expect(calls.find((c) => c.key === `POST ${ROUTE}`)?.body).toEqual({
       label: "Essai de Gaël",
       slug: "essai-de-gael",
@@ -53,7 +53,7 @@ describe("BranchForm", () => {
     mockApi({
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`POST ${ROUTE}`]: [
-        { status: 409, body: { detail: { code: "slug_pris", by: "work/essai" } } },
+        { status: 409, body: { detail: { code: "slug_pris", by: "back/retrait/essai" } } },
         { status: 422, body: { detail: { field: "slug" } } },
       ],
     });
@@ -62,7 +62,7 @@ describe("BranchForm", () => {
 
     fireEvent.click(screen.getByText("Create the branch"));
     expect(
-      await screen.findByText("This slug or branch is already taken by “work/essai”."),
+      await screen.findByText("This slug or branch is already taken by “back/retrait/essai”."),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByText("Create the branch"));
     expect(await screen.findByText(/Slug: lowercase letters/)).toBeInTheDocument();

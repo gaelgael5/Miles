@@ -12,6 +12,7 @@ from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.holdspace import HeldCopy
 from miles.git.workcopy import BranchMovedError
+from miles.git.worktree import work_branch_name
 from miles.workshop.holds_db import Hold, db_hold, db_hold_of, db_holds, db_set_published
 from miles.workshop.shelves_db import db_shelf
 from miles.workshop.shelving import resume
@@ -228,7 +229,8 @@ class BranchHoldsService:
         return hold
 
     def _new(self, kind: str, person: EventAuthor, hold: Hold, extra: dict[str, Any]) -> NewEvent:
-        properties = {"branch": f"work/{hold.slug}", "slug": hold.slug} | extra
+        branch = work_branch_name(hold.workspace_id, hold.slug)
+        properties = {"branch": branch, "slug": hold.slug} | extra
         return NewEvent(kind, (ObjectRef("workspace", hold.workspace_id),), person, properties)
 
     async def _event(

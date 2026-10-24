@@ -101,12 +101,12 @@ async def test_a_version_cannot_freeze_a_chain_broken_outside_miles(forge: Forge
     await forge.publish()
     path = "transformations/comptes-import/enrichir.jslt"
     meta = await forge.api.get(
-        f"/api/v1/repos/miles/{forge.name}/contents/{path}", params={"ref": "work/edition"}
+        f"/api/v1/repos/miles/{forge.name}/contents/{path}", params={"ref": "back/retrait/edition"}
     )
     broken = base64.b64encode(b'{ "pays": $.pays + 1 }').decode()
     changed = await forge.api.put(
         f"/api/v1/repos/miles/{forge.name}/contents/{path}",
-        json={"branch": "work/edition", "sha": meta.json()["sha"], "content": broken},
+        json={"branch": "back/retrait/edition", "sha": meta.json()["sha"], "content": broken},
     )
     assert changed.status_code == 200, changed.text
 

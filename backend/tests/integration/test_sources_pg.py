@@ -148,13 +148,13 @@ async def test_a_version_cannot_freeze_a_source_broken_outside_miles(forge: Forg
     await forge.publish()
     path = "sources/comptes.yaml"
     meta = await forge.api.get(
-        f"/api/v1/repos/miles/{forge.name}/contents/{path}", params={"ref": "work/edition"}
+        f"/api/v1/repos/miles/{forge.name}/contents/{path}", params={"ref": "back/retrait/edition"}
     )
     text = (await forge.file(path) or "").replace("$.accounts[*]", "$..accounts[*]")
     changed = await forge.api.put(
         f"/api/v1/repos/miles/{forge.name}/contents/{path}",
         json={
-            "branch": "work/edition",
+            "branch": "back/retrait/edition",
             "sha": meta.json()["sha"],
             "content": base64.b64encode(text.encode()).decode(),
         },

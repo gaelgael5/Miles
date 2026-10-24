@@ -14,8 +14,16 @@ from miles.git.forge import Repository
 from miles.git.rights import Reason, classify
 from miles.git.runner import GitResult, run_git
 
-WORK_BRANCH_PREFIX = "work/"
+# Les branches de Miles vivent sous « back/<workspace>/ » (Gael, 24/10/2026) : « back/ »
+# les sépare des branches humaines du dépôt, et le workspace les isole les unes des autres.
+# Un préfixe « work/ » commun suffisait tant qu'un dépôt ne servait qu'un workspace ; il ne
+# disait pas à qui une branche appartenait, ce que l'écran doit pouvoir lire du seul nom.
+WORK_BRANCH_ROOT = "back/"
 WORK_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+# Identifiant de workspace, tel que la base le contraint (migration 0009). Revalidé ici :
+# il entre dans une référence git, et une référence ne se construit pas par concaténation
+# d'une valeur non vérifiée.
+WORKSPACE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 MANIFEST = "manifest.json"
 # Contenu initial du manifeste. Le plancher de version reste un point ouvert du cadrage
 # (« déclaration du plancher de version ») : null dit « aucun », sans en inventer un.
@@ -96,17 +104,24 @@ class WorkBranch:
 def _has_ref(ls_remote: str, ref: str) -> bool:
     """Référence présente, comparée EXACTEMENT ligne à ligne (« <sha>\t<ref> »).
 
-    Chercher la sous-chaîne confond « work/atelier » avec « work/atelier-bis » : la
+    Chercher la sous-chaîne confond « back/ams/atelier » avec « back/ams/atelier-bis » : la
     branche demandée devient alors inouvrable, refusée à l'ouverture puis introuvable
     au clone de la reprise (relevé en revue, 23/10/2026).
     """
     return any(line.split("\t")[-1].strip() == ref for line in ls_remote.splitlines())
 
 
-def work_branch_name(name: str) -> str:
+def work_branch_prefix(workspace_id: str) -> str:
+    """Espace de noms des branches de ce workspace : « back/<workspace>/ »."""
+    if not WORKSPACE_ID_RE.match(workspace_id):
+        raise ValueError("identifiant de workspace invalide")
+    return f"{WORK_BRANCH_ROOT}{workspace_id}/"
+
+
+def work_branch_name(workspace_id: str, name: str) -> str:
     if not WORK_NAME_RE.match(name):
         raise ValueError("nom de branche de travail invalide")
-    return WORK_BRANCH_PREFIX + name
+    return work_branch_prefix(workspace_id) + name
 
 
 def diagnose(paths: list[str], manifest_text: str | None) -> TreeDiagnosis:
@@ -175,7 +190,13 @@ def _allowed_in_domain(rest: list[str]) -> bool:
 
 
 async def open_work_branch(
-    repo: Repository, access: GitAccess, name: str, author: str, *, adopt_existing: bool = False
+    repo: Repository,
+    access: GitAccess,
+    workspace_id: str,
+    name: str,
+    author: str,
+    *,
+    adopt_existing: bool = False,
 ) -> WorkBranch:
     """Ouvre la branche de travail ; `adopt_existing` reprend celle qui est déjà au dépôt.
 
@@ -183,7 +204,7 @@ async def open_work_branch(
     homonyme est refusée (BranchExistsError) et rien n'est touché. C'est l'écran qui
     demande confirmation, puis rejoue avec adopt_existing (Gael, 23/10/2026).
     """
-    branch = work_branch_name(name)
+    branch = work_branch_name(workspace_id, name)
     workdir = Path(await asyncio.to_thread(tempfile.mkdtemp, prefix="miles-work-"))
     try:
         return await _Opener(repo, access, workdir, branch, author, adopt_existing).run()

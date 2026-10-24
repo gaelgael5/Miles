@@ -61,4 +61,4 @@ async def test_the_root_branch_lists_domains_but_takes_none(forge: Forge) -> Non
 
     assert listed.status_code == 200, listed.text
     assert (refused.status_code, refused.json()["detail"]) == (409, "branche_racine_lecture_seule")
-    assert await forge.file("domains/suivi/.gitkeep", f"work/{ROOT}") is None
+    assert await forge.file("domains/suivi/.gitkeep", f"back/retrait/{ROOT}") is None

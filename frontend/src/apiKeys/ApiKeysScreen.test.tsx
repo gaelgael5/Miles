@@ -9,7 +9,7 @@ const SECRET = "mlk_secret-de-quarante-trois-caracteres-xxxxxxxx";
 const WORKSPACES = {
   status: 200,
   body: [
-    { id: "retrait", name: "Retrait de colis", work_branch: "work/atelier" },
+    { id: "retrait", name: "Retrait de colis", work_branch: "back/retrait/atelier" },
     { id: "caisse", name: "Caisse", work_branch: null },
   ],
 };

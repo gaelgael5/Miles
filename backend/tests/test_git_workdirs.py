@@ -14,7 +14,7 @@ from miles.secrets.model import Secret
 
 TOKEN = GitAccess(token=Secret("jeton-local"))
 AUTHOR = "alice via Miles <alice@annuaire.miles.invalid>"
-BRANCH = "work/atelier"
+BRANCH = "back/retrait/atelier"
 IDENTITY = ["-c", "user.name=t", "-c", "user.email=t@t"]
 
 
@@ -97,15 +97,15 @@ async def test_missing_branch_is_named_and_never_recreated(tmp_path: Path) -> No
     repo, _ = _remote(tmp_path)
 
     with pytest.raises(BranchMissingError):
-        async with WorkDirs(tmp_path / "volume").checkout(repo, TOKEN, "retrait", "work/absente"):
+        async with WorkDirs(tmp_path / "volume").checkout(repo, TOKEN, "retrait", "back/retrait/absente"):
             pass
 
-    assert "work/absente" not in _git("-C", repo.url.removeprefix("file://"), "branch")
+    assert "back/retrait/absente" not in _git("-C", repo.url.removeprefix("file://"), "branch")
 
 
 @pytest.mark.parametrize(
     ("workspace", "branch"),
-    [("..", BRANCH), ("retrait", "work/.."), ("Retrait", BRANCH), ("retrait", "work/a/b")],
+    [("..", BRANCH), ("retrait", "work/.."), ("Retrait", BRANCH), ("retrait", "back/retrait/a/b")],
 )
 def test_path_segments_are_checked_before_any_directory(workspace: str, branch: str) -> None:
     with pytest.raises(ValueError, match="segment"):

@@ -93,7 +93,7 @@ describe("WorkspaceSettings", () => {
 
   it("locks the repository once a work branch is open", async () => {
     mockApi({
-      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
+      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/atelier" }] },
       ...SETTINGS,
     });
     renderScreen();
@@ -162,11 +162,11 @@ describe("WorkBranchPanel", () => {
     const calls = mockApi({
       "GET /api/workspaces": [
         { status: 200, body: [CONFIGURED] },
-        { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
+        { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/atelier" }] },
       ],
       "POST /api/workspaces/retrait/work-branch": {
         status: 201,
-        body: { workspace: { ...CONFIGURED, work_branch: "work/atelier" }, outcome: "initialisee" },
+        body: { workspace: { ...CONFIGURED, work_branch: "back/retrait/atelier" }, outcome: "initialisee" },
       },
       ...SETTINGS,
     });
@@ -175,7 +175,7 @@ describe("WorkBranchPanel", () => {
 
     fireEvent.click(screen.getByText("Open the work branch"));
 
-    expect(await screen.findByText("Work branch: work/atelier")).toBeInTheDocument();
+    expect(await screen.findByText("Work branch: back/retrait/atelier")).toBeInTheDocument();
     expect(calls.find((c) => c.key === "POST /api/workspaces/retrait/work-branch")?.body).toEqual({
       name: "atelier",
       adopt_existing: false,
@@ -186,13 +186,13 @@ describe("WorkBranchPanel", () => {
     const calls = mockApi({
       "GET /api/workspaces": [
         { status: 200, body: [CONFIGURED] },
-        { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
+        { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/atelier" }] },
       ],
       "POST /api/workspaces/retrait/work-branch": [
         { status: 409, body: { detail: "branche_existante" } },
         {
           status: 201,
-          body: { workspace: { ...CONFIGURED, work_branch: "work/atelier" }, outcome: "reprise" },
+          body: { workspace: { ...CONFIGURED, work_branch: "back/retrait/atelier" }, outcome: "reprise" },
         },
       ],
       ...SETTINGS,
@@ -204,7 +204,7 @@ describe("WorkBranchPanel", () => {
     // Le refus se rattrape : il propose le geste au lieu d'être un cul-de-sac.
     fireEvent.click(await screen.findByText("Take over this existing branch"));
 
-    expect(await screen.findByText("Work branch: work/atelier")).toBeInTheDocument();
+    expect(await screen.findByText("Work branch: back/retrait/atelier")).toBeInTheDocument();
     const sent = calls
       .filter((c) => c.key === "POST /api/workspaces/retrait/work-branch")
       .map((c) => c.body);

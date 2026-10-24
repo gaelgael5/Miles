@@ -110,18 +110,18 @@ describe("ProfileScreen", () => {
       ...CULTURES,
       "GET /api/auth/me": { status: 200, body: ADMIN_ME },
       "GET /api/auth/me/preferences": { status: 200, body: { language: null } },
-      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "work/atelier" }] },
+      "GET /api/workspaces": { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/atelier" }] },
       "GET /api/branch-views": { status: 200, body: {} },
       "GET /api/workspaces/retrait/branches": {
         status: 200,
         body: [
-          { slug: "atelier", label: "atelier", branch: "work/atelier", base: true },
-          { slug: "essai", label: "Essai", branch: "work/essai", base: false },
+          { slug: "atelier", label: "atelier", branch: "back/retrait/atelier", base: true },
+          { slug: "essai", label: "Essai", branch: "back/retrait/essai", base: false },
         ],
       },
       "PUT /api/workspaces/retrait/branches/view": {
         status: 200,
-        body: { slug: "essai", label: "Essai", branch: "work/essai", base: false },
+        body: { slug: "essai", label: "Essai", branch: "back/retrait/essai", base: false },
       },
     });
     renderApp();

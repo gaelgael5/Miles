@@ -7,7 +7,7 @@ import { CONFIGURED, renderWorkspaces } from "./workspaceFixtures";
 
 // La racine est en lecture seule (story dca0eb0e) : on la lit, on y fige une version,
 // mais l'écran n'y offre aucun bouton qui en changerait le contenu.
-const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const WS = "/api/workspaces/retrait";
 const Q = "?branch=atelier";
 const NOTICE = /This is the workspace root branch: it is read-only/;
@@ -34,7 +34,7 @@ function onRoot(selection: Omit<NonNullable<WorkspaceSelection>, "id" | "branch"
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     "GET /api/workspaces/retrait/branches": {
       status: 200,
-      body: [{ slug: "atelier", label: "atelier", branch: "work/atelier", base: true }],
+      body: [{ slug: "atelier", label: "atelier", branch: "back/retrait/atelier", base: true }],
     },
     [`GET ${WS}/data-models${Q}`]: { status: 200, body: [MODEL] },
     [`GET ${WS}/versions${Q}`]: { status: 200, body: [VERSION] },

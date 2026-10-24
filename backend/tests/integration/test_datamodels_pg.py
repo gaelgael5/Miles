@@ -171,7 +171,7 @@ async def test_referenced_model_cannot_be_deleted_until_its_user_is(forge: Forge
 
 
 async def test_missing_work_branch_is_refused_without_creating_one(forge: Forge) -> None:
-    deleted = await forge.api.delete(f"/api/v1/repos/miles/{forge.name}/branches/work/edition")
+    deleted = await forge.api.delete(f"/api/v1/repos/miles/{forge.name}/branches/back/retrait/edition")
     assert deleted.status_code == 204
 
     refused = await _create(forge, PERSONNE)
@@ -181,7 +181,7 @@ async def test_missing_work_branch_is_refused_without_creating_one(forge: Forge)
         409,
         "branche_de_travail_introuvable",
     )
-    assert "work/edition" not in [b["name"] for b in branches.json()]
+    assert "back/retrait/edition" not in [b["name"] for b in branches.json()]
 
 
 async def test_workspace_without_work_branch_is_refused(forge: Forge) -> None:

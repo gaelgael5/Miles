@@ -7,12 +7,12 @@ import { CONFIGURED, renderWorkspaces } from "./workspaceFixtures";
 
 // Prise de main d'une branche enfant (story 9def0adc) : une personne par branche, les
 // autres lisent ce qui est publié sans rien pouvoir modifier.
-const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const WS = "/api/workspaces/retrait";
 const HOLD = `${WS}/branches/edition/hold`;
 const BRANCHES = [
-  { slug: "atelier", label: "atelier", branch: "work/atelier", base: true },
-  { slug: "edition", label: "Édition", branch: "work/edition", base: false },
+  { slug: "atelier", label: "atelier", branch: "back/retrait/atelier", base: true },
+  { slug: "edition", label: "Édition", branch: "back/retrait/edition", base: false },
 ];
 const MINE = { slug: "edition", holder: "Gael (gael)", mine: true, taken_at: "2026-10-23T08:00:00Z" };
 const BOBS = { ...MINE, holder: "Bob Martin (bob)", mine: false };

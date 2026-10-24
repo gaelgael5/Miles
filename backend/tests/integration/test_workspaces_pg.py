@@ -326,10 +326,10 @@ async def test_existing_branch_is_refused_then_taken_over_on_demand(forge: Forge
     """
     url = await forge.repo(auto_init=True)
     await forge.seed_branch(
-        url, "work/atelier", {"manifest.json": VALID_MANIFEST, "domains/.gitkeep": ""}
+        url, "back/retrait/atelier", {"manifest.json": VALID_MANIFEST, "domains/.gitkeep": ""}
     )
     await _with_repo(forge, url)
-    before = await forge.commits_on(url, "work/atelier")
+    before = await forge.commits_on(url, "back/retrait/atelier")
 
     refused = await _open(forge)
     taken = await _open(forge, adopt=True)
@@ -337,17 +337,17 @@ async def test_existing_branch_is_refused_then_taken_over_on_demand(forge: Forge
     assert (refused.status_code, refused.json()["detail"]) == (409, "branche_existante")
     assert taken.status_code == 201, taken.text
     assert taken.json()["outcome"] == "reprise"
-    assert taken.json()["workspace"]["work_branch"] == "work/atelier"
+    assert taken.json()["workspace"]["work_branch"] == "back/retrait/atelier"
     assert await _stored_outcome(forge) == "reprise"
     # « elle n'a pas été touchée » : aucun commit de plus sur la branche reprise.
-    assert await forge.commits_on(url, "work/atelier") == before
+    assert await forge.commits_on(url, "back/retrait/atelier") == before
 
 
 async def test_taking_over_an_empty_existing_branch_records_that_it_preexisted(
     forge: Forge,
 ) -> None:
     url = await forge.repo(auto_init=True)
-    await forge.seed_branch(url, "work/atelier", {})
+    await forge.seed_branch(url, "back/retrait/atelier", {})
     await _with_repo(forge, url)
 
     taken = await _open(forge, adopt=True)
@@ -369,11 +369,11 @@ async def test_work_branch_opens_once_a_repository_is_recorded(forge: Forge) -> 
     assert opened.status_code == 201
     assert (opened.json()["outcome"], opened.json()["workspace"]["work_branch"]) == (
         "initialisee",
-        "work/atelier",
+        "back/retrait/atelier",
     )
     assert (replay.status_code, replay.json()["outcome"]) == (200, None)
     assert (other.status_code, other.json()["detail"]) == (409, "branche_de_travail_existante")
-    assert set(await forge.branches(url)) == {"main", "work/atelier"}
+    assert set(await forge.branches(url)) == {"main", "back/retrait/atelier"}
 
 
 async def test_repository_cannot_change_under_an_open_work_branch(forge: Forge) -> None:

@@ -21,7 +21,7 @@ from tests.integration.portal_stack import PortalStack, open_portal_stack
 # La racine est en lecture seule (story dca0eb0e) : on modifie dans une branche enfant.
 ROOT = "atelier"
 EDITION = "edition"
-EDITED = f"work/{EDITION}"
+EDITED = f"back/retrait/{EDITION}"
 
 
 @dataclass
@@ -128,7 +128,7 @@ async def open_work_forge(
         )
         assert opened.status_code == 201, opened.text
         if not edition:
-            yield Forge(portal, api, url, f"work/{ROOT}")
+            yield Forge(portal, api, url, f"back/retrait/{ROOT}")
             return
         child = await portal.client.post(
             "/api/workspaces/retrait/branches",

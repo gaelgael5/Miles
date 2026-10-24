@@ -8,7 +8,7 @@ import { CONFIGURED, HELD, renderWorkspaces } from "./workspaceFixtures";
 
 // Modèles dérivés des contrats (story 47f55d8b) : listés par sens, contrat et version,
 // ouverts en lecture seule, redérivés quand ils ne disent plus ce que dit le contrat.
-const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/contracts";
 const Q = "?branch=edition";
 const VERSION = {

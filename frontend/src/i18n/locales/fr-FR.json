@@ -351,7 +351,7 @@
     "work": {
       "title": "Branche de travail",
       "none": "Pas encore de branche de travail : ouvrez-la quand vous commencez à fabriquer le paramétrage.",
-      "name": "Nom de la branche de travail (work/…)",
+      "name": "Nom de la branche de travail (back/{{workspace}}/…)",
       "open": "Ouvrir la branche de travail",
       "adopt": "Reprendre cette branche existante",
       "current": "Branche de travail : {{branch}}",
@@ -723,7 +723,7 @@
     "form": {
       "title": "Nouvelle branche de travail — {{name}}",
       "from": "Tirée de la tête de la branche de base {{branch}}. Ce que vous y modifiez y reste.",
-      "slugHelp": "Proposé d'après le label ; figé une fois la branche créée. Branche git : work/{{slug}}.",
+      "slugHelp": "Proposé d'après le label ; figé une fois la branche créée. Branche git : back/{{workspace}}/{{slug}}.",
       "submit": "Créer la branche"
     },
     "fields": {

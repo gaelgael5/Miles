@@ -5,7 +5,7 @@ import { mockApi } from "../test/mockApi";
 import { CONFIGURED, HELD, renderWorkspaces } from "./workspaceFixtures";
 
 // Éditeur visuel JSONJoy et YAML, synchronisés, en mémoire jusqu'à « Enregistrer » (e38806f3).
-const WORKING = { ...CONFIGURED, work_branch: "work/atelier" };
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/data-models";
 const MODEL = {
   scope: "shared",

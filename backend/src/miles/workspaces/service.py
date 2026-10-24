@@ -204,7 +204,7 @@ class WorkspacesService:
         toujours sur une branche qui existe. La confirmation vient de l'écran, jamais d'ici.
         """
         try:
-            branch = work_branch_name(name)
+            branch = work_branch_name(workspace_id, name)
         except ValueError:
             raise WorkspaceInputError("name") from None
         workspace, repo, connection_id = await self._configured(workspace_id)
@@ -215,7 +215,12 @@ class WorkspacesService:
         access = await self._access(connection_id)
         try:
             opened = await open_work_branch(
-                repo, access, name, commit_author(author), adopt_existing=adopt_existing
+                repo,
+                access,
+                workspace_id,
+                name,
+                commit_author(author),
+                adopt_existing=adopt_existing,
             )
         except RepositoryAccessError as exc:
             raise RepositoryUnavailableError(exc.reason.value) from None

@@ -24,7 +24,7 @@ function refusalKey(error: unknown): string {
 
 /**
  * Nouvelle branche de travail, tirée de la tête de la branche de base (Gael, 22/10/2026).
- * Label saisi, slug proposé d'après lui puis figé : le slug devient `work/<slug>`.
+ * Label saisi, slug proposé d'après lui puis figé : le slug devient `back/<workspace>/<slug>`.
  */
 export function BranchForm({
   workspace,
@@ -38,7 +38,7 @@ export function BranchForm({
   const choose = useSetBranchView(workspace.id);
   const [label, setLabel] = useState("");
   const [slug, setSlug] = useState<string | null>(null);
-  // Le slug d'une branche tient en 40 caractères, la limite du nom `work/<slug>`.
+  // Le slug d'une branche tient en 40 caractères, la limite du nom de branche.
   const shownSlug = slug ?? proposeSlug(label).slice(0, 40).replace(/-+$/, "");
   const by =
     create.error instanceof ApiError && typeof create.error.detail === "object"
@@ -69,7 +69,7 @@ export function BranchForm({
         {t("branches.fields.slug")}
         <input required value={shownSlug} onChange={(e) => setSlug(e.target.value)} />
       </label>
-      <p className="help">{t("branches.form.slugHelp", { slug: shownSlug || "…" })}</p>
+      <p className="help">{t("branches.form.slugHelp", { slug: shownSlug || "…", workspace: workspace.id })}</p>
       {create.isError && (
         <p className="alert" role="alert">
           {t(refusalKey(create.error), { by })}

@@ -13,7 +13,7 @@ from miles.git.forge import Repository, RepositoryUrlError, parse_repository
 from miles.git.holdspace import HeldCopy, HoldSpaces
 from miles.git.workcopy import BranchMissingError, WorkCopy
 from miles.git.workdirs import WorkDirs
-from miles.git.worktree import WORK_BRANCH_PREFIX, RepositoryAccessError
+from miles.git.worktree import RepositoryAccessError, work_branch_prefix
 from miles.gitaccess.model import GitAccessError
 from miles.gitaccess.resolver import AccessResolver
 from miles.identities.service import GitIdentitiesService
@@ -33,7 +33,7 @@ from miles.workspaces.service import WorkspacesService
 def base_slug(workspace: Workspace) -> str | None:
     if workspace.work_branch is None:
         return None
-    return workspace.work_branch.removeprefix(WORK_BRANCH_PREFIX)
+    return workspace.work_branch.removeprefix(work_branch_prefix(workspace.id))
 
 
 class Gesture(Enum):
@@ -93,7 +93,8 @@ class WorkBranches:
             async with self._shared(workspace, name) as copy:
                 yield copy
             return
-        hold = await db_hold(self.pool, workspace.id, name.removeprefix(WORK_BRANCH_PREFIX))
+        slug = name.removeprefix(work_branch_prefix(workspace.id))
+        hold = await db_hold(self.pool, workspace.id, slug)
         mine = hold is not None and hold.held_by(by)
         if gesture is not Gesture.READ and not mine:
             # Sans la main, rien ne se modifie (Gael, 22/10/2026) : vaut pour l'écran comme
@@ -202,7 +203,7 @@ class WorkBranches:
             name = str(row)
         # L'atelier n'écrit que sur une branche de travail, jamais sur une branche
         # d'environnement : garde redondante avec la création, voulue à ce point d'écriture.
-        if not name.startswith(WORK_BRANCH_PREFIX):
+        if not name.startswith(work_branch_prefix(workspace.id)):
             raise WorkspaceConflictError("branche_d_environnement")
         return name
 

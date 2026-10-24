@@ -219,12 +219,12 @@ async def test_a_version_cannot_freeze_a_contract_broken_outside_miles(forge: Fo
     await forge.publish()
     meta = await forge.api.get(
         f"/api/v1/repos/miles/{forge.name}/contents/contracts/suivi/contract.yaml",
-        params={"ref": "work/edition"},
+        params={"ref": "back/retrait/edition"},
     )
     changed = await forge.api.put(
         f"/api/v1/repos/miles/{forge.name}/contents/contracts/suivi/contract.yaml",
         json={
-            "branch": "work/edition",
+            "branch": "back/retrait/edition",
             "sha": meta.json()["sha"],
             # « slug: suivi », « sens: lateral » : un sens hors liste, en base64.
             "content": "c2x1Zzogc3VpdmkKc2VuczogbGF0ZXJhbAo=",
