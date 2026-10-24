@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from miles.datamodels.grammar import load_yaml
-from miles.datamodels.layout import model_path
+from miles.datamodels.layout import MODEL_RE, model_path
 from miles.datamodels.navigate import kind_at
 from miles.datamodels.schema import parse_schema
 from miles.git.workcopy import WorkCopy
-from miles.storages.layout import MODEL_RE, StorageDoc, StorageProblem
+from miles.storages.layout import StorageDoc, StorageProblem
 from miles.transform.jpath import property_keys
 
 # Ce qu'une clé ou une colonne d'index peut désigner : une valeur, jamais un conteneur.

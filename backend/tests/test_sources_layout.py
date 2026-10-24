@@ -8,7 +8,16 @@ from miles.sources.layout import SourceDoc, form_problems, read_source, source_t
 
 # Depuis la séparation du 24/10/2026 (844f15ad), une source ne dit que COMMENT on remplit
 # un storage : plus de modèle, plus de clé, plus de propriétés filtrables.
-DOC = SourceDoc("comptes", "Comptes", "comptes", "$.accounts[*]", "comptes-import", True, False)
+DOC = SourceDoc(
+    "comptes",
+    "Comptes",
+    "comptes",
+    "shared/compte-brut",
+    "$.accounts[*]",
+    "comptes-import",
+    True,
+    False,
+)
 
 
 def test_declaration_is_written_and_reads_back_unchanged() -> None:
@@ -77,11 +86,29 @@ def test_a_source_without_a_storage_is_refused_and_named() -> None:
 
 
 def test_form_problems_are_all_reported() -> None:
-    bad = SourceDoc("Comptes!", "", "Pas Un Nom", "", "x", False, False)
+    bad = SourceDoc("Comptes!", "", "Pas Un Nom", "pas un modele", "", "x", True, False)
 
     assert {(p.path, p.code) for p in form_problems(bad)} == {
         ("nom", "nom_invalide"),
         ("libelle", "libelle_vide"),
         ("storage", "nom_invalide"),
+        ("modele_source", "modele_invalide"),
         ("decoupage", "decoupage_absent"),
     }
+
+
+def test_the_split_is_optional_unless_the_large_file_mode_is_on() -> None:
+    """Les deux méthodes typées reçoivent déjà un tableau : rien à découper (24/10/2026)."""
+    typed = replace(DOC, split="", large_file=False)
+    streamed = replace(DOC, split="", large_file=True)
+
+    assert form_problems(typed) == []
+    assert [(p.path, p.code) for p in form_problems(streamed)] == [
+        ("decoupage", "decoupage_absent")
+    ]
+
+
+def test_the_source_model_travels_in_the_declaration() -> None:
+    assert 'modele_source: "shared/compte-brut"' in source_text(DOC)
+    read = read_source(source_text(DOC))
+    assert read is not None and read.source_model == "shared/compte-brut"

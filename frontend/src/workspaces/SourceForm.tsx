@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useChains } from "../api/chains";
 import { proposeSlug } from "../api/contracts";
+import { useDataModels } from "../api/dataModels";
 import type { Source, SourceProblem } from "../api/sources";
 import { useStorages } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
@@ -11,6 +12,7 @@ export const EMPTY_SOURCE: Source = {
   name: "",
   label: "",
   storage: "",
+  source_model: "",
   split: "",
   chain: "",
   large_file: false,
@@ -45,6 +47,7 @@ export function SourceForm({
 }) {
   const { t } = useTranslation();
   const storages = useStorages(target);
+  const models = useDataModels(target);
   const chains = useChains(target);
   // Semé une fois : l'écran est remonté (clé) quand la source affichée change.
   const [source, setSource] = useState<Source>(initial);
@@ -90,16 +93,25 @@ export function SourceForm({
           </select>
         </label>
         <p className="help">{t("sources.form.storageHelp")}</p>
+        {/* L'ordre est celui que Gael a posé le 24/10/2026 : on choisit d'abord OÙ ça va
+            (le storage), puis CE QU'ON REÇOIT (le modèle source, qui type le point
+            d'entrée), puis COMMENT on passe de l'un à l'autre (la chaîne). */}
         <label className="field">
-          {t("sources.fields.split")}
-          <input
+          {t("sources.fields.sourceModel")}
+          <select
             required
-            className="mono"
-            value={source.split}
-            onChange={(e) => set({ split: e.target.value })}
-          />
+            value={source.source_model}
+            onChange={(e) => set({ source_model: e.target.value })}
+          >
+            <option value="">{t("sources.form.choose")}</option>
+            {(models.data ?? []).map((m) => (
+              <option key={`${m.scope}/${m.name}`} value={`${m.scope}/${m.name}`}>
+                {m.scope}/{m.name}
+              </option>
+            ))}
+          </select>
         </label>
-        <p className="help">{t("sources.form.splitHelp")}</p>
+        <p className="help">{t("sources.form.sourceModelHelp")}</p>
         <label className="field">
           {t("sources.fields.chain")}
           <select required value={source.chain} onChange={(e) => set({ chain: e.target.value })}>
@@ -111,6 +123,16 @@ export function SourceForm({
             ))}
           </select>
         </label>
+        <p className="help">{t("sources.form.chainHelp")}</p>
+        <label className="field">
+          {t("sources.fields.split")}
+          <input
+            className="mono"
+            value={source.split}
+            onChange={(e) => set({ split: e.target.value })}
+          />
+        </label>
+        <p className="help">{t("sources.form.splitHelp")}</p>
         <label className="field-check">
           <input
             type="checkbox"

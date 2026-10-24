@@ -956,8 +956,10 @@
       "submit": "Declare the source",
       "choose": "Choose…",
       "storageHelp": "The storage this source fills. It is the storage that carries the object model, its functional key and its indexable properties.",
-      "splitHelp": "Path of the item array in the received document, e.g. $.accounts[*]. It must be streamable: no filter, no unbounded “..” descent, ending with [*].",
-      "nameHelp": "Source identifier, derived from the label: lowercase letters, digits and dashes. It names the file and cannot be renamed once declared."
+      "splitHelp": "Optional. Path of the item array in a received document, e.g. $.accounts[*] — required only in large file mode, where a document arrives instead of an array. It must be streamable: no filter, no unbounded “..” descent, ending with [*].",
+      "nameHelp": "Source identifier, derived from the label: lowercase letters, digits and dashes. It names the file and cannot be renamed once declared.",
+      "sourceModelHelp": "The model of what the source receives. It types the entry point: one method on an object of that model, one on an array of that model.",
+      "chainHelp": "The chain that transforms an object of the source model into the storage model. It applies to each object received."
     },
     "fields": {
       "name": "Name",
@@ -966,7 +968,8 @@
       "chain": "Transformation chain",
       "largeFile": "Large file mode (streamed parsing)",
       "unifiedTransaction": "Single transaction for the whole import",
-      "label": "Label"
+      "label": "Label",
+      "sourceModel": "Source model"
     },
     "editor": {
       "save": "Save the source",
@@ -986,7 +989,9 @@
       "declaration_invalide": "Unreadable declaration: a source written in the old shape (model, key, filterables) must now designate a storage.",
       "chaine_inconnue": "Chain “{{detail}}” does not exist on this branch.",
       "chaine_invalide": "The chain is invalid: {{detail}}.",
-      "libelle_vide": "The label is required."
+      "libelle_vide": "The label is required.",
+      "modele_invalide": "Source model “{{detail}}” is not of the form scope/name.",
+      "modele_inconnu": "Source model “{{detail}}” does not exist on this branch."
     },
     "errors": {
       "nom_pris": "A different source already has this name on the branch.",

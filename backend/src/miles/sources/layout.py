@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from urban_json.jsonpath import IndexSelector, NameSelector, WildcardSelector
 
 from miles.datamodels.grammar import ModelSyntaxError, load_yaml
+from miles.datamodels.layout import MODEL_RE
 from miles.transform.jpath import read_path
 
 # Une source de données (story 66391afe) : COMMENT on remplit un storage, et rien de plus.
@@ -23,6 +24,7 @@ _KEYS = {
     "nom",
     "libelle",
     "storage",
+    "modele_source",
     "decoupage",
     "chaine",
     "mode_gros_fichier",
@@ -38,6 +40,12 @@ class SourceDoc:
     label: str
     # Nom du storage alimenté : la collection, son modèle et sa clé vivent là-bas.
     storage: str
+    # « portée/nom » du modèle de CE QU'ON REÇOIT (Gael, 24/10/2026). Il type le point
+    # d'entrée : une méthode sur un objet de ce modèle, une sur un tableau de ce modèle.
+    source_model: str
+    # Chemin du tableau d'items dans un document reçu. Facultatif : les deux méthodes
+    # typées n'en ont pas besoin — le tableau EST le lot. Il reste requis en mode gros
+    # fichier, où l'on reçoit un document et où il faut savoir où sont les items.
     split: str
     chain: str
     large_file: bool
@@ -71,6 +79,7 @@ def source_text(doc: SourceDoc) -> str:
                 f"nom: {q(doc.name)}",
                 f"libelle: {q(doc.label)}",
                 f"storage: {q(doc.storage)}",
+                f"modele_source: {q(doc.source_model)}",
                 f"decoupage: {q(doc.split)}",
                 f"chaine: {q(doc.chain)}",
                 f"mode_gros_fichier: {'true' if doc.large_file else 'false'}",
@@ -100,6 +109,7 @@ def read_source(text: str | None) -> SourceDoc | None:
             _text(data.get("nom")),
             _text(data.get("libelle")),
             _text(data.get("storage")),
+            _text(data.get("modele_source")),
             _text(data.get("decoupage")),
             _text(data.get("chaine")),
             _flag(data.get("mode_gros_fichier")),
@@ -136,19 +146,25 @@ def form_problems(doc: SourceDoc) -> list[SourceProblem]:
         problems.append(SourceProblem("storage", "storage_absent"))
     elif not NAME_RE.match(doc.storage):
         problems.append(SourceProblem("storage", "nom_invalide", doc.storage))
-    problems += _split_problems(doc.split)
+    if not MODEL_RE.match(doc.source_model):
+        problems.append(SourceProblem("modele_source", "modele_invalide", doc.source_model))
+    problems += _split_problems(doc.split, doc.large_file)
     return problems
 
 
-def _split_problems(split: str) -> list[SourceProblem]:
+def _split_problems(split: str, large_file: bool) -> list[SourceProblem]:
     """Le jpath de découpage doit se lire en flux : on ne revient pas en arrière en SAX.
 
     Admis : des noms ou des indices depuis la racine, puis un seul joker final qui désigne
     les items du tableau. Refusés : un filtre (il faudrait voir l'item entier avant de le
     garder), une descente `..` (non bornée), un joker qui ne termine pas le chemin.
+
+    Absent : admis, sauf en mode gros fichier. Depuis le 24/10/2026 le point d'entrée est
+    typé par le modèle source et expose une méthode qui reçoit déjà un tableau ; c'est
+    seulement quand on reçoit un DOCUMENT qu'il faut dire où sont les items.
     """
     if not split.strip():
-        return [SourceProblem("decoupage", "decoupage_absent")]
+        return [SourceProblem("decoupage", "decoupage_absent")] if large_file else []
     path = read_path(split)
     if path is None:
         return [SourceProblem("decoupage", "jpath_illisible", split)]

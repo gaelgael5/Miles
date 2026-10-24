@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 
 from miles.datamodels.grammar import ModelSyntaxError, load_yaml
+from miles.datamodels.layout import MODEL_RE
 from miles.transform.jpath import property_keys
 
 # Un storage (story 844f15ad) : une collection d'objets JSON stockés en base, son modèle,
@@ -15,7 +16,6 @@ from miles.transform.jpath import property_keys
 # sans source — on y écrira par API ou par MCP —, et la source ne fait que le désigner.
 ROOT = "storages"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
-MODEL_RE = re.compile(r"^(?P<scope>[a-z0-9][a-z0-9-]{0,62})/(?P<name>[a-z][a-z0-9_]{0,62})$")
 _FILE_RE = re.compile(rf"^{ROOT}/(?P<name>[^/]+)\.yaml$")
 _KEYS = {"nom", "libelle", "modele", "cle", "index", "indexables"}
 # Un index porte de 1 à 3 colonnes (Gael, 24/10/2026). Le plafond est une décision, pas

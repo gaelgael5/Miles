@@ -956,8 +956,10 @@
       "submit": "Déclarer la source",
       "choose": "Choisir…",
       "storageHelp": "Le storage que cette source remplit. C'est lui qui porte le modèle des objets, leur clé fonctionnelle et leurs propriétés indexables.",
-      "splitHelp": "Chemin du tableau d'items dans le document reçu, par exemple $.accounts[*]. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*].",
-      "nameHelp": "Identifiant de la source, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclarée."
+      "splitHelp": "Facultatif. Chemin du tableau d'items dans un document reçu, par exemple $.accounts[*] — requis seulement en mode gros fichier, où l'on reçoit un document au lieu d'un tableau. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*].",
+      "nameHelp": "Identifiant de la source, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclarée.",
+      "sourceModelHelp": "Le modèle de ce que la source reçoit. Il type le point d'entrée : une méthode sur un objet de ce modèle, une sur un tableau de ce modèle.",
+      "chainHelp": "La chaîne qui transforme un objet du modèle source vers le modèle du storage. Elle s'applique à chaque objet reçu."
     },
     "fields": {
       "name": "Nom",
@@ -966,7 +968,8 @@
       "chain": "Chaîne de transformations",
       "largeFile": "Mode gros fichier (lecture en flux)",
       "unifiedTransaction": "Une seule transaction pour tout l'import",
-      "label": "Libellé"
+      "label": "Libellé",
+      "sourceModel": "Modèle source"
     },
     "editor": {
       "save": "Enregistrer la source",
@@ -986,7 +989,9 @@
       "declaration_invalide": "Déclaration illisible : une source écrite sous l'ancienne forme (modèle, clé, filtrables) doit désormais désigner un storage.",
       "chaine_inconnue": "La chaîne « {{detail}} » n'existe pas sur cette branche.",
       "chaine_invalide": "La chaîne est invalide : {{detail}}.",
-      "libelle_vide": "Le libellé est obligatoire."
+      "libelle_vide": "Le libellé est obligatoire.",
+      "modele_invalide": "Le modèle source « {{detail}} » n'est pas de la forme portée/nom.",
+      "modele_inconnu": "Le modèle source « {{detail}} » n'existe pas sur cette branche."
     },
     "errors": {
       "nom_pris": "Une autre source porte déjà ce nom sur la branche.",

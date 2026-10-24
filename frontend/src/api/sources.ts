@@ -15,9 +15,11 @@ export interface Source {
   name: string;
   /** Ce que la personne a écrit, et ce que les écrans affichent. */
   label: string;
-  /** Nom du storage alimenté : il porte le modèle, la clé et les propriétés indexables. */
+  /** Nom du storage alimenté : il porte le modèle, la clé et les index. */
   storage: string;
-  /** Jpath du tableau d'items, streamable. */
+  /** « portée/nom » du modèle de CE QU'ON REÇOIT : il type le point d'entrée. */
+  source_model: string;
+  /** Jpath du tableau d'items, streamable. Vide sauf en mode gros fichier. */
   split: string;
   /** Slug de la chaîne de transformations appliquée à chaque item. */
   chain: string;

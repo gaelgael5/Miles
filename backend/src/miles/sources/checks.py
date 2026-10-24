@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from miles.chains.service import stored_chain
+from miles.datamodels.layout import MODEL_RE, model_path
 from miles.git.workcopy import WorkCopy
 from miles.sources.layout import SourceDoc, SourceProblem
 from miles.storages.layout import read_storage, storage_path
@@ -14,8 +15,17 @@ async def branch_problems(copy: WorkCopy, doc: SourceDoc) -> list[SourceProblem]
     source pour le storage (story 844f15ad), qui les valide à sa propre déclaration.
     """
     problems = await _storage_problems(copy, doc.storage)
+    problems += await _source_model_problems(copy, doc.source_model)
     problems += await _chain_problems(copy, doc.chain)
     return problems
+
+
+async def _source_model_problems(copy: WorkCopy, model: str) -> list[SourceProblem]:
+    """Le modèle de ce qu'on reçoit : il type le point d'entrée, il doit exister."""
+    match = MODEL_RE.match(model)
+    if match is None or await copy.read(model_path(match["scope"], match["name"])) is None:
+        return [SourceProblem("modele_source", "modele_inconnu", model)]
+    return []
 
 
 async def _storage_problems(copy: WorkCopy, name: str) -> list[SourceProblem]:

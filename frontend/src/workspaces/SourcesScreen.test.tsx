@@ -13,6 +13,7 @@ const SOURCE = {
   name: "crm",
   label: "CRM",
   storage: "sites",
+  source_model: "pudo/import-crm",
   split: "$.accounts[*]",
   chain: "comptes-import",
   large_file: true,
@@ -22,6 +23,11 @@ const PICKERS = {
   [`GET /api/workspaces/retrait/storages${Q}`]: {
     status: 200,
     body: [{ name: "sites", label: "Sites", model: "shared/site", keys: ["$.code"] }],
+  },
+  [`GET /api/workspaces/retrait/data-models${Q}`]: {
+    status: 200,
+    // Un nom à tiret, comme « pudo/import-crm » : le motif de référence le refusait.
+    body: [{ scope: "pudo", name: "import-crm", path: "domains/pudo/messages/import-crm.yaml" }],
   },
   [`GET /api/workspaces/retrait/transformations${Q}`]: {
     status: 200,
@@ -51,9 +57,12 @@ describe("SourcesScreen", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("crm");
     await screen.findByRole("option", { name: "sites (shared/site)" });
     fill("Storage fed", "sites");
-    fill("Split path", "$.accounts[*]");
+    // L'ordre posé par Gael : le storage, puis le modèle source, puis la chaîne.
+    await screen.findByRole("option", { name: "pudo/import-crm" });
+    fill("Source model", "pudo/import-crm");
     await screen.findByRole("option", { name: "Import des comptes (comptes-import)" });
     fill("Transformation chain", "comptes-import");
+    fill("Split path", "$.accounts[*]");
     fireEvent.click(screen.getByLabelText("Large file mode (streamed parsing)"));
     fireEvent.click(screen.getByText("Declare the source"));
 
@@ -75,6 +84,9 @@ describe("SourcesScreen", () => {
     expect(screen.queryByLabelText("Key rules")).not.toBeInTheDocument();
     expect(screen.queryByText("Add a filterable property")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Storage fed")).toBeInTheDocument();
+    expect(screen.getByLabelText("Source model")).toBeInTheDocument();
+    // Le découpage ne sert qu'au mode gros fichier : il n'est plus obligatoire.
+    expect(screen.getByLabelText("Split path")).not.toBeRequired();
   });
 
   it("shows every refusal with the path it concerns", async () => {

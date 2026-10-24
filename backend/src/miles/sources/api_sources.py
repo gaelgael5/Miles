@@ -38,9 +38,12 @@ class SourceIO(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=63)
     label: str = Field(max_length=200)
-    # Le storage alimenté : il porte le modèle, la clé et les propriétés indexables.
+    # Le storage alimenté : il porte le modèle, la clé et les index.
     storage: str = Field(max_length=63)
-    split: str = Field(max_length=1024)
+    # Le modèle de ce qu'on reçoit : il type le point d'entrée.
+    source_model: str = Field(max_length=200)
+    # Facultatif : requis seulement en mode gros fichier.
+    split: str = Field(default="", max_length=1024)
     chain: str = Field(max_length=63)
     large_file: bool = False
     unified_transaction: bool = False
@@ -65,6 +68,7 @@ def _doc(body: SourceIO) -> SourceDoc:
         body.name.strip(),
         body.label.strip(),
         body.storage.strip(),
+        body.source_model.strip(),
         body.split.strip(),
         body.chain.strip(),
         body.large_file,
@@ -77,6 +81,7 @@ def _io(doc: SourceDoc) -> SourceIO:
         name=doc.name,
         label=doc.label,
         storage=doc.storage,
+        source_model=doc.source_model,
         split=doc.split,
         chain=doc.chain,
         large_file=doc.large_file,

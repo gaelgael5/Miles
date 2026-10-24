@@ -19,12 +19,17 @@ STORAGES = "/api/workspaces/retrait/storages"
 MODELS = "/api/workspaces/retrait/data-models"
 CHAINS = "/api/workspaces/retrait/transformations"
 COMPTE = normalized("type: object\nproperties:\n  code:\n    type: string\n", "shared", "compte")
+# Le modèle de CE QU'ON REÇOIT : il type le point d'entrée (Gael, 24/10/2026). Son nom
+# porte un tiret à dessein — « pudo/import-crm » en porte un, et le motif le refusait.
+BRUT = normalized(
+    "type: object\nproperties:\n  accountId:\n    type: string\n", "shared", "compte-brut"
+)
 STORAGE: dict[str, Any] = {
     "name": "comptes",
     "label": "Comptes",
     "model": "shared/compte",
     "keys": ["$.code"],
-    "indexables": [],
+    "indexes": [],
 }
 # Depuis la séparation du 24/10/2026 (844f15ad), la source ne dit que COMMENT on remplit
 # le storage : elle le désigne, et ne porte plus ni modèle, ni clé, ni filtrables.
@@ -32,6 +37,7 @@ SOURCE: dict[str, Any] = {
     "name": "comptes",
     "label": "Comptes",
     "storage": "comptes",
+    "source_model": "shared/compte-brut",
     "split": "$.accounts[*]",
     "chain": "comptes-import",
     "large_file": True,
@@ -42,8 +48,9 @@ SOURCE: dict[str, Any] = {
 @pytest.fixture
 async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
     async with open_work_forge(blank_db, tmp_path) as opened:
-        created = await opened.client.post(MODELS, json=body_of(COMPTE), timeout=120)
-        assert created.status_code == 201, created.text
+        for model in (COMPTE, BRUT):
+            created = await opened.client.post(MODELS, json=body_of(model), timeout=120)
+            assert created.status_code == 201, created.text
         for slug in ("comptes-import", "autre-import"):
             chain = {
                 "label": "Import",
@@ -81,6 +88,7 @@ async def test_source_is_declared_in_git_and_designates_its_storage_and_chain(
     text = await forge.file("sources/comptes.yaml")
     assert text is not None
     assert 'chaine: "comptes-import"' in text and 'storage: "comptes"' in text
+    assert 'modele_source: "shared/compte-brut"' in text
     # Ce qui a quitté la source ne doit pas y être resté par mégarde.
     assert "modele" not in text and "filtrables" not in text
 
@@ -89,7 +97,9 @@ async def test_everything_the_branch_must_provide_is_checked_and_reported(forge:
     before = await forge.commits()
 
     refused = await _declare(forge, split="$.accounts[?(@.a == 1)]", storage="")
-    unknown = await _declare(forge, storage="absent", chain="absente")
+    unknown = await _declare(
+        forge, storage="absent", chain="absente", source_model="shared/inconnu"
+    )
 
     assert {(p["path"], p["code"]) for p in refused.json()["detail"]["problems"]} == {
         ("decoupage", "non_streamable"),
@@ -97,6 +107,7 @@ async def test_everything_the_branch_must_provide_is_checked_and_reported(forge:
     }
     assert {(p["path"], p["code"]) for p in unknown.json()["detail"]["problems"]} == {
         ("storage", "storage_inconnu"),
+        ("modele_source", "modele_inconnu"),
         ("chaine", "chaine_inconnue"),
     }
     assert await forge.commits() == before
@@ -124,6 +135,17 @@ async def test_replay_name_taken_and_modification_that_announces_a_rewrite(forge
     assert new_chain.json()["rewrite_announced"] is True
     assert (renamed.status_code, renamed.json()["detail"]) == (409, "nom_fige")
     assert await forge.commits() == before + 2
+
+
+async def test_the_split_is_only_required_in_large_file_mode(forge: Forge) -> None:
+    """Les deux méthodes typées reçoivent déjà un tableau : rien à découper (24/10/2026)."""
+    typed = await _declare(forge, split="", large_file=False)
+    streamed = await _declare(forge, name="gros", split="", large_file=True)
+
+    assert typed.status_code == 201, typed.text
+    assert [(p["path"], p["code"]) for p in streamed.json()["detail"]["problems"]] == [
+        ("decoupage", "decoupage_absent")
+    ]
 
 
 async def test_a_chain_designated_by_a_source_cannot_be_deleted(forge: Forge) -> None:

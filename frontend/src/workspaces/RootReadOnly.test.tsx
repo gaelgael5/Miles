@@ -23,6 +23,7 @@ const SOURCE = {
   name: "comptes",
   label: "Comptes",
   storage: "personnes",
+  source_model: "shared/personne",
   split: "$.accounts[*]",
   chain: "import",
   large_file: false,
