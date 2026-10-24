@@ -413,6 +413,32 @@
                 "default": null,
                 "description": "Vide : le résultat devient le message. Sinon, un chemin unique ($.a.b) où poser le résultat dans le message, objets intermédiaires créés.",
                 "title": "Target"
+              },
+              "source_model": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "URI du modèle que l'étape lit (« miles:/shared/colis »). Sans effet sur l'exécution ; l'écran s'en sert. OMIS, il est EFFACÉ : save_chain remplace la chaîne entière.",
+                "title": "Source Model"
+              },
+              "destination_model": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "URI du modèle que l'étape produit. Même règle : omis, il est effacé.",
+                "title": "Destination Model"
               }
             },
             "required": [
@@ -538,6 +564,32 @@
                 "default": null,
                 "description": "Vide : le résultat devient le message. Sinon, un chemin unique ($.a.b) où poser le résultat dans le message, objets intermédiaires créés.",
                 "title": "Target"
+              },
+              "source_model": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "URI du modèle que l'étape lit (« miles:/shared/colis »). Sans effet sur l'exécution ; l'écran s'en sert. OMIS, il est EFFACÉ : save_chain remplace la chaîne entière.",
+                "title": "Source Model"
+              },
+              "destination_model": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "URI du modèle que l'étape produit. Même règle : omis, il est effacé.",
+                "title": "Destination Model"
               }
             },
             "required": [

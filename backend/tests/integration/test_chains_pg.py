@@ -19,6 +19,9 @@ STEPS = [
     {"name": "normaliser", "template": NORMALISER, "target": None},
     {"name": "enrichir", "template": ENRICHIR, "target": "$.origine"},
 ]
+# Ce que l'API rend : une étape porte toujours ses deux modèles, nuls tant qu'on ne les
+# a pas choisis (24/10/2026). Envoyer sans eux reste admis, d'où les deux formes.
+READ_STEPS = [s | {"source_model": None, "destination_model": None} for s in STEPS]
 
 
 @pytest.fixture
@@ -40,7 +43,7 @@ async def test_chain_is_written_as_a_directory_with_its_sequence_and_templates(
     listed = await forge.client.get(ROUTE, timeout=120)
 
     assert saved.status_code == 200, saved.text
-    assert read.json() == {"slug": "comptes-import", "label": "Import", "steps": STEPS}
+    assert read.json() == {"slug": "comptes-import", "label": "Import", "steps": READ_STEPS}
     assert listed.json() == [{"slug": "comptes-import", "label": "Import", "steps": 2}]
     assert await forge.file("transformations/comptes-import/normaliser.jslt") == NORMALISER
     assert await forge.file("transformations/comptes-import/enrichir.jslt") == ENRICHIR

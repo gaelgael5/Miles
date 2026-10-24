@@ -30,13 +30,34 @@ class StepArg(BaseModel):
             " le résultat dans le message, objets intermédiaires créés."
         ),
     )
+    source_model: str | None = Field(
+        default=None,
+        description=(
+            "URI du modèle que l'étape lit (« miles:/shared/colis »). Sans effet sur"
+            " l'exécution ; l'écran s'en sert. OMIS, il est EFFACÉ : save_chain remplace"
+            " la chaîne entière."
+        ),
+    )
+    destination_model: str | None = Field(
+        default=None,
+        description=("URI du modèle que l'étape produit. Même règle : omis, il est effacé."),
+    )
 
 
 Steps = Annotated[list[StepArg], Field(description="Les étapes, dans l'ordre d'application.")]
 
 
 def _chain(chain: StoredChain) -> dict[str, Any]:
-    steps = [{"name": s.name, "template": s.template, "target": s.target} for s in chain.steps]
+    steps = [
+        {
+            "name": s.name,
+            "template": s.template,
+            "target": s.target,
+            "source_model": s.source_model,
+            "destination_model": s.destination_model,
+        }
+        for s in chain.steps
+    ]
     path = f"transformations/{chain.slug}/"
     return {"slug": chain.slug, "label": chain.label, "path": path, "steps": steps}
 
@@ -110,7 +131,12 @@ def register(server: MCPServer) -> None:
     ) -> dict[str, Any]:
         caller = caller_of(ctx)
         service = await _chains(caller)
-        stored = [StoredStep(s.name, s.template, s.target) for s in steps]
+        # Les modèles sont RELUS de l'entrée : les laisser tomber ici effaçait, sans un
+        # mot, ce que l'écran avait posé — un agent qui ne touche qu'un template suffisait.
+        stored = [
+            StoredStep(s.name, s.template, s.target, s.source_model, s.destination_model)
+            for s in steps
+        ]
 
         async def run(author: Any) -> dict[str, Any]:
             chain, commit = await service.resolve_save(

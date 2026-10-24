@@ -16,6 +16,8 @@ STEPS = [
     {"name": "normaliser", "template": '{ "code": $.code }', "target": None},
     {"name": "statut", "template": '"ok"', "target": "$.statut"},
 ]
+# Rendues par l'outil : une étape porte toujours ses deux modèles (24/10/2026).
+READ_STEPS = [s | {"source_model": None, "destination_model": None} for s in STEPS]
 
 
 @pytest.fixture
@@ -33,7 +35,7 @@ async def test_a_chain_is_saved_read_listed_and_deleted_through_mcp(m: McpForge)
 
     assert saved["path"] == "transformations/import/" and saved["commit"]
     assert (replay["unchanged"], replay["commit"]) == (True, None)
-    assert read["steps"] == STEPS
+    assert read["steps"] == READ_STEPS
     assert listed == [{"slug": "import", "label": "Import", "steps": 2}]
     assert deleted["commit"] and await m.forge.file("transformations/import/chain.json") is None
 
@@ -94,3 +96,13 @@ async def test_unknown_or_designated_chains_name_what_exists_and_who_uses_them(
         "existants": ["comptes-import"],
     }
     assert used == {"code": "chaine_utilisee", "par": ["comptes"]}
+
+
+async def test_saving_through_mcp_keeps_the_models_the_screen_had_set(m: McpForge) -> None:
+    """Ils se relisent de l'entrée : les laisser tomber les effaçait sans un mot."""
+    steps = [STEPS[0] | {"source_model": "miles:/shared/brut", "destination_model": None}]
+    await m.ok("save_chain", EDIT | {"slug": "import", "label": "Import", "steps": steps})
+
+    read = await m.ok("get_chain", EDIT | {"slug": "import"})
+
+    assert read["steps"][0]["source_model"] == "miles:/shared/brut"
