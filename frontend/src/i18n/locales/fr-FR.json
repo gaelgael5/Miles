@@ -868,7 +868,9 @@
       "stepName": "Nom de l'étape",
       "template": "Template JSLT",
       "target": "Chemin cible (facultatif)",
-      "sample": "Message échantillon (JSON, facultatif)"
+      "sample": "Message échantillon (JSON, facultatif)",
+      "sourceModel": "Modèle source",
+      "destinationModel": "Modèle de destination"
     },
     "editor": {
       "steps": "Étapes, dans l’ordre",
@@ -888,7 +890,9 @@
       "saved": "Chaîne enregistrée.",
       "delete": "Supprimer la chaîne",
       "deleteTitle": "Supprimer cette chaîne ?",
-      "deleteBody": "Le répertoire transformations/{{slug}} sera retiré de la branche."
+      "deleteBody": "Le répertoire transformations/{{slug}} sera retiré de la branche.",
+      "unsaved": "Modifications non enregistrées",
+      "saveShortcut": "Ctrl+S"
     },
     "problems": {
       "syntaxe": "Template illisible, ligne {{line}}, colonne {{column}} : {{detail}}",
@@ -904,6 +908,24 @@
       },
       "unexpected": "La chaîne n'a pas pu être enregistrée. Voir les journaux du back-office.",
       "unreadable": "Cette chaîne ne peut pas être lue."
+    },
+    "sample": {
+      "title": "Échantillon source de test",
+      "none": "Aucun échantillon enregistré.",
+      "saved": "Enregistré — {{size}} caractères.",
+      "add": "Enregistrer un échantillon",
+      "change": "Modifier",
+      "clear": "Effacer",
+      "paste": "Coller depuis le presse-papiers",
+      "pasteFailed": "Le navigateur a refusé la lecture du presse-papiers ; collez à la main dans le champ.",
+      "explain": "Un cas d'essai, gardé par Miles et non dans le dépôt git. Il ne suit donc ni une publication, ni un retour en arrière de la branche.",
+      "save": "Enregistrer l'échantillon",
+      "cancel": "Annuler"
+    },
+    "steps": {
+      "noModel": "—",
+      "summary": "{{source}} → {{destination}}",
+      "back": "Retour à la chaîne"
     }
   },
   "sources": {

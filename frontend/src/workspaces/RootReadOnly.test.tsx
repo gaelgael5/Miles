@@ -12,7 +12,13 @@ const WS = "/api/workspaces/retrait";
 const Q = "?branch=atelier";
 const NOTICE = /This is the workspace root branch: it is read-only/;
 const MODEL = { scope: "shared", name: "personne", path: "shared/messages/personne.yaml" };
-const CHAIN = { slug: "import", label: "Import", steps: [{ name: "copier", template: "{ }", target: null }] };
+const CHAIN = {
+  slug: "import",
+  label: "Import",
+  steps: [
+    { name: "copier", template: "{ }", target: null, source_model: null, destination_model: null },
+  ],
+};
 const SOURCE = {
   name: "comptes",
   model: "shared/personne",
@@ -45,6 +51,7 @@ function onRoot(selection: Omit<NonNullable<WorkspaceSelection>, "id" | "branch"
     },
     [`GET ${WS}/transformations${Q}`]: { status: 200, body: [{ slug: "import", label: "Import", steps: 1 }] },
     [`GET ${WS}/transformations/import${Q}`]: { status: 200, body: CHAIN },
+    [`GET ${WS}/transformations/import/sample${Q}`]: { status: 200, body: { sample: null } },
     [`GET ${WS}/sources${Q}`]: { status: 200, body: [] },
     [`GET ${WS}/sources/comptes${Q}`]: { status: 200, body: SOURCE },
   });
@@ -91,7 +98,9 @@ describe("root branch", () => {
     for (const label of ["Save the chain", "Delete the chain", "Add a step", "Move up", "Remove"]) {
       expect(screen.queryByText(label)).toBeNull();
     }
-    expect(screen.getByLabelText("JSLT template")).toHaveAttribute("readonly");
+    // Le template a quitté cet écran (24/10/2026) : ce qu'on y vérifie désormais, c'est
+    // que le choix des modèles d'une étape y est fermé.
+    expect(screen.getByLabelText("Source model")).toBeDisabled();
   });
 
   it("does not offer to declare a source", async () => {

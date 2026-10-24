@@ -868,7 +868,9 @@
       "stepName": "Step name",
       "template": "JSLT template",
       "target": "Target path (optional)",
-      "sample": "Sample message (JSON, optional)"
+      "sample": "Sample message (JSON, optional)",
+      "sourceModel": "Source model",
+      "destinationModel": "Destination model"
     },
     "editor": {
       "steps": "Steps, in order",
@@ -888,7 +890,9 @@
       "saved": "Chain saved.",
       "delete": "Delete the chain",
       "deleteTitle": "Delete this chain?",
-      "deleteBody": "The directory transformations/{{slug}} will be removed from the branch."
+      "deleteBody": "The directory transformations/{{slug}} will be removed from the branch.",
+      "unsaved": "Unsaved changes",
+      "saveShortcut": "Ctrl+S"
     },
     "problems": {
       "syntaxe": "Unreadable template, line {{line}}, column {{column}}: {{detail}}",
@@ -904,6 +908,24 @@
       },
       "unexpected": "The chain could not be saved. See the back-office logs.",
       "unreadable": "This chain cannot be read."
+    },
+    "sample": {
+      "title": "Test source sample",
+      "none": "No sample saved.",
+      "saved": "Saved — {{size}} characters.",
+      "add": "Save a sample",
+      "change": "Change",
+      "clear": "Clear",
+      "paste": "Paste from the clipboard",
+      "pasteFailed": "The browser refused to read the clipboard; paste into the field by hand.",
+      "explain": "A test case, kept by Miles and not in the git repository. It therefore follows neither a publication nor a rollback of the branch.",
+      "save": "Save the sample",
+      "cancel": "Cancel"
+    },
+    "steps": {
+      "noModel": "—",
+      "summary": "{{source}} → {{destination}}",
+      "back": "Back to the chain"
     }
   },
   "sources": {

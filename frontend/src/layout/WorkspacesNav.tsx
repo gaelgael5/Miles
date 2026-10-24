@@ -26,6 +26,8 @@ export type WorkspaceSelection = {
   contract?: string;
   // Une chaîne de transformations ouverte, avec la vue « transformations ».
   chain?: string;
+  // Une étape de cette chaîne, ouverte en page pleine (Gael, 24/10/2026) : son nom.
+  step?: string;
   // Une source de données ouverte, avec la vue « sources ».
   source?: string;
   // Un modèle de données ouvert (« portée/nom »), avec la vue « dataModels ».

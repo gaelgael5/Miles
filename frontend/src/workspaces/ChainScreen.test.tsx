@@ -11,8 +11,20 @@ const CHAIN = {
   slug: "comptes-import",
   label: "Import des comptes",
   steps: [
-    { name: "normaliser", template: '{ "ref": $.colis.ref }', target: null },
-    { name: "statut", template: '"ok"', target: "$.statut" },
+    {
+      name: "normaliser",
+      template: '{ "ref": $.colis.ref }',
+      target: null,
+      source_model: null,
+      destination_model: null,
+    },
+    {
+      name: "statut",
+      template: '"ok"',
+      target: "$.statut",
+      source_model: null,
+      destination_model: null,
+    },
   ],
 };
 
@@ -65,6 +77,7 @@ describe("ChainsScreen list", () => {
         body: [{ slug: CHAIN.slug, label: CHAIN.label, steps: 2 }],
       },
       [`GET ${ROUTE}/${CHAIN.slug}${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/${CHAIN.slug}/sample${Q}`]: { status: 200, body: { sample: null } },
     });
     renderWorkspaces({ id: "retrait", view: "transformations", branch: "edition" });
     const title = await screen.findByRole("button", { name: CHAIN.label });
@@ -73,7 +86,7 @@ describe("ChainsScreen list", () => {
     expect(within(row).queryByRole("button", { name: "Open" })).toBeNull();
     fireEvent.click(title);
 
-    expect(await screen.findByDisplayValue("normaliser")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "normaliser" })).toBeInTheDocument();
   });
 });
 
@@ -83,6 +96,7 @@ describe("ChainScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
       [`PUT ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
     });
@@ -104,11 +118,14 @@ describe("ChainScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
       [`PUT ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
     });
     openChain();
-    const field = await screen.findByDisplayValue("normaliser");
+    // Le label de la chaîne : le seul champ restant sur cet écran depuis que les étapes
+    // sont des lignes (24/10/2026).
+    const field = await screen.findByDisplayValue("Import des comptes");
     // En haut à droite : dans l'en-tête de la page, avec le titre (caad743d).
     const head = screen.getByRole("heading", { level: 1 }).closest(".page-head") as HTMLElement;
     expect(within(head).getByRole("button", { name: "Save the chain" })).toBeInTheDocument();
@@ -124,6 +141,10 @@ describe("ChainScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: {
+        status: 200,
+        body: { sample: '{"colis": {"ref": "C-42"}}' },
+      },
       "POST /api/transformations/check": {
         status: 200,
         body: {
@@ -135,8 +156,9 @@ describe("ChainScreen", () => {
       },
     });
     openChain();
-    await screen.findByText("Run");
-    fill("Sample message (JSON, optional)", '{"colis": {"ref": "C-42"}}');
+    // L'échantillon vient du serveur : on attend qu'il soit là, sinon l'essai partirait
+    // sur rien et le test passerait pour une mauvaise raison.
+    await screen.findByText(/Saved —/);
 
     fireEvent.click(screen.getByText("Run"));
 
@@ -153,6 +175,7 @@ describe("ChainScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: "{" } },
       [`PUT ${ROUTE}/comptes-import${Q}`]: {
         status: 422,
         body: {
@@ -166,8 +189,7 @@ describe("ChainScreen", () => {
       },
     });
     openChain();
-    await screen.findByText("Run");
-    fill("Sample message (JSON, optional)", "{ pas du json");
+    // L'échantillon enregistré est illisible : l'écran le dit avant qu'on tente l'essai.
     expect(await screen.findByText("The sample is not valid JSON.")).toBeInTheDocument();
     expect(screen.getByText("Run")).toBeDisabled();
 
@@ -182,6 +204,7 @@ describe("ChainScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
       [`DELETE ${ROUTE}/comptes-import${Q}`]: { status: 204 },
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
     });
@@ -193,5 +216,111 @@ describe("ChainScreen", () => {
 
     expect(await screen.findByText("No transformation chain on this branch.")).toBeInTheDocument();
     expect(calls.some((c) => c.key === `DELETE ${ROUTE}/comptes-import${Q}`)).toBe(true);
+  });
+});
+
+describe("test source sample (24/10/2026)", () => {
+  it("is saved from a window that then gives way to a single line", async () => {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: [
+        { status: 200, body: { sample: null } },
+        { status: 200, body: { sample: '{"colis": 1}' } },
+      ],
+      [`PUT ${ROUTE}/comptes-import/sample${Q}`]: {
+        status: 200,
+        body: { sample: '{"colis": 1}' },
+      },
+    });
+    openChain();
+
+    fireEvent.click(await screen.findByText("Save a sample"));
+    fill("Sample message (JSON, optional)", '{"colis": 1}');
+    fireEvent.click(screen.getByText("Save the sample"));
+
+    // La fenêtre s'efface, il ne reste qu'une ligne.
+    expect(await screen.findByText(/Saved —/)).toBeInTheDocument();
+    expect(screen.queryByText("Save the sample")).toBeNull();
+    expect(calls.find((c) => c.key === `PUT ${ROUTE}/comptes-import/sample${Q}`)?.body).toEqual({
+      sample: '{"colis": 1}',
+    });
+  });
+
+  it("pastes from the clipboard, and says so when the browser refuses", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
+    });
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      clipboard: { readText: () => Promise.reject(new Error("refusé")) },
+    });
+    openChain();
+
+    fireEvent.click(await screen.findByText("Save a sample"));
+    fireEvent.click(screen.getByText("Paste from the clipboard"));
+
+    // Le refus se dit : la saisie à la main reste possible, encore faut-il le savoir.
+    expect(await screen.findByText(/refused to read the clipboard/)).toBeInTheDocument();
+  });
+});
+
+const SAVED = {
+  ...CHAIN,
+  steps: CHAIN.steps.map((s, i) => (i === 0 ? { ...s, template: '{ "ref": 1 }' } : s)),
+};
+
+describe("step page (24/10/2026)", () => {
+  it("opens from the whole row, the template having left the chain screen", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
+    });
+    openChain();
+
+    // Le template n'est plus sur l'écran de la chaîne.
+    expect(await screen.findByRole("button", { name: "normaliser" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("JSLT template")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "normaliser" }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "normaliser" })).toBeInTheDocument();
+    expect(screen.getByLabelText("JSLT template")).toHaveValue('{ "ref": $.colis.ref }');
+  });
+
+  it("saves the step through the whole chain, the step having no life of its own", async () => {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${ROUTE}/comptes-import${Q}`]: [
+        { status: 200, body: CHAIN },
+        // Après enregistrement, le serveur rend la chaîne telle qu'il l'a écrite.
+        { status: 200, body: SAVED },
+      ],
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
+      [`PUT ${ROUTE}/comptes-import${Q}`]: { status: 200, body: SAVED },
+    });
+    renderWorkspaces({
+      id: "retrait",
+      view: "transformations",
+      branch: "edition",
+      chain: "comptes-import",
+      step: "normaliser",
+    });
+
+    await screen.findByLabelText("JSLT template");
+    fill("JSLT template", '{ "ref": 1 }');
+    fireEvent.click(screen.getByText("Save the chain"));
+
+    expect(await screen.findByText("Chain saved.")).toBeInTheDocument();
+    const body = calls.find((c) => c.key === `PUT ${ROUTE}/comptes-import${Q}`)?.body as {
+      steps: { name: string; template: string }[];
+    };
+    expect(body.steps.map((s) => s.template)).toEqual(['{ "ref": 1 }', '"ok"']);
   });
 });

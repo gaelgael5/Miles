@@ -8,6 +8,9 @@ export interface ChainStep {
   name: string;
   template: string;
   target: string | null;
+  /** URI des modèles que l'étape lit et produit ; null tant qu'ils ne sont pas choisis. */
+  source_model: string | null;
+  destination_model: string | null;
 }
 
 export interface Chain {
@@ -48,6 +51,33 @@ export interface ChainCheck {
 
 function key(target: WorkTarget) {
   return branchKey("chains", target);
+}
+
+/** L'échantillon source de test : en base, jamais dans git (Gael, 24/10/2026). */
+export function useChainSample(target: WorkTarget, slug: string) {
+  return useQuery({
+    queryKey: [...branchKey("chain-sample", target), slug],
+    queryFn: ({ signal }) =>
+      request<{ sample: string | null }>(sampleRoute(target, slug), { signal }),
+  });
+}
+
+export function useSaveChainSample(target: WorkTarget, slug: string) {
+  const client = useQueryClient();
+  return useMutation({
+    // null efface : l'écran n'a pas besoin d'un second geste pour retirer l'échantillon.
+    mutationFn: (sample: string | null) =>
+      request<{ sample: string | null }>(sampleRoute(target, slug), {
+        method: "PUT",
+        body: JSON.stringify({ sample }),
+      }),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: [...branchKey("chain-sample", target), slug] }),
+  });
+}
+
+function sampleRoute(target: WorkTarget, slug: string) {
+  return atBranch(target, "transformations", slug, "sample");
 }
 
 export function useChains(target: WorkTarget, enabled = true) {

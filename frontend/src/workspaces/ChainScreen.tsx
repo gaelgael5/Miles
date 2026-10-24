@@ -6,15 +6,19 @@ import {
   type ChainStep,
   type StepProblem,
   useChain,
+  useChainSample,
   useCheckChain,
   useDeleteChain,
   useSaveChain,
+  useSaveChainSample,
 } from "../api/chains";
 import { ApiError } from "../api/http";
 import type { WorkTarget } from "../api/workTarget";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
-import { ChainStepsEditor } from "./ChainStepsEditor";
+import { ChainSample } from "./ChainSample";
+import { ChainStepScreen } from "./ChainStepScreen";
+import { ChainSteps } from "./ChainSteps";
 
 function savedProblems(error: unknown): StepProblem[] {
   if (error instanceof ApiError && typeof error.detail === "object" && error.detail !== null) {
@@ -38,17 +42,29 @@ function parsedSample(text: string): { value: unknown } | null {
   }
 }
 
-function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain; onDeleted: () => void }) {
+function Editor({
+  target,
+  chain,
+  onDeleted,
+  onOpenStep,
+}: {
+  target: WorkTarget;
+  chain: Chain;
+  onDeleted: () => void;
+  onOpenStep: (name: string | null) => void;
+}) {
   const { t } = useTranslation();
   const save = useSaveChain(target, chain.slug);
   const check = useCheckChain();
   const remove = useDeleteChain(target, chain.slug);
+  const stored = useChainSample(target, chain.slug);
+  const saveSample = useSaveChainSample(target, chain.slug);
   // Semé une fois depuis la chaîne lue : l'écran est remonté (clé) quand la chaîne change.
   const [label, setLabel] = useState(chain.label);
   const [steps, setSteps] = useState<ChainStep[]>(chain.steps);
-  const [sample, setSample] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const sampleValue = parsedSample(sample);
+  const sample = stored.data?.sample ?? null;
+  const sampleValue = parsedSample(sample ?? "");
   const problems = [...savedProblems(save.error), ...(check.data?.problems ?? [])];
 
   function saveChain() {
@@ -99,13 +115,14 @@ function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain
         {t("chains.fields.label")}
         <input required readOnly={target.readOnly} value={label} onChange={(e) => setLabel(e.target.value)} />
       </label>
-      <ChainStepsEditor steps={steps} problems={problems} readOnly={target.readOnly} onChange={setSteps} />
       <section className="card" aria-labelledby="chain-test">
         <h2 id="chain-test">{t("chains.editor.test")}</h2>
-        <label className="field">
-          {t("chains.fields.sample")}
-          <textarea rows={6} spellCheck={false} value={sample} onChange={(e) => setSample(e.target.value)} />
-        </label>
+        <ChainSample
+          sample={sample}
+          readOnly={target.readOnly}
+          pending={saveSample.isPending}
+          onSave={(next) => saveSample.mutate(next)}
+        />
         {sampleValue === null && <p className="alert" role="alert">{t("chains.editor.sampleInvalid")}</p>}
         <div className="actions">
           <button type="button" className="btn btn-secondary" disabled={sampleValue === null || check.isPending} onClick={test}>
@@ -132,6 +149,14 @@ function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain
           </ol>
         )}
       </section>
+      <ChainSteps
+        target={target}
+        steps={steps}
+        problems={problems}
+        readOnly={target.readOnly}
+        onChange={setSteps}
+        onOpen={onOpenStep}
+      />
       {/* L'essai sur échantillon reste offert sur la racine : il n'écrit rien. */}
       {!target.readOnly && (
         <div className="actions">
@@ -162,14 +187,30 @@ function Editor({ target, chain, onDeleted }: { target: WorkTarget; chain: Chain
 export function ChainScreen({
   target,
   slug,
+  step,
+  onOpenStep,
   onBack,
 }: {
   target: WorkTarget;
   slug: string;
+  /** Étape ouverte en page pleine ; absente : la chaîne elle-même. */
+  step?: string;
+  onOpenStep: (name: string | null) => void;
   onBack: () => void;
 }) {
   const { t } = useTranslation();
   const chain = useChain(target, slug);
+  const opened = chain.data?.steps.find((s) => s.name === step);
+  if (chain.data && step !== undefined && opened !== undefined) {
+    return (
+      <ChainStepScreen
+        target={target}
+        chain={chain.data}
+        step={opened}
+        onBack={() => onOpenStep(null)}
+      />
+    );
+  }
 
   return (
     <section aria-labelledby="chain-title">
@@ -183,7 +224,15 @@ export function ChainScreen({
       )}
       {chain.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
       {chain.isError && <p className="alert" role="alert">{t("chains.errors.unreadable")}</p>}
-      {chain.data && <Editor key={slug} target={target} chain={chain.data} onDeleted={onBack} />}
+      {chain.data && (
+        <Editor
+          key={slug}
+          target={target}
+          chain={chain.data}
+          onDeleted={onBack}
+          onOpenStep={onOpenStep}
+        />
+      )}
     </section>
   );
 }

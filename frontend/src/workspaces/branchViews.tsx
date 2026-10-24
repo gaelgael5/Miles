@@ -56,7 +56,7 @@ function viewScreen(
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.
-  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.source ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}`;
+  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.step ?? ""}/${selection.source ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}`;
   if (selection.view === "contracts" && selection.contract !== undefined) {
     return (
       <ContractScreen
@@ -84,6 +84,16 @@ function viewScreen(
         key={key}
         target={target}
         slug={selection.chain}
+        step={selection.step}
+        onOpenStep={(step) =>
+          onSelect({
+            id: workspace.id,
+            view: "transformations",
+            branch,
+            chain: selection.chain,
+            step: step ?? undefined,
+          })
+        }
         onBack={() => onSelect({ id: workspace.id, view: "transformations", branch })}
       />
     );

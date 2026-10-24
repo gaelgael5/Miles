@@ -130,6 +130,9 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
   border-bottom: 1px solid var(--bordure-carte); align-items: flex-start;
 }
 .row:last-child { border-bottom: none; }
+/* Ligne de l'échantillon de test : seule dans sa carte, elle n'a pas de voisine
+   dont la séparer. */
+.row-sample { border-bottom: none; padding-left: 0; padding-right: 0; }
 .row-main { flex: 999 1 260px; min-width: 0; }
 .row-title { font-size: 16px; font-weight: 600; }
 /* Ligne ouvrable (fbe9b512) : le bouton du titre couvre la ligne ; les actions et les
