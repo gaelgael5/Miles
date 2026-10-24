@@ -247,6 +247,19 @@ export function WorkspaceSettings({
             {t("branches.add")}
           </button>
         )}
+        {/* Dans le même bloc que le bouton qui l'ouvre (Gael, 24/10/2026) : en frère de la
+            carte, il s'affichait tout en bas de l'écran, sous la suppression. */}
+        {branching && (
+          <BranchForm
+            workspace={workspace}
+            onDone={(slug) => {
+              setBranching(false);
+              if (slug) {
+                onOpenBranch?.(slug);
+              }
+            }}
+          />
+        )}
       </div>
       {/* Suppression en dernier, et derrière une confirmation : elle fait disparaître le
           workspace du back-office. Le dépôt git n'est jamais touché, et le texte le dit. */}
@@ -275,17 +288,6 @@ export function WorkspaceSettings({
         >
           <p>{t("workspaces.delete.confirm", { name: workspace.name })}</p>
         </ConfirmDialog>
-      )}
-      {branching && (
-        <BranchForm
-          workspace={workspace}
-          onDone={(slug) => {
-            setBranching(false);
-            if (slug) {
-              onOpenBranch?.(slug);
-            }
-          }}
-        />
       )}
     </section>
   );

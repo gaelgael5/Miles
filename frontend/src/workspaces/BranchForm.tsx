@@ -58,8 +58,10 @@ export function BranchForm({
   }
 
   return (
-    <form className="card" onSubmit={submit} aria-label={t("branches.form.title")}>
-      <h2>{t("branches.form.title", { name: workspace.name })}</h2>
+    // Rendu DANS la carte « Branche de travail », d'où l'absence de `card` ici et le
+    // titre de second rang : deux cartes imbriquées empileraient leurs cadres.
+    <form onSubmit={submit} aria-label={t("branches.form.title")}>
+      <h3>{t("branches.form.title", { name: workspace.name })}</h3>
       <p className="help">{t("branches.form.from", { branch: workspace.work_branch ?? "" })}</p>
       <label className="field">
         {t("branches.fields.label")}
