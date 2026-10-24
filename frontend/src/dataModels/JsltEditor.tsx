@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 
+import { runsOn } from "./jsltKeys";
+
 /** Assets du composant, servis par Miles lui-même (voir app.py), jamais par un CDN. */
 const ASSETS = "/api/jslt-editor";
 const CATALOG = "/api/jslt-functions";
@@ -44,6 +46,10 @@ type EditorElement = HTMLElement & {
  *
  * Tab est géré par le composant lui-même (deux espaces, ou acceptation de la suggestion
  * quand l'auto-complétion est ouverte). F5 ne l'est pas : on l'ajoute ici.
+ *
+ * Les chemins du document source sont passés par `setPaths` (composant >= 0.2.0). La
+ * garde porte bien sur `setPaths` et non sur la propriété `paths` : en 0.1.1, affecter
+ * `paths` ne lèverait pas mais resterait sans effet — un test qui passe pour rien.
  */
 export default function JsltEditor({
   value,
@@ -83,7 +89,7 @@ export default function JsltEditor({
       element.value = value;
       element.addEventListener("input", () => changed.current(element.value));
       element.addEventListener("keydown", (event) => {
-        if ((event as KeyboardEvent).key === "F5") {
+        if (runsOn(event as KeyboardEvent)) {
           // Sans cela, F5 recharge la page et perd le template en cours.
           event.preventDefault();
           run.current?.();
