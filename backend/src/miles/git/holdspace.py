@@ -128,6 +128,19 @@ class HoldSpaces:
             copy.head = await _rev(copy, "HEAD")
             yield copy
 
+    async def forget(self, workspace_id: str) -> None:
+        """Retire les espaces de prise de main de ce workspace.
+
+        Appelé après la suppression du workspace, qui refuse tant qu'une branche est
+        tenue : ce qui reste ici est donc publié ou rangé sur la forge.
+        """
+        if not SEGMENT_RE.match(workspace_id):
+            raise ValueError("segment d'espace de prise de main invalide")
+        target = (self.root / workspace_id).resolve()
+        if not target.is_relative_to(self.root.resolve()):
+            raise ValueError("espace de prise de main hors du volume")
+        await asyncio.to_thread(shutil.rmtree, target, True)
+
     async def discard(self, workspace_id: str, slug: str) -> None:
         directory = self.directory(workspace_id, slug)
         async with self._locks.setdefault(directory, asyncio.Lock()):

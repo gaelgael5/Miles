@@ -97,7 +97,8 @@ async def test_missing_branch_is_named_and_never_recreated(tmp_path: Path) -> No
     repo, _ = _remote(tmp_path)
 
     with pytest.raises(BranchMissingError):
-        async with WorkDirs(tmp_path / "volume").checkout(repo, TOKEN, "retrait", "back/retrait/absente"):
+        dirs = WorkDirs(tmp_path / "volume")
+        async with dirs.checkout(repo, TOKEN, "retrait", "back/retrait/absente"):
             pass
 
     assert "back/retrait/absente" not in _git("-C", repo.url.removeprefix("file://"), "branch")

@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "../test/mockApi";
@@ -155,6 +155,49 @@ describe("WorkspaceSettings", () => {
     expect(calls.find((c) => c.key === "PUT /api/workspaces/retrait/security-service")?.body).toEqual({
       security_service_id: "racine",
     });
+  });
+});
+
+describe("deleting a workspace", () => {
+  it("asks for confirmation, then forgets it and returns to the list", async () => {
+    const calls = mockApi({
+      "GET /api/workspaces": [
+        { status: 200, body: [CONFIGURED] },
+        { status: 200, body: [] },
+      ],
+      "DELETE /api/workspaces/retrait": { status: 204, body: undefined },
+      ...SETTINGS,
+    });
+    renderScreen();
+    await openSettings();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete the workspace" }));
+    const dialog = await screen.findByRole("dialog");
+    // Rien n'est envoyé tant que la confirmation n'est pas donnée.
+    expect(calls.some((c) => c.key === "DELETE /api/workspaces/retrait")).toBe(false);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete the workspace" }));
+
+    expect(await screen.findByText("No workspace yet.")).toBeInTheDocument();
+    expect(calls.some((c) => c.key === "DELETE /api/workspaces/retrait")).toBe(true);
+  });
+
+  it("names who holds a branch instead of losing their unpublished work", async () => {
+    mockApi({
+      "GET /api/workspaces": { status: 200, body: [CONFIGURED] },
+      "DELETE /api/workspaces/retrait": {
+        status: 409,
+        body: { detail: { code: "branche_tenue", by: "Bob Martin (bob)" } },
+      },
+      ...SETTINGS,
+    });
+    renderScreen();
+    await openSettings();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete the workspace" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete the workspace" }));
+
+    expect(await screen.findByText(/Bob Martin \(bob\) holds a branch/)).toBeInTheDocument();
   });
 });
 

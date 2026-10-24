@@ -77,7 +77,10 @@ async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
     # Écrit hors de Miles, directement sur la forge : un modèle qui désigne un absent.
     written = await forge.api.post(
         f"/api/v1/repos/miles/{forge.name}/contents/shared/messages/colis.yaml",
-        json={"branch": "back/retrait/edition", "content": base64.b64encode(COLIS.encode()).decode()},
+        json={
+            "branch": "back/retrait/edition",
+            "content": base64.b64encode(COLIS.encode()).decode(),
+        },
     )
     assert written.status_code == 201, written.text
 

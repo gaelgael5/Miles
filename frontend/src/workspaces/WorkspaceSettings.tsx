@@ -8,12 +8,14 @@ import {
   type AccessReport,
   type Workspace,
   newVerificationSuffix,
+  useDeleteWorkspace,
   useRecheckWorkspace,
   useSetRepository,
   useSetSecurityService,
   verificationBranch,
 } from "../api/workspaces";
 import { AccessReportView } from "./AccessReportView";
+import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { BranchForm } from "./BranchForm";
 import { HoldControl } from "./HoldControl";
 import { WorkBranchPanel } from "./WorkBranchPanel";
@@ -186,6 +188,17 @@ function SecurityCard({ workspace }: { workspace: Workspace }) {
 }
 
 /** Sous-écran « Paramétrage » d'un workspace : tout ce que la création ne demande plus. */
+/** Le seul refus propre à la suppression nomme qui tient une branche (branche_tenue). */
+function deleteError(error: unknown): { key: string; by?: string } {
+  if (error instanceof ApiError && error.status === 409) {
+    const detail = error.detail as { code?: string; by?: string } | undefined;
+    if (detail?.code === "branche_tenue") {
+      return { key: "workspaces.delete.held", by: detail.by };
+    }
+  }
+  return { key: "workspaces.delete.failed" };
+}
+
 export function WorkspaceSettings({
   workspace,
   onBack,
@@ -198,6 +211,8 @@ export function WorkspaceSettings({
 }) {
   const { t } = useTranslation();
   const [branching, setBranching] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const remove = useDeleteWorkspace();
   return (
     <section aria-labelledby="workspace-settings-title">
       <button type="button" className="btn btn-secondary back" onClick={onBack}>
@@ -233,6 +248,34 @@ export function WorkspaceSettings({
           </button>
         )}
       </div>
+      {/* Suppression en dernier, et derrière une confirmation : elle fait disparaître le
+          workspace du back-office. Le dépôt git n'est jamais touché, et le texte le dit. */}
+      <div className="card">
+        <h2>{t("workspaces.delete.title")}</h2>
+        <p className="muted">{t("workspaces.delete.explain")}</p>
+        {remove.isError && (
+          <p className="alert" role="alert">
+            {t(deleteError(remove.error).key, { by: deleteError(remove.error).by })}
+          </p>
+        )}
+        <button type="button" className="btn btn-danger" onClick={() => setConfirming(true)}>
+          {t("workspaces.delete.action")}
+        </button>
+      </div>
+      {confirming && (
+        <ConfirmDialog
+          title={t("workspaces.delete.title")}
+          confirmLabel={t("workspaces.delete.action")}
+          cancelLabel={t("workspaces.delete.cancel")}
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => {
+            setConfirming(false);
+            remove.mutate(workspace.id, { onSuccess: onBack });
+          }}
+        >
+          <p>{t("workspaces.delete.confirm", { name: workspace.name })}</p>
+        </ConfirmDialog>
+      )}
       {branching && (
         <BranchForm
           workspace={workspace}

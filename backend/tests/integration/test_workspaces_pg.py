@@ -302,6 +302,40 @@ async def test_connection_in_use_cannot_be_deleted_nor_its_token(forge: Forge) -
     assert token.json()["detail"]["consumers"] == [{"kind": "git_connection", "id": "forge"}]
 
 
+async def test_deleting_a_workspace_forgets_it_without_touching_the_repository(
+    forge: Forge,
+) -> None:
+    """Suppression côté back-office : Miles oublie, le dépôt garde tout."""
+    url = await forge.repo()
+    await _with_repo(forge, url)
+    await _open(forge)
+    branches_before = set(await forge.branches(url))
+
+    deleted = await forge.client.delete(f"{ROUTE}/retrait", timeout=120)
+    listed = await forge.client.get(ROUTE)
+
+    assert deleted.status_code == 204, deleted.text
+    assert listed.json() == []
+    # Le dépôt n'est pas une donnée de Miles : ses branches sont intactes.
+    assert set(await forge.branches(url)) == branches_before
+    # La cascade a bien emporté ce qui pendait au workspace.
+    rows = await forge.portal.pool.fetchval(
+        "SELECT count(*) FROM workspace_work_branches WHERE workspace_id = $1", "retrait"
+    )
+    assert rows == 0
+    # Le journal garde la trace de ce qui a disparu.
+    kept = await forge.portal.pool.fetchval(
+        "SELECT count(*) FROM events WHERE type = 'workspace.deleted'"
+    )
+    assert kept == 1
+
+
+async def test_deleting_an_unknown_workspace_is_a_named_refusal(forge: Forge) -> None:
+    refused = await forge.client.delete(f"{ROUTE}/fantome")
+
+    assert (refused.status_code, refused.json()["detail"]) == (404, "workspace_inconnu")
+
+
 async def _open(
     forge: Forge, name: str = "atelier", *, adopt: bool | None = None
 ) -> httpx.Response:

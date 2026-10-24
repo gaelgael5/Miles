@@ -398,6 +398,15 @@
       "saveSecurity": "Save",
       "saved": "Saved.",
       "needsRepository": "Save a repository first: the work branch opens in it."
+    },
+    "delete": {
+      "title": "Delete the workspace",
+      "explain": "Miles forgets this workspace: its git repository and all its branches are left intact. Declaring it again on the same address finds everything back.",
+      "action": "Delete the workspace",
+      "cancel": "Cancel",
+      "confirm": "Delete “{{name}}” from the back office? The git repository is not touched.",
+      "held": "{{by}} holds a branch: their unpublished work would be lost. Have them publish or release it, or unlock them first.",
+      "failed": "The deletion failed."
     }
   },
   "gitConnections": {

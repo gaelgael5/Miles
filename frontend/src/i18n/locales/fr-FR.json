@@ -398,6 +398,15 @@
       "saveSecurity": "Enregistrer",
       "saved": "Enregistré.",
       "needsRepository": "Enregistrez d'abord un dépôt : la branche de travail s'y ouvre."
+    },
+    "delete": {
+      "title": "Supprimer le workspace",
+      "explain": "Miles oublie ce workspace : son dépôt git et toutes ses branches restent intacts. Le déclarer à nouveau sur la même adresse y retrouve tout.",
+      "action": "Supprimer le workspace",
+      "cancel": "Annuler",
+      "confirm": "Supprimer « {{name}} » du back-office ? Le dépôt git n'est pas touché.",
+      "held": "{{by}} a la main sur une branche : son travail non publié serait perdu. Qu'il publie ou relâche, ou déverrouillez-le d'abord.",
+      "failed": "La suppression a échoué."
     }
   },
   "gitConnections": {

@@ -13,7 +13,9 @@ from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.access import GitAccess
 from miles.git.forge import Repository, RepositoryUrlError, parse_repository, repository_under
+from miles.git.holdspace import HoldSpaces
 from miles.git.rights import SUFFIX_RE, AccessReport, run_access_check
+from miles.git.workdirs import WorkDirs
 from miles.git.worktree import (
     BranchExistsError,
     RepositoryAccessError,
@@ -23,9 +25,11 @@ from miles.git.worktree import (
 from miles.gitaccess.model import GitAccessError
 from miles.gitaccess.resolver import AccessResolver
 from miles.oidc.model import CONNECTOR_ID_RE
+from miles.workshop.holds_db import db_holds
 from miles.workspaces.model import (
     CHECKED_EVENT,
     CREATED_EVENT,
+    DELETED_EVENT,
     NAME_MAX,
     REPOSITORY_EVENT,
     SECURITY_SERVICE_EVENT,
@@ -35,6 +39,7 @@ from miles.workspaces.model import (
     RepositoryUnavailableError,
     Workspace,
     WorkspaceConflictError,
+    WorkspaceHeldError,
     WorkspaceInputError,
     WorkspaceNotFoundError,
     check_summary,
@@ -58,6 +63,10 @@ class WorkspacesService:
     resolver: AccessResolver
     catalog: EventTypeCatalog
     now: Callable[[], datetime]
+    # Volumes des copies de travail : la suppression d'un workspace doit pouvoir les
+    # oublier, sinon le disque garde des dossiers que plus rien ne nomme.
+    workdirs: WorkDirs
+    holds: HoldSpaces
     # Hôtes git admis en plus de GitHub : la forge jetable des tests seulement.
     extra_git_hosts: Sequence[str] = ()
 
@@ -70,6 +79,31 @@ class WorkspacesService:
         if row is None:
             raise WorkspaceNotFoundError(workspace_id)
         return workspace_from_row(row)
+
+    async def resolve_delete(self, author: EventAuthor, workspace_id: str) -> None:
+        """Oublie le workspace ; le dépôt git et ses branches ne sont jamais touchés.
+
+        Miles cesse de connaître le workspace : c'est une suppression côté back-office,
+        pas une destruction de paramétrage. Le dépôt reste tel quel, et déclarer à
+        nouveau un workspace sur la même adresse y retrouve tout.
+        """
+        workspace = await self.resolve_get(workspace_id)
+        # Les prises de main portent des commits LOCAUX non publiés : la cascade les
+        # effacerait sans un mot. On refuse tant que quelqu'un tient une branche.
+        held = await db_holds(self.pool, workspace_id)
+        if held:
+            raise WorkspaceHeldError(held[0].holder_label)
+        async with self.pool.acquire() as conn, conn.transaction():
+            # L'event est écrit AVANT la suppression : il référence le workspace, et le
+            # journal doit garder la trace de ce qui a disparu.
+            properties = {"name": workspace.name, "repo_url": workspace.repo_url}
+            await self._event(conn, DELETED_EVENT, workspace_id, author, properties)
+            await conn.execute("DELETE FROM workspaces WHERE id = $1", workspace_id)
+        # Hors transaction : le workspace est supprimé, et un volume qui résiste ne doit
+        # pas ressusciter une ligne déjà effacée. Le dossier restant est un cache.
+        await self.workdirs.forget(workspace_id)
+        await self.holds.forget(workspace_id)
+        log.info("workspace_supprime", workspace=workspace_id)
 
     async def resolve_create(
         self, author: EventAuthor, workspace_id: str, name: str

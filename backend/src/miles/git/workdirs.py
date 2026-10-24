@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import shutil
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -48,6 +49,20 @@ class WorkDirs:
         if not target.is_relative_to(self.root.resolve()):
             raise ValueError("copie de travail hors du volume")
         return target
+
+    async def forget(self, workspace_id: str) -> None:
+        """Retire les copies persistantes de ce workspace du volume.
+
+        Ce ne sont que des caches : git fait foi, et chaque geste repart de la tête
+        distante. Les laisser après la suppression du workspace remplirait le volume de
+        dossiers que plus rien ne nomme.
+        """
+        if not SEGMENT_RE.match(workspace_id):
+            raise ValueError("segment de copie de travail invalide")
+        target = (self.root / workspace_id).resolve()
+        if not target.is_relative_to(self.root.resolve()):
+            raise ValueError("copie de travail hors du volume")
+        await asyncio.to_thread(shutil.rmtree, target, True)
 
     @asynccontextmanager
     async def checkout(

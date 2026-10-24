@@ -95,14 +95,16 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.git_connections = ConnectionsService(
         portal.pool, resolver, verifier, catalog, utc_now, hosts
     )
-    state.workspaces = WorkspacesService(portal.pool, resolver, catalog, utc_now, hosts)
     # Copies de travail dans un dossier jetable propre à l'exécution, comme le volume en service.
-    state.git_identities = GitIdentitiesService(
-        portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts
-    )
     volume = Path(tempfile.mkdtemp(prefix="miles-it-workdirs-"))
     workdirs = WorkDirs(volume)
     holds = HoldSpaces(volume / HOLDS_DIR)
+    state.workspaces = WorkspacesService(
+        portal.pool, resolver, catalog, utc_now, workdirs, holds, hosts
+    )
+    state.git_identities = GitIdentitiesService(
+        portal.pool, cipher, httpx.AsyncClient(), catalog, utc_now, hosts
+    )
     branches = WorkBranches(
         portal.pool, state.workspaces, resolver, workdirs, holds, state.git_identities, hosts
     )

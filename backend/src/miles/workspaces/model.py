@@ -15,8 +15,16 @@ CHECKED_EVENT = "workspace.access_checked"
 WORK_BRANCH_EVENT = "workspace.work_branch_opened"
 REPOSITORY_EVENT = "workspace.repository_set"
 SECURITY_SERVICE_EVENT = "workspace.security_service_set"
+DELETED_EVENT = "workspace.deleted"
 EVENT_TYPES = frozenset(
-    {CREATED_EVENT, CHECKED_EVENT, WORK_BRANCH_EVENT, REPOSITORY_EVENT, SECURITY_SERVICE_EVENT}
+    {
+        CREATED_EVENT,
+        CHECKED_EVENT,
+        WORK_BRANCH_EVENT,
+        REPOSITORY_EVENT,
+        SECURITY_SERVICE_EVENT,
+        DELETED_EVENT,
+    }
 )
 NAME_MAX = 200
 SELECT = (
@@ -56,6 +64,19 @@ class BranchNotFoundError(WorkspaceNotFoundError):
     Fille de WorkspaceNotFoundError pour que tout point d'entrée de l'atelier la refuse
     déjà ; chacun la nomme avant le cas général, sinon elle se lirait « workspace inconnu ».
     """
+
+
+class WorkspaceHeldError(WorkspaceConflictError):
+    """Suppression retenue : quelqu'un a la main sur une branche du workspace.
+
+    Les prises de main portent du travail local non publié ; les laisser tomber en
+    cascade le perdrait sans rien dire. On nomme le porteur pour qu'il puisse publier
+    ou relâcher (ou l'administrateur déverrouiller, ce qui range le travail).
+    """
+
+    def __init__(self, holder: str) -> None:
+        super().__init__("branche_tenue")
+        self.holder = holder
 
 
 class HoldRequiredError(WorkspaceConflictError):

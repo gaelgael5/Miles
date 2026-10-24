@@ -149,14 +149,16 @@ def create_app() -> FastAPI:
         app.state.git_connections = ConnectionsService(
             pool, resolver, verifier, catalog, utc_now, git_hosts
         )
-        app.state.workspaces = WorkspacesService(pool, resolver, catalog, utc_now, git_hosts)
-        app.state.git_identities = GitIdentitiesService(
-            pool, cipher, http, catalog, utc_now, git_hosts
-        )
         workdirs = WorkDirs(settings.workcopies_dir)
         # Espaces de prise de main sur le même volume, à part des copies de lecture : un
         # identifiant de workspace ne commence jamais par « _ », aucun ne s'y confond.
         holds = HoldSpaces(settings.workcopies_dir / HOLDS_DIR)
+        app.state.workspaces = WorkspacesService(
+            pool, resolver, catalog, utc_now, workdirs, holds, git_hosts
+        )
+        app.state.git_identities = GitIdentitiesService(
+            pool, cipher, http, catalog, utc_now, git_hosts
+        )
         branches = WorkBranches(
             pool,
             app.state.workspaces,

@@ -171,7 +171,8 @@ async def test_referenced_model_cannot_be_deleted_until_its_user_is(forge: Forge
 
 
 async def test_missing_work_branch_is_refused_without_creating_one(forge: Forge) -> None:
-    deleted = await forge.api.delete(f"/api/v1/repos/miles/{forge.name}/branches/back/retrait/edition")
+    route = f"/api/v1/repos/miles/{forge.name}/branches/back/retrait/edition"
+    deleted = await forge.api.delete(route)
     assert deleted.status_code == 204
 
     refused = await _create(forge, PERSONNE)

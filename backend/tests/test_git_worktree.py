@@ -21,6 +21,7 @@ from miles.secrets.model import Secret
 TOKEN = GitAccess(token=Secret("jeton-local"))
 # Les branches vivent sous « back/<workspace>/ » : le workspace fait partie du nom.
 WORKSPACE = "retrait"
+BRANCH = f"back/{WORKSPACE}/atelier"
 AUTHOR = "admin via Miles <admin@local.miles.invalid>"
 VALID_MANIFEST = json.dumps({"format_version": 1, "min_app_version": None, "capabilities": []})
 
@@ -134,7 +135,8 @@ async def test_non_conform_repository_is_diagnosed_and_left_untouched(
         env_dirs,
         manifest,
     )
-    assert "back/retrait/atelier" not in _git("--git-dir", repo.url.removeprefix("file://"), "branch")
+    branches = _git("--git-dir", repo.url.removeprefix("file://"), "branch")
+    assert BRANCH not in branches
 
 
 async def test_existing_branch_name_is_refused_without_touching_it(tmp_path: Path) -> None:
@@ -151,7 +153,7 @@ async def test_existing_branch_name_is_refused_without_touching_it(tmp_path: Pat
 async def test_existing_conform_branch_is_taken_over_without_writing_to_it(tmp_path: Path) -> None:
     repo = _repo(tmp_path, {})
     await open_work_branch(repo, TOKEN, WORKSPACE, "atelier", AUTHOR)
-    before_count, before_tree = _count(repo, "back/retrait/atelier"), _tree(repo, "back/retrait/atelier")
+    before_count, before_tree = _count(repo, BRANCH), _tree(repo, BRANCH)
 
     opened = await open_work_branch(repo, TOKEN, WORKSPACE, "atelier", AUTHOR, adopt_existing=True)
 
@@ -174,7 +176,7 @@ async def test_taking_over_keeps_the_branch_content_not_the_default_branch(tmp_p
 
     assert opened.outcome == "reprise"
     # Partir de la branche par défaut l'écraserait à la poussée : c'est le défaut guetté.
-    assert _tree(repo, "back/retrait/atelier") == ["domains/depuis-la-branche/.gitkeep", "manifest.json"]
+    assert _tree(repo, BRANCH) == ["domains/depuis-la-branche/.gitkeep", "manifest.json"]
 
 
 async def test_taking_over_a_blank_branch_gives_it_the_skeleton(tmp_path: Path) -> None:
@@ -217,7 +219,7 @@ async def test_taking_over_a_branch_that_vanished_opens_it_normally(tmp_path: Pa
 async def test_a_branch_whose_name_merely_starts_the_same_is_not_mistaken_for_it(
     tmp_path: Path,
 ) -> None:
-    """« back/retrait/atelier » n'existe pas parce que « back/retrait/atelier-bis » existe (relevé en revue).
+    """La branche n'existe pas parce qu'une homonyme plus longue existe (relevé en revue).
 
     La confusion rendait la branche inouvrable : refus à l'ouverture, puis échec d'accès
     à la reprise, le clone visant une branche absente.
@@ -228,6 +230,7 @@ async def test_a_branch_whose_name_merely_starts_the_same_is_not_mistaken_for_it
     opened = await open_work_branch(repo, TOKEN, WORKSPACE, "atelier", AUTHOR)
 
     assert (opened.branch, opened.outcome) == ("back/retrait/atelier", "initialisee")
+
 
 async def test_unreachable_repository_designates_access(tmp_path: Path) -> None:
     repo = Repository(f"file://{tmp_path / 'disparu.git'}", "x", "disparu")

@@ -14,6 +14,7 @@ from miles.workspaces.model import (
     RepositoryUnavailableError,
     Workspace,
     WorkspaceConflictError,
+    WorkspaceHeldError,
     WorkspaceInputError,
     WorkspaceNotFoundError,
     report_json,
@@ -138,6 +139,9 @@ def _refusal(exc: Exception) -> JSONResponse:
             "report": report_json(exc.report),
         }
         return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
+    if isinstance(exc, WorkspaceHeldError):
+        # Nommer le porteur : sans lui, l'écran ne peut dire à qui s'adresser.
+        return _error(status.HTTP_409_CONFLICT, {"code": exc.code, "by": exc.holder})
     if isinstance(exc, WorkspaceConflictError):
         return _error(status.HTTP_409_CONFLICT, exc.code)
     if isinstance(exc, WorkspaceNotFoundError):
@@ -156,6 +160,16 @@ async def get_workspace(workspace_id: str, service: Service) -> object:
         return _out(await service.resolve_get(workspace_id))
     except _REFUSALS as exc:
         return _refusal(exc)
+
+
+@router.delete("/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_workspace(workspace_id: str, request: Request, service: Service) -> Response:
+    """Miles oublie le workspace ; le dépôt git et ses branches restent intacts."""
+    try:
+        await service.resolve_delete(request_author(request), workspace_id)
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=WorkspaceOut)

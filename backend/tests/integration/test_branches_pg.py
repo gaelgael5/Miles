@@ -153,7 +153,8 @@ async def test_replay_and_refusals_create_nothing(forge: Forge) -> None:
 
 async def test_child_branch_deleted_outside_miles_is_named(forge: Forge) -> None:
     await _create(forge)
-    deleted = await forge.api.delete(f"/api/v1/repos/miles/{forge.name}/branches/back/retrait/essai")
+    route = f"/api/v1/repos/miles/{forge.name}/branches/back/retrait/essai"
+    deleted = await forge.api.delete(route)
     assert deleted.status_code == 204, deleted.text
 
     read = await forge.client.get(MODELS, params={"branch": "essai"}, timeout=120)

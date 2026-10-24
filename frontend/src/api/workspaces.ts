@@ -99,6 +99,16 @@ export function useOpenWorkBranch(id: string) {
   });
 }
 
+/** Miles oublie le workspace ; le dépôt git et ses branches ne sont jamais touchés. */
+export function useDeleteWorkspace() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      request<undefined>(`/api/workspaces/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
 function workspacePath(id: string, tail: string) {
   return `/api/workspaces/${encodeURIComponent(id)}/${tail}`;
 }
