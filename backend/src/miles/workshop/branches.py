@@ -9,6 +9,7 @@ import structlog
 
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles.git.graph import CommitNode, read_graph
 from miles.git.rights import classify
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import WORK_NAME_RE, work_branch_name
@@ -67,6 +68,16 @@ class BranchesService:
         # La base n'a pas de label saisi : elle s'est ouverte par son seul nom.
         entries = [BranchEntry(base, base, workspace.work_branch or "", True)]
         return entries + [BranchEntry(r["slug"], r["label"], r["branch"], False) for r in rows]
+
+    async def resolve_graph(self, workspace_id: str, limit: int) -> list[CommitNode]:
+        """Les commits des branches du workspace, pour la vue ferroviaire.
+
+        Lecture seule et sans copie de travail : le graphe ne regarde aucun contenu de
+        fichier, et les copies de Miles sont clonées sans profondeur.
+        """
+        workspace = await self.branches.base_workspace(workspace_id)
+        repo, access = await self.branches.repository(workspace)
+        return await read_graph(repo, access, workspace.id, limit)
 
     async def resolve_views(self, viewer: EventAuthor) -> dict[str, str]:
         """Branche regardée par cette personne, par workspace ; absente : la base."""

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from miles.auth.author import request_author
+from miles.git.graph import DEFAULT_COMMITS, MAX_COMMITS
 from miles.workshop.branches import BranchEntry, BranchesService, BranchTakenError
 from miles.workspaces.model import (
     BranchNotFoundError,
@@ -38,6 +39,17 @@ class BranchOut(BaseModel):
     label: str
     branch: str
     base: bool
+
+
+class CommitOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sha: str
+    # Vide : le commit est à la frontière de ce qui a été lu, la voie s'arrête là.
+    parents: list[str]
+    author: str
+    written_at: str
+    subject: str
+    refs: list[str]
 
 
 class ViewIn(BaseModel):
@@ -123,3 +135,25 @@ async def set_view(workspace_id: str, body: ViewIn, request: Request, service: S
 @views_router.get("", response_model=dict[str, str])
 async def list_views(request: Request, service: Service) -> object:
     return await service.resolve_views(request_author(request))
+
+
+@router.get("/graph", response_model=list[CommitOut])
+async def branch_graph(workspace_id: str, service: Service, limit: int = DEFAULT_COMMITS) -> object:
+    """Le graphe des branches de ce workspace, du plus récent au plus ancien."""
+    if limit < 1 or limit > MAX_COMMITS:
+        return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, {"champ": "limit"})
+    try:
+        commits = await service.resolve_graph(workspace_id, limit)
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return [
+        CommitOut(
+            sha=c.sha,
+            parents=list(c.parents),
+            author=c.author,
+            written_at=c.written_at,
+            subject=c.subject,
+            refs=list(c.refs),
+        )
+        for c in commits
+    ]
