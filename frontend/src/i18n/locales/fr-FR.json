@@ -1191,18 +1191,22 @@
       "submit": "Déclarer le storage",
       "choose": "Choisir…",
       "keysHelp": "Coche les propriétés qui identifient un objet d'une écriture à l'autre. Seules les valeurs sont cochables : un tableau ou un objet ne se compare pas.",
-      "indexablesHelp": "Coche les propriétés sur lesquelles on pourra filtrer. Chacune reçoit un nom, qui devient son identifiant d'index — jamais un hash du chemin. Un tableau n'est pas cochable : c'est ce qui garantit une ligne d'index unique par objet et par propriété.",
       "nameHelp": "Identifiant du storage, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclaré.",
       "noKey": "Aucune propriété cochée.",
-      "noIndexable": "Aucune propriété cochée."
+      "indexesHelp": "Ajoute autant d'index que nécessaire, puis choisis leurs colonnes dans l'arbre du modèle. Trois colonnes au plus par index, et leur ordre compte : un index composite sert les filtres sur sa première colonne, puis sur ses deux premières, et ainsi de suite.",
+      "addIndex": "Ajouter un index",
+      "removeIndex": "Retirer l'index {{rank}}",
+      "noColumn": "Aucune colonne choisie."
     },
     "fields": {
       "name": "Nom",
       "model": "Modèle des objets",
       "keys": "Clé fonctionnelle",
-      "indexables": "Propriétés indexables",
-      "indexableName": "Nom {{rank}}",
-      "label": "Libellé"
+      "label": "Libellé",
+      "indexes": "Index additionnels",
+      "indexName": "Nom de l'index {{rank}}",
+      "indexColumns": "Colonnes ({{count}} sur {{max}})",
+      "indexColumnsLabel": "Colonnes de l'index {{name}}"
     },
     "editor": {
       "save": "Enregistrer le storage",
@@ -1223,9 +1227,11 @@
       "propriete_inconnue": "« {{detail}} » ne désigne rien dans le modèle du storage.",
       "tableau_interdit": "« {{detail}} » désigne un tableau : il faut une seule valeur par objet, sinon la ligne d'index n'est plus unique.",
       "valeur_attendue": "« {{detail}} » désigne un objet, pas une valeur.",
-      "jpath_double": "Le chemin « {{detail}} » est déclaré deux fois.",
       "declaration_invalide": "Déclaration illisible : le fichier a été retouché hors de Miles.",
-      "libelle_vide": "Le libellé est obligatoire."
+      "libelle_vide": "Le libellé est obligatoire.",
+      "index_sans_colonne": "L'index « {{detail}} » ne porte aucune colonne : il n'indexerait rien.",
+      "trop_de_colonnes": "Trop de colonnes ({{detail}}) : trois au plus par index.",
+      "colonne_doublee": "La colonne « {{detail}} » est déclarée deux fois dans le même index."
     },
     "errors": {
       "nom_pris": "Un autre storage porte déjà ce nom sur la branche.",

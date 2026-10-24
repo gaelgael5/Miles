@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from miles.storages.layout import (
-    Indexable,
+    Index,
     StorageDoc,
     form_problems,
     names_in,
@@ -18,7 +18,7 @@ DOC = StorageDoc(
     "Sites",
     "pudo/site",
     ("$.Id",),
-    (Indexable("ville", "$.adresse.ville"),),
+    (Index("par-ville", ("$.adresse.ville", "$.Name")),),
 )
 
 
@@ -29,8 +29,8 @@ def test_declaration_is_written_and_reads_back_unchanged() -> None:
     assert storage_text(DOC) == text
 
 
-def test_a_storage_without_any_indexable_property_round_trips() -> None:
-    bare = replace(DOC, indexables=())
+def test_a_storage_without_any_index_round_trips() -> None:
+    bare = replace(DOC, indexes=())
 
     assert read_storage(storage_text(bare)) == bare
 
@@ -46,7 +46,7 @@ def test_malformed_declaration_is_unreadable(text: str | None) -> None:
 
 def test_a_jpath_survives_the_yaml_round_trip() -> None:
     """Un jpath porte « $ », « [ » et « : » : non échappé, il changerait la structure."""
-    tricky = replace(DOC, keys=('$["mon:champ"]',), indexables=())
+    tricky = replace(DOC, keys=('$["mon:champ"]',), indexes=())
 
     assert read_storage(storage_text(tricky)) == tricky
 
@@ -76,33 +76,84 @@ def test_the_same_key_twice_is_refused() -> None:
     assert ("cle", "cle_doublee") in [(p.path, p.code) for p in problems]
 
 
-def test_a_doubled_name_and_a_doubled_jpath_are_distinct_refusals() -> None:
-    same_name = form_problems(
-        replace(DOC, indexables=(Indexable("ville", "$.a"), Indexable("ville", "$.b")))
-    )
-    same_jpath = form_problems(
-        replace(DOC, indexables=(Indexable("ville", "$.a"), Indexable("autre", "$.a")))
+def test_two_indexes_of_the_same_name_are_refused() -> None:
+    doubled = form_problems(
+        replace(DOC, indexes=(Index("ville", ("$.a",)), Index("ville", ("$.b",))))
     )
 
-    assert {(p.path, p.code) for p in same_name} == {
-        ("indexables[0].nom", "nom_double"),
-        ("indexables[1].nom", "nom_double"),
+    assert {(p.path, p.code) for p in doubled} == {
+        ("index[0].nom", "nom_double"),
+        ("index[1].nom", "nom_double"),
     }
-    assert {(p.path, p.code) for p in same_jpath} == {
-        ("indexables[0].jpath", "jpath_double"),
-        ("indexables[1].jpath", "jpath_double"),
+
+
+def test_an_index_carries_between_one_and_three_columns() -> None:
+    """Gael, 24/10/2026 : autant d'index que nécessaire, trois colonnes au plus."""
+    empty = form_problems(replace(DOC, indexes=(Index("vide", ()),)))
+    three = form_problems(replace(DOC, indexes=(Index("trois", ("$.a", "$.b", "$.c")),)))
+    four = form_problems(replace(DOC, indexes=(Index("quatre", ("$.a", "$.b", "$.c", "$.d")),)))
+
+    assert [(p.path, p.code) for p in empty] == [("index[0].colonnes", "index_sans_colonne")]
+    assert three == []
+    assert [(p.path, p.code, p.detail) for p in four] == [
+        ("index[0].colonnes", "trop_de_colonnes", "4")
+    ]
+
+
+def test_many_indexes_are_allowed() -> None:
+    """« autant que nécessaire » : seul le nombre de COLONNES est plafonné."""
+    many = tuple(Index(f"index-{n}", ("$.a",)) for n in range(12))
+
+    assert form_problems(replace(DOC, indexes=many)) == []
+
+
+def test_the_same_column_twice_in_one_index_is_refused() -> None:
+    doubled = form_problems(replace(DOC, indexes=(Index("deux", ("$.a", "$.a")),)))
+
+    assert {(p.path, p.code) for p in doubled} == {
+        ("index[0].colonnes[0]", "colonne_doublee"),
+        ("index[0].colonnes[1]", "colonne_doublee"),
     }
+
+
+def test_the_same_column_in_two_different_indexes_is_fine() -> None:
+    """Deux index composites peuvent partager une colonne : ils ne servent pas le même filtre."""
+    shared = (Index("un", ("$.a", "$.b")), Index("deux", ("$.a", "$.c")))
+
+    assert form_problems(replace(DOC, indexes=shared)) == []
+
+
+def test_an_old_declaration_is_read_as_one_column_indexes() -> None:
+    """Avant le 24/10/2026 un index couvrait une propriété : la conversion est exacte."""
+    ancienne = (
+        'nom: "sites"\nlibelle: "Sites"\nmodele: "pudo/site"\ncle:\n  - "$.Id"\n'
+        'indexables:\n  - nom: "ville"\n    jpath: "$.adresse.ville"\n'
+    )
+
+    doc = read_storage(ancienne)
+
+    assert doc is not None
+    assert doc.indexes == (Index("ville", ("$.adresse.ville",)),)
+
+
+def test_the_two_forms_at_once_are_refused_rather_than_arbitrated() -> None:
+    both = (
+        'nom: "sites"\nlibelle: "Sites"\nmodele: "pudo/site"\ncle:\n  - "$.Id"\n'
+        "index: []\nindexables: []\n"
+    )
+
+    assert read_storage(both) is None
 
 
 def test_form_problems_are_all_reported() -> None:
-    bad = StorageDoc("Sites!", "", "site", (), (Indexable("Nom!", "$.a"),))
+    bad = StorageDoc("Sites!", "", "site", (), (Index("Nom!", ("$.a",)),))
 
     assert {(p.path, p.code) for p in form_problems(bad)} == {
         ("nom", "nom_invalide"),
         ("libelle", "libelle_vide"),
         ("modele", "modele_invalide"),
         ("cle", "cle_vide"),
-        ("indexables[0].nom", "nom_invalide"),
+        ("index[0].nom", "nom_invalide"),
     }
 
 

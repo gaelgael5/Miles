@@ -17,16 +17,26 @@ ROOT = "storages"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 MODEL_RE = re.compile(r"^(?P<scope>[a-z0-9][a-z0-9-]{0,62})/(?P<name>[a-z][a-z0-9_]{0,62})$")
 _FILE_RE = re.compile(rf"^{ROOT}/(?P<name>[^/]+)\.yaml$")
-_KEYS = {"nom", "libelle", "modele", "cle", "indexables"}
+_KEYS = {"nom", "libelle", "modele", "cle", "index", "indexables"}
+# Un index porte de 1 à 3 colonnes (Gael, 24/10/2026). Le plafond est une décision, pas
+# une limite technique : au-delà, un index composite ne sert plus les filtres attendus et
+# coûte en écriture ce qu'il ne rend pas en lecture.
+MAX_COLUMNS = 3
 
 
 @dataclass(frozen=True)
-class Indexable:
-    # Identifiant interne, déclaré et non calculé : un `crc32(jpath)` a des collisions,
-    # et elles seraient silencieuses — deux propriétés sous la même clé d'index, sans
-    # erreur visible. Un nom déclaré est aussi stable au renommage du jpath.
+class Index:
+    """Un index additionnel : son nom, et les colonnes qu'il couvre, dans l'ordre.
+
+    L'ordre compte — c'est celui d'un index composite : il sert les filtres sur la
+    première colonne, puis sur les deux premières, etc. Le changer change ce qu'il sert.
+    """
+
+    # Identifiant interne, déclaré et non calculé : un `crc32` des colonnes aurait des
+    # collisions, et elles seraient silencieuses — deux index sous la même clé, sans
+    # erreur visible. Un nom déclaré est aussi stable au renommage d'une colonne.
     name: str
-    jpath: str
+    columns: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -42,7 +52,7 @@ class StorageDoc:
     # Jpath évalués sur l'objet STOCKÉ, et non sur un document source : une collection
     # alimentée par API directe n'a pas de document source (Gael, 24/10/2026).
     keys: tuple[str, ...]
-    indexables: tuple[Indexable, ...]
+    indexes: tuple[Index, ...]
 
 
 @dataclass(frozen=True)
@@ -73,11 +83,14 @@ def storage_text(doc: StorageDoc) -> str:
         "cle:",
         *(f"  - {q(k)}" for k in doc.keys),
     ]
-    if doc.indexables:
-        lines.append("indexables:")
-        lines += [f"  - nom: {q(i.name)}\n    jpath: {q(i.jpath)}" for i in doc.indexables]
+    if doc.indexes:
+        lines.append("index:")
+        for item in doc.indexes:
+            lines.append(f"  - nom: {q(item.name)}")
+            lines.append("    colonnes:")
+            lines += [f"      - {q(c)}" for c in item.columns]
     else:
-        lines.append("indexables: []")
+        lines.append("index: []")
     return "\n".join(lines) + "\n"
 
 
@@ -89,8 +102,11 @@ def read_storage(text: str | None) -> StorageDoc | None:
         return None
     if not isinstance(data, dict) or set(map(str, data)) - _KEYS:
         return None
-    keys, indexables = data.get("cle"), data.get("indexables") or []
-    if not isinstance(keys, list) or not isinstance(indexables, list):
+    keys = data.get("cle")
+    if not isinstance(keys, list):
+        return None
+    indexes = _indexes(data)
+    if indexes is None:
         return None
     try:
         return StorageDoc(
@@ -98,10 +114,44 @@ def read_storage(text: str | None) -> StorageDoc | None:
             _text(data.get("libelle")),
             _text(data.get("modele")),
             tuple(_text(k) for k in keys),
-            tuple(Indexable(_text(i.get("nom")), _text(i.get("jpath"))) for i in indexables),
+            indexes,
         )
     except (TypeError, AttributeError):
         return None
+
+
+def _indexes(data: dict[str, object]) -> tuple[Index, ...] | None:
+    """Les index déclarés, l'ancienne forme `indexables` comprise.
+
+    Avant le 24/10/2026 un index couvrait UNE propriété (`indexables: [{nom, jpath}]`).
+    La conversion vers un index à une colonne est exacte et sans perte : on la fait, au
+    lieu de rendre illisible une déclaration déjà écrite. Ce n'est pas un repli
+    silencieux — la forme convertie est réécrite dès le premier enregistrement.
+    """
+    declared, legacy = data.get("index"), data.get("indexables")
+    if declared is not None and legacy is not None:
+        # Les deux formes à la fois : on ne devine pas laquelle fait foi.
+        return None
+    try:
+        if legacy is not None:
+            if not isinstance(legacy, list):
+                return None
+            return tuple(Index(_text(i.get("nom")), (_text(i.get("jpath")),)) for i in legacy)
+        if declared is None:
+            return ()
+        if not isinstance(declared, list):
+            return None
+        return tuple(_one_index(i) for i in declared)
+    except (TypeError, AttributeError):
+        return None
+
+
+def _one_index(raw: object) -> Index:
+    columns = raw.get("colonnes") if isinstance(raw, dict) else None
+    if not isinstance(columns, list):
+        raise TypeError
+    name = raw.get("nom") if isinstance(raw, dict) else None
+    return Index(_text(name), tuple(_text(c) for c in columns))
 
 
 def _text(value: object) -> str:
@@ -128,13 +178,30 @@ def form_problems(doc: StorageDoc) -> list[StorageProblem]:
             problems.append(StorageProblem(f"cle[{rank}]", "chemin_de_propriete_attendu", key))
     if len(set(doc.keys)) != len(doc.keys):
         problems.append(StorageProblem("cle", "cle_doublee"))
-    names = [i.name for i in doc.indexables]
-    jpaths = [i.jpath for i in doc.indexables]
-    for rank, item in enumerate(doc.indexables):
+    names = [i.name for i in doc.indexes]
+    for rank, item in enumerate(doc.indexes):
+        where = f"index[{rank}]"
         if not NAME_RE.match(item.name):
-            problems.append(StorageProblem(f"indexables[{rank}].nom", "nom_invalide", item.name))
+            problems.append(StorageProblem(f"{where}.nom", "nom_invalide", item.name))
         elif names.count(item.name) > 1:
-            problems.append(StorageProblem(f"indexables[{rank}].nom", "nom_double", item.name))
-        if jpaths.count(item.jpath) > 1:
-            problems.append(StorageProblem(f"indexables[{rank}].jpath", "jpath_double", item.jpath))
+            problems.append(StorageProblem(f"{where}.nom", "nom_double", item.name))
+        if not item.columns:
+            # Un index sans colonne n'indexe rien : c'est une déclaration inachevée.
+            problems.append(StorageProblem(f"{where}.colonnes", "index_sans_colonne", item.name))
+        if len(item.columns) > MAX_COLUMNS:
+            problems.append(
+                StorageProblem(f"{where}.colonnes", "trop_de_colonnes", str(len(item.columns)))
+            )
+        for place, column in enumerate(item.columns):
+            if property_keys(column) is None:
+                problems.append(
+                    StorageProblem(
+                        f"{where}.colonnes[{place}]", "chemin_de_propriete_attendu", column
+                    )
+                )
+            elif item.columns.count(column) > 1:
+                # La même colonne deux fois dans un index : la seconde n'apporte rien.
+                problems.append(
+                    StorageProblem(f"{where}.colonnes[{place}]", "colonne_doublee", column)
+                )
     return problems

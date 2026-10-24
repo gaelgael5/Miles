@@ -55,9 +55,9 @@ class StorageInUseError(Exception):
 class Saved:
     doc: StorageDoc
     existed: bool
-    # Vrai quand le modèle ou les propriétés indexables changent : les objets déjà écrits
-    # et leur index ne correspondent plus à la déclaration, et le prochain import les
-    # réécrira en entier (critère 13).
+    # Vrai quand le modèle ou les index changent : les objets déjà écrits et leur index
+    # ne correspondent plus à la déclaration, et le prochain import les réécrira en
+    # entier (critère 13).
     rewrite_announced: bool
 
 
@@ -132,7 +132,7 @@ class StoragesService:
             await copy.write(storage_path(doc.name), storage_text(doc))
             commit = await self.branches.commit(copy, f"Storage {doc.name}", author)
         rewrite = previous is not None and (
-            previous.model != doc.model or previous.indexables != doc.indexables
+            previous.model != doc.model or previous.indexes != doc.indexes
         )
         await self._journal(SAVED_EVENT, workspace_id, author, doc.name, commit, copy.branch)
         log.info("storage_enregistre", workspace=workspace_id, storage=doc.name, rewrite=rewrite)

@@ -33,7 +33,7 @@ const STORAGE = {
   label: "Personnes",
   model: "shared/personne",
   keys: ["$.id"],
-  indexables: [{ name: "code", jpath: "$.code" }],
+  indexes: [{ name: "par-code", columns: ["$.code"] }],
 };
 const VERSION = { number: 1, label: "Racine", commit: "0123456789abcdef", author: "admin", saved_at: "2026-10-22T10:00:00Z" };
 
@@ -140,7 +140,7 @@ describe("root branch", () => {
   it("shows a storage with every field disabled and no save or delete", async () => {
     onRoot({ view: "storages", storage: "personnes" });
     expect(await screen.findByLabelText("Object model")).toBeDisabled();
-    for (const label of ["Save the storage", "Delete the storage"]) {
+    for (const label of ["Save the storage", "Delete the storage", "Add an index"]) {
       expect(screen.queryByText(label)).toBeNull();
     }
     // Le champ montre la sélection mais ne s'ouvre pas : la racine ne se modifie jamais.

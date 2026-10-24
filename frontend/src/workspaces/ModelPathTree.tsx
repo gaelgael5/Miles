@@ -64,11 +64,13 @@ function Branch({
   node,
   selected,
   disabled,
+  atMax,
   onToggle,
 }: {
   node: PathNode;
   selected: string[];
   disabled: boolean;
+  atMax: boolean;
   onToggle: (path: string) => void;
 }) {
   const { t } = useTranslation();
@@ -95,7 +97,9 @@ function Branch({
           <label className="tree-pick" title={node.path}>
             <input
               type="checkbox"
-              disabled={disabled}
+              // Plein : on peut encore décocher, plus ajouter. Griser plutôt que refuser
+              // après coup dit la règle au moment où elle s'applique.
+              disabled={disabled || (atMax && !selected.includes(node.path))}
               checked={selected.includes(node.path)}
               onChange={() => onToggle(node.path)}
             />
@@ -116,6 +120,7 @@ function Branch({
               node={child}
               selected={selected}
               disabled={disabled}
+              atMax={atMax}
               onToggle={onToggle}
             />
           ))}
@@ -137,6 +142,7 @@ export function ModelPathTree({
   disabled,
   onToggle,
   label,
+  atMax = false,
 }: {
   target: WorkTarget;
   /** « portée/nom », ou chaîne vide tant qu'aucun modèle n'est choisi. */
@@ -144,8 +150,10 @@ export function ModelPathTree({
   selected: string[];
   disabled: boolean;
   onToggle: (path: string) => void;
-  /** Nom accessible de l'arbre : il y en a deux dans le formulaire. */
+  /** Nom accessible de l'arbre : il y en a plusieurs dans le formulaire. */
   label: string;
+  /** Sélection complète : on ne peut plus cocher, seulement décocher. */
+  atMax?: boolean;
 }) {
   const { t } = useTranslation();
   const [scope = null, name = null] = model === "" ? [] : model.split("/");
@@ -180,6 +188,7 @@ export function ModelPathTree({
           node={node}
           selected={selected}
           disabled={disabled}
+          atMax={atMax}
           onToggle={onToggle}
         />
       ))}
@@ -203,6 +212,7 @@ export function PathPicker({
   label,
   summary,
   onToggle,
+  atMax = false,
 }: {
   target: WorkTarget;
   model: string;
@@ -213,6 +223,8 @@ export function PathPicker({
   /** Ce que le champ affiche fermé. */
   summary: string;
   onToggle: (path: string) => void;
+  /** Sélection complète : l'arbre ne propose plus d'en cocher une de plus. */
+  atMax?: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -265,6 +277,7 @@ export function PathPicker({
             disabled={disabled}
             onToggle={onToggle}
             label={label}
+            atMax={atMax}
           />
           <div className="actions">
             <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>

@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from miles.auth.author import request_author
-from miles.storages.layout import Indexable, StorageDoc
+from miles.storages.layout import MAX_COLUMNS, Index, StorageDoc
 from miles.storages.service import (
     Saved,
     StorageInUseError,
@@ -35,10 +35,11 @@ def storages_service(request: Request) -> StoragesService:
 Service = Annotated[StoragesService, Depends(storages_service)]
 
 
-class IndexableIO(BaseModel):
+class IndexIO(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=63)
-    jpath: str = Field(max_length=1024)
+    # Plafond répété ici pour refuser tôt ; la raison est dans la déclaration (MAX_COLUMNS).
+    columns: list[str] = Field(default=[], max_length=MAX_COLUMNS)
 
 
 class StorageIO(BaseModel):
@@ -47,12 +48,12 @@ class StorageIO(BaseModel):
     label: str = Field(max_length=200)
     model: str = Field(max_length=200)
     keys: list[str] = Field(max_length=20)
-    indexables: list[IndexableIO] = Field(default=[], max_length=100)
+    indexes: list[IndexIO] = Field(default=[], max_length=100)
 
 
 class SavedOut(StorageIO):
-    # Vrai si le modèle ou les propriétés indexables ont changé : le prochain import
-    # réécrira tous les objets et leur index.
+    # Vrai si le modèle ou les index ont changé : le prochain import réécrira tous les
+    # objets et leur index.
     rewrite_announced: bool
 
 
@@ -71,7 +72,7 @@ def _doc(body: StorageIO) -> StorageDoc:
         body.label.strip(),
         body.model.strip(),
         tuple(k.strip() for k in body.keys),
-        tuple(Indexable(i.name.strip(), i.jpath.strip()) for i in body.indexables),
+        tuple(Index(i.name.strip(), tuple(c.strip() for c in i.columns)) for i in body.indexes),
     )
 
 
@@ -81,7 +82,7 @@ def _io(doc: StorageDoc) -> StorageIO:
         label=doc.label,
         model=doc.model,
         keys=list(doc.keys),
-        indexables=[IndexableIO(name=i.name, jpath=i.jpath) for i in doc.indexables],
+        indexes=[IndexIO(name=i.name, columns=list(i.columns)) for i in doc.indexes],
     )
 
 

@@ -1,5 +1,5 @@
 import { lastSegment, selectable, treeOf } from "./ModelPathTree";
-import { indexName } from "./StorageForm";
+import { columnsSummary, indexName } from "./StorageIndexes";
 
 function path(p: string, type = "string") {
   return { path: p, type, description: "" };
@@ -68,18 +68,22 @@ describe("lastSegment", () => {
 });
 
 describe("indexName", () => {
-  it("proposes the last segment of the path", () => {
-    expect(indexName("$.adresse.ville", [])).toBe("ville");
+  it("numbers each new index", () => {
+    expect(indexName([])).toBe("index-1");
   });
 
   it("never proposes a name already taken, which would be refused on save", () => {
-    expect(indexName("$.adresse.ville", ["ville"])).toBe("ville-2");
-    expect(indexName("$.adresse.ville", ["ville", "ville-2"])).toBe("ville-3");
+    expect(indexName(["index-1"])).toBe("index-2");
+    expect(indexName(["index-1", "index-2"])).toBe("index-3");
+  });
+});
+
+describe("columnsSummary", () => {
+  it("shows the columns in order, which is the order of a composite index", () => {
+    expect(columnsSummary(["$.adresse.ville", "$.code"], "vide")).toBe("ville · code");
   });
 
-  it("never proposes a name the rule would refuse", () => {
-    // Deux caractères minimum : « a » serait rejeté en « nom_invalide » à l'enregistrement.
-    expect(indexName("$.a", [])).toBe("propriete");
-    expect(indexName("$.[0]", [])).toBe("propriete");
+  it("says plainly when an index has no column yet", () => {
+    expect(columnsSummary([], "Aucune colonne")).toBe("Aucune colonne");
   });
 });

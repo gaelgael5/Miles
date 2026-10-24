@@ -10,10 +10,10 @@ from miles.git.workcopy import WorkCopy
 from miles.storages.layout import MODEL_RE, StorageDoc, StorageProblem
 from miles.transform.jpath import property_keys
 
-# Ce qu'une clé ou une propriété indexable peut désigner : une valeur, jamais un
-# conteneur. Pour l'index, c'est le fondement du mécanisme — une valeur unique par couple
-# (objet, propriété) donne une ligne d'index unique, et un tableau la casserait. Pour la
-# clé, un conteneur ne se compare pas d'une écriture à l'autre.
+# Ce qu'une clé ou une colonne d'index peut désigner : une valeur, jamais un conteneur.
+# Pour l'index, c'est le fondement du mécanisme — une valeur unique par objet et par
+# colonne donne une ligne d'index unique, et un tableau la casserait. Pour la clé, un
+# conteneur ne se compare pas d'une écriture à l'autre.
 _CONTAINERS = {"array": "tableau_interdit", "object": "valeur_attendue"}
 
 
@@ -26,9 +26,10 @@ async def branch_problems(copy: WorkCopy, doc: StorageDoc) -> list[StorageProble
     problems = []
     for rank, key in enumerate(doc.keys):
         problems += await _path_problems(copy, match["scope"], root, f"cle[{rank}]", key)
-    for rank, item in enumerate(doc.indexables):
-        where = f"indexables[{rank}].jpath"
-        problems += await _path_problems(copy, match["scope"], root, where, item.jpath)
+    for rank, item in enumerate(doc.indexes):
+        for place, column in enumerate(item.columns):
+            where = f"index[{rank}].colonnes[{place}]"
+            problems += await _path_problems(copy, match["scope"], root, where, column)
     return problems
 
 

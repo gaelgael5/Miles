@@ -3,10 +3,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, request } from "./http";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
-/** Une propriété indexable : son nom figé fait son identifiant d'index, pas son jpath. */
-export interface Indexable {
+/** Trois colonnes au plus par index (Gael, 24/10/2026) ; autant d'index que nécessaire. */
+export const MAX_COLUMNS = 3;
+
+/**
+ * Un index additionnel : son nom figé fait son identifiant, jamais un hash des colonnes.
+ * L'ordre des colonnes compte — c'est celui d'un index composite.
+ */
+export interface Index {
   name: string;
-  jpath: string;
+  columns: string[];
 }
 
 /**
@@ -25,11 +31,11 @@ export interface Storage {
   model: string;
   /** Jpath évalués sur l'objet STOCKÉ, qui l'identifient d'une écriture à l'autre. */
   keys: string[];
-  indexables: Indexable[];
+  indexes: Index[];
 }
 
 export interface SavedStorage extends Storage {
-  /** Modèle ou indexables changés : le prochain import réécrira objets et index. */
+  /** Modèle ou index changés : le prochain import réécrira objets et index. */
   rewrite_announced: boolean;
 }
 
@@ -41,7 +47,7 @@ export interface StorageSummary {
   keys: string[] | null;
 }
 
-/** Un défaut de la déclaration, désigné par son chemin (« indexables[1].jpath »…). */
+/** Un défaut de la déclaration, désigné par son chemin (« index[1].colonnes[0] »…). */
 export interface StorageProblem {
   path: string;
   code: string;

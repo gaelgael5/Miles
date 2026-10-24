@@ -12,7 +12,7 @@ const STORAGE = {
   label: "Sites",
   model: "shared/site",
   keys: ["$.code"],
-  indexables: [{ name: "ville", jpath: "$.adresse.ville" }],
+  indexes: [{ name: "par-ville", columns: ["$.adresse.ville"] }],
 };
 const MODELS = {
   [`GET /api/workspaces/retrait/data-models${Q}`]: {
@@ -27,6 +27,8 @@ const MODELS = {
         { path: "$.code", type: "string", description: "" },
         { path: "$.adresse", type: "object", description: "" },
         { path: "$.adresse.ville", type: "string", description: "Ville" },
+        { path: "$.adresse.pays", type: "string", description: "" },
+        { path: "$.rang", type: "integer", description: "" },
         { path: "$.enseignes", type: "array", description: "" },
         { path: "$.enseignes[0]", type: "string", description: "" },
       ],
@@ -69,11 +71,15 @@ describe("StoragesScreen (24/10/2026)", () => {
     expect(screen.getByRole("list", { name: "Functional key" })).toBeInTheDocument();
     fireEvent.click(screen.getByText("Done"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Indexable properties" }));
-    const indexTree = await screen.findByRole("list", { name: "Indexable properties" });
+    // « l'utilisateur ajoute un index et après il choisit les colonnes » (Gael).
+    fireEvent.click(screen.getByText("Add an index"));
+    expect(screen.getByLabelText("Name of index 1")).toHaveValue("index-1");
+    fireEvent.change(screen.getByLabelText("Name of index 1"), {
+      target: { value: "par-ville" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Columns of index par-ville" }));
+    const indexTree = await screen.findByRole("list", { name: "Columns of index par-ville" });
     fireEvent.click(within(indexTree).getByRole("checkbox", { name: /ville/ }));
-    // Le nom d'index est proposé depuis le dernier segment du chemin.
-    expect(screen.getByLabelText("Name 1")).toHaveValue("ville");
     fireEvent.click(screen.getByText("Declare the storage"));
 
     expect(await screen.findByText("storages/sites.yaml")).toBeInTheDocument();
@@ -92,7 +98,7 @@ describe("StoragesScreen (24/10/2026)", () => {
           detail: {
             code: "storage_invalide",
             problems: [
-              { path: "indexables[0].jpath", code: "tableau_interdit", detail: "$.enseignes" },
+              { path: "index[0].colonnes[0]", code: "tableau_interdit", detail: "$.enseignes" },
               { path: "cle[0]", code: "propriete_inconnue", detail: "$.rien" },
             ],
           },
@@ -105,7 +111,7 @@ describe("StoragesScreen (24/10/2026)", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Declare the storage" }));
 
     const alert = await screen.findByRole("alert");
-    expect(within(alert).getByText("indexables[0].jpath")).toBeInTheDocument();
+    expect(within(alert).getByText("index[0].colonnes[0]")).toBeInTheDocument();
     expect(alert).toHaveTextContent("“$.enseignes” designates an array");
     expect(alert).toHaveTextContent("“$.rien” designates nothing in the storage model.");
   });
@@ -158,7 +164,7 @@ describe("StorageScreen (24/10/2026)", () => {
       [`GET ${ROUTE}/sites${Q}`]: { status: 200, body: STORAGE },
       [`PUT ${ROUTE}/sites${Q}`]: {
         status: 200,
-        body: { ...STORAGE, indexables: [], rewrite_announced: true },
+        body: { ...STORAGE, indexes: [], rewrite_announced: true },
       },
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
     });
@@ -166,16 +172,14 @@ describe("StorageScreen (24/10/2026)", () => {
     expect(await screen.findByLabelText("Name")).toBeDisabled();
     expect(screen.getByLabelText("Label")).toHaveValue("Sites");
 
-    // Décocher la propriété indexable la retire, comme la cocher l'avait ajoutée.
-    fireEvent.click(screen.getByRole("button", { name: "Indexable properties" }));
-    const indexTree = await screen.findByRole("list", { name: "Indexable properties" });
-    fireEvent.click(within(indexTree).getByRole("checkbox", { name: /ville/ }));
+    // Retirer l'index annonce la réécriture, comme l'aurait fait un changement de modèle.
+    fireEvent.click(screen.getByText("Remove index 1"));
     fireEvent.click(screen.getByText("Save the storage"));
 
     expect(await screen.findByText(/rewrite every object and its index/)).toBeInTheDocument();
     expect(calls.find((c) => c.key === `PUT ${ROUTE}/sites${Q}`)?.body).toEqual({
       ...STORAGE,
-      indexables: [],
+      indexes: [],
     });
   });
 
@@ -280,8 +284,8 @@ describe("the picker field (24/10/2026)", () => {
     expect(await screen.findByRole("button", { name: "Functional key" })).toHaveTextContent(
       "$.code",
     );
-    expect(screen.getByRole("button", { name: "Indexable properties" })).toHaveTextContent(
-      "$.adresse.ville",
+    expect(screen.getByRole("button", { name: "Columns of index par-ville" })).toHaveTextContent(
+      "ville",
     );
   });
 
@@ -304,5 +308,55 @@ describe("the picker field (24/10/2026)", () => {
     fireEvent.mouseDown(document.body);
 
     expect(screen.queryByRole("list", { name: "Functional key" })).not.toBeInTheDocument();
+  });
+});
+
+describe("additional indexes (24/10/2026)", () => {
+  function open() {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS,
+      [`GET ${ROUTE}/sites${Q}`]: { status: 200, body: STORAGE },
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition", storage: "sites" });
+  }
+
+  it("adds as many indexes as needed", async () => {
+    open();
+    fireEvent.click(await screen.findByText("Add an index"));
+    fireEvent.click(screen.getByText("Add an index"));
+
+    // Un index existait déjà : on en a trois, et les noms proposés ne se doublent pas.
+    expect(screen.getByLabelText("Name of index 2")).toHaveValue("index-1");
+    expect(screen.getByLabelText("Name of index 3")).toHaveValue("index-2");
+  });
+
+  it("stops at three columns, by greying what cannot be ticked any more", async () => {
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: "Columns of index par-ville" }));
+    const tree = await screen.findByRole("list", { name: "Columns of index par-ville" });
+
+    // La colonne déjà choisie compte : il en reste deux à prendre.
+    fireEvent.click(within(tree).getByRole("checkbox", { name: /code/ }));
+    fireEvent.click(within(tree).getByRole("checkbox", { name: /pays/ }));
+
+    const boxes = within(tree).getAllByRole("checkbox");
+    const ticked = boxes.filter((b) => (b as HTMLInputElement).checked);
+    expect(ticked).toHaveLength(3);
+    // Plein : ce qui n'est pas coché ne peut plus l'être, mais reste décochable.
+    for (const box of boxes) {
+      expect(box).toHaveProperty("disabled", !(box as HTMLInputElement).checked);
+    }
+  });
+
+  it("removes an index with its columns", async () => {
+    open();
+    expect(await screen.findByLabelText("Name of index 1")).toHaveValue("par-ville");
+
+    fireEvent.click(screen.getByText("Remove index 1"));
+
+    expect(screen.queryByLabelText("Name of index 1")).not.toBeInTheDocument();
   });
 });

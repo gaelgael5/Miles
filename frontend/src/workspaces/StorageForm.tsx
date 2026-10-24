@@ -3,77 +3,24 @@ import { useTranslation } from "react-i18next";
 
 import { proposeSlug } from "../api/contracts";
 import { useDataModels } from "../api/dataModels";
-import type { Indexable, Storage, StorageProblem } from "../api/storages";
+import type { Storage, StorageProblem } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
-import { PathPicker, lastSegment } from "./ModelPathTree";
+import { PathPicker } from "./ModelPathTree";
+import { StorageIndexes } from "./StorageIndexes";
 
 export const EMPTY_STORAGE: Storage = {
   name: "",
   label: "",
   model: "",
   keys: [],
-  indexables: [],
+  indexes: [],
 };
-
-/** Nom d'index proposé pour un chemin, jamais en doublon d'un existant. */
-export function indexName(jpath: string, taken: string[]): string {
-  // Un nom d'index fait au moins deux caractères (même règle que les autres noms) :
-  // une propriété d'une lettre donnerait sinon une proposition refusée à l'enregistrement.
-  const slug = proposeSlug(lastSegment(jpath));
-  const base = slug.length < 2 ? "propriete" : slug;
-  if (!taken.includes(base)) {
-    return base;
-  }
-  // Un nom doublé serait refusé à l'enregistrement : on suffixe plutôt que de le laisser.
-  for (let n = 2; n < 100; n += 1) {
-    if (!taken.includes(`${base}-${n}`)) {
-      return `${base}-${n}`;
-    }
-  }
-  return base;
-}
-
-function IndexableRows({
-  rows,
-  disabled,
-  onChange,
-}: {
-  rows: Indexable[];
-  disabled: boolean;
-  onChange: (rows: Indexable[]) => void;
-}) {
-  const { t } = useTranslation();
-  if (rows.length === 0) {
-    return null;
-  }
-  return (
-    <ul className="plain-list">
-      {rows.map((row, index) => (
-        <li key={row.jpath} className="actions">
-          <label className="field">
-            {t("storages.fields.indexableName", { rank: index + 1 })}
-            <input
-              required
-              disabled={disabled}
-              value={row.name}
-              onChange={(e) =>
-                onChange(rows.map((r, i) => (i === index ? { ...r, name: e.target.value } : r)))
-              }
-            />
-          </label>
-          {/* Le chemin vient de l'arbre : il s'affiche, il ne se tape plus. */}
-          <span className="mono">{row.jpath}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 /**
  * Formulaire d'un storage, en déclaration comme en modification. Le nom est figé une fois
  * déclaré : c'est l'identité du storage, et le fichier `storages/<nom>.yaml` le porte.
  *
- * Clé et propriétés indexables se COCHENT dans l'arbre du modèle (Gael, 24/10/2026) : un
+ * Clé et colonnes d'index se COCHENT dans l'arbre du modèle (Gael, 24/10/2026) : un
  * jpath tapé à la main se fait refuser après coup, pour une faute de frappe ou un tableau
  * traversé. L'arbre ne propose que ce que le modèle offre, et seulement des valeurs.
  */
@@ -112,14 +59,6 @@ export function StorageForm({
       ? storage.keys.filter((k) => k !== path)
       : [...storage.keys, path];
     set({ keys });
-  }
-
-  function toggleIndexable(path: string) {
-    const rows = storage.indexables;
-    const indexables = rows.some((i) => i.jpath === path)
-      ? rows.filter((i) => i.jpath !== path)
-      : [...rows, { name: indexName(path, rows.map((i) => i.name)), jpath: path }];
-    set({ indexables });
   }
 
   function submit(event: FormEvent) {
@@ -172,25 +111,14 @@ export function StorageForm({
           />
         </fieldset>
         <fieldset className="picker-field">
-          <legend>{t("storages.fields.indexables")}</legend>
-          <p className="help">{t("storages.form.indexablesHelp")}</p>
-          <PathPicker
+          <legend>{t("storages.fields.indexes")}</legend>
+          <p className="help">{t("storages.form.indexesHelp")}</p>
+          <StorageIndexes
             target={target}
             model={storage.model}
-            selected={storage.indexables.map((i) => i.jpath)}
+            rows={storage.indexes}
             disabled={target.readOnly}
-            label={t("storages.fields.indexables")}
-            summary={
-              storage.indexables.length === 0
-                ? t("storages.form.noIndexable")
-                : storage.indexables.map((i) => i.jpath).join(", ")
-            }
-            onToggle={toggleIndexable}
-          />
-          <IndexableRows
-            rows={storage.indexables}
-            disabled={target.readOnly}
-            onChange={(indexables) => set({ indexables })}
+            onChange={(indexes) => set({ indexes })}
           />
         </fieldset>
       </fieldset>

@@ -31,10 +31,7 @@ STORAGE: dict[str, Any] = {
     "label": "Sites",
     "model": "shared/site",
     "keys": ["$.code"],
-    "indexables": [
-        {"name": "code", "jpath": "$.code"},
-        {"name": "ville", "jpath": "$.adresse.ville"},
-    ],
+    "indexes": [{"name": "par-ville", "columns": ["$.code", "$.adresse.ville"]}],
 }
 
 
@@ -101,54 +98,72 @@ async def test_a_key_must_name_one_scalar_property_of_the_model(forge: Forge) ->
     assert await forge.commits() == before
 
 
-async def test_an_indexable_property_must_resolve_to_a_single_value(forge: Forge) -> None:
+async def test_an_index_column_must_resolve_to_a_single_value(forge: Forge) -> None:
     """Critères 7 et 8 : l'unicité de la ligne d'index est le fondement du mécanisme."""
     refused = await _declare(
         forge,
-        indexables=[
-            {"name": "enseignes", "jpath": "$.enseignes"},
-            {"name": "adresse", "jpath": "$.adresse"},
-            {"name": "rien", "jpath": "$.rien"},
+        indexes=[
+            {"name": "bancal", "columns": ["$.enseignes", "$.adresse", "$.rien"]},
         ],
     )
 
     problems = refused.json()["detail"]["problems"]
     assert {(p["path"], p["code"]) for p in problems} == {
-        ("indexables[0].jpath", "tableau_interdit"),
-        ("indexables[1].jpath", "valeur_attendue"),
-        ("indexables[2].jpath", "propriete_inconnue"),
+        ("index[0].colonnes[0]", "tableau_interdit"),
+        ("index[0].colonnes[1]", "valeur_attendue"),
+        ("index[0].colonnes[2]", "propriete_inconnue"),
     }
     # La raison est rendue avec le jpath : elle n'est pas évidente pour qui déclare.
     assert {p["detail"] for p in problems} == {"$.enseignes", "$.adresse", "$.rien"}
 
 
-async def test_duplicate_names_and_duplicate_jpaths_are_refused_distinctly(forge: Forge) -> None:
-    """Critère 9 : un nom doublé et un jpath doublé ne sont pas le même écart."""
-    same_name = await _declare(
+async def test_many_indexes_of_at_most_three_columns_each(forge: Forge) -> None:
+    """Gael, 24/10/2026 : autant d'index que nécessaire, trois colonnes au plus."""
+    many = await _declare(
         forge,
-        indexables=[
-            {"name": "code", "jpath": "$.code"},
-            {"name": "code", "jpath": "$.adresse.ville"},
+        indexes=[
+            {"name": "un", "columns": ["$.code"]},
+            {"name": "deux", "columns": ["$.code", "$.adresse.ville"]},
+            {"name": "trois", "columns": ["$.adresse.ville", "$.code"]},
         ],
     )
-    same_jpath = await _declare(
+    too_many = await _declare(
         forge,
-        indexables=[{"name": "code", "jpath": "$.code"}, {"name": "autre", "jpath": "$.code"}],
+        name="autre",
+        indexes=[{"name": "quatre", "columns": ["$.code", "$.adresse.ville", "$.code", "$.rien"]}],
+    )
+
+    assert many.status_code == 201, many.text
+    # Le plafond est tenu par le contrat d'entrée : 422 avant même la validation métier.
+    assert too_many.status_code == 422, too_many.text
+
+
+async def test_a_doubled_index_name_and_a_doubled_column_are_refused(forge: Forge) -> None:
+    """Critère 9, revu : deux index de même nom, et deux fois la même colonne dans un index."""
+    same_name = await _declare(
+        forge,
+        indexes=[
+            {"name": "code", "columns": ["$.code"]},
+            {"name": "code", "columns": ["$.adresse.ville"]},
+        ],
+    )
+    same_column = await _declare(
+        forge, indexes=[{"name": "bancal", "columns": ["$.code", "$.code"]}]
     )
 
     assert {(p["path"], p["code"]) for p in same_name.json()["detail"]["problems"]} == {
-        ("indexables[0].nom", "nom_double"),
-        ("indexables[1].nom", "nom_double"),
+        ("index[0].nom", "nom_double"),
+        ("index[1].nom", "nom_double"),
     }
-    assert {(p["path"], p["code"]) for p in same_jpath.json()["detail"]["problems"]} == {
-        ("indexables[0].jpath", "jpath_double"),
-        ("indexables[1].jpath", "jpath_double"),
+    assert {(p["path"], p["code"]) for p in same_column.json()["detail"]["problems"]} == {
+        ("index[0].colonnes[0]", "colonne_doublee"),
+        ("index[0].colonnes[1]", "colonne_doublee"),
     }
 
 
-async def test_a_storage_without_any_indexable_property_is_accepted(forge: Forge) -> None:
+async def test_a_storage_without_any_index_is_accepted(forge: Forge) -> None:
     """Critère 10 : il reste interrogeable par sa clé."""
-    declared = await _declare(forge, indexables=[])
+    declared = await _declare(forge, indexes=[])
 
     assert declared.status_code == 201, declared.text
 
@@ -163,9 +178,9 @@ async def test_replay_name_taken_and_modification_that_announces_a_rewrite(forge
     same_shape = await forge.client.put(
         f"{ROUTE}/sites", json=STORAGE | {"keys": ["$.adresse.ville"]}, timeout=120
     )
-    fewer_indexables = await forge.client.put(
+    fewer_indexes = await forge.client.put(
         f"{ROUTE}/sites",
-        json=STORAGE | {"keys": ["$.adresse.ville"], "indexables": []},
+        json=STORAGE | {"keys": ["$.adresse.ville"], "indexes": []},
         timeout=120,
     )
     renamed = await forge.client.put(f"{ROUTE}/autre", json=STORAGE, timeout=120)
@@ -174,7 +189,7 @@ async def test_replay_name_taken_and_modification_that_announces_a_rewrite(forge
     assert (taken.status_code, taken.json()["detail"]) == (409, "nom_pris")
     # La clé change, mais ni le modèle ni l'index : rien à réécrire.
     assert same_shape.json()["rewrite_announced"] is False
-    assert fewer_indexables.json()["rewrite_announced"] is True
+    assert fewer_indexes.json()["rewrite_announced"] is True
     assert (renamed.status_code, renamed.json()["detail"]) == (409, "nom_fige")
     assert await forge.commits() == before + 2
 
@@ -234,7 +249,11 @@ async def test_a_version_cannot_freeze_a_storage_broken_outside_miles(forge: For
         {
             "path": path,
             "problems": [
-                {"path": "indexables[1].jpath", "code": "tableau_interdit", "detail": "$.enseignes"}
+                {
+                    "path": "index[0].colonnes[1]",
+                    "code": "tableau_interdit",
+                    "detail": "$.enseignes",
+                }
             ],
         }
     ]

@@ -1191,18 +1191,22 @@
       "submit": "Declare the storage",
       "choose": "Choose…",
       "keysHelp": "Tick the properties that identify an object from one write to the next. Only values can be ticked: an array or an object cannot be compared.",
-      "indexablesHelp": "Tick the properties objects can be filtered on. Each gets a name, which becomes its index identifier — never a hash of the path. An array cannot be ticked: that is what guarantees one index row per object and property.",
       "nameHelp": "Storage identifier, derived from the label: lowercase letters, digits and dashes. It names the file and cannot be renamed once declared.",
       "noKey": "No property ticked.",
-      "noIndexable": "No property ticked."
+      "indexesHelp": "Add as many indexes as you need, then choose their columns in the model tree. At most three columns per index, and their order matters: a composite index serves filters on its first column, then on its first two, and so on.",
+      "addIndex": "Add an index",
+      "removeIndex": "Remove index {{rank}}",
+      "noColumn": "No column chosen."
     },
     "fields": {
       "name": "Name",
       "model": "Object model",
       "keys": "Functional key",
-      "indexables": "Indexable properties",
-      "indexableName": "Name {{rank}}",
-      "label": "Label"
+      "label": "Label",
+      "indexes": "Additional indexes",
+      "indexName": "Name of index {{rank}}",
+      "indexColumns": "Columns ({{count}} of {{max}})",
+      "indexColumnsLabel": "Columns of index {{name}}"
     },
     "editor": {
       "save": "Save the storage",
@@ -1223,9 +1227,11 @@
       "propriete_inconnue": "“{{detail}}” designates nothing in the storage model.",
       "tableau_interdit": "“{{detail}}” designates an array: a single value per object is required, otherwise the index row is no longer unique.",
       "valeur_attendue": "“{{detail}}” designates an object, not a value.",
-      "jpath_double": "Path “{{detail}}” is declared twice.",
       "declaration_invalide": "Unreadable declaration: the file was edited outside Miles.",
-      "libelle_vide": "The label is required."
+      "libelle_vide": "The label is required.",
+      "index_sans_colonne": "Index “{{detail}}” carries no column: it would index nothing.",
+      "trop_de_colonnes": "Too many columns ({{detail}}): at most three per index.",
+      "colonne_doublee": "Column “{{detail}}” is declared twice in the same index."
     },
     "errors": {
       "nom_pris": "A different storage already has this name on the branch.",

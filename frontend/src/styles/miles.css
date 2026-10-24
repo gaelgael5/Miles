@@ -345,3 +345,13 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
   margin: 0; padding: 0; border-radius: 3px; align-self: center;
 }
 .tree-pick .caption { margin-bottom: 0; text-transform: none; letter-spacing: 0; }
+
+/* Un index additionnel : son nom, ses colonnes, et de quoi le retirer (Gael, 24/10/2026). */
+.index-row {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+  padding: 12px; margin-bottom: 10px;
+  border: 1px solid var(--bordure-champ); border-radius: 6px;
+}
+.index-row .field { flex: 1 1 180px; margin-bottom: 0; }
+.index-columns { flex: 2 1 240px; min-width: 0; }
+.index-columns .caption { display: block; margin-bottom: 4px; }
