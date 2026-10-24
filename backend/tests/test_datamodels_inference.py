@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import pytest
+import yaml
 
 from miles.datamodels.grammar import ModelSyntaxError
-from miles.datamodels.inference import infer, read_sample
+from miles.datamodels.inference import (
+    SampleNotAnObjectError,
+    infer,
+    infer_root,
+    read_sample,
+)
+from miles.datamodels.schema import normalized, parse_schema
 
 
 def test_an_object_becomes_properties_without_requiring_any_of_them() -> None:
@@ -112,3 +119,76 @@ def test_malformed_json_names_where_it_breaks() -> None:
 def test_an_unknown_format_is_a_programming_error() -> None:
     with pytest.raises(ValueError, match="format inconnu"):
         read_sample("{}", "xml")
+
+
+def test_a_list_at_the_root_describes_one_of_its_elements() -> None:
+    """Un export est une LISTE d'exemplaires ; le modèle, lui, décrit l'exemplaire.
+
+    Sans ce dégagement, l'import rendait `type: array`, que la grammaire refuse aussitôt
+    (« objet_attendu ») : le modèle était fabriqué pour être rejeté.
+    """
+    schema, unwrapped = infer_root([{"Name": "a"}, {"Name": "b", "Ref": "215"}])
+
+    assert unwrapped is True
+    assert schema == {
+        "type": "object",
+        "properties": {"Name": {"type": "string"}, "Ref": {"type": "string"}},
+    }
+
+
+def test_an_object_at_the_root_is_taken_as_is() -> None:
+    schema, unwrapped = infer_root({"Name": "a"})
+
+    assert unwrapped is False
+    assert schema["type"] == "object"
+
+
+@pytest.mark.parametrize("sample", [[], "texte", 3, None, [1, 2]])
+def test_a_sample_that_holds_no_object_is_refused_rather_than_shaped(sample: object) -> None:
+    # Mieux vaut un refus nommé qu'un schéma que la grammaire rejettera ensuite.
+    with pytest.raises(SampleNotAnObjectError):
+        infer_root(sample)
+
+
+def test_the_real_export_gives_a_usable_model() -> None:
+    """L'échantillon qui a révélé le défaut : deux points relais, enveloppés dans une liste."""
+    sample = [
+        {
+            "Account": [{"Name": "Barale", "ActivationDate": "2020-11-16"}],
+            "Period": [{"StartDate": "2026-07-24"}],
+            "ParkManager": [],
+        },
+        {"Account": [{"Name": "Menditto", "ActivationDate": "2020-10-15"}], "Period": []},
+    ]
+
+    schema, unwrapped = infer_root(sample)
+
+    assert unwrapped is True
+    assert schema["type"] == "object"
+    account = schema["properties"]["Account"]["items"]["properties"]
+    assert account["ActivationDate"] == {"type": "string", "format": "date"}
+    # Period est vide dans un exemplaire et peuplé dans l'autre : la fusion garde la forme.
+    assert schema["properties"]["Period"]["items"]["properties"]["StartDate"]["format"] == "date"
+    # ParkManager n'est jamais peuplé : on ne lui invente pas d'éléments.
+    assert schema["properties"]["ParkManager"] == {"type": "array"}
+
+
+@pytest.mark.parametrize(
+    "sample",
+    [
+        [{"Account": [{"Name": "a", "Seen": "2026-10-24T08:00:00Z"}], "Tags": []}],
+        {"nom": "a", "liste": [1, "deux", None], "imbrique": {"a": {"b": [True]}}},
+        [{"a": 1}, {"a": "x"}],
+    ],
+)
+def test_what_the_inference_produces_is_accepted_by_the_grammar(sample: object) -> None:
+    """La garde qui manquait : un schéma déduit doit passer la validation de Miles.
+
+    Le premier import rendait `type: array` à la racine et le produit le refusait — le
+    défaut n'avait été vu qu'à l'usage, faute de ce bouclage (Gael, 24/10/2026).
+    """
+    schema, _ = infer_root(sample)
+    text = yaml.safe_dump({"title": "essai", **schema}, allow_unicode=True, sort_keys=False)
+
+    # Ne lève pas : c'est tout ce qu'on demande.
+    parse_schema(normalized(text, "shared", "essai"))

@@ -62,6 +62,9 @@ function Editor({
   const [text, setText] = useState(model.content);
   const [parsed, setParsed] = useState(() => parseSchema(model.content));
   const [importing, setImporting] = useState(false);
+  // Dit à la personne que son échantillon était une liste : un dégagement silencieux
+  // ferait croire que Miles a perdu le niveau du dessus.
+  const [unwrapped, setUnwrapped] = useState(false);
   const dirty = !sameSchema(text, model.content);
   // Proposé seulement sur un modèle encore vide : ailleurs, il écraserait un travail.
   const blank = isBlankSchema(parsed);
@@ -142,11 +145,17 @@ function Editor({
           target={target}
           path={model.path}
           onCancel={() => setImporting(false)}
-          onImported={(inferred) => {
+          onImported={(inferred, wasList) => {
             setImporting(false);
+            setUnwrapped(wasList);
             fromVisual(withIdentity(parsed.ok ? parsed.schema : {}, inferred));
           }}
         />
+      )}
+      {unwrapped && (
+        <p className="notice" role="status">
+          {t("dataModels.import.unwrapped")}
+        </p>
       )}
       {saved && !dirty && (
         <p className="notice" role="status">

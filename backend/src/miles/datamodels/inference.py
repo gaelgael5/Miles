@@ -62,6 +62,33 @@ def read_sample(text: str, fmt: str) -> Any:
         raise ModelSyntaxError(exc.msg, exc.lineno, exc.colno) from None
 
 
+class SampleNotAnObjectError(ValueError):
+    """L'échantillon ne décrit pas un objet, et un modèle Miles en décrit toujours un."""
+
+
+def infer_root(sample: Any) -> tuple[dict[str, Any], bool]:
+    """Le schéma du modèle, et si on a dû dégager l'échantillon de son enveloppe.
+
+    La grammaire exige `type: object` à la racine (schema.py, « objet_attendu »). Or on
+    colle le plus souvent une LISTE d'exemplaires — un export, un extrait de flux. Cette
+    liste est l'enveloppe de l'échantillon, pas le modèle : on décrit donc un de ses
+    éléments, tous fusionnés. Sans cela l'import produisait un `type: array` que Miles
+    refusait aussitôt — le modèle était fabriqué pour être rejeté (constaté le
+    24/10/2026 sur un export de points relais).
+    """
+    if isinstance(sample, list):
+        if not sample:
+            raise SampleNotAnObjectError("échantillon vide")
+        schema = _merged([infer(item) for item in sample])
+        if schema.get("type") != "object":
+            raise SampleNotAnObjectError("les éléments ne sont pas des objets")
+        return schema, True
+    schema = infer(sample)
+    if schema.get("type") != "object":
+        raise SampleNotAnObjectError("l'échantillon n'est pas un objet")
+    return schema, False
+
+
 def infer(sample: Any) -> dict[str, Any]:
     """Le schéma que cet échantillon prouve — rien de plus."""
     if isinstance(sample, dict):

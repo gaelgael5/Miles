@@ -603,7 +603,9 @@
       "submit": "Infer the model",
       "cancel": "Cancel",
       "unreadable": "The sample cannot be read (line {{line}}, column {{column}}).",
-      "failed": "Inference failed."
+      "failed": "Inference failed.",
+      "noObject": "The sample holds no object: a model always describes an object.",
+      "unwrapped": "The sample was a list: the model describes one of its elements, all merged."
     }
   },
   "versions": {

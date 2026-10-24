@@ -207,6 +207,7 @@ async def test_a_json_sample_becomes_a_schema_without_writing_anything(forge: Fo
     after = await forge.client.get(ROUTE, timeout=120)
 
     assert inferred.status_code == 200, inferred.text
+    assert inferred.json()["unwrapped"] is False
     assert inferred.json()["schema"] == {
         "type": "object",
         "properties": {
@@ -216,6 +217,29 @@ async def test_a_json_sample_becomes_a_schema_without_writing_anything(forge: Fo
     }
     # Transformation pure : la liste des modèles n'a pas bougé.
     assert after.json() == before.json()
+
+
+async def test_a_list_sample_yields_the_model_of_one_element(forge: Forge) -> None:
+    """Un export est une liste ; un modèle décrit un objet. Le dégagement est annoncé."""
+    inferred = await forge.client.post(
+        f"{ROUTE}/inference",
+        json={"format": "json", "sample": '[{"nom": "a"}, {"nom": "b", "ref": 2}]'},
+        timeout=120,
+    )
+
+    assert inferred.status_code == 200, inferred.text
+    assert inferred.json()["unwrapped"] is True
+    assert inferred.json()["schema"]["type"] == "object"
+    assert set(inferred.json()["schema"]["properties"]) == {"nom", "ref"}
+
+
+async def test_a_sample_without_any_object_is_refused_with_its_own_code(forge: Forge) -> None:
+    refused = await forge.client.post(
+        f"{ROUTE}/inference", json={"format": "json", "sample": "[1, 2]"}, timeout=120
+    )
+
+    assert refused.status_code == 422
+    assert refused.json()["detail"]["code"] == "echantillon_sans_objet"
 
 
 async def test_an_unreadable_sample_is_named_as_such_not_as_an_invalid_schema(

@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from miles.auth.author import request_author
 from miles.datamodels.grammar import MAX_TEXT_BYTES, ModelGrammarError, ModelSyntaxError
-from miles.datamodels.inference import infer, read_sample
+from miles.datamodels.inference import SampleNotAnObjectError, infer_root, read_sample
 from miles.datamodels.layout import ModelEntry
 from miles.datamodels.service import DataModelsService, ModelInUseError, ModelNotFoundError
 from miles.workspaces.model import (
@@ -193,6 +193,9 @@ class SampleIn(BaseModel):
 class InferredOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     schema_body: dict[str, Any] = Field(serialization_alias="schema")
+    # L'échantillon était une liste : le modèle décrit un de ses éléments. Rendu à
+    # l'écran, qui le dit — un dégagement silencieux laisserait croire à une erreur.
+    unwrapped: bool
 
 
 @router.post("/inference", response_model=InferredOut, response_model_by_alias=True)
@@ -212,7 +215,16 @@ async def infer_from_sample(workspace_id: str, body: SampleIn, service: Service)
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail | {"line": exc.line, "column": exc.column},
         )
-    return InferredOut(schema_body=infer(sample))
+    try:
+        schema, unwrapped = infer_root(sample)
+    except SampleNotAnObjectError as exc:
+        # Refusé ICI plutôt que de rendre un schéma que la grammaire rejettera : un
+        # modèle fabriqué pour être refusé fait chercher l'erreur dans le schéma.
+        return _error(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            {"code": "echantillon_sans_objet", "message": str(exc)},
+        )
+    return InferredOut(schema_body=schema, unwrapped=unwrapped)
 
 
 @router.post("/declarations", status_code=status.HTTP_201_CREATED, response_model=ModelOut)

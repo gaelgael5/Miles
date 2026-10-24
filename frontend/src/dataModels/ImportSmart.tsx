@@ -22,6 +22,9 @@ function refusal(error: unknown): { key: string; line?: number; column?: number 
         column: detail.column ?? undefined,
       };
     }
+    if (detail?.code === "echantillon_sans_objet") {
+      return { key: "dataModels.import.noObject" };
+    }
   }
   return { key: "dataModels.import.failed" };
 }
@@ -44,7 +47,7 @@ export function ImportSmart({
   // Désigne le document dans Monaco ; l'échantillon n'est pas un schéma, donc aucun
   // méta-schéma ne s'y rattache.
   path: string;
-  onImported: (schema: Record<string, unknown>) => void;
+  onImported: (schema: Record<string, unknown>, unwrapped: boolean) => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
@@ -120,7 +123,9 @@ export function ImportSmart({
             className="btn btn-primary"
             disabled={sample.trim() === "" || infer.isPending}
             onClick={() =>
-              infer.mutate({ format, sample }, { onSuccess: (got) => onImported(got.schema) })
+              infer.mutate({ format, sample }, {
+                onSuccess: (got) => onImported(got.schema, got.unwrapped),
+              })
             }
           >
             {t("dataModels.import.submit")}

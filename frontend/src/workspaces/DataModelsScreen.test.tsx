@@ -53,7 +53,10 @@ describe("smart import", () => {
     const calls = await openBlankModel({
       [`POST ${ROUTE}/inference?branch=edition`]: {
         status: 200,
-        body: { schema: { type: "object", properties: { nom: { type: "string" } } } },
+        body: {
+          unwrapped: false,
+          schema: { type: "object", properties: { nom: { type: "string" } } },
+        },
       },
     });
 
@@ -69,6 +72,46 @@ describe("smart import", () => {
     expect(yaml.value).toContain("$id: miles:/shared/personne");
     expect(yaml.value).toContain("nom:");
     expect(calls.some((c) => c.key === `POST ${ROUTE}/inference?branch=edition`)).toBe(true);
+  });
+
+  it("says when the pasted sample was a list, and describes one element", async () => {
+    // Le cas qui a bloqué Gael le 24/10/2026 : un export de deux points relais.
+    await openBlankModel({
+      [`POST ${ROUTE}/inference?branch=edition`]: {
+        status: 200,
+        body: {
+          unwrapped: true,
+          schema: { type: "object", properties: { Name: { type: "string" } } },
+        },
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Smart import" }));
+    fireEvent.change(await screen.findByLabelText("Sample", {}, { timeout: 10_000 }), {
+      target: { value: '[{"Name": "a"}, {"Name": "b"}]' },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Infer the model" }));
+
+    expect(await screen.findByText(/The sample was a list/)).toBeInTheDocument();
+    const yaml = (await screen.findByLabelText("YAML")) as HTMLTextAreaElement;
+    expect(yaml.value).toContain("type: object");
+  });
+
+  it("names a sample that holds no object at all", async () => {
+    await openBlankModel({
+      [`POST ${ROUTE}/inference?branch=edition`]: {
+        status: 422,
+        body: { detail: { code: "echantillon_sans_objet", message: "pas un objet" } },
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Smart import" }));
+    fireEvent.change(await screen.findByLabelText("Sample", {}, { timeout: 10_000 }), {
+      target: { value: "[1, 2]" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Infer the model" }));
+
+    expect(await screen.findByText(/holds no object/)).toBeInTheDocument();
   });
 
   it("is not offered once the model describes something", async () => {

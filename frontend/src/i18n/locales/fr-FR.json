@@ -603,7 +603,9 @@
       "submit": "Déduire le modèle",
       "cancel": "Annuler",
       "unreadable": "L'échantillon ne se lit pas (ligne {{line}}, colonne {{column}}).",
-      "failed": "La déduction a échoué."
+      "failed": "La déduction a échoué.",
+      "noObject": "L'échantillon ne contient aucun objet : un modèle décrit toujours un objet.",
+      "unwrapped": "L'échantillon était une liste : le modèle décrit un de ses éléments, tous fusionnés."
     }
   },
   "versions": {

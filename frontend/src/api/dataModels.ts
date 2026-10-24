@@ -46,10 +46,13 @@ export type SampleFormat = "json" | "yaml";
 export function useInferSchema(target: WorkTarget) {
   return useMutation({
     mutationFn: (body: { format: SampleFormat; sample: string }) =>
-      request<{ schema: Record<string, unknown> }>(atBranch(target, "data-models", "inference"), {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
+      request<{ schema: Record<string, unknown>; unwrapped: boolean }>(
+        atBranch(target, "data-models", "inference"),
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      ),
   });
 }
 
