@@ -127,6 +127,7 @@ describe("App", () => {
       "GET /api/workspaces/retrait/branches": { status: 200, body: BRANCHES },
       "GET /api/workspaces/retrait/data-models?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/contracts?branch=essai": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/storages?branch=essai": { status: 200, body: [] },
     });
     renderApp();
     const nav = await screen.findByRole("navigation");
@@ -141,6 +142,12 @@ describe("App", () => {
     // La vue ferroviaire s'atteint d'ici : un écran qu'on ne peut pas ouvrir n'existe
     // pas, et le menu a sa PROPRE liste de vues (relevé par Gael le 24/10/2026).
     expect(within(nav).getByRole("button", { name: "Branches" })).toBeInTheDocument();
+    // Même garde pour « Storages » (24/10/2026) : la vue est déclarée dans la liste du
+    // menu, pas seulement dans le routage — sans quoi l'écran serait inatteignable.
+    fireEvent.click(within(nav).getByRole("button", { name: "Storages" }));
+    expect(
+      await screen.findByRole("heading", { name: "Storages — Retrait de colis" }),
+    ).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole("button", { name: "Data models" }));
 
     expect(
