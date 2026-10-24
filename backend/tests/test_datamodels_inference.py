@@ -192,3 +192,33 @@ def test_what_the_inference_produces_is_accepted_by_the_grammar(sample: object) 
 
     # Ne lève pas : c'est tout ce qu'on demande.
     parse_schema(normalized(text, "shared", "essai"))
+
+
+def test_a_field_never_filled_in_the_sample_constrains_nothing() -> None:
+    """« type: null » seul refuserait le premier document qui renseigne le champ."""
+    schema, _ = infer_root([{"StorageDepth": None}, {"StorageDepth": None}])
+
+    assert schema["properties"]["StorageDepth"] == {}
+
+
+def test_a_null_mixed_with_a_value_keeps_saying_both() -> None:
+    """Là, l'échantillon a MONTRÉ quelque chose : on ne l'efface pas."""
+    schema, _ = infer_root([{"Ref": "A"}, {"Ref": None}])
+
+    assert schema["properties"]["Ref"] == {"type": ["string", "null"]}
+
+
+def test_the_relaxation_reaches_inside_objects_and_arrays() -> None:
+    schema, _ = infer_root(
+        [{"Marketing": [{"GoogleMapsRating": None}], "Adresse": {"Etage": None}}]
+    )
+
+    assert schema["properties"]["Marketing"]["items"]["properties"]["GoogleMapsRating"] == {}
+    assert schema["properties"]["Adresse"]["properties"]["Etage"] == {}
+
+
+def test_the_relaxed_schema_is_still_accepted_by_the_grammar() -> None:
+    schema, _ = infer_root([{"StorageDepth": None, "Name": "a"}])
+    text = yaml.safe_dump({"title": "essai", **schema}, allow_unicode=True, sort_keys=False)
+
+    parse_schema(normalized(text, "shared", "essai"))

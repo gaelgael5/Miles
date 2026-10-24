@@ -82,11 +82,32 @@ def infer_root(sample: Any) -> tuple[dict[str, Any], bool]:
         schema = _merged([infer(item) for item in sample])
         if schema.get("type") != "object":
             raise SampleNotAnObjectError("les éléments ne sont pas des objets")
-        return schema, True
+        return _relaxed(schema), True
     schema = infer(sample)
     if schema.get("type") != "object":
         raise SampleNotAnObjectError("l'échantillon n'est pas un objet")
-    return schema, False
+    return _relaxed(schema), False
+
+
+def _relaxed(schema: dict[str, Any]) -> dict[str, Any]:
+    """Un champ que l'échantillon n'a JAMAIS rempli ne contraint rien (Gael, 24/10/2026).
+
+    `type: "null"` seul dirait « ce champ ne peut valoir que null », et le modèle
+    refuserait le premier document qui le renseigne. Or l'échantillon ne prouve rien sur
+    ce champ : il ne l'a jamais vu rempli. On rend donc un schéma vide, qui accepte tout,
+    et la personne pose le type à la main là où elle le connaît.
+
+    Un null MÉLANGÉ à autre chose n'est pas concerné : `["a", null]` garde
+    `type: [string, null]`, qui dit bien ce que l'échantillon a montré.
+    """
+    if schema == {"type": "null"}:
+        return {}
+    if schema.get("type") == "object" and isinstance(schema.get("properties"), dict):
+        properties = {k: _relaxed(v) for k, v in schema["properties"].items()}
+        return {**schema, "properties": properties}
+    if schema.get("type") == "array" and isinstance(schema.get("items"), dict):
+        return {**schema, "items": _relaxed(schema["items"])}
+    return schema
 
 
 def infer(sample: Any) -> dict[str, Any]:
