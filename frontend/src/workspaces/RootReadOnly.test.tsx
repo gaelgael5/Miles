@@ -21,13 +21,17 @@ const CHAIN = {
 };
 const SOURCE = {
   name: "comptes",
-  model: "shared/personne",
+  storage: "personnes",
   split: "$.accounts[*]",
-  keys: ["$.id"],
   chain: "import",
   large_file: false,
   unified_transaction: false,
-  filterables: [{ name: "code", jpath: "$.code" }],
+};
+const STORAGE = {
+  name: "personnes",
+  model: "shared/personne",
+  keys: ["$.id"],
+  indexables: [{ name: "code", jpath: "$.code" }],
 };
 const VERSION = { number: 1, label: "Racine", commit: "0123456789abcdef", author: "admin", saved_at: "2026-10-22T10:00:00Z" };
 
@@ -54,6 +58,8 @@ function onRoot(selection: Omit<NonNullable<WorkspaceSelection>, "id" | "branch"
     [`GET ${WS}/transformations/import/sample${Q}`]: { status: 200, body: { sample: null } },
     [`GET ${WS}/sources${Q}`]: { status: 200, body: [] },
     [`GET ${WS}/sources/comptes${Q}`]: { status: 200, body: SOURCE },
+    [`GET ${WS}/storages${Q}`]: { status: 200, body: [] },
+    [`GET ${WS}/storages/personnes${Q}`]: { status: 200, body: STORAGE },
   });
   renderWorkspaces({ id: "retrait", branch: "atelier", ...selection });
 }
@@ -112,9 +118,26 @@ describe("root branch", () => {
   it("shows a source with every field disabled and no save or delete", async () => {
     onRoot({ view: "sources", source: "comptes" });
     expect(await screen.findByLabelText("Split path")).toBeInTheDocument();
-    for (const label of ["Save the source", "Delete the source", "Add a filterable property"]) {
+    for (const label of ["Save the source", "Delete the source"]) {
       expect(screen.queryByText(label)).toBeNull();
     }
     expect(screen.getByLabelText("Split path")).toBeDisabled();
+  });
+
+  // Critère 19 de 844f15ad : la racine se lit, elle ne se modifie pas.
+  it("does not offer to declare a storage", async () => {
+    onRoot({ view: "storages" });
+    expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+    expect(screen.queryByText("New storage")).toBeNull();
+  });
+
+  it("shows a storage with every field disabled and no save or delete", async () => {
+    onRoot({ view: "storages", storage: "personnes" });
+    expect(await screen.findByLabelText("Functional key")).toBeInTheDocument();
+    for (const label of ["Save the storage", "Delete the storage", "Add an indexable property"]) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
+    expect(screen.getByLabelText("Functional key")).toBeDisabled();
+    expect(screen.getByLabelText("Object model")).toBeDisabled();
   });
 });

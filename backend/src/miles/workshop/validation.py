@@ -16,7 +16,7 @@ from miles.datamodels.layout import ModelEntry, entry_of, visible
 from miles.datamodels.schema import model_id, parse_schema
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import MANIFEST, diagnose
-from miles.workshop.chain_validation import chain_reports, source_reports
+from miles.workshop.chain_validation import chain_reports, source_reports, storage_reports
 
 _CONTRACT_FILE_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/(?P<file>[^/]+)$")
 _DERIVED_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/models/v(?P<number>\d+)/[^/]+$")
@@ -53,6 +53,7 @@ async def validate_branch(copy: WorkCopy) -> list[FileReport]:
             reports.append(FileReport(path, problems))
     reports += [FileReport(path, problems) for path, problems in await chain_reports(copy, paths)]
     reports += [FileReport(path, problems) for path, problems in await source_reports(copy, paths)]
+    reports += [FileReport(path, problems) for path, problems in await storage_reports(copy, paths)]
     return sorted(reports, key=lambda r: r.path)
 
 

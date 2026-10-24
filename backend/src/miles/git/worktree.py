@@ -47,6 +47,9 @@ SKELETON = (
     "transformations",
     # Sources de données (story 66391afe), à la racine pour la même raison.
     "sources",
+    # Storages (story 844f15ad) : les collections d'objets stockés en base. Leur
+    # DÉCLARATION est du paramétrage, donc dans git ; les objets, eux, vont en base.
+    "storages",
 )
 # Fichiers que poussent les forges ou les outils à la création d'un dépôt : un dépôt qui
 # n'a qu'eux est vierge, pas « non conforme ».
@@ -169,7 +172,7 @@ def _allowed(parts: list[str]) -> bool:
         return top == MANIFEST or top in _TOLERATED_ROOT
     if top == ".github":
         return True
-    if top in ("contracts", "transformations", "sources"):
+    if top in ("contracts", "transformations", "sources", "storages"):
         # Le contenu d'une chaîne se vérifie avec la chaîne (validation de la branche).
         return True
     if top == "shared":

@@ -7,20 +7,20 @@ import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/sources";
 const Q = "?branch=edition";
+// Depuis la séparation du 24/10/2026 (844f15ad), la source désigne un storage et ne
+// porte plus ni modèle, ni clé, ni propriétés filtrables.
 const SOURCE = {
-  name: "comptes",
-  model: "shared/compte",
+  name: "crm",
+  storage: "sites",
   split: "$.accounts[*]",
-  keys: ["$.accountId", "$.region"],
   chain: "comptes-import",
   large_file: true,
   unified_transaction: false,
-  filterables: [{ name: "code", jpath: "$.code" }],
 };
 const PICKERS = {
-  [`GET /api/workspaces/retrait/data-models${Q}`]: {
+  [`GET /api/workspaces/retrait/storages${Q}`]: {
     status: 200,
-    body: [{ scope: "shared", name: "compte", path: "data-models/shared/compte.yaml" }],
+    body: [{ name: "sites", model: "shared/site", keys: ["$.code"] }],
   },
   [`GET /api/workspaces/retrait/transformations${Q}`]: {
     status: 200,
@@ -33,34 +33,46 @@ afterEach(() => {
 });
 
 describe("SourcesScreen", () => {
-  it("declares a source with its model, chain, keys and filterables, then opens it", async () => {
+  it("declares a source that designates its storage and chain, then opens it", async () => {
     const calls = mockApi({
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...PICKERS,
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
       [`POST ${ROUTE}${Q}`]: { status: 201, body: { ...SOURCE, rewrite_announced: false } },
-      [`GET ${ROUTE}/comptes${Q}`]: { status: 200, body: SOURCE },
+      [`GET ${ROUTE}/crm${Q}`]: { status: 200, body: SOURCE },
     });
     renderWorkspaces({ id: "retrait", view: "sources", branch: "edition" });
     expect(await screen.findByText("No data source on this branch.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("New source"));
-    fill("Name", "comptes");
-    await screen.findByRole("option", { name: "shared/compte" });
-    fill("Target model", "shared/compte");
+    fill("Name", "crm");
+    await screen.findByRole("option", { name: "sites (shared/site)" });
+    fill("Storage fed", "sites");
     fill("Split path", "$.accounts[*]");
-    fill("Key rules", "$.accountId\n\n  $.region  ");
     await screen.findByRole("option", { name: "Import des comptes (comptes-import)" });
     fill("Transformation chain", "comptes-import");
     fireEvent.click(screen.getByLabelText("Large file mode (streamed parsing)"));
-    fireEvent.click(screen.getByText("Add a filterable property"));
-    fill("Name 1", "code");
-    fill("Path 1", "$.code");
     fireEvent.click(screen.getByText("Declare the source"));
 
-    expect(await screen.findByText("sources/comptes.yaml")).toBeInTheDocument();
+    expect(await screen.findByText("sources/crm.yaml")).toBeInTheDocument();
     expect(calls.find((c) => c.key === `POST ${ROUTE}${Q}`)?.body).toEqual(SOURCE);
+  });
+
+  it("no longer offers the model, the key or the filterables: they moved to the storage", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...PICKERS,
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition" });
+    fireEvent.click(await screen.findByText("New source"));
+
+    expect(screen.queryByLabelText("Target model")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Key rules")).not.toBeInTheDocument();
+    expect(screen.queryByText("Add a filterable property")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Storage fed")).toBeInTheDocument();
   });
 
   it("shows every refusal with the path it concerns", async () => {
@@ -75,7 +87,7 @@ describe("SourcesScreen", () => {
           detail: {
             code: "source_invalide",
             problems: [
-              { path: "filtrables[0].jpath", code: "tableau_interdit", detail: "$.enseignes" },
+              { path: "storage", code: "storage_inconnu", detail: "absent" },
               { path: "chaine", code: "chaine_inconnue", detail: "absente" },
             ],
           },
@@ -84,12 +96,12 @@ describe("SourcesScreen", () => {
     });
     renderWorkspaces({ id: "retrait", view: "sources", branch: "edition" });
     fireEvent.click(await screen.findByText("New source"));
-    fill("Name", "comptes");
+    fill("Name", "crm");
     fireEvent.submit(screen.getByRole("form", { name: "Declare the source" }));
 
     const alert = await screen.findByRole("alert");
-    expect(within(alert).getByText("filtrables[0].jpath")).toBeInTheDocument();
-    expect(alert).toHaveTextContent("“$.enseignes” designates an array");
+    expect(within(alert).getByText("storage")).toBeInTheDocument();
+    expect(alert).toHaveTextContent("Storage “absent” does not exist on this branch.");
     expect(alert).toHaveTextContent("Chain “absente” does not exist on this branch.");
   });
 
@@ -105,7 +117,9 @@ describe("SourcesScreen", () => {
     fireEvent.click(await screen.findByText("New source"));
     fireEvent.submit(screen.getByRole("form", { name: "Declare the source" }));
 
-    expect(await screen.findByText("A different source already has this name on the branch.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("A different source already has this name on the branch."),
+    ).toBeInTheDocument();
   });
 });
 
@@ -115,22 +129,25 @@ describe("SourceScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...PICKERS,
-      [`GET ${ROUTE}/comptes${Q}`]: { status: 200, body: SOURCE },
-      [`PUT ${ROUTE}/comptes${Q}`]: {
+      [`GET ${ROUTE}/crm${Q}`]: { status: 200, body: SOURCE },
+      [`PUT ${ROUTE}/crm${Q}`]: {
         status: 200,
-        body: { ...SOURCE, filterables: [], rewrite_announced: true },
+        body: { ...SOURCE, large_file: false, rewrite_announced: true },
       },
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
     });
-    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition", source: "comptes" });
+    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition", source: "crm" });
     expect(await screen.findByLabelText("Name")).toBeDisabled();
-    expect(screen.getByLabelText("Key rules")).toHaveValue("$.accountId\n$.region");
+    expect(screen.getByLabelText("Split path")).toHaveValue("$.accounts[*]");
 
-    fireEvent.click(screen.getByText("Remove filterable 1"));
+    fireEvent.click(screen.getByLabelText("Large file mode (streamed parsing)"));
     fireEvent.click(screen.getByText("Save the source"));
 
     expect(await screen.findByText(/the next import will rewrite every object/)).toBeInTheDocument();
-    expect(calls.find((c) => c.key === `PUT ${ROUTE}/comptes${Q}`)?.body).toEqual({ ...SOURCE, filterables: [] });
+    expect(calls.find((c) => c.key === `PUT ${ROUTE}/crm${Q}`)?.body).toEqual({
+      ...SOURCE,
+      large_file: false,
+    });
   });
 
   it("deletes the source after confirmation and returns to the list", async () => {
@@ -138,15 +155,15 @@ describe("SourceScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...PICKERS,
-      [`GET ${ROUTE}/comptes${Q}`]: { status: 200, body: SOURCE },
-      [`DELETE ${ROUTE}/comptes${Q}`]: { status: 204 },
+      [`GET ${ROUTE}/crm${Q}`]: { status: 200, body: SOURCE },
+      [`DELETE ${ROUTE}/crm${Q}`]: { status: 204 },
       [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
     });
-    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition", source: "comptes" });
+    renderWorkspaces({ id: "retrait", view: "sources", branch: "edition", source: "crm" });
     fireEvent.click(await screen.findByText("Delete the source"));
     fireEvent.click(within(screen.getByRole("dialog")).getByText("Delete the source"));
 
     expect(await screen.findByText("No data source on this branch.")).toBeInTheDocument();
-    expect(calls.some((c) => c.key === `DELETE ${ROUTE}/comptes${Q}`)).toBe(true);
+    expect(calls.some((c) => c.key === `DELETE ${ROUTE}/crm${Q}`)).toBe(true);
   });
 });

@@ -16,6 +16,8 @@ import { DataModelsScreen } from "./DataModelsScreen";
 import { DerivedModelScreen } from "./DerivedModelScreen";
 import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
+import { StorageScreen } from "./StorageScreen";
+import { StoragesScreen } from "./StoragesScreen";
 
 /** Une vue de branche s'affiche-t-elle ? Non pour le paramétrage, ni sans branche de base. */
 export function hasBranchScreen(workspace: Workspace, selection: NonNullable<WorkspaceSelection>) {
@@ -57,7 +59,7 @@ function viewScreen(
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.
-  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.step ?? ""}/${selection.source ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}`;
+  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.step ?? ""}/${selection.source ?? ""}/${selection.storage ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}`;
   if (selection.view === "contracts" && selection.contract !== undefined) {
     return (
       <ContractScreen
@@ -116,6 +118,27 @@ function viewScreen(
         target={target}
         onBack={back}
         onOpen={(chain) => onSelect({ id: workspace.id, view: "transformations", branch, chain })}
+      />
+    );
+  }
+  if (selection.view === "storages" && selection.storage !== undefined) {
+    return (
+      <StorageScreen
+        key={key}
+        target={target}
+        name={selection.storage}
+        onBack={() => onSelect({ id: workspace.id, view: "storages", branch })}
+      />
+    );
+  }
+  if (selection.view === "storages") {
+    return (
+      <StoragesScreen
+        key={key}
+        workspace={workspace}
+        target={target}
+        onBack={back}
+        onOpen={(storage) => onSelect({ id: workspace.id, view: "storages", branch, storage })}
       />
     );
   }

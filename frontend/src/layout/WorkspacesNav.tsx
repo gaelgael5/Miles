@@ -14,6 +14,7 @@ export type WorkspaceView =
   | "contractModels"
   | "contracts"
   | "transformations"
+  | "storages"
   | "sources";
 /**
  * Ce qu'affiche l'écran Workspaces : la liste (null), le paramétrage d'un workspace, ou
@@ -31,6 +32,8 @@ export type WorkspaceSelection = {
   step?: string;
   // Une source de données ouverte, avec la vue « sources ».
   source?: string;
+  // Un storage ouvert, avec la vue « storages ».
+  storage?: string;
   // Un modèle de données ouvert (« portée/nom »), avec la vue « dataModels ».
   model?: string;
   // Le sens des contrats dont on liste les modèles, avec la vue « contractModels ».

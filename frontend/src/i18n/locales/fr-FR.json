@@ -302,6 +302,7 @@
       "contracts": "Contrats",
       "branch": "Versions",
       "transformations": "Transformations",
+      "storages": "Storages",
       "sources": "Sources de données",
       "branchGraph": "Branches"
     },
@@ -669,12 +670,12 @@
       "operations_one": "{{count}} opération",
       "operations_other": "{{count}} opérations",
       "noOperation": "Aucune opération",
-      "showOperations": "Opérations",
       "captionVersions": "Versions",
       "versions_one": "{{count}} version (dernière v{{latest}})",
       "versions_other": "{{count}} versions (dernière v{{latest}})",
       "noFile": "Aucun fichier",
-      "open": "Ouvrir"
+      "open": "Ouvrir",
+      "showOperations": "Opérations"
     },
     "errors": {
       "unreadable": "Fichier illisible, ligne {{line}}, colonne {{column}} : {{message}}",
@@ -946,7 +947,7 @@
   },
   "sources": {
     "title": "Sources de données — {{name}}",
-    "intro": "Une source de données déclare quelle collection d'objets on alimente, où sont les items dans le document reçu, comment on reconnaît un objet d'un envoi à l'autre, quelle chaîne de transformations met chaque item en forme, et sur quelles propriétés on pourra filtrer.",
+    "intro": "Une source de données déclare COMMENT on remplit un storage : quel storage on alimente, où sont les items dans le document reçu, et quelle chaîne de transformations met chaque item en forme. Ce qui est stocké — le modèle, la clé fonctionnelle, les propriétés indexables — se déclare dans « Storages ».",
     "add": "Nouvelle source",
     "empty": "Aucune source de données sur cette branche.",
     "unreadable": "Déclaration illisible",
@@ -955,46 +956,33 @@
       "title": "Nouvelle source de données",
       "submit": "Déclarer la source",
       "choose": "Choisir…",
-      "splitHelp": "Chemin du tableau d'items dans le document reçu, par exemple $.accounts[*]. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*].",
-      "keysHelp": "Un chemin par ligne, lu sur l'item source, par exemple $.accountId. Ensemble, ils reconnaissent un objet d'un import à l'autre.",
-      "filterablesHelp": "Chaque propriété filtrable est nommée (son nom devient son identifiant d'index) et désignée par un chemin sur l'objet transformé. Un chemin vers un tableau est refusé : un objet porte une seule valeur par filtre.",
-      "addFilterable": "Ajouter une propriété filtrable",
-      "removeFilterable": "Retirer le filtrable {{rank}}"
+      "storageHelp": "Le storage que cette source remplit. C'est lui qui porte le modèle des objets, leur clé fonctionnelle et leurs propriétés indexables.",
+      "splitHelp": "Chemin du tableau d'items dans le document reçu, par exemple $.accounts[*]. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*]."
     },
     "fields": {
       "name": "Nom",
-      "model": "Modèle cible",
+      "storage": "Storage alimenté",
       "split": "Chemin de découpage",
-      "keys": "Règles de clé",
       "chain": "Chaîne de transformations",
       "largeFile": "Mode gros fichier (lecture en flux)",
-      "unifiedTransaction": "Une seule transaction pour tout l'import",
-      "filterables": "Propriétés filtrables",
-      "filterableName": "Nom {{rank}}",
-      "filterableJpath": "Chemin {{rank}}"
+      "unifiedTransaction": "Une seule transaction pour tout l'import"
     },
     "editor": {
       "save": "Enregistrer la source",
       "saved": "Source enregistrée.",
-      "savedRewrite": "Source enregistrée. La chaîne ou les propriétés filtrables ont changé : le prochain import réécrira tous les objets et leur index.",
+      "savedRewrite": "Source enregistrée. La chaîne a changé : le prochain import réécrira tous les objets.",
       "delete": "Supprimer la source",
       "deleteTitle": "Supprimer cette source ?",
       "deleteBody": "Le fichier sources/{{name}}.yaml sera retiré de la branche."
     },
     "problems": {
       "nom_invalide": "Nom : lettres minuscules, chiffres et tirets, sans doublon.",
-      "modele_invalide": "Le modèle « {{detail}} » n'est pas de la forme portée/nom.",
-      "modele_inconnu": "Le modèle « {{detail}} » n'existe pas sur cette branche.",
-      "cle_vide": "Au moins une règle de clé est requise : sans clé, les objets ne se réconcilient pas.",
-      "chemin_unique_attendu": "« {{detail}} » doit désigner une seule valeur.",
+      "storage_absent": "Le storage alimenté est obligatoire : on ne le devine pas.",
+      "storage_inconnu": "Le storage « {{detail}} » n'existe pas sur cette branche.",
       "decoupage_absent": "Le chemin de découpage est obligatoire.",
       "jpath_illisible": "Chemin illisible « {{detail}} ».",
       "non_streamable": "Non streamable — {{detail}} : en mode gros fichier, le document se lit une fois, sans retour en arrière.",
-      "jpath_double": "Le chemin « {{detail}} » est déclaré deux fois.",
-      "chemin_de_propriete_attendu": "« {{detail}} » doit être un chemin de noms de propriétés depuis $.",
-      "propriete_inconnue": "« {{detail}} » ne désigne rien dans le modèle cible.",
-      "tableau_interdit": "« {{detail}} » désigne un tableau : un filtre exige une seule valeur par objet.",
-      "valeur_attendue": "« {{detail}} » désigne un objet, pas une valeur.",
+      "declaration_invalide": "Déclaration illisible : une source écrite sous l'ancienne forme (modèle, clé, filtrables) doit désormais désigner un storage.",
       "chaine_inconnue": "La chaîne « {{detail}} » n'existe pas sur cette branche.",
       "chaine_invalide": "La chaîne est invalide : {{detail}}."
     },
@@ -1188,5 +1176,59 @@
     "backToContracts": "← Retour aux contrats",
     "contractTitle": "Modèles du contrat « {{label}} »",
     "noVersion": "Aucune version intégrée : ce contrat n'a pas encore de modèle."
+  },
+  "storages": {
+    "title": "Storages — {{name}}",
+    "intro": "Un storage est une collection d'objets JSON stockés en base. Il déclare le modèle des objets, la clé fonctionnelle qui les reconnaît d'une écriture à l'autre, et les propriétés sur lesquelles on pourra les filtrer. Il vit sans source : on y écrira aussi par API ou par MCP.",
+    "add": "Nouveau storage",
+    "empty": "Aucun storage sur cette branche.",
+    "unreadable": "Déclaration illisible",
+    "back": "Retour aux storages",
+    "form": {
+      "title": "Nouveau storage",
+      "submit": "Déclarer le storage",
+      "choose": "Choisir…",
+      "keysHelp": "Un chemin par ligne, lu sur l'objet stocké, par exemple $.code. Ensemble, ils identifient un objet d'une écriture à l'autre. Chacun doit désigner une valeur, pas un tableau ni un objet.",
+      "indexablesHelp": "Chaque propriété indexable est nommée (son nom devient son identifiant d'index, jamais un hash du chemin) et désignée par un chemin sur le modèle. Un chemin vers un tableau est refusé : c'est ce qui garantit une ligne d'index unique par objet et par propriété.",
+      "addIndexable": "Ajouter une propriété indexable",
+      "removeIndexable": "Retirer l'indexable {{rank}}"
+    },
+    "fields": {
+      "name": "Nom",
+      "model": "Modèle des objets",
+      "keys": "Clé fonctionnelle",
+      "indexables": "Propriétés indexables",
+      "indexableName": "Nom {{rank}}",
+      "indexableJpath": "Chemin {{rank}}"
+    },
+    "editor": {
+      "save": "Enregistrer le storage",
+      "saved": "Storage enregistré.",
+      "savedRewrite": "Storage enregistré. Le modèle ou les propriétés indexables ont changé : le prochain import réécrira tous les objets et leur index.",
+      "delete": "Supprimer le storage",
+      "deleteTitle": "Supprimer ce storage ?",
+      "deleteBody": "Le fichier storages/{{name}}.yaml sera retiré de la branche."
+    },
+    "problems": {
+      "nom_invalide": "Nom : lettres minuscules, chiffres et tirets, sans doublon.",
+      "nom_double": "Le nom « {{detail}} » est déclaré deux fois.",
+      "modele_invalide": "Le modèle « {{detail}} » n'est pas de la forme portée/nom.",
+      "modele_inconnu": "Le modèle « {{detail}} » n'existe pas sur cette branche.",
+      "cle_vide": "Au moins un chemin de clé est requis : sans clé, les objets ne se réconcilient pas.",
+      "cle_doublee": "Le même chemin de clé est déclaré deux fois.",
+      "chemin_de_propriete_attendu": "« {{detail}} » doit être un chemin de noms de propriétés depuis $, sans indice de tableau.",
+      "propriete_inconnue": "« {{detail}} » ne désigne rien dans le modèle du storage.",
+      "tableau_interdit": "« {{detail}} » désigne un tableau : il faut une seule valeur par objet, sinon la ligne d'index n'est plus unique.",
+      "valeur_attendue": "« {{detail}} » désigne un objet, pas une valeur.",
+      "jpath_double": "Le chemin « {{detail}} » est déclaré deux fois.",
+      "declaration_invalide": "Déclaration illisible : le fichier a été retouché hors de Miles."
+    },
+    "errors": {
+      "nom_pris": "Un autre storage porte déjà ce nom sur la branche.",
+      "nom_fige": "Un storage ne se renomme pas.",
+      "storage_utilise": "Ce storage est désigné par des sources de données : {{sources}}. Retirez-les d'abord.",
+      "unexpected": "Le storage n'a pas pu être enregistré. Voir les journaux du back-office.",
+      "unreadable": "Ce storage ne peut pas être lu."
+    }
   }
 }

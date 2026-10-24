@@ -13,6 +13,9 @@ const VIEWS: WorkspaceView[] = [
   "dataModels",
   "contracts",
   "transformations",
+  // « storages » avant « sources » : on déclare ce qui est stocké avant de dire
+  // comment on le remplit (Gael, 24/10/2026 — deux notions distinctes).
+  "storages",
   "sources",
 ];
 const SENSES: Direction[] = ["interne", "externe"];

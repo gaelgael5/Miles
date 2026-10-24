@@ -8,6 +8,10 @@ from miles.git.workcopy import WorkCopy
 from miles.sources.checks import branch_problems
 from miles.sources.layout import ROOT as SOURCES_ROOT
 from miles.sources.layout import form_problems, read_source
+from miles.storages.checks import branch_problems as storage_branch_problems
+from miles.storages.layout import ROOT as STORAGES_ROOT
+from miles.storages.layout import form_problems as storage_form_problems
+from miles.storages.layout import read_storage
 from miles.transform.chain import ChainInvalidError, StepSpec, compile_chain
 
 
@@ -75,6 +79,30 @@ async def source_reports(copy: WorkCopy, paths: list[str]) -> list[tuple[str, tu
             reports.append((path, (Problem("", "declaration_invalide"),)))
             continue
         found = form_problems(doc) + await branch_problems(copy, doc)
+        if found:
+            reports.append((path, tuple(Problem(p.path, p.code, p.detail) for p in found)))
+    return reports
+
+
+async def storage_reports(
+    copy: WorkCopy, paths: list[str]
+) -> list[tuple[str, tuple[Problem, ...]]]:
+    """Chaque storage de la branche : déclaration lisible, et tout ce qu'elle exige.
+
+    Mêmes vérifications qu'à l'écriture par Miles : un storage retouché dans GitHub ne se
+    fige pas en version si Miles l'aurait refusé (story 844f15ad, critère 18).
+    """
+    reports: list[tuple[str, tuple[Problem, ...]]] = []
+    for path in paths:
+        match = re.match(rf"^{STORAGES_ROOT}/(?P<file>[^/]+)$", path)
+        if match is None or match["file"] == ".gitkeep":
+            continue
+        doc = read_storage(await copy.read(path))
+        expected = f"{doc.name}.yaml" if doc is not None else None
+        if doc is None or match["file"] != expected:
+            reports.append((path, (Problem("", "declaration_invalide"),)))
+            continue
+        found = storage_form_problems(doc) + await storage_branch_problems(copy, doc)
         if found:
             reports.append((path, tuple(Problem(p.path, p.code, p.detail) for p in found)))
     return reports

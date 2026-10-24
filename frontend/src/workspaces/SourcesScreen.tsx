@@ -50,7 +50,10 @@ function CreateForm({
   );
 }
 
-/** Sources de données de la branche (story 66391afe) : ce qu'on alimente, et comment. */
+/**
+ * Sources de données de la branche (story 66391afe) : COMMENT on remplit un storage.
+ * Ce qui est stocké — modèle, clé, propriétés indexables — se déclare dans « Storages ».
+ */
 export function SourcesScreen({
   workspace,
   target,
@@ -95,8 +98,8 @@ export function SourcesScreen({
                 <div className="row-sub mono">sources/{s.name}.yaml</div>
               </div>
               <div className="cell">
-                <div className="caption">{t("sources.fields.model")}</div>
-                <div className="value">{s.model ?? t("sources.unreadable")}</div>
+                <div className="caption">{t("sources.fields.storage")}</div>
+                <div className="value">{s.storage ?? t("sources.unreadable")}</div>
               </div>
               <div className="cell">
                 <div className="caption">{t("sources.fields.chain")}</div>

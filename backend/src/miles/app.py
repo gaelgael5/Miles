@@ -72,6 +72,8 @@ from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
 from miles.sources.api_sources import router as sources_router
 from miles.sources.service import SourcesService
+from miles.storages.api_storages import router as storages_router
+from miles.storages.service import StoragesService
 from miles.transform.api_catalog import CatalogService
 from miles.transform.api_catalog import router as catalog_router
 from miles.transform.api_editor import JSLT_EDITOR_PATH
@@ -185,6 +187,7 @@ def create_app() -> FastAPI:
         app.state.targeted_reads = TargetedReads(branches)
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
+        app.state.storages = StoragesService(pool, branches, catalog, utc_now)
         app.state.api_keys = ApiKeysService(pool, catalog, utc_now)
         app.state.public_url = settings.public_url
         app.state.oauth_clients = OAuthClientsService(pool, catalog, utc_now)
@@ -266,6 +269,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(chains_api_router)
     app.include_router(sources_router)
+    app.include_router(storages_router)
     app.include_router(api_keys_router)
     app.include_router(identity_router)
     app.include_router(oauth_clients_router)

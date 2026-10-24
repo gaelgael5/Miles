@@ -45,17 +45,22 @@ class SourceNotFoundError(Exception):
 class Saved:
     doc: SourceDoc
     existed: bool
-    # Vrai quand la chaîne ou les propriétés filtrables changent : le prochain import
-    # réécrira tous les objets et leur index (critère 17).
+    # Vrai quand la chaîne change : le prochain import réécrira tous les objets
+    # (critère 17). Le modèle et les propriétés indexables ayant quitté la source
+    # pour le storage (844f15ad), c'est lui qui annonce la réécriture qu'ils causent.
     rewrite_announced: bool
 
 
 @dataclass(frozen=True)
 class SourcesService:
-    """Sources de données : le référentiel d'objets qu'elles alimentent (story 66391afe).
+    """Sources de données : COMMENT on remplit un storage (story 66391afe).
 
     Déclarées dans git, homologuées avec le paramétrage. La source désigne sa chaîne de
     transformations par son slug (Gael, 22/10/2026) ; la chaîne s'applique à chaque item.
+
+    Révisé le 24/10/2026 (844f15ad) : elle désigne aussi le STORAGE qu'elle alimente, et
+    ne porte plus le modèle, la clé ni les propriétés filtrables — c'est le storage qui
+    les déclare, parce qu'il vit aussi sans source.
     """
 
     pool: asyncpg.Pool
@@ -116,9 +121,7 @@ class SourcesService:
                 raise SourceInvalidError(problems)
             await copy.write(source_path(doc.name), source_text(doc))
             commit = await self.branches.commit(copy, f"Source de données {doc.name}", author)
-        rewrite = previous is not None and (
-            previous.chain != doc.chain or previous.filterables != doc.filterables
-        )
+        rewrite = previous is not None and previous.chain != doc.chain
         await self._journal(SAVED_EVENT, workspace_id, author, doc.name, commit, copy.branch)
         log.info("source_enregistree", workspace=workspace_id, source=doc.name, rewrite=rewrite)
         return Saved(doc, False, rewrite)

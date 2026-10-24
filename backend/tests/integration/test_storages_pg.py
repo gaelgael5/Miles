@@ -1,0 +1,236 @@
+from __future__ import annotations
+
+import base64
+from collections.abc import AsyncIterator
+from pathlib import Path
+from typing import Any
+
+import httpx
+import pytest
+
+from miles.datamodels.schema import normalized
+from tests.integration.test_datamodels_pg import body_of
+from tests.integration.work_stack import Forge, open_work_forge
+
+pytestmark = pytest.mark.integration
+
+ROUTE = "/api/workspaces/retrait/storages"
+SOURCES = "/api/workspaces/retrait/sources"
+MODELS = "/api/workspaces/retrait/data-models"
+CHAINS = "/api/workspaces/retrait/transformations"
+ADRESSE = normalized("type: object\nproperties:\n  ville:\n    type: string\n", "shared", "adresse")
+SITE = normalized(
+    "type: object\nproperties:\n  code:\n    type: string\n"
+    "  adresse:\n    $ref: miles:/shared/adresse\n"
+    "  enseignes:\n    type: array\n    items:\n      type: string\n",
+    "shared",
+    "site",
+)
+STORAGE: dict[str, Any] = {
+    "name": "sites",
+    "model": "shared/site",
+    "keys": ["$.code"],
+    "indexables": [
+        {"name": "code", "jpath": "$.code"},
+        {"name": "ville", "jpath": "$.adresse.ville"},
+    ],
+}
+
+
+@pytest.fixture
+async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
+    async with open_work_forge(blank_db, tmp_path) as opened:
+        for model in (ADRESSE, SITE):
+            created = await opened.client.post(MODELS, json=body_of(model), timeout=120)
+            assert created.status_code == 201, created.text
+        yield opened
+
+
+async def _declare(forge: Forge, **changes: Any) -> httpx.Response:
+    return await forge.client.post(ROUTE, json=STORAGE | changes, timeout=120)
+
+
+async def test_storage_is_declared_in_git_read_back_and_listed(forge: Forge) -> None:
+    """Critère 1 : le cas de Gael — l'objet `site` stocké, avec une propriété pour clé."""
+    declared = await _declare(forge)
+    read = await forge.client.get(f"{ROUTE}/sites", timeout=120)
+    listed = await forge.client.get(ROUTE, timeout=120)
+
+    assert declared.status_code == 201, declared.text
+    assert declared.json() == STORAGE | {"rewrite_announced": False}
+    assert read.json() == STORAGE
+    assert listed.json() == [{"name": "sites", "model": "shared/site", "keys": ["$.code"]}]
+    text = await forge.file("storages/sites.yaml")
+    assert text is not None
+    assert 'modele: "shared/site"' in text and '- "$.code"' in text
+
+
+async def test_an_unknown_model_is_refused_by_name(forge: Forge) -> None:
+    refused = await _declare(forge, model="shared/inconnu")
+
+    assert [(p["path"], p["code"], p["detail"]) for p in refused.json()["detail"]["problems"]] == [
+        ("modele", "modele_inconnu", "shared/inconnu")
+    ]
+
+
+async def test_a_key_must_name_one_scalar_property_of_the_model(forge: Forge) -> None:
+    """Critères 3, 4, 5 et 6 : une clé qui ne se compare pas d'une écriture à l'autre."""
+    before = await forge.commits()
+
+    empty = await _declare(forge, keys=[])
+    not_a_path = await _declare(forge, keys=["$.enseignes[*]"])
+    unknown = await _declare(forge, keys=["$.rien"])
+    containers = await _declare(forge, keys=["$.enseignes", "$.adresse"])
+
+    assert [(p["path"], p["code"]) for p in empty.json()["detail"]["problems"]] == [
+        ("cle", "cle_vide")
+    ]
+    assert [(p["path"], p["code"]) for p in not_a_path.json()["detail"]["problems"]] == [
+        ("cle[0]", "chemin_de_propriete_attendu")
+    ]
+    assert [(p["path"], p["code"]) for p in unknown.json()["detail"]["problems"]] == [
+        ("cle[0]", "propriete_inconnue")
+    ]
+    assert {(p["path"], p["code"]) for p in containers.json()["detail"]["problems"]} == {
+        ("cle[0]", "tableau_interdit"),
+        ("cle[1]", "valeur_attendue"),
+    }
+    assert await forge.commits() == before
+
+
+async def test_an_indexable_property_must_resolve_to_a_single_value(forge: Forge) -> None:
+    """Critères 7 et 8 : l'unicité de la ligne d'index est le fondement du mécanisme."""
+    refused = await _declare(
+        forge,
+        indexables=[
+            {"name": "enseignes", "jpath": "$.enseignes"},
+            {"name": "adresse", "jpath": "$.adresse"},
+            {"name": "rien", "jpath": "$.rien"},
+        ],
+    )
+
+    problems = refused.json()["detail"]["problems"]
+    assert {(p["path"], p["code"]) for p in problems} == {
+        ("indexables[0].jpath", "tableau_interdit"),
+        ("indexables[1].jpath", "valeur_attendue"),
+        ("indexables[2].jpath", "propriete_inconnue"),
+    }
+    # La raison est rendue avec le jpath : elle n'est pas évidente pour qui déclare.
+    assert {p["detail"] for p in problems} == {"$.enseignes", "$.adresse", "$.rien"}
+
+
+async def test_duplicate_names_and_duplicate_jpaths_are_refused_distinctly(forge: Forge) -> None:
+    """Critère 9 : un nom doublé et un jpath doublé ne sont pas le même écart."""
+    same_name = await _declare(
+        forge,
+        indexables=[
+            {"name": "code", "jpath": "$.code"},
+            {"name": "code", "jpath": "$.adresse.ville"},
+        ],
+    )
+    same_jpath = await _declare(
+        forge,
+        indexables=[{"name": "code", "jpath": "$.code"}, {"name": "autre", "jpath": "$.code"}],
+    )
+
+    assert {(p["path"], p["code"]) for p in same_name.json()["detail"]["problems"]} == {
+        ("indexables[0].nom", "nom_double"),
+        ("indexables[1].nom", "nom_double"),
+    }
+    assert {(p["path"], p["code"]) for p in same_jpath.json()["detail"]["problems"]} == {
+        ("indexables[0].jpath", "jpath_double"),
+        ("indexables[1].jpath", "jpath_double"),
+    }
+
+
+async def test_a_storage_without_any_indexable_property_is_accepted(forge: Forge) -> None:
+    """Critère 10 : il reste interrogeable par sa clé."""
+    declared = await _declare(forge, indexables=[])
+
+    assert declared.status_code == 201, declared.text
+
+
+async def test_replay_name_taken_and_modification_that_announces_a_rewrite(forge: Forge) -> None:
+    """Critères 11, 12 et 13."""
+    await _declare(forge)
+    before = await forge.commits()
+
+    replay = await _declare(forge)
+    taken = await _declare(forge, keys=["$.adresse.ville"])
+    same_shape = await forge.client.put(
+        f"{ROUTE}/sites", json=STORAGE | {"keys": ["$.adresse.ville"]}, timeout=120
+    )
+    fewer_indexables = await forge.client.put(
+        f"{ROUTE}/sites",
+        json=STORAGE | {"keys": ["$.adresse.ville"], "indexables": []},
+        timeout=120,
+    )
+    renamed = await forge.client.put(f"{ROUTE}/autre", json=STORAGE, timeout=120)
+
+    assert (replay.status_code, replay.headers["x-miles-already-exists"]) == (200, "true")
+    assert (taken.status_code, taken.json()["detail"]) == (409, "nom_pris")
+    # La clé change, mais ni le modèle ni l'index : rien à réécrire.
+    assert same_shape.json()["rewrite_announced"] is False
+    assert fewer_indexables.json()["rewrite_announced"] is True
+    assert (renamed.status_code, renamed.json()["detail"]) == (409, "nom_fige")
+    assert await forge.commits() == before + 2
+
+
+async def test_a_storage_designated_by_a_source_cannot_be_deleted(forge: Forge) -> None:
+    """Critères 14 et 15 : la source cesserait de se vérifier, et l'import casserait loin."""
+    await _declare(forge)
+    chain = {"label": "Import", "steps": [{"name": "copier", "template": '{ "code": $.code }'}]}
+    await forge.client.put(f"{CHAINS}/sites-import", json=chain, timeout=120)
+    source = {
+        "name": "crm",
+        "storage": "sites",
+        "split": "$.sites[*]",
+        "chain": "sites-import",
+        "large_file": False,
+        "unified_transaction": False,
+    }
+    declared = await forge.client.post(SOURCES, json=source, timeout=120)
+    assert declared.status_code == 201, declared.text
+
+    refused = await forge.client.delete(f"{ROUTE}/sites", timeout=120)
+    await forge.client.delete(f"{SOURCES}/crm", timeout=120)
+    allowed = await forge.client.delete(f"{ROUTE}/sites", timeout=120)
+
+    assert (refused.status_code, refused.json()["detail"]) == (
+        409,
+        {"code": "storage_utilise", "sources": ["crm"]},
+    )
+    assert allowed.status_code == 204
+
+
+async def test_a_version_cannot_freeze_a_storage_broken_outside_miles(forge: Forge) -> None:
+    """Critère 18 : retouché dans GitHub, il ne se fige pas si Miles l'aurait refusé."""
+    await _declare(forge)
+    await forge.publish()
+    path = "storages/sites.yaml"
+    meta = await forge.api.get(
+        f"/api/v1/repos/miles/{forge.name}/contents/{path}", params={"ref": "back/retrait/edition"}
+    )
+    text = (await forge.file(path) or "").replace("$.adresse.ville", "$.enseignes")
+    changed = await forge.api.put(
+        f"/api/v1/repos/miles/{forge.name}/contents/{path}",
+        json={
+            "branch": "back/retrait/edition",
+            "sha": meta.json()["sha"],
+            "content": base64.b64encode(text.encode()).decode(),
+        },
+    )
+    assert changed.status_code == 200, changed.text
+
+    refused = await forge.client.post(
+        "/api/workspaces/retrait/versions", json={"label": "Storage cassé"}, timeout=120
+    )
+
+    assert refused.json()["detail"]["reports"] == [
+        {
+            "path": path,
+            "problems": [
+                {"path": "indexables[1].jpath", "code": "tableau_interdit", "detail": "$.enseignes"}
+            ],
+        }
+    ]

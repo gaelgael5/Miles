@@ -13,6 +13,7 @@ from miles.oidc import service as oidc_events
 from miles.secrets import service as secrets_events
 from miles.security import service as security_events
 from miles.sources import service as sources_events
+from miles.storages import service as storages_events
 from miles.workshop import branches as branches_events
 from miles.workshop import domains_service as domains_events
 from miles.workshop import holds as holds_events
@@ -41,6 +42,7 @@ def code_event_types() -> frozenset[str]:
         | secrets_events.EVENT_TYPES
         | security_events.EVENT_TYPES
         | sources_events.EVENT_TYPES
+        | storages_events.EVENT_TYPES
         | branches_events.EVENT_TYPES
         | domains_events.EVENT_TYPES
         | holds_events.EVENT_TYPES

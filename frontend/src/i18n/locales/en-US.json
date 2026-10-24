@@ -302,6 +302,7 @@
       "contracts": "Contracts",
       "branch": "Versions",
       "transformations": "Transformations",
+      "storages": "Storages",
       "sources": "Data sources",
       "branchGraph": "Branches"
     },
@@ -669,12 +670,12 @@
       "operations_one": "{{count}} operation",
       "operations_other": "{{count}} operations",
       "noOperation": "No operation",
-      "showOperations": "Operations",
       "captionVersions": "Versions",
       "versions_one": "{{count}} version (latest v{{latest}})",
       "versions_other": "{{count}} versions (latest v{{latest}})",
       "noFile": "No file yet",
-      "open": "Open"
+      "open": "Open",
+      "showOperations": "Operations"
     },
     "errors": {
       "unreadable": "Unreadable file, line {{line}}, column {{column}}: {{message}}",
@@ -946,7 +947,7 @@
   },
   "sources": {
     "title": "Data sources — {{name}}",
-    "intro": "A data source declares which object collection is fed, where the items are in the received document, how an object is recognised from one delivery to the next, which transformation chain shapes each item, and which properties can be filtered.",
+    "intro": "A data source declares HOW a storage is filled: which storage is fed, where the items are in the received document, and which transformation chain shapes each item. What is stored — the model, the functional key, the indexable properties — is declared under “Storages”.",
     "add": "New source",
     "empty": "No data source on this branch.",
     "unreadable": "Unreadable declaration",
@@ -955,46 +956,33 @@
       "title": "New data source",
       "submit": "Declare the source",
       "choose": "Choose…",
-      "splitHelp": "Path of the item array in the received document, e.g. $.accounts[*]. It must be streamable: no filter, no unbounded “..” descent, ending with [*].",
-      "keysHelp": "One path per line, read on the source item, e.g. $.accountId. Together they identify an object from one import to the next.",
-      "filterablesHelp": "Each filterable property is named (its name becomes its index identifier) and designated by a path on the transformed object. A path to an array is refused: an object holds one value per filter.",
-      "addFilterable": "Add a filterable property",
-      "removeFilterable": "Remove filterable {{rank}}"
+      "storageHelp": "The storage this source fills. It is the storage that carries the object model, its functional key and its indexable properties.",
+      "splitHelp": "Path of the item array in the received document, e.g. $.accounts[*]. It must be streamable: no filter, no unbounded “..” descent, ending with [*]."
     },
     "fields": {
       "name": "Name",
-      "model": "Target model",
+      "storage": "Storage fed",
       "split": "Split path",
-      "keys": "Key rules",
       "chain": "Transformation chain",
       "largeFile": "Large file mode (streamed parsing)",
-      "unifiedTransaction": "Single transaction for the whole import",
-      "filterables": "Filterable properties",
-      "filterableName": "Name {{rank}}",
-      "filterableJpath": "Path {{rank}}"
+      "unifiedTransaction": "Single transaction for the whole import"
     },
     "editor": {
       "save": "Save the source",
       "saved": "Source saved.",
-      "savedRewrite": "Source saved. The chain or the filterable properties changed: the next import will rewrite every object and its index.",
+      "savedRewrite": "Source saved. The chain changed: the next import will rewrite every object.",
       "delete": "Delete the source",
       "deleteTitle": "Delete this source?",
       "deleteBody": "The file sources/{{name}}.yaml will be removed from the branch."
     },
     "problems": {
       "nom_invalide": "Name: lowercase letters, digits and dashes, unique.",
-      "modele_invalide": "Model “{{detail}}” is not of the form scope/name.",
-      "modele_inconnu": "Model “{{detail}}” does not exist on this branch.",
-      "cle_vide": "At least one key rule is required: without a key, objects cannot be reconciled.",
-      "chemin_unique_attendu": "“{{detail}}” must designate a single value.",
+      "storage_absent": "The storage fed is required: it is never guessed.",
+      "storage_inconnu": "Storage “{{detail}}” does not exist on this branch.",
       "decoupage_absent": "The split path is required.",
       "jpath_illisible": "Unreadable path “{{detail}}”.",
       "non_streamable": "Not streamable — {{detail}}: in large file mode the document is read once, without going back.",
-      "jpath_double": "Path “{{detail}}” is declared twice.",
-      "chemin_de_propriete_attendu": "“{{detail}}” must be a path of property names from $.",
-      "propriete_inconnue": "“{{detail}}” designates nothing in the target model.",
-      "tableau_interdit": "“{{detail}}” designates an array: a filter needs a single value per object.",
-      "valeur_attendue": "“{{detail}}” designates an object, not a value.",
+      "declaration_invalide": "Unreadable declaration: a source written in the old shape (model, key, filterables) must now designate a storage.",
       "chaine_inconnue": "Chain “{{detail}}” does not exist on this branch.",
       "chaine_invalide": "The chain is invalid: {{detail}}."
     },
@@ -1188,5 +1176,59 @@
     "backToContracts": "← Back to the contracts",
     "contractTitle": "Models of contract “{{label}}”",
     "noVersion": "No version integrated: this contract has no model yet."
+  },
+  "storages": {
+    "title": "Storages — {{name}}",
+    "intro": "A storage is a collection of JSON objects kept in the database. It declares the object model, the functional key that recognises an object from one write to the next, and the properties objects can be filtered on. It lives without any source: it will also be written to through the API or MCP.",
+    "add": "New storage",
+    "empty": "No storage on this branch.",
+    "unreadable": "Unreadable declaration",
+    "back": "Back to storages",
+    "form": {
+      "title": "New storage",
+      "submit": "Declare the storage",
+      "choose": "Choose…",
+      "keysHelp": "One path per line, read on the stored object, e.g. $.code. Together they identify an object from one write to the next. Each must designate a value, not an array nor an object.",
+      "indexablesHelp": "Each indexable property is named (its name becomes its index identifier, never a hash of the path) and designated by a path on the model. A path to an array is refused: that is what guarantees one index row per object and property.",
+      "addIndexable": "Add an indexable property",
+      "removeIndexable": "Remove indexable {{rank}}"
+    },
+    "fields": {
+      "name": "Name",
+      "model": "Object model",
+      "keys": "Functional key",
+      "indexables": "Indexable properties",
+      "indexableName": "Name {{rank}}",
+      "indexableJpath": "Path {{rank}}"
+    },
+    "editor": {
+      "save": "Save the storage",
+      "saved": "Storage saved.",
+      "savedRewrite": "Storage saved. The model or the indexable properties changed: the next import will rewrite every object and its index.",
+      "delete": "Delete the storage",
+      "deleteTitle": "Delete this storage?",
+      "deleteBody": "The file storages/{{name}}.yaml will be removed from the branch."
+    },
+    "problems": {
+      "nom_invalide": "Name: lowercase letters, digits and dashes, unique.",
+      "nom_double": "Name “{{detail}}” is declared twice.",
+      "modele_invalide": "Model “{{detail}}” is not of the form scope/name.",
+      "modele_inconnu": "Model “{{detail}}” does not exist on this branch.",
+      "cle_vide": "At least one key path is required: without a key, objects cannot be reconciled.",
+      "cle_doublee": "The same key path is declared twice.",
+      "chemin_de_propriete_attendu": "“{{detail}}” must be a path of property names from $, with no array index.",
+      "propriete_inconnue": "“{{detail}}” designates nothing in the storage model.",
+      "tableau_interdit": "“{{detail}}” designates an array: a single value per object is required, otherwise the index row is no longer unique.",
+      "valeur_attendue": "“{{detail}}” designates an object, not a value.",
+      "jpath_double": "Path “{{detail}}” is declared twice.",
+      "declaration_invalide": "Unreadable declaration: the file was edited outside Miles."
+    },
+    "errors": {
+      "nom_pris": "A different storage already has this name on the branch.",
+      "nom_fige": "A storage cannot be renamed.",
+      "storage_utilise": "This storage is designated by data sources: {{sources}}. Remove them first.",
+      "unexpected": "The storage could not be saved. See the back-office logs.",
+      "unreadable": "This storage cannot be read."
+    }
   }
 }

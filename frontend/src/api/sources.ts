@@ -3,40 +3,38 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, request } from "./http";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
-/** Une propriété filtrable : son nom figé fait son identifiant d'index, pas son jpath. */
-export interface Filterable {
-  name: string;
-  jpath: string;
-}
-
-/** Déclaration d'une source de données (story 66391afe), stockée dans la branche. */
+/**
+ * Déclaration d'une source de données (story 66391afe), stockée dans la branche : COMMENT
+ * on remplit un storage, et rien de plus.
+ *
+ * Révisé le 24/10/2026 (844f15ad) : le modèle, la clé et les propriétés filtrables ont
+ * quitté la source pour le storage, qu'elle ne fait que désigner.
+ */
 export interface Source {
   name: string;
-  /** « scope/nom » du modèle cible. */
-  model: string;
+  /** Nom du storage alimenté : il porte le modèle, la clé et les propriétés indexables. */
+  storage: string;
   /** Jpath du tableau d'items, streamable. */
   split: string;
-  keys: string[];
   /** Slug de la chaîne de transformations appliquée à chaque item. */
   chain: string;
   large_file: boolean;
   unified_transaction: boolean;
-  filterables: Filterable[];
 }
 
 export interface SavedSource extends Source {
-  /** Chaîne ou filtrables changés : le prochain import réécrira tous les objets. */
+  /** Chaîne changée : le prochain import réécrira tous les objets. */
   rewrite_announced: boolean;
 }
 
 export interface SourceSummary {
   name: string;
   /** null : déclaration illisible, retouchée hors de Miles. */
-  model: string | null;
+  storage: string | null;
   chain: string | null;
 }
 
-/** Un défaut de la déclaration, désigné par son chemin (« filtrables[1].jpath »…). */
+/** Un défaut de la déclaration, désigné par son chemin (« storage », « decoupage »…). */
 export interface SourceProblem {
   path: string;
   code: string;

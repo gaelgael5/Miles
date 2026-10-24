@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from miles.auth.author import request_author
-from miles.sources.layout import Filterable, SourceDoc
+from miles.sources.layout import SourceDoc
 from miles.sources.service import (
     Saved,
     SourceInvalidError,
@@ -34,27 +34,19 @@ def sources_service(request: Request) -> SourcesService:
 Service = Annotated[SourcesService, Depends(sources_service)]
 
 
-class FilterableIO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    name: str = Field(max_length=63)
-    jpath: str = Field(max_length=1024)
-
-
 class SourceIO(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=63)
-    model: str = Field(max_length=200)
+    # Le storage alimenté : il porte le modèle, la clé et les propriétés indexables.
+    storage: str = Field(max_length=63)
     split: str = Field(max_length=1024)
-    keys: list[str] = Field(max_length=20)
     chain: str = Field(max_length=63)
     large_file: bool = False
     unified_transaction: bool = False
-    filterables: list[FilterableIO] = Field(default=[], max_length=100)
 
 
 class SavedOut(SourceIO):
-    # Vrai si la chaîne ou les propriétés filtrables ont changé : le prochain import
-    # réécrira tous les objets et leur index.
+    # Vrai si la chaîne a changé : le prochain import réécrira tous les objets.
     rewrite_announced: bool
 
 
@@ -62,33 +54,29 @@ class SourceSummaryOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
     # None : déclaration illisible (retouchée hors de Miles) ; la validation dit pourquoi.
-    model: str | None
+    storage: str | None
     chain: str | None
 
 
 def _doc(body: SourceIO) -> SourceDoc:
     return SourceDoc(
         body.name.strip(),
-        body.model.strip(),
+        body.storage.strip(),
         body.split.strip(),
-        tuple(k.strip() for k in body.keys),
         body.chain.strip(),
         body.large_file,
         body.unified_transaction,
-        tuple(Filterable(f.name.strip(), f.jpath.strip()) for f in body.filterables),
     )
 
 
 def _io(doc: SourceDoc) -> SourceIO:
     return SourceIO(
         name=doc.name,
-        model=doc.model,
+        storage=doc.storage,
         split=doc.split,
-        keys=list(doc.keys),
         chain=doc.chain,
         large_file=doc.large_file,
         unified_transaction=doc.unified_transaction,
-        filterables=[FilterableIO(name=f.name, jpath=f.jpath) for f in doc.filterables],
     )
 
 
@@ -140,9 +128,9 @@ async def list_sources(
     except _REFUSALS as exc:
         return _refusal(exc)
     return [
-        SourceSummaryOut(name=s, model=None, chain=None)
+        SourceSummaryOut(name=s, storage=None, chain=None)
         if isinstance(s, str)
-        else SourceSummaryOut(name=s.name, model=s.model, chain=s.chain)
+        else SourceSummaryOut(name=s.name, storage=s.storage, chain=s.chain)
         for s in found
     ]
 

@@ -31,7 +31,7 @@ function Editor({ target, source, onDeleted }: { target: WorkTarget; source: Sou
       </SourceForm>
       {save.isSuccess && (
         <p className="muted" role="status">
-          {/* Critère 17 : changer la chaîne ou les filtrables réécrit tout au prochain import. */}
+          {/* Critère 17 : changer la chaîne réécrit tout au prochain import. */}
           {t(save.data.rewrite_announced ? "sources.editor.savedRewrite" : "sources.editor.saved")}
         </p>
       )}

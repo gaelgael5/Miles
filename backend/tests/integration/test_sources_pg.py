@@ -15,40 +15,42 @@ from tests.integration.work_stack import Forge, open_work_forge
 pytestmark = pytest.mark.integration
 
 ROUTE = "/api/workspaces/retrait/sources"
+STORAGES = "/api/workspaces/retrait/storages"
 MODELS = "/api/workspaces/retrait/data-models"
 CHAINS = "/api/workspaces/retrait/transformations"
-ADRESSE = normalized("type: object\nproperties:\n  ville:\n    type: string\n", "shared", "adresse")
-COMPTE = normalized(
-    "type: object\nproperties:\n  code:\n    type: string\n"
-    "  adresse:\n    $ref: miles:/shared/adresse\n"
-    "  enseignes:\n    type: array\n    items:\n      type: string\n",
-    "shared",
-    "compte",
-)
-SOURCE: dict[str, Any] = {
+COMPTE = normalized("type: object\nproperties:\n  code:\n    type: string\n", "shared", "compte")
+STORAGE: dict[str, Any] = {
     "name": "comptes",
     "model": "shared/compte",
+    "keys": ["$.code"],
+    "indexables": [],
+}
+# Depuis la séparation du 24/10/2026 (844f15ad), la source ne dit que COMMENT on remplit
+# le storage : elle le désigne, et ne porte plus ni modèle, ni clé, ni filtrables.
+SOURCE: dict[str, Any] = {
+    "name": "comptes",
+    "storage": "comptes",
     "split": "$.accounts[*]",
-    "keys": ["$.accountId"],
     "chain": "comptes-import",
     "large_file": True,
     "unified_transaction": False,
-    "filterables": [
-        {"name": "code", "jpath": "$.code"},
-        {"name": "ville", "jpath": "$.adresse.ville"},
-    ],
 }
 
 
 @pytest.fixture
 async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
     async with open_work_forge(blank_db, tmp_path) as opened:
-        for model in (ADRESSE, COMPTE):
-            created = await opened.client.post(MODELS, json=body_of(model), timeout=120)
-            assert created.status_code == 201, created.text
-        chain = {"label": "Import", "steps": [{"name": "copier", "template": '{ "code": $.code }'}]}
-        saved = await opened.client.put(f"{CHAINS}/comptes-import", json=chain, timeout=120)
-        assert saved.status_code == 200, saved.text
+        created = await opened.client.post(MODELS, json=body_of(COMPTE), timeout=120)
+        assert created.status_code == 201, created.text
+        for slug in ("comptes-import", "autre-import"):
+            chain = {
+                "label": "Import",
+                "steps": [{"name": "copier", "template": '{ "code": $.code }'}],
+            }
+            saved = await opened.client.put(f"{CHAINS}/{slug}", json=chain, timeout=120)
+            assert saved.status_code == 200, saved.text
+        declared = await opened.client.post(STORAGES, json=STORAGE, timeout=120)
+        assert declared.status_code == 201, declared.text
         yield opened
 
 
@@ -56,7 +58,9 @@ async def _declare(forge: Forge, **changes: Any) -> httpx.Response:
     return await forge.client.post(ROUTE, json=SOURCE | changes, timeout=120)
 
 
-async def test_source_is_declared_in_git_and_designates_its_chain(forge: Forge) -> None:
+async def test_source_is_declared_in_git_and_designates_its_storage_and_chain(
+    forge: Forge,
+) -> None:
     declared = await _declare(forge)
     read = await forge.client.get(f"{ROUTE}/comptes", timeout=120)
     listed = await forge.client.get(ROUTE, timeout=120)
@@ -64,44 +68,26 @@ async def test_source_is_declared_in_git_and_designates_its_chain(forge: Forge) 
     assert declared.status_code == 201, declared.text
     assert declared.json() == SOURCE | {"rewrite_announced": False}
     assert read.json() == SOURCE
-    assert listed.json() == [
-        {"name": "comptes", "model": "shared/compte", "chain": "comptes-import"}
-    ]
+    assert listed.json() == [{"name": "comptes", "storage": "comptes", "chain": "comptes-import"}]
     text = await forge.file("sources/comptes.yaml")
-    assert text is not None and 'chaine: "comptes-import"' in text
+    assert text is not None
+    assert 'chaine: "comptes-import"' in text and 'storage: "comptes"' in text
+    # Ce qui a quitté la source ne doit pas y être resté par mégarde.
+    assert "modele" not in text and "filtrables" not in text
 
 
 async def test_everything_the_branch_must_provide_is_checked_and_reported(forge: Forge) -> None:
     before = await forge.commits()
 
-    refused = await _declare(
-        forge,
-        model="shared/inconnu",
-        chain="absente",
-        split="$.accounts[?(@.a == 1)]",
-        keys=[],
-    )
-    filters = await _declare(
-        forge,
-        filterables=[
-            {"name": "enseignes", "jpath": "$.enseignes"},
-            {"name": "adresse", "jpath": "$.adresse"},
-            {"name": "rien", "jpath": "$.rien"},
-        ],
-    )
+    refused = await _declare(forge, split="$.accounts[?(@.a == 1)]", storage="")
+    unknown = await _declare(forge, storage="absent", chain="absente")
 
     assert {(p["path"], p["code"]) for p in refused.json()["detail"]["problems"]} == {
         ("decoupage", "non_streamable"),
-        ("cle", "cle_vide"),
+        ("storage", "storage_absent"),
     }
-    assert {(p["path"], p["code"]) for p in filters.json()["detail"]["problems"]} == {
-        ("filtrables[0].jpath", "tableau_interdit"),
-        ("filtrables[1].jpath", "valeur_attendue"),
-        ("filtrables[2].jpath", "propriete_inconnue"),
-    }
-    unknown = await _declare(forge, model="shared/inconnu", chain="absente")
     assert {(p["path"], p["code"]) for p in unknown.json()["detail"]["problems"]} == {
-        ("modele", "modele_inconnu"),
+        ("storage", "storage_inconnu"),
         ("chaine", "chaine_inconnue"),
     }
     assert await forge.commits() == before
@@ -116,15 +102,17 @@ async def test_replay_name_taken_and_modification_that_announces_a_rewrite(forge
     same_chain = await forge.client.put(
         f"{ROUTE}/comptes", json=SOURCE | {"large_file": False}, timeout=120
     )
-    new_filters = await forge.client.put(
-        f"{ROUTE}/comptes", json=SOURCE | {"large_file": False, "filterables": []}, timeout=120
+    new_chain = await forge.client.put(
+        f"{ROUTE}/comptes",
+        json=SOURCE | {"large_file": False, "chain": "autre-import"},
+        timeout=120,
     )
     renamed = await forge.client.put(f"{ROUTE}/autre", json=SOURCE, timeout=120)
 
     assert (replay.status_code, replay.headers["x-miles-already-exists"]) == (200, "true")
     assert (taken.status_code, taken.json()["detail"]) == (409, "nom_pris")
     assert same_chain.json()["rewrite_announced"] is False
-    assert new_filters.json()["rewrite_announced"] is True
+    assert new_chain.json()["rewrite_announced"] is True
     assert (renamed.status_code, renamed.json()["detail"]) == (409, "nom_fige")
     assert await forge.commits() == before + 2
 
