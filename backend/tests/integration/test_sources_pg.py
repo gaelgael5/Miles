@@ -89,8 +89,9 @@ async def test_source_is_declared_in_git_and_designates_its_storage_and_chain(
     assert text is not None
     assert 'chaine: "comptes-import"' in text and 'storage: "comptes"' in text
     assert 'modele_source: "shared/compte-brut"' in text
-    # Ce qui a quitté la source ne doit pas y être resté par mégarde.
-    assert "modele" not in text and "filtrables" not in text
+    # Ce qui a quitté la source ne doit pas y être resté par mégarde. La clé est testée
+    # AVEC ses deux-points : « modele_source » contient « modele » et n'est pas l'ancien.
+    assert "\nmodele:" not in text and "filtrables" not in text and "\ncle:" not in text
 
 
 async def test_everything_the_branch_must_provide_is_checked_and_reported(forge: Forge) -> None:

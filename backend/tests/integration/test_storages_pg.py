@@ -203,6 +203,7 @@ async def test_a_storage_designated_by_a_source_cannot_be_deleted(forge: Forge) 
         "name": "crm",
         "label": "CRM",
         "storage": "sites",
+        "source_model": "shared/site",
         "split": "$.sites[*]",
         "chain": "sites-import",
         "large_file": False,

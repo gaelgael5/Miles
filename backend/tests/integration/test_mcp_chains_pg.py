@@ -7,7 +7,7 @@ import pytest
 
 from tests.integration.mcp_stack import McpForge, open_mcp_forge
 from tests.integration.test_datamodels_pg import body_of
-from tests.integration.test_sources_pg import COMPTE, SOURCE, STORAGE
+from tests.integration.test_sources_pg import BRUT, COMPTE, SOURCE, STORAGE
 
 pytestmark = pytest.mark.integration
 
@@ -79,7 +79,9 @@ async def test_trying_a_chain_writes_nothing_and_matches_the_screen(m: McpForge)
 async def test_unknown_or_designated_chains_name_what_exists_and_who_uses_them(
     m: McpForge,
 ) -> None:
-    await m.ok("create_data_model", EDIT | body_of(COMPTE))
+    # La source désigne un modèle source depuis le 24/10/2026 : il doit exister.
+    for model in (COMPTE, BRUT):
+        await m.ok("create_data_model", EDIT | body_of(model))
     await m.ok("save_chain", EDIT | {"slug": "comptes-import", "label": "Import", "steps": STEPS})
     # La source désigne un storage depuis le 24/10/2026 : il existe avant elle.
     stored = await m.forge.client.post(
