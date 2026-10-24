@@ -92,9 +92,12 @@ export function SourcesScreen({
       {sources.isSuccess && sources.data.length > 0 && (
         <ul className="card-list plain-list">
           {sources.data.map((s) => (
-            <li key={s.name} className="row">
+            <li key={s.name} className="row row-openable">
               <div className="row-main">
-                <div className="row-title">{s.label ?? s.name}</div>
+                {/* Toute la ligne ouvre la source (fbe9b512) : le bouton du titre la couvre. */}
+                <button type="button" className="row-title row-open" onClick={() => onOpen(s.name)}>
+                  {s.label ?? s.name}
+                </button>
                 <div className="row-sub mono">sources/{s.name}.yaml</div>
               </div>
               <div className="cell">
@@ -104,11 +107,6 @@ export function SourcesScreen({
               <div className="cell">
                 <div className="caption">{t("sources.fields.chain")}</div>
                 <div className="value mono">{s.chain ?? "—"}</div>
-              </div>
-              <div className="actions row-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => onOpen(s.name)}>
-                  {t("contracts.list.open")}
-                </button>
               </div>
             </li>
           ))}

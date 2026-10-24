@@ -108,9 +108,12 @@ export function StoragesScreen({
       {storages.isSuccess && storages.data.length > 0 && (
         <ul className="card-list plain-list">
           {storages.data.map((s) => (
-            <li key={s.name} className="row">
+            <li key={s.name} className="row row-openable">
               <div className="row-main">
-                <div className="row-title">{s.label ?? s.name}</div>
+                {/* Toute la ligne ouvre le storage (fbe9b512) : le bouton du titre la couvre. */}
+                <button type="button" className="row-title row-open" onClick={() => onOpen(s.name)}>
+                  {s.label ?? s.name}
+                </button>
                 <div className="row-sub mono">storages/{s.name}.yaml</div>
               </div>
               <div className="cell">
@@ -120,15 +123,6 @@ export function StoragesScreen({
               <div className="cell">
                 <div className="caption">{t("storages.fields.keys")}</div>
                 <div className="value mono">{s.keys?.join(", ") ?? "—"}</div>
-              </div>
-              <div className="actions row-actions">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => onOpen(s.name)}
-                >
-                  {t("contracts.list.open")}
-                </button>
               </div>
             </li>
           ))}

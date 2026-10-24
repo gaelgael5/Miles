@@ -305,6 +305,10 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 
 /* Le champ qui ouvre l'arbre (Gael, 24/10/2026) : fermé il montre la sélection, ouvert
    il flotte au-dessus du formulaire pour ne pas repousser le bouton d'enregistrement. */
+/* Pas `.field` : cette classe impose `width:100%; min-height:44px; padding; border` à
+   TOUT input qu'elle contient, ce qui transformait les cases à cocher de l'arbre en
+   pavés qui repoussaient les libellés hors de l'écran (Gael, 24/10/2026, sur mobile). */
+.picker-field { display: block; margin-bottom: 18px; font-size: 14px; }
 .path-picker { position: relative; margin-top: 8px; }
 .path-field {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
@@ -330,6 +334,14 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
   flex: 0 0 16px; width: 16px; background: none; border: none; padding: 0; cursor: pointer;
   color: var(--encre-faible); font-size: 11px; line-height: 1.4;
 }
-.tree-pick { display: flex; align-items: baseline; gap: 6px; font-weight: 400; cursor: pointer; }
-.tree-pick input { margin: 0; }
+.tree-pick {
+  display: flex; align-items: baseline; gap: 6px; font-weight: 400; cursor: pointer;
+  flex-wrap: wrap; min-width: 0;
+}
+/* Dimension explicite, et non héritée : une case reste une case quelle que soit la
+   plateforme, et quelles que soient les règles de formulaire qui l'entourent. */
+.tree-pick input[type="checkbox"] {
+  flex: 0 0 auto; width: 16px; height: 16px; min-height: 0; min-width: 0;
+  margin: 0; padding: 0; border-radius: 3px; align-self: center;
+}
 .tree-pick .caption { margin-bottom: 0; text-transform: none; letter-spacing: 0; }

@@ -156,7 +156,7 @@ export function StorageForm({
             ))}
           </select>
         </label>
-        <fieldset className="field">
+        <fieldset className="picker-field">
           <legend>{t("storages.fields.keys")}</legend>
           <p className="help">{t("storages.form.keysHelp")}</p>
           <PathPicker
@@ -171,7 +171,7 @@ export function StorageForm({
             onToggle={toggleKey}
           />
         </fieldset>
-        <fieldset className="field">
+        <fieldset className="picker-field">
           <legend>{t("storages.fields.indexables")}</legend>
           <p className="help">{t("storages.form.indexablesHelp")}</p>
           <PathPicker
