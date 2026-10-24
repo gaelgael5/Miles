@@ -37,7 +37,9 @@ function errorKey(error: unknown): string {
 export function WorkBranchPanel({ workspace }: { workspace: Workspace }) {
   const { t } = useTranslation();
   const open = useOpenWorkBranch(workspace.id);
-  const [name, setName] = useState("atelier");
+  // « root » par défaut (Gael, 24/10/2026) : c'est la racine du paramétrage, celle dont
+  // les branches filles se tirent et que le reste du code nomme déjà la racine.
+  const [name, setName] = useState("root");
   // Nom sur lequel le refus a porté. La confirmation vaut pour CE nom : sans cela,
   // changer le champ après le refus laisse le bouton reprendre une autre branche, que
   // personne n'a refusée ni confirmée (relevé en revue, 23/10/2026).

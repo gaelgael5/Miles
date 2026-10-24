@@ -206,11 +206,11 @@ describe("WorkBranchPanel", () => {
     const calls = mockApi({
       "GET /api/workspaces": [
         { status: 200, body: [CONFIGURED] },
-        { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/atelier" }] },
+        { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/root" }] },
       ],
       "POST /api/workspaces/retrait/work-branch": {
         status: 201,
-        body: { workspace: { ...CONFIGURED, work_branch: "back/retrait/atelier" }, outcome: "initialisee" },
+        body: { workspace: { ...CONFIGURED, work_branch: "back/retrait/root" }, outcome: "initialisee" },
       },
       ...SETTINGS,
     });
@@ -219,9 +219,9 @@ describe("WorkBranchPanel", () => {
 
     fireEvent.click(screen.getByText("Open the work branch"));
 
-    expect(await screen.findByText("Work branch: back/retrait/atelier")).toBeInTheDocument();
+    expect(await screen.findByText("Work branch: back/retrait/root")).toBeInTheDocument();
     expect(calls.find((c) => c.key === "POST /api/workspaces/retrait/work-branch")?.body).toEqual({
-      name: "atelier",
+      name: "root",
       adopt_existing: false,
     });
   });
@@ -230,13 +230,13 @@ describe("WorkBranchPanel", () => {
     const calls = mockApi({
       "GET /api/workspaces": [
         { status: 200, body: [CONFIGURED] },
-        { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/atelier" }] },
+        { status: 200, body: [{ ...CONFIGURED, work_branch: "back/retrait/root" }] },
       ],
       "POST /api/workspaces/retrait/work-branch": [
         { status: 409, body: { detail: "branche_existante" } },
         {
           status: 201,
-          body: { workspace: { ...CONFIGURED, work_branch: "back/retrait/atelier" }, outcome: "reprise" },
+          body: { workspace: { ...CONFIGURED, work_branch: "back/retrait/root" }, outcome: "reprise" },
         },
       ],
       ...SETTINGS,
@@ -248,13 +248,13 @@ describe("WorkBranchPanel", () => {
     // Le refus se rattrape : il propose le geste au lieu d'être un cul-de-sac.
     fireEvent.click(await screen.findByText("Take over this existing branch"));
 
-    expect(await screen.findByText("Work branch: back/retrait/atelier")).toBeInTheDocument();
+    expect(await screen.findByText("Work branch: back/retrait/root")).toBeInTheDocument();
     const sent = calls
       .filter((c) => c.key === "POST /api/workspaces/retrait/work-branch")
       .map((c) => c.body);
     expect(sent).toEqual([
-      { name: "atelier", adopt_existing: false },
-      { name: "atelier", adopt_existing: true },
+      { name: "root", adopt_existing: false },
+      { name: "root", adopt_existing: true },
     ]);
   });
 
@@ -272,9 +272,9 @@ describe("WorkBranchPanel", () => {
 
     fireEvent.click(screen.getByText("Open the work branch"));
     await screen.findByText("Take over this existing branch");
-    // Le refus portait sur « atelier » : il ne vaut pas confirmation pour un autre nom.
+    // Le refus portait sur « root » : il ne vaut pas confirmation pour un autre nom.
     fireEvent.change(screen.getByLabelText(/Work branch name/), {
-      target: { value: "atelier2" },
+      target: { value: "autre" },
     });
 
     expect(screen.queryByText("Take over this existing branch")).not.toBeInTheDocument();
