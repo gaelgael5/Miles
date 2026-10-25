@@ -70,6 +70,28 @@ async def test_contract_is_declared_then_its_files_coexist_as_versions(forge: Fo
     assert versions[1]["imported_by"].startswith("admin via Miles <")
 
 
+async def test_a_version_serves_its_openapi_for_the_swagger_viewer(forge: Forge) -> None:
+    """Gael, 25/10/2026 : chaque version porte un bouton vers le visualiseur Swagger."""
+    await _declare(forge)
+    await _import(forge, SUIVI)
+
+    spec = await forge.client.get(f"{ROUTE}/suivi/versions/1/openapi", timeout=120)
+
+    assert spec.status_code == 200, spec.text
+    body = spec.json()
+    # Le document INTÉGRÉ, rendu en objet : le dépôt garde du YAML, pas le navigateur.
+    assert body["openapi"].startswith("3.")
+    assert "/demandes" in body["paths"]
+
+
+async def test_an_absent_version_has_no_openapi(forge: Forge) -> None:
+    await _declare(forge)
+
+    absent = await forge.client.get(f"{ROUTE}/suivi/versions/9/openapi", timeout=120)
+
+    assert (absent.status_code, absent.json()["detail"]) == (404, "contrat_inconnu")
+
+
 async def test_a_new_version_shows_what_it_adds_and_what_it_no_longer_exposes(
     forge: Forge,
 ) -> None:

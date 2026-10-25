@@ -215,6 +215,32 @@ async def test_the_write_batch_is_declared_and_refused_below_one(forge: Forge) -
     assert refused.status_code == 422, refused.text
 
 
+async def test_the_openapi_a_source_promises_is_derived_and_served(forge: Forge) -> None:
+    """Gael, 25/10/2026 : le bouton Swagger d'une source montre l'API qu'elle expose."""
+    await _declare(forge)
+
+    spec = await forge.client.get(f"{ROUTE}/comptes/openapi", timeout=120)
+
+    assert spec.status_code == 200, spec.text
+    body = spec.json()
+    assert body["openapi"] == "3.1.0"
+    assert sorted(body["paths"]) == [
+        "/ingest/comptes/compte-brut",
+        "/ingest/comptes/compte-brut/batch",
+        "/ingest/comptes/compte-brut/file",
+    ]
+    # Le modèle source est inliné : un « miles:/… » ne dirait rien à un visualiseur.
+    schema = body["components"]["schemas"]["shared.compte-brut"]
+    assert schema["properties"]["accountId"]["type"] == "string"
+    assert "comptes" in body["info"]["description"]
+
+
+async def test_an_unknown_source_has_no_openapi(forge: Forge) -> None:
+    absent = await forge.client.get(f"{ROUTE}/jamais/openapi", timeout=120)
+
+    assert (absent.status_code, absent.json()["detail"]) == (404, "source_inconnue")
+
+
 async def test_a_chain_designated_by_an_entry_cannot_be_deleted(forge: Forge) -> None:
     await _declare(forge)
 
