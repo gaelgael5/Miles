@@ -955,21 +955,23 @@
       "title": "New data source",
       "submit": "Declare the source",
       "choose": "Choose…",
-      "storageHelp": "The storage this source fills. It is the storage that carries the object model, its functional key and its indexable properties.",
-      "splitHelp": "Optional. Path of the item array in a received document, e.g. $.accounts[*] — required only in large file mode, where a document arrives instead of an array. It must be streamable: no filter, no unbounded “..” descent, ending with [*].",
+      "storageHelp": "The storage where objects land: this identifies the data in storage. With the label and the identifier, it is enough to save the source — entries are added afterwards.",
+      "splitHelp": "Where the items are in the uploaded file, e.g. $.accounts[*]. It must be streamable: no filter, no unbounded “..” descent, ending with [*] — the file is read as a stream, without going back.",
       "nameHelp": "Source identifier, derived from the label: lowercase letters, digits and dashes. It names the file and cannot be renamed once declared.",
-      "sourceModelHelp": "The model of what the source receives. It types the entry point: one method on an object of that model, one on an array of that model.",
-      "chainHelp": "The chain that transforms an object of the source model into the storage model. It applies to each object received."
+      "entrySourceModelHelp": "The model of what will arrive on the method. It is what types it.",
+      "entryChainHelp": "The chain that starts from the source model on its first step and reaches the target data model on its last.",
+      "modesHelp": "At least one method, otherwise the entry exposes nothing.",
+      "removeEntry": "Remove entry {{rank}}"
     },
     "fields": {
       "name": "Name",
-      "storage": "Storage fed",
-      "split": "Split path",
-      "chain": "Transformation chain",
-      "largeFile": "Large file mode (streamed parsing)",
+      "storage": "Target data",
       "unifiedTransaction": "Single transaction for the whole import",
       "label": "Label",
-      "sourceModel": "Source model"
+      "modes": "Entry methods",
+      "entrySourceModel": "Source model of entry {{rank}}",
+      "entryChain": "Transformation chain of entry {{rank}}",
+      "entrySplit": "Split path of entry {{rank}}"
     },
     "editor": {
       "save": "Save the source",
@@ -991,13 +993,35 @@
       "chaine_invalide": "The chain is invalid: {{detail}}.",
       "libelle_vide": "The label is required.",
       "modele_invalide": "Source model “{{detail}}” is not of the form scope/name.",
-      "modele_inconnu": "Source model “{{detail}}” does not exist on this branch."
+      "modele_inconnu": "Source model “{{detail}}” does not exist on this branch.",
+      "type_inconnu": "Unknown way in: “{{detail}}”.",
+      "chaine_absente": "The transformation chain is required.",
+      "aucun_mode": "At least one entry method must be ticked, otherwise the entry exposes nothing.",
+      "chaine_sans_etape": "Chain “{{detail}}” carries no step.",
+      "chaine_part_d_ailleurs": "The chain starts from “{{detail}}”, not from the declared source model.",
+      "chaine_arrive_ailleurs": "The chain reaches “{{detail}}”, not the target data model."
     },
     "errors": {
       "nom_pris": "A different source already has this name on the branch.",
       "nom_fige": "A source cannot be renamed.",
       "unexpected": "The source could not be saved. See the back-office logs.",
       "unreadable": "This source cannot be read."
+    },
+    "entries": {
+      "title": "Entries",
+      "empty": "No entry: this source receives nothing yet.",
+      "add": "Add a source",
+      "chooseKind": "Which way in?",
+      "count_one": "{{count}} entry",
+      "count_other": "{{count}} entries"
+    },
+    "kinds": {
+      "web": "Web entry"
+    },
+    "modes": {
+      "element": "Single element — one item at a time",
+      "batch": "Array — {{max}} elements at most",
+      "file": "File upload — stored temporarily, then read as a stream"
     }
   },
   "apiKeys": {

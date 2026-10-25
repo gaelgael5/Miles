@@ -1,30 +1,24 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useChains } from "../api/chains";
 import { proposeSlug } from "../api/contracts";
-import { useDataModels } from "../api/dataModels";
 import type { Source, SourceProblem } from "../api/sources";
 import { useStorages } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
+import { SourceEntries } from "./SourceEntries";
 
-export const EMPTY_SOURCE: Source = {
-  name: "",
-  label: "",
-  storage: "",
-  source_model: "",
-  split: "",
-  chain: "",
-  large_file: false,
-  unified_transaction: false,
-};
+export const EMPTY_SOURCE: Source = { name: "", label: "", storage: "", entries: [] };
 
 /**
- * Formulaire d'une source, en déclaration comme en modification. Le nom est figé une fois
- * déclaré : c'est l'identité de la source, et le fichier `sources/<nom>.yaml` le porte.
+ * Formulaire d'une source de données, en déclaration comme en modification.
  *
- * Révisé le 24/10/2026 (844f15ad) : la source ne déclare plus ce qui est stocké — elle
- * CHOISIT un storage, qui porte le modèle, la clé et les propriétés indexables.
+ * Refondu le 25/10/2026 (Gael) : on donne un libellé, un slug et la DONNÉE CIBLE, et
+ * « la fenêtre peut être enregistrée » — les entrées viennent après, sur la source déjà
+ * enregistrée. En déclaration on ne montre donc que ces trois champs : proposer d'emblée
+ * les entrées ferait saisir un moyen d'arrivée avant de savoir où la donnée atterrit.
+ *
+ * Le nom est figé une fois déclaré : c'est l'identité de la source, et le fichier
+ * `sources/<nom>.yaml` le porte.
  */
 export function SourceForm({
   target,
@@ -47,8 +41,6 @@ export function SourceForm({
 }) {
   const { t } = useTranslation();
   const storages = useStorages(target);
-  const models = useDataModels(target);
-  const chains = useChains(target);
   // Semé une fois : l'écran est remonté (clé) quand la source affichée change.
   const [source, setSource] = useState<Source>(initial);
   // L'identifiant suit le libellé tant qu'on ne l'a pas touché ; modifiable à la création
@@ -86,69 +78,21 @@ export function SourceForm({
             <option value="">{t("sources.form.choose")}</option>
             {(storages.data ?? []).map((s) => (
               <option key={s.name} value={s.name}>
-                {s.name}
+                {s.label ?? s.name}
                 {s.model === null ? "" : ` (${s.model})`}
               </option>
             ))}
           </select>
         </label>
         <p className="help">{t("sources.form.storageHelp")}</p>
-        {/* L'ordre est celui que Gael a posé le 24/10/2026 : on choisit d'abord OÙ ça va
-            (le storage), puis CE QU'ON REÇOIT (le modèle source, qui type le point
-            d'entrée), puis COMMENT on passe de l'un à l'autre (la chaîne). */}
-        <label className="field">
-          {t("sources.fields.sourceModel")}
-          <select
-            required
-            value={source.source_model}
-            onChange={(e) => set({ source_model: e.target.value })}
-          >
-            <option value="">{t("sources.form.choose")}</option>
-            {(models.data ?? []).map((m) => (
-              <option key={`${m.scope}/${m.name}`} value={`${m.scope}/${m.name}`}>
-                {m.scope}/{m.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="help">{t("sources.form.sourceModelHelp")}</p>
-        <label className="field">
-          {t("sources.fields.chain")}
-          <select required value={source.chain} onChange={(e) => set({ chain: e.target.value })}>
-            <option value="">{t("sources.form.choose")}</option>
-            {(chains.data ?? []).map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.label ?? c.slug} ({c.slug})
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="help">{t("sources.form.chainHelp")}</p>
-        <label className="field">
-          {t("sources.fields.split")}
-          <input
-            className="mono"
-            value={source.split}
-            onChange={(e) => set({ split: e.target.value })}
+        {!creating && (
+          <SourceEntries
+            target={target}
+            entries={source.entries}
+            disabled={target.readOnly}
+            onChange={(entries) => set({ entries })}
           />
-        </label>
-        <p className="help">{t("sources.form.splitHelp")}</p>
-        <label className="field-check">
-          <input
-            type="checkbox"
-            checked={source.large_file}
-            onChange={(e) => set({ large_file: e.target.checked })}
-          />
-          {t("sources.fields.largeFile")}
-        </label>
-        <label className="field-check">
-          <input
-            type="checkbox"
-            checked={source.unified_transaction}
-            onChange={(e) => set({ unified_transaction: e.target.checked })}
-          />
-          {t("sources.fields.unifiedTransaction")}
-        </label>
+        )}
       </fieldset>
       {problems.length > 0 && (
         <ul className="alert plain-list" role="alert">

@@ -3,32 +3,50 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, request } from "./http";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
+/** Plafond du mode tableau (Gael, 25/10/2026) ; le backend l'applique, voir MAX_BATCH. */
+export const MAX_BATCH = 200;
+
+/** Les méthodes exposées par une entrée. Au moins une, sinon elle n'expose rien. */
+export interface EntryModes {
+  /** Un objet du modèle source, pour les intégrations à l'unité. */
+  element: boolean;
+  /** Un tableau d'objets du modèle source, MAX_BATCH au plus. */
+  batch: boolean;
+  /** Un fichier déposé, rangé en temporaire puis lu en flux selon le découpage. */
+  file: boolean;
+}
+
+/** Une entrée : par quel moyen la donnée arrive, et ce qu'elle traverse. */
+export interface SourceEntry {
+  /** « web » à ce jour ; écrit plutôt que sous-entendu, pour qu'un second type s'ajoute. */
+  kind: string;
+  /** « portée/nom » du modèle qui arrive sur la méthode. */
+  source_model: string;
+  /** Slug de la chaîne qui mène du modèle source au modèle du storage. */
+  chain: string;
+  modes: EntryModes;
+  /** Où sont les items dans le fichier déposé. Requis par le seul mode fichier. */
+  split: string;
+  unified_transaction: boolean;
+}
+
 /**
- * Déclaration d'une source de données (story 66391afe), stockée dans la branche : COMMENT
- * on remplit un storage, et rien de plus.
- *
- * Révisé le 24/10/2026 (844f15ad) : le modèle, la clé et les propriétés filtrables ont
- * quitté la source pour le storage, qu'elle ne fait que désigner.
+ * Déclaration d'une source de données (story 66391afe, refondue le 25/10/2026) : une
+ * ENTRÉE de données dans l'application. Elle dit d'abord OÙ ça va — la donnée cible —
+ * et c'est tout ce qu'il faut pour l'enregistrer ; elle porte ensuite ses entrées.
  */
 export interface Source {
   /** Identifiant : il nomme le fichier, et se déduit du libellé à la création. */
   name: string;
   /** Ce que la personne a écrit, et ce que les écrans affichent. */
   label: string;
-  /** Nom du storage alimenté : il porte le modèle, la clé et les index. */
+  /** La donnée cible : le storage où les objets atterrissent. */
   storage: string;
-  /** « portée/nom » du modèle de CE QU'ON REÇOIT : il type le point d'entrée. */
-  source_model: string;
-  /** Jpath du tableau d'items, streamable. Vide sauf en mode gros fichier. */
-  split: string;
-  /** Slug de la chaîne de transformations appliquée à chaque item. */
-  chain: string;
-  large_file: boolean;
-  unified_transaction: boolean;
+  entries: SourceEntry[];
 }
 
 export interface SavedSource extends Source {
-  /** Chaîne changée : le prochain import réécrira tous les objets. */
+  /** Une entrée a changé : le prochain import réécrira tous les objets. */
   rewrite_announced: boolean;
 }
 
@@ -37,7 +55,7 @@ export interface SourceSummary {
   /** null : déclaration illisible, retouchée hors de Miles. */
   label: string | null;
   storage: string | null;
-  chain: string | null;
+  entries: number | null;
 }
 
 /** Un défaut de la déclaration, désigné par son chemin (« storage », « decoupage »…). */

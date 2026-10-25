@@ -170,7 +170,8 @@ class ChainsService:
             users = [
                 name
                 for name in names_in(paths)
-                if (doc := read_source(await copy.read(source_path(name)))) and doc.chain == slug
+                if (doc := read_source(await copy.read(source_path(name))))
+                and any(e.chain == slug for e in doc.entries)
             ]
             if users:
                 raise ChainInUseError(users)

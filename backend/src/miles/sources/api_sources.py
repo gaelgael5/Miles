@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from miles.auth.author import request_author
-from miles.sources.layout import SourceDoc
+from miles.sources.layout import Entry, EntryModes, SourceDoc
 from miles.sources.service import (
     Saved,
     SourceInvalidError,
@@ -34,23 +34,39 @@ def sources_service(request: Request) -> SourcesService:
 Service = Annotated[SourcesService, Depends(sources_service)]
 
 
+class ModesIO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Un objet du modèle source, pour les intégrations à l'unité.
+    element: bool = False
+    # Un tableau d'objets du modèle source, MAX_BATCH au plus.
+    batch: bool = False
+    # Un fichier déposé, lu en flux selon le jpath de découpage.
+    file: bool = False
+
+
+class EntryIO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: str = Field(max_length=32)
+    # Le modèle de ce qui arrive sur la méthode : il la type.
+    source_model: str = Field(max_length=200)
+    chain: str = Field(max_length=63)
+    modes: ModesIO = ModesIO()
+    # Requis par le seul mode fichier.
+    split: str = Field(default="", max_length=1024)
+    unified_transaction: bool = False
+
+
 class SourceIO(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=63)
     label: str = Field(max_length=200)
-    # Le storage alimenté : il porte le modèle, la clé et les index.
+    # La donnée cible : le storage où les objets atterrissent.
     storage: str = Field(max_length=63)
-    # Le modèle de ce qu'on reçoit : il type le point d'entrée.
-    source_model: str = Field(max_length=200)
-    # Facultatif : requis seulement en mode gros fichier.
-    split: str = Field(default="", max_length=1024)
-    chain: str = Field(max_length=63)
-    large_file: bool = False
-    unified_transaction: bool = False
+    entries: list[EntryIO] = Field(default=[], max_length=50)
 
 
 class SavedOut(SourceIO):
-    # Vrai si la chaîne a changé : le prochain import réécrira tous les objets.
+    # Vrai si une entrée a changé : le prochain import réécrira tous les objets.
     rewrite_announced: bool
 
 
@@ -60,7 +76,8 @@ class SourceSummaryOut(BaseModel):
     # None : déclaration illisible (retouchée hors de Miles) ; la validation dit pourquoi.
     label: str | None
     storage: str | None
-    chain: str | None
+    # Nombre d'entrées déclarées ; None si la déclaration ne se lit pas.
+    entries: int | None
 
 
 def _doc(body: SourceIO) -> SourceDoc:
@@ -68,11 +85,17 @@ def _doc(body: SourceIO) -> SourceDoc:
         body.name.strip(),
         body.label.strip(),
         body.storage.strip(),
-        body.source_model.strip(),
-        body.split.strip(),
-        body.chain.strip(),
-        body.large_file,
-        body.unified_transaction,
+        tuple(
+            Entry(
+                e.kind.strip(),
+                e.source_model.strip(),
+                e.chain.strip(),
+                EntryModes(e.modes.element, e.modes.batch, e.modes.file),
+                e.split.strip(),
+                e.unified_transaction,
+            )
+            for e in body.entries
+        ),
     )
 
 
@@ -81,11 +104,17 @@ def _io(doc: SourceDoc) -> SourceIO:
         name=doc.name,
         label=doc.label,
         storage=doc.storage,
-        source_model=doc.source_model,
-        split=doc.split,
-        chain=doc.chain,
-        large_file=doc.large_file,
-        unified_transaction=doc.unified_transaction,
+        entries=[
+            EntryIO(
+                kind=e.kind,
+                source_model=e.source_model,
+                chain=e.chain,
+                modes=ModesIO(element=e.modes.element, batch=e.modes.batch, file=e.modes.file),
+                split=e.split,
+                unified_transaction=e.unified_transaction,
+            )
+            for e in doc.entries
+        ],
     )
 
 
@@ -137,9 +166,9 @@ async def list_sources(
     except _REFUSALS as exc:
         return _refusal(exc)
     return [
-        SourceSummaryOut(name=s, label=None, storage=None, chain=None)
+        SourceSummaryOut(name=s, label=None, storage=None, entries=None)
         if isinstance(s, str)
-        else SourceSummaryOut(name=s.name, label=s.label, storage=s.storage, chain=s.chain)
+        else SourceSummaryOut(name=s.name, label=s.label, storage=s.storage, entries=len(s.entries))
         for s in found
     ]
 

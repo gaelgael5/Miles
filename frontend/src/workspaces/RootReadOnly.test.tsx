@@ -23,11 +23,16 @@ const SOURCE = {
   name: "comptes",
   label: "Comptes",
   storage: "personnes",
-  source_model: "shared/personne",
-  split: "$.accounts[*]",
-  chain: "import",
-  large_file: false,
-  unified_transaction: false,
+  entries: [
+    {
+      kind: "web",
+      source_model: "shared/personne",
+      chain: "import",
+      modes: { element: true, batch: false, file: false },
+      split: "",
+      unified_transaction: false,
+    },
+  ],
 };
 const STORAGE = {
   name: "personnes",
@@ -124,11 +129,13 @@ describe("root branch", () => {
 
   it("shows a source with every field disabled and no save or delete", async () => {
     onRoot({ view: "sources", source: "comptes" });
-    expect(await screen.findByLabelText("Split path")).toBeInTheDocument();
-    for (const label of ["Save the source", "Delete the source"]) {
+    expect(await screen.findByLabelText("Target data")).toBeDisabled();
+    for (const label of ["Save the source", "Delete the source", "Add a source"]) {
       expect(screen.queryByText(label)).toBeNull();
     }
-    expect(screen.getByLabelText("Split path")).toBeDisabled();
+    // L'entrée se lit, elle ne se modifie pas.
+    expect(screen.getByLabelText("Source model of entry 1")).toBeDisabled();
+    expect(screen.queryByText("Remove entry 1")).toBeNull();
   });
 
   // Critère 19 de 844f15ad : la racine se lit, elle ne se modifie pas.

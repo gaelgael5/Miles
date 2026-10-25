@@ -45,9 +45,9 @@ class SourceNotFoundError(Exception):
 class Saved:
     doc: SourceDoc
     existed: bool
-    # Vrai quand la chaîne change : le prochain import réécrira tous les objets
-    # (critère 17). Le modèle et les propriétés indexables ayant quitté la source
-    # pour le storage (844f15ad), c'est lui qui annonce la réécriture qu'ils causent.
+    # Vrai quand une entrée change : le prochain import réécrira tous les objets
+    # (critère 17). Le modèle et les index ayant quitté la source pour le storage
+    # (844f15ad), c'est lui qui annonce la réécriture qu'ils causent.
     rewrite_announced: bool
 
 
@@ -121,7 +121,9 @@ class SourcesService:
                 raise SourceInvalidError(problems)
             await copy.write(source_path(doc.name), source_text(doc))
             commit = await self.branches.commit(copy, f"Source de données {doc.name}", author)
-        rewrite = previous is not None and previous.chain != doc.chain
+        # Les entrées portent la chaîne et le modèle source : tout changement de l'une
+        # d'elles change ce qui sera écrit, donc annonce la réécriture.
+        rewrite = previous is not None and previous.entries != doc.entries
         await self._journal(SAVED_EVENT, workspace_id, author, doc.name, commit, copy.branch)
         log.info("source_enregistree", workspace=workspace_id, source=doc.name, rewrite=rewrite)
         return Saved(doc, False, rewrite)

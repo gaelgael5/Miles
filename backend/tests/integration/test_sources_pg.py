@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import base64
 from collections.abc import AsyncIterator
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-import httpx
 import pytest
 
 from miles.datamodels.schema import normalized
@@ -19,8 +19,8 @@ STORAGES = "/api/workspaces/retrait/storages"
 MODELS = "/api/workspaces/retrait/data-models"
 CHAINS = "/api/workspaces/retrait/transformations"
 COMPTE = normalized("type: object\nproperties:\n  code:\n    type: string\n", "shared", "compte")
-# Le modèle de CE QU'ON REÇOIT : il type le point d'entrée (Gael, 24/10/2026). Son nom
-# porte un tiret à dessein — « pudo/import-crm » en porte un, et le motif le refusait.
+# Le modèle de CE QU'ON REÇOIT. Son nom porte un tiret à dessein — « pudo/import-crm » en
+# porte un, et le motif de référence le refusait.
 BRUT = normalized(
     "type: object\nproperties:\n  accountId:\n    type: string\n", "shared", "compte-brut"
 )
@@ -31,18 +31,28 @@ STORAGE: dict[str, Any] = {
     "keys": ["$.code"],
     "indexes": [],
 }
-# Depuis la séparation du 24/10/2026 (844f15ad), la source ne dit que COMMENT on remplit
-# le storage : elle le désigne, et ne porte plus ni modèle, ni clé, ni filtrables.
+# Refondue le 25/10/2026 : la source dit OÙ ça va (la donnée cible) et porte ses entrées.
+ENTRY: dict[str, Any] = {
+    "kind": "web",
+    "source_model": "shared/compte-brut",
+    "chain": "comptes-import",
+    "modes": {"element": True, "batch": True, "file": True},
+    "split": "$.accounts[*]",
+    "unified_transaction": False,
+}
 SOURCE: dict[str, Any] = {
     "name": "comptes",
     "label": "Comptes",
     "storage": "comptes",
-    "source_model": "shared/compte-brut",
-    "split": "$.accounts[*]",
-    "chain": "comptes-import",
-    "large_file": True,
-    "unified_transaction": False,
+    "entries": [ENTRY],
 }
+
+
+def with_entry(**changes: Any) -> dict[str, Any]:
+    """La source, dont l'unique entrée porte ces changements."""
+    body = deepcopy(SOURCE)
+    body["entries"][0].update(changes)
+    return body
 
 
 @pytest.fixture
@@ -63,93 +73,136 @@ async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
         yield opened
 
 
-async def _declare(forge: Forge, **changes: Any) -> httpx.Response:
-    return await forge.client.post(ROUTE, json=SOURCE | changes, timeout=120)
+async def _declare(forge: Forge, body: dict[str, Any] | None = None, **changes: Any):
+    return await forge.client.post(ROUTE, json=(body or SOURCE) | changes, timeout=120)
 
 
-async def test_source_is_declared_in_git_and_designates_its_storage_and_chain(
-    forge: Forge,
-) -> None:
+async def test_the_target_data_alone_is_enough_to_save(forge: Forge) -> None:
+    """Gael, 25/10/2026 : libellé, slug, donnée cible — « la fenêtre peut être enregistrée »."""
+    bare = {"name": "vide", "label": "Vide", "storage": "comptes", "entries": []}
+
+    declared = await forge.client.post(ROUTE, json=bare, timeout=120)
+
+    assert declared.status_code == 201, declared.text
+    assert declared.json() == bare | {"rewrite_announced": False}
+
+
+async def test_a_source_is_declared_in_git_with_its_entry(forge: Forge) -> None:
     declared = await _declare(forge)
     read = await forge.client.get(f"{ROUTE}/comptes", timeout=120)
     listed = await forge.client.get(ROUTE, timeout=120)
 
     assert declared.status_code == 201, declared.text
-    assert declared.json() == SOURCE | {"rewrite_announced": False}
     assert read.json() == SOURCE
     assert listed.json() == [
-        {
-            "name": "comptes",
-            "label": "Comptes",
-            "storage": "comptes",
-            "chain": "comptes-import",
-        }
+        {"name": "comptes", "label": "Comptes", "storage": "comptes", "entries": 1}
     ]
     text = await forge.file("sources/comptes.yaml")
     assert text is not None
-    assert 'chaine: "comptes-import"' in text and 'storage: "comptes"' in text
-    assert 'modele_source: "shared/compte-brut"' in text
-    # Ce qui a quitté la source ne doit pas y être resté par mégarde. La clé est testée
-    # AVEC ses deux-points : « modele_source » contient « modele » et n'est pas l'ancien.
-    assert "\nmodele:" not in text and "filtrables" not in text and "\ncle:" not in text
+    assert 'storage: "comptes"' in text and 'modele_source: "shared/compte-brut"' in text
+    assert "element: true" in text and "fichier: true" in text
 
 
-async def test_everything_the_branch_must_provide_is_checked_and_reported(forge: Forge) -> None:
+async def test_everything_each_entry_needs_is_checked_and_named_by_rank(forge: Forge) -> None:
     before = await forge.commits()
 
-    refused = await _declare(forge, split="$.accounts[?(@.a == 1)]", storage="")
     unknown = await _declare(
-        forge, storage="absent", chain="absente", source_model="shared/inconnu"
+        forge, with_entry(source_model="shared/inconnu", chain="absente"), storage="absent"
+    )
+    mute = await _declare(
+        forge, with_entry(modes={"element": False, "batch": False, "file": False})
     )
 
-    assert {(p["path"], p["code"]) for p in refused.json()["detail"]["problems"]} == {
-        ("decoupage", "non_streamable"),
-        ("storage", "storage_absent"),
-    }
     assert {(p["path"], p["code"]) for p in unknown.json()["detail"]["problems"]} == {
         ("storage", "storage_inconnu"),
-        ("modele_source", "modele_inconnu"),
-        ("chaine", "chaine_inconnue"),
+        ("entrees[0].modele_source", "modele_inconnu"),
+        ("entrees[0].chaine", "chaine_inconnue"),
+    }
+    assert ("entrees[0].modes", "aucun_mode") in {
+        (p["path"], p["code"]) for p in mute.json()["detail"]["problems"]
     }
     assert await forge.commits() == before
 
 
-async def test_replay_name_taken_and_modification_that_announces_a_rewrite(forge: Forge) -> None:
+async def test_the_split_is_required_by_the_file_mode_and_by_it_alone(forge: Forge) -> None:
+    streamed = await _declare(
+        forge, with_entry(modes={"element": False, "batch": False, "file": True}, split="")
+    )
+    typed = await _declare(
+        forge, with_entry(modes={"element": True, "batch": True, "file": False}, split="")
+    )
+
+    assert [(p["path"], p["code"]) for p in streamed.json()["detail"]["problems"]] == [
+        ("entrees[0].decoupage", "decoupage_absent")
+    ]
+    assert typed.status_code == 201, typed.text
+
+
+async def test_a_chain_that_starts_or_ends_elsewhere_is_refused_by_name(forge: Forge) -> None:
+    """Gael, 25/10/2026 : la chaîne part du modèle source et arrive au modèle du storage."""
+    chain = {
+        "label": "Ailleurs",
+        "steps": [
+            {
+                "name": "copier",
+                "template": '{ "code": $.code }',
+                "source_model": "miles:/shared/compte",
+                "destination_model": "miles:/shared/compte-brut",
+            }
+        ],
+    }
+    saved = await forge.client.put(f"{CHAINS}/ailleurs", json=chain, timeout=120)
+    assert saved.status_code == 200, saved.text
+
+    refused = await _declare(forge, with_entry(chain="ailleurs"))
+
+    assert {(p["path"], p["code"]) for p in refused.json()["detail"]["problems"]} == {
+        ("entrees[0].chaine", "chaine_part_d_ailleurs"),
+        ("entrees[0].chaine", "chaine_arrive_ailleurs"),
+    }
+
+
+async def test_a_chain_whose_endpoints_match_is_accepted(forge: Forge) -> None:
+    """Une chaîne qui déclare les bons modèles passe : la garde ne mord que sur l'écart."""
+    chain = {
+        "label": "Juste",
+        "steps": [
+            {
+                "name": "copier",
+                "template": '{ "code": $.accountId }',
+                "source_model": "miles:/shared/compte-brut",
+                "destination_model": "miles:/shared/compte",
+            }
+        ],
+    }
+    await forge.client.put(f"{CHAINS}/juste", json=chain, timeout=120)
+
+    declared = await _declare(forge, with_entry(chain="juste"))
+
+    assert declared.status_code == 201, declared.text
+
+
+async def test_replay_name_taken_and_a_changed_entry_announcing_a_rewrite(forge: Forge) -> None:
     await _declare(forge)
     before = await forge.commits()
 
     replay = await _declare(forge)
-    taken = await _declare(forge, large_file=False)
-    same_chain = await forge.client.put(
-        f"{ROUTE}/comptes", json=SOURCE | {"large_file": False}, timeout=120
-    )
-    new_chain = await forge.client.put(
-        f"{ROUTE}/comptes",
-        json=SOURCE | {"large_file": False, "chain": "autre-import"},
-        timeout=120,
+    taken = await _declare(forge, with_entry(chain="autre-import"))
+    same = await forge.client.put(f"{ROUTE}/comptes", json=SOURCE, timeout=120)
+    changed = await forge.client.put(
+        f"{ROUTE}/comptes", json=with_entry(chain="autre-import"), timeout=120
     )
     renamed = await forge.client.put(f"{ROUTE}/autre", json=SOURCE, timeout=120)
 
     assert (replay.status_code, replay.headers["x-miles-already-exists"]) == (200, "true")
     assert (taken.status_code, taken.json()["detail"]) == (409, "nom_pris")
-    assert same_chain.json()["rewrite_announced"] is False
-    assert new_chain.json()["rewrite_announced"] is True
+    assert (same.status_code, same.headers["x-miles-already-exists"]) == (200, "true")
+    assert changed.json()["rewrite_announced"] is True
     assert (renamed.status_code, renamed.json()["detail"]) == (409, "nom_fige")
-    assert await forge.commits() == before + 2
+    assert await forge.commits() == before + 1
 
 
-async def test_the_split_is_only_required_in_large_file_mode(forge: Forge) -> None:
-    """Les deux méthodes typées reçoivent déjà un tableau : rien à découper (24/10/2026)."""
-    typed = await _declare(forge, split="", large_file=False)
-    streamed = await _declare(forge, name="gros", split="", large_file=True)
-
-    assert typed.status_code == 201, typed.text
-    assert [(p["path"], p["code"]) for p in streamed.json()["detail"]["problems"]] == [
-        ("decoupage", "decoupage_absent")
-    ]
-
-
-async def test_a_chain_designated_by_a_source_cannot_be_deleted(forge: Forge) -> None:
+async def test_a_chain_designated_by_an_entry_cannot_be_deleted(forge: Forge) -> None:
     await _declare(forge)
 
     refused = await forge.client.delete(f"{CHAINS}/comptes-import", timeout=120)
@@ -190,7 +243,7 @@ async def test_a_version_cannot_freeze_a_source_broken_outside_miles(forge: Forg
             "path": path,
             "problems": [
                 {
-                    "path": "decoupage",
+                    "path": "entrees[0].decoupage",
                     "code": "non_streamable",
                     "detail": "descente « .. » non bornée",
                 }

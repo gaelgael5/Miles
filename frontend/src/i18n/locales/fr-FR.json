@@ -955,21 +955,23 @@
       "title": "Nouvelle source de données",
       "submit": "Déclarer la source",
       "choose": "Choisir…",
-      "storageHelp": "Le storage que cette source remplit. C'est lui qui porte le modèle des objets, leur clé fonctionnelle et leurs propriétés indexables.",
-      "splitHelp": "Facultatif. Chemin du tableau d'items dans un document reçu, par exemple $.accounts[*] — requis seulement en mode gros fichier, où l'on reçoit un document au lieu d'un tableau. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*].",
+      "storageHelp": "Le storage où les objets atterrissent : c'est l'identification de la donnée dans le stockage. Avec le libellé et l'identifiant, il suffit à enregistrer la source — les entrées s'ajoutent ensuite.",
+      "splitHelp": "Où sont les items dans le fichier déposé, par exemple $.accounts[*]. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*] — le fichier est lu en flux, sans retour en arrière.",
       "nameHelp": "Identifiant de la source, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclarée.",
-      "sourceModelHelp": "Le modèle de ce que la source reçoit. Il type le point d'entrée : une méthode sur un objet de ce modèle, une sur un tableau de ce modèle.",
-      "chainHelp": "La chaîne qui transforme un objet du modèle source vers le modèle du storage. Elle s'applique à chaque objet reçu."
+      "entrySourceModelHelp": "Le modèle de ce qui arrivera sur la méthode. C'est lui qui la type.",
+      "entryChainHelp": "La chaîne qui part du modèle source à sa première étape et arrive au modèle de la donnée cible à sa dernière.",
+      "modesHelp": "Au moins une méthode, sinon l'entrée n'expose rien.",
+      "removeEntry": "Retirer l'entrée {{rank}}"
     },
     "fields": {
       "name": "Nom",
-      "storage": "Storage alimenté",
-      "split": "Chemin de découpage",
-      "chain": "Chaîne de transformations",
-      "largeFile": "Mode gros fichier (lecture en flux)",
+      "storage": "Donnée cible",
       "unifiedTransaction": "Une seule transaction pour tout l'import",
       "label": "Libellé",
-      "sourceModel": "Modèle source"
+      "modes": "Méthodes d'entrée",
+      "entrySourceModel": "Modèle source de l'entrée {{rank}}",
+      "entryChain": "Chaîne de transformation de l'entrée {{rank}}",
+      "entrySplit": "Chaîne de découpage de l'entrée {{rank}}"
     },
     "editor": {
       "save": "Enregistrer la source",
@@ -991,13 +993,35 @@
       "chaine_invalide": "La chaîne est invalide : {{detail}}.",
       "libelle_vide": "Le libellé est obligatoire.",
       "modele_invalide": "Le modèle source « {{detail}} » n'est pas de la forme portée/nom.",
-      "modele_inconnu": "Le modèle source « {{detail}} » n'existe pas sur cette branche."
+      "modele_inconnu": "Le modèle source « {{detail}} » n'existe pas sur cette branche.",
+      "type_inconnu": "Moyen d'arrivée inconnu : « {{detail}} ».",
+      "chaine_absente": "La chaîne de transformation est obligatoire.",
+      "aucun_mode": "Au moins une méthode d'entrée doit être cochée, sinon l'entrée n'expose rien.",
+      "chaine_sans_etape": "La chaîne « {{detail}} » ne porte aucune étape.",
+      "chaine_part_d_ailleurs": "La chaîne part de « {{detail}} », pas du modèle source déclaré.",
+      "chaine_arrive_ailleurs": "La chaîne arrive à « {{detail}} », pas au modèle de la donnée cible."
     },
     "errors": {
       "nom_pris": "Une autre source porte déjà ce nom sur la branche.",
       "nom_fige": "Une source ne se renomme pas.",
       "unexpected": "La source n'a pas pu être enregistrée. Voir les journaux du back-office.",
       "unreadable": "Cette source ne peut pas être lue."
+    },
+    "entries": {
+      "title": "Entrées",
+      "empty": "Aucune entrée : cette source ne reçoit encore rien.",
+      "add": "Ajouter une source",
+      "chooseKind": "Quel moyen d'arrivée ?",
+      "count_one": "{{count}} entrée",
+      "count_other": "{{count}} entrées"
+    },
+    "kinds": {
+      "web": "Entrée web"
+    },
+    "modes": {
+      "element": "Élément seul — intégration d'un item",
+      "batch": "Tableau — {{max}} éléments au maximum",
+      "file": "Upload de fichier — rangé en temporaire, puis lu en flux"
     }
   },
   "apiKeys": {

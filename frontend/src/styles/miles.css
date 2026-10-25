@@ -355,3 +355,11 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 .index-row .field { flex: 1 1 180px; margin-bottom: 0; }
 .index-columns { flex: 2 1 240px; min-width: 0; }
 .index-columns .caption { display: block; margin-bottom: 4px; }
+
+/* Une entrée d'une source de données (Gael, 25/10/2026) : une carte par moyen d'arrivée,
+   pour qu'on voie d'un coup ce que chacune expose et par quelle chaîne elle passe. */
+.entry-card {
+  padding: 16px; margin-bottom: 12px;
+  border: 1px solid var(--bordure-carte); border-radius: 6px;
+}
+.entry-card h3 { margin: 0 0 12px; font-size: 15px; }
