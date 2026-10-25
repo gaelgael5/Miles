@@ -15,7 +15,7 @@ const ENTRY = {
   modes: { element: true, batch: true, file: false },
   split: "",
   unified_transaction: false,
-  write_batch: 1,
+  write_batch: 100,
 };
 const SOURCE = { name: "crm", label: "CRM", storage: "sites", entries: [ENTRY] };
 const BARE = { name: "crm", label: "CRM", storage: "sites", entries: [] };
@@ -144,6 +144,7 @@ describe("the entries of a source (25/10/2026)", () => {
     await screen.findByRole("option", { name: "pudo/import-crm" });
     fill("Source model of entry 1", "pudo/import-crm");
     fill("Transformation chain of entry 1", "comptes-import");
+    expect(screen.getByLabelText("Reads before saving, entry 1")).toHaveValue(100);
     fireEvent.click(screen.getByLabelText(/Single element/));
     fireEvent.click(screen.getByLabelText(/Array — 200 elements at most/));
     fireEvent.click(screen.getByText("Save the source"));
@@ -155,7 +156,7 @@ describe("the entries of a source (25/10/2026)", () => {
 
   it("declares how many reads happen before a save, independently of the commit", async () => {
     const calls = open(SOURCE);
-    expect(await screen.findByLabelText("Reads before saving, entry 1")).toHaveValue(1);
+    expect(await screen.findByLabelText("Reads before saving, entry 1")).toHaveValue(100);
 
     fireEvent.change(screen.getByLabelText("Reads before saving, entry 1"), {
       target: { value: "500" },
@@ -176,8 +177,8 @@ describe("the entries of a source (25/10/2026)", () => {
 
     fireEvent.change(field, { target: { value: "" } });
 
-    // Vidé, le champ retombe sur 1 : NaN serait refusé par un message qui ne dit rien.
-    expect(field).toHaveValue(1);
+    // Vidé, le champ retombe sur le défaut : NaN serait refusé sans dire quoi faire.
+    expect(field).toHaveValue(100);
   });
 
   it("asks for the split path only when the file mode is ticked", async () => {

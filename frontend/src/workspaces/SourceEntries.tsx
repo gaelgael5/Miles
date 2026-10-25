@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useChains } from "../api/chains";
 import { useDataModels } from "../api/dataModels";
-import { MAX_BATCH, type SourceEntry } from "../api/sources";
+import { DEFAULT_WRITE_BATCH, MAX_BATCH, type SourceEntry } from "../api/sources";
 import type { WorkTarget } from "../api/workTarget";
 
 /** Les types d'entrée proposés. Un seul instruit à ce jour, nommé plutôt que sous-entendu. */
@@ -18,8 +18,7 @@ export function emptyEntry(kind: string): SourceEntry {
     modes: { element: false, batch: false, file: false },
     split: "",
     unified_transaction: false,
-    // 1 : on écrit ce qu'on vient de lire. Le comportement le plus sûr par défaut.
-    write_batch: 1,
+    write_batch: DEFAULT_WRITE_BATCH,
   };
 }
 
@@ -148,9 +147,9 @@ function EntryCard({
           step={1}
           disabled={disabled}
           value={entry.write_batch}
-          // Un champ nombre rend "" quand on efface : on garde 1 plutôt que NaN, que le
-          // contrat d'entrée refuserait avec un message qui ne dirait pas quoi faire.
-          onChange={(e) => set({ write_batch: Number(e.target.value) || 1 })}
+          // Un champ nombre rend "" quand on efface : on retombe sur le défaut plutôt
+          // que sur NaN, que le contrat d'entrée refuserait sans dire quoi faire.
+          onChange={(e) => set({ write_batch: Number(e.target.value) || DEFAULT_WRITE_BATCH })}
         />
       </label>
       <p className="help">{t("sources.form.writeBatchHelp")}</p>

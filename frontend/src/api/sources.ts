@@ -6,6 +6,9 @@ import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 /** Plafond du mode tableau (Gael, 25/10/2026) ; le backend l'applique, voir MAX_BATCH. */
 export const MAX_BATCH = 200;
 
+/** Lectures avant enregistrement par défaut ; miroir de DEFAULT_WRITE_BATCH du backend. */
+export const DEFAULT_WRITE_BATCH = 100;
+
 /** Les méthodes exposées par une entrée. Au moins une, sinon elle n'expose rien. */
 export interface EntryModes {
   /** Un objet du modèle source, pour les intégrations à l'unité. */

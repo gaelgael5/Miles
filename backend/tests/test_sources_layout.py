@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from miles.sources.layout import (
+    DEFAULT_WRITE_BATCH,
     Entry,
     EntryModes,
     SourceDoc,
@@ -20,7 +21,7 @@ WEB = Entry(
     EntryModes(element=True, batch=True, file=True),
     "$.sites[*]",
     False,
-    1,
+    100,
 )
 # Refondue le 25/10/2026 : une source dit OÙ ça va, et porte ses entrées.
 DOC = SourceDoc("crm", "CRM", "sites", (WEB,))
@@ -169,8 +170,8 @@ def test_a_write_batch_below_one_would_never_write(write: int = 0) -> None:
     ]
 
 
-def test_an_absent_write_batch_falls_back_on_writing_each_read() -> None:
-    """1 par défaut : on écrit ce qu'on vient de lire, le comportement le plus sûr."""
+def test_an_absent_write_batch_falls_back_on_the_default() -> None:
+    """Cent par défaut (Gael, 25/10/2026) : une déclaration muette n'écrit pas à l'unité."""
     text = (
         'nom: "crm"\nlibelle: "CRM"\nstorage: "sites"\nentrees:\n'
         '  - type: "web"\n    modele_source: "a/b"\n    chaine: "c"\n'
@@ -179,7 +180,8 @@ def test_an_absent_write_batch_falls_back_on_writing_each_read() -> None:
 
     doc = read_source(text)
 
-    assert doc is not None and doc.entries[0].write_batch == 1
+    assert doc is not None and doc.entries[0].write_batch == DEFAULT_WRITE_BATCH
+    assert DEFAULT_WRITE_BATCH == 100
 
 
 def test_a_write_batch_that_is_not_a_whole_number_is_unreadable() -> None:

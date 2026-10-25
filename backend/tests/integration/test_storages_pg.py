@@ -212,7 +212,7 @@ async def test_a_storage_designated_by_a_source_cannot_be_deleted(forge: Forge) 
                 "modes": {"element": True, "batch": False, "file": False},
                 "split": "",
                 "unified_transaction": False,
-                "write_batch": 1,
+                "write_batch": 100,
             }
         ],
     }

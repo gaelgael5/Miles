@@ -40,9 +40,11 @@ ENTRY_TYPES = frozenset({WEB})
 # technique : au-delà, un appel unique devient un lot qu'il faut reprendre et suivre,
 # et c'est le mode fichier qui le sert.
 MAX_BATCH = 200
-# Lectures consécutives avant enregistrement, par défaut. 1 = on écrit ce qu'on vient de
-# lire : c'est le comportement le plus sûr, et celui qu'on obtient sans rien déclarer.
-DEFAULT_WRITE_BATCH = 1
+# Lectures consécutives avant enregistrement, par défaut (Gael, 25/10/2026). Écrire à
+# chaque lecture coûte un aller-retour par objet ; cent lectures amortissent l'écriture
+# sans retenir assez d'objets pour peser en mémoire. Une déclaration qui ne dit rien
+# obtient donc ce lot-là, pas l'écriture unitaire.
+DEFAULT_WRITE_BATCH = 100
 
 
 @dataclass(frozen=True)

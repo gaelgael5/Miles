@@ -39,7 +39,7 @@ ENTRY: dict[str, Any] = {
     "modes": {"element": True, "batch": True, "file": True},
     "split": "$.accounts[*]",
     "unified_transaction": False,
-    "write_batch": 1,
+    "write_batch": 100,
 }
 SOURCE: dict[str, Any] = {
     "name": "comptes",
