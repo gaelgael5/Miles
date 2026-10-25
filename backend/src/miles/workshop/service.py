@@ -66,6 +66,27 @@ class WorkshopService:
             mine, _ = await self._branch_versions(workspace_id, copy)
             return mine
 
+    async def resolve_freezable(
+        self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
+    ) -> str | None:
+        """Ce qui empêche d'enregistrer une version, ou None si rien n'empêche.
+
+        Demandé par Gael le 25/10/2026 : l'écran grisait le bouton sur les seuls droits,
+        et laissait cliquer ce que le serveur allait refuser. Les deux raisons de refus
+        sont celles de `resolve_save`, lues ici par le MÊME code — une règle recopiée
+        dans l'écran dériverait de celle qui refuse vraiment.
+        """
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
+            if isinstance(copy, HeldCopy) and await copy.unpublished():
+                return "publication_requise"
+            mine, _ = await self._branch_versions(workspace_id, copy)
+            last = mine[0] if mine else None
+            if last is not None and await same_tree(copy, last.commit):
+                return "rien_a_figer"
+        return None
+
     async def resolve_save(
         self, author: EventAuthor, workspace_id: str, label: str, *, branch: str | None = None
     ) -> tuple[SavedVersion, bool]:

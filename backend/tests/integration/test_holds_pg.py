@@ -246,10 +246,15 @@ async def test_a_version_needs_everything_published_first(forge: Forge) -> None:
     await forge.client.post(MODELS, json=body_of(PERSONNE), timeout=120)
 
     early = await forge.client.post(f"{WS}/versions", json={"label": "Trop tôt"}, timeout=120)
+    # L'écran pose la même question avant le clic, et reçoit la même raison.
+    blocked = await forge.client.get(f"{WS}/versions/freezable", timeout=120)
     await forge.client.post(f"{HOLD}/publish", timeout=120)
+    freed = await forge.client.get(f"{WS}/versions/freezable", timeout=120)
     saved = await forge.client.post(f"{WS}/versions", json={"label": "Publiée"}, timeout=120)
 
     assert (early.status_code, early.json()["detail"]) == (409, "publication_requise")
+    assert blocked.json() == {"ok": False, "reason": "publication_requise"}
+    assert freed.json() == {"ok": True, "reason": None}
     assert saved.status_code == 201, saved.text
     assert saved.json()["commit"] == await _remote_head(forge)
 

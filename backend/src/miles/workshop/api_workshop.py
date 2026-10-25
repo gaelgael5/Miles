@@ -124,6 +124,32 @@ async def list_versions(
         return _refusal(exc)
 
 
+class FreezableOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ok: bool
+    # Ce qui empêche, repris tel quel des refus de l'enregistrement : « publication_requise »
+    # ou « rien_a_figer ». None quand rien n'empêche.
+    reason: str | None
+
+
+@router.get("/freezable", response_model=FreezableOut)
+async def freezable(
+    workspace_id: str, request: Request, service: Service, branch: str | None = None
+) -> object:
+    """Peut-on enregistrer une version ici, et sinon qu'est-ce qui l'empêche ?
+
+    L'écran s'en sert pour griser le bouton AVANT le clic. Déclaré avant la route
+    « /{number} » : sans cela, « freezable » serait lu comme un numéro de version.
+    """
+    try:
+        reason = await service.resolve_freezable(
+            request_author(request), workspace_id, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return FreezableOut(ok=reason is None, reason=reason)
+
+
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=VersionOut)
 async def save_version(
     workspace_id: str,

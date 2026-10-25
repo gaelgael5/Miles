@@ -165,6 +165,29 @@ export function useVersions(target: WorkTarget) {
   });
 }
 
+/** Ce qui empêche d'enregistrer une version ici, ou rien. */
+export interface Freezable {
+  ok: boolean;
+  /** « publication_requise » ou « rien_a_figer » ; null quand rien n'empêche. */
+  reason: string | null;
+}
+
+/**
+ * Peut-on figer cette branche ? (Gael, 25/10/2026)
+ *
+ * Demandé au serveur plutôt que déduit à l'écran : les deux raisons de refus sont
+ * calculées par le MÊME code que celui qui refuse l'enregistrement, et une règle
+ * recopiée ici dériverait de celle qui refuse vraiment.
+ */
+export function useFreezable(target: WorkTarget, enabled = true) {
+  return useQuery({
+    queryKey: [...versionsKey(target), "freezable"],
+    enabled,
+    queryFn: ({ signal }) =>
+      request<Freezable>(atBranch(target, "versions", "freezable"), { signal }),
+  });
+}
+
 export function useSaveVersion(target: WorkTarget) {
   const client = useQueryClient();
   return useMutation({

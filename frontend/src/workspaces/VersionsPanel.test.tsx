@@ -7,6 +7,9 @@ import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const VERSIONS = "/api/workspaces/retrait/versions";
 const MODELS = "GET /api/workspaces/retrait/data-models?branch=edition";
+const FREEZABLE = {
+  [`GET ${VERSIONS}/freezable?branch=edition`]: { status: 200, body: { ok: true, reason: null } },
+};
 const BRANCHES = {
   "GET /api/workspaces/retrait/branches": {
     status: 200,
@@ -40,6 +43,7 @@ describe("VersionsPanel", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
+      ...FREEZABLE,
       [MODELS]: { status: 200, body: [] },
       [`GET ${VERSIONS}?branch=edition`]: [
         { status: 200, body: [] },
@@ -66,6 +70,7 @@ describe("VersionsPanel", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
+      ...FREEZABLE,
       [MODELS]: { status: 200, body: [] },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
       [`POST ${VERSIONS}?branch=edition`]: {
@@ -102,6 +107,7 @@ describe("VersionsPanel", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
+      ...FREEZABLE,
       [MODELS]: { status: 200, body: [] },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [V1] },
       [`POST ${VERSIONS}?branch=edition`]: { status: 409, body: { detail: "rien_a_figer" } },
@@ -121,6 +127,7 @@ describe("VersionsPanel", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
+      ...FREEZABLE,
       [MODELS]: { status: 200, body: [] },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [V1] },
       [`POST ${VERSIONS}/1/restore?branch=edition`]: { status: 200, body: { commit: "fedcba98765432100000" } },
@@ -136,5 +143,40 @@ describe("VersionsPanel", () => {
       await within(panel).findByText("Back to this version, by a new commit fedcba9876."),
     ).toBeInTheDocument();
     expect(calls.some((c) => c.key === `POST ${VERSIONS}/1/restore?branch=edition`)).toBe(true);
+  });
+});
+
+describe("the version button knows what the server will refuse (25/10/2026)", () => {
+  function panelWith(freezable: { ok: boolean; reason: string | null }) {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...BRANCHES,
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${VERSIONS}/freezable?branch=edition`]: { status: 200, body: freezable },
+    });
+    return openWorkshop();
+  }
+
+  it("greys the button out while changes are not published, and says so", async () => {
+    const panel = await panelWith({ ok: false, reason: "publication_requise" });
+
+    expect(await within(panel).findByText(/not published yet/)).toBeInTheDocument();
+    expect(within(panel).getByText("Save a version")).toBeDisabled();
+  });
+
+  it("greys it out when nothing changed since the last version", async () => {
+    const panel = await panelWith({ ok: false, reason: "rien_a_figer" });
+
+    expect(await within(panel).findByText(/Nothing changed since the last version/)).toBeInTheDocument();
+    expect(within(panel).getByText("Save a version")).toBeDisabled();
+  });
+
+  it("leaves it usable when there is something to freeze", async () => {
+    const panel = await panelWith({ ok: true, reason: null });
+
+    expect(await within(panel).findByText("No version saved yet.")).toBeInTheDocument();
+    expect(within(panel).getByText("Save a version")).toBeEnabled();
   });
 });

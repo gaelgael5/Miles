@@ -71,6 +71,17 @@ async def test_replay_is_without_effect_and_nothing_new_is_refused(forge: Forge)
     assert await _tags(forge) == ["version/1"]
 
 
+async def test_the_screen_can_ask_whether_anything_is_left_to_freeze(forge: Forge) -> None:
+    """Gael, 25/10/2026 : le bouton se grise avant le clic, sur la réponse du serveur."""
+    before = await forge.client.get(f"{VERSIONS}/freezable", timeout=120)
+    await _save(forge, "Initiale")
+    after = await forge.client.get(f"{VERSIONS}/freezable", timeout=120)
+
+    assert before.json() == {"ok": True, "reason": None}
+    # La même raison que le refus de l'enregistrement, calculée par le même code.
+    assert after.json() == {"ok": False, "reason": "rien_a_figer"}
+
+
 async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
     forge: Forge,
 ) -> None:

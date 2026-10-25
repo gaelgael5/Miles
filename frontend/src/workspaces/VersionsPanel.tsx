@@ -6,6 +6,7 @@ import type { WorkTarget } from "../api/workTarget";
 import {
   type ModelProblem,
   type SavedVersion,
+  useFreezable,
   useRestoreVersion,
   useSaveVersion,
   useVersions,
@@ -143,18 +144,32 @@ export function VersionsPanel({ target }: { target: WorkTarget }) {
   const { t } = useTranslation();
   const versions = useVersions(target);
   const [saving, setSaving] = useState(false);
+  // Interrogé seulement si la personne peut figer : inutile sinon, le bouton n'est pas là.
+  const freezable = useFreezable(target, target.canFreeze);
 
   return (
     <section className="card" aria-labelledby="versions-title">
       <div className="card-head">
         <h2 id="versions-title">{t("versions.title")}</h2>
-        {/* Racine : toujours. Branche enfant : par qui en a la main (9def0adc). */}
+        {/* Racine : toujours. Branche enfant : par qui en a la main (9def0adc). Et
+            seulement quand il y a quelque chose à figer — le serveur refusait déjà, mais
+            l'écran laissait cliquer (Gael, 25/10/2026). */}
         {!saving && target.canFreeze && (
-          <button type="button" className="btn btn-primary" onClick={() => setSaving(true)}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={freezable.data !== undefined && !freezable.data.ok}
+            onClick={() => setSaving(true)}
+          >
             {t("versions.save")}
           </button>
         )}
       </div>
+      {/* La raison est dite à côté du bouton grisé : un bouton éteint sans explication
+          se lit comme une panne. */}
+      {!saving && target.canFreeze && freezable.data?.reason != null && (
+        <p className="muted">{t(`versions.errors.conflict.${freezable.data.reason}`)}</p>
+      )}
       {saving && target.canFreeze && <SaveForm target={target} onDone={() => setSaving(false)} />}
       {versions.isError && <VersionRefusal error={versions.error} />}
       {versions.isSuccess && versions.data.length === 0 && (
