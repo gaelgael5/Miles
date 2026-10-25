@@ -65,6 +65,18 @@ def test_the_file_method_says_how_it_will_read_and_write() -> None:
     assert "$.root[*]" in description and "100" in description
 
 
+def test_writing_one_by_one_is_said_in_words_not_in_a_count_of_one() -> None:
+    """« tous les 1 objets lus » ne se lit pas."""
+    unit = replace(WEB, write_batch=1)
+
+    description = document(replace(DOC, entries=(unit,)), SCHEMAS, "pudo/site")["paths"][
+        "/ingest/integration-des-sites/import-crm/file"
+    ]["post"]["description"]
+
+    assert "à chaque objet lu" in description
+    assert "tous les 1" not in description
+
+
 def test_the_source_model_is_inlined_as_a_component_not_left_as_a_miles_uri() -> None:
     """Un « miles:/… » ne veut rien dire pour un visualiseur : il ne sait pas lire le dépôt."""
     spec = document(DOC, SCHEMAS, "pudo/site")

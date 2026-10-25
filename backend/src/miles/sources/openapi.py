@@ -104,8 +104,7 @@ def _entry_paths(
                 f"{doc.name}-{rank}-file",
                 "Déposer un fichier",
                 "Le fichier est rangé en répertoire temporaire, puis lu en flux selon le "
-                f"découpage « {entry.split} ». Écriture tous les {entry.write_batch} "
-                "objets lus"
+                f"découpage « {entry.split} ». {_writing(entry.write_batch)}"
                 + (", en une seule transaction." if entry.unified_transaction else "."),
                 {
                     "multipart/form-data": {
@@ -135,6 +134,13 @@ def _operation(
             "403": {"description": "Appelant sans droit d'écriture sur cette source."},
         },
     }
+
+
+def _writing(batch: int) -> str:
+    """« tous les 1 objets lus » ne se lit pas : à l'unité, on le dit autrement."""
+    if batch == 1:
+        return "Écriture à chaque objet lu"
+    return f"Écriture tous les {batch} objets lus"
 
 
 def _schema_name(model: str) -> str:
