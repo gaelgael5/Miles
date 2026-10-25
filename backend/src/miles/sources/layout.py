@@ -20,7 +20,15 @@ ROOT = "sources"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 _FILE_RE = re.compile(rf"^{ROOT}/(?P<name>[^/]+)\.yaml$")
 _KEYS = {"nom", "libelle", "storage", "entrees"}
-_ENTRY_KEYS = {"type", "modele_source", "chaine", "modes", "decoupage", "transaction_unifiee"}
+_ENTRY_KEYS = {
+    "type",
+    "modele_source",
+    "chaine",
+    "modes",
+    "decoupage",
+    "transaction_unifiee",
+    "lot_ecriture",
+}
 _MODE_KEYS = {"element", "tableau", "fichier"}
 
 # Le seul moyen d'entrée instruit à ce jour. Le type est écrit dans la déclaration plutôt
@@ -32,6 +40,9 @@ ENTRY_TYPES = frozenset({WEB})
 # technique : au-delà, un appel unique devient un lot qu'il faut reprendre et suivre,
 # et c'est le mode fichier qui le sert.
 MAX_BATCH = 200
+# Lectures consécutives avant enregistrement, par défaut. 1 = on écrit ce qu'on vient de
+# lire : c'est le comportement le plus sûr, et celui qu'on obtient sans rien déclarer.
+DEFAULT_WRITE_BATCH = 1
 
 
 @dataclass(frozen=True)
@@ -58,7 +69,12 @@ class Entry:
     # Où sont les items dans le fichier déposé. Requis par le mode fichier, et par lui
     # seul : les deux autres méthodes reçoivent déjà des objets typés.
     split: str
+    # Une seule transaction pour tout l'import, ou une par lot écrit.
     unified_transaction: bool
+    # Nombre de lectures consécutives avant enregistrement (Gael, 25/10/2026). Il dit
+    # TOUS LES COMBIEN on écrit ; la transaction unifiée dit QUAND on valide. Les deux
+    # sont indépendants : on peut écrire par lots de 500 dans une transaction unique.
+    write_batch: int
 
 
 @dataclass(frozen=True)
@@ -116,6 +132,7 @@ def source_text(doc: SourceDoc) -> str:
             f"      fichier: {flag(entry.modes.file)}",
             f"    decoupage: {q(entry.split)}",
             f"    transaction_unifiee: {flag(entry.unified_transaction)}",
+            f"    lot_ecriture: {entry.write_batch}",
         ]
     return "\n".join(lines) + "\n"
 
@@ -155,13 +172,31 @@ def _entry(raw: object) -> Entry:
         EntryModes(
             _flag(modes.get("element")), _flag(modes.get("tableau")), _flag(modes.get("fichier"))
         ),
-        _text(raw.get("decoupage")),
+        _optional_text(raw.get("decoupage")),
         _flag(raw.get("transaction_unifiee")),
+        _count(raw.get("lot_ecriture")),
     )
 
 
 def _text(value: object) -> str:
     if not isinstance(value, str):
+        raise TypeError
+    return value
+
+
+def _optional_text(value: object) -> str:
+    """Absent : vide. Le découpage ne sert qu'au mode fichier, et `form_problems` l'exige
+    quand ce mode est coché — l'absence se juge là, pas à la lecture du fichier."""
+    if value is None:
+        return ""
+    return _text(value)
+
+
+def _count(value: object) -> int:
+    """Absent : la valeur par défaut. Un booléen n'est pas un entier, même en Python."""
+    if value is None:
+        return DEFAULT_WRITE_BATCH
+    if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError
     return value
 
@@ -207,6 +242,11 @@ def _entry_problems(rank: int, entry: Entry) -> list[SourceProblem]:
     if not (modes.element or modes.batch or modes.file):
         # Une entrée sans mode n'expose aucune méthode : elle ne reçoit rien.
         problems.append(SourceProblem(f"{where}.modes", "aucun_mode"))
+    if entry.write_batch < 1:
+        # Zéro lecture avant enregistrement n'enregistrerait jamais rien.
+        problems.append(
+            SourceProblem(f"{where}.lot_ecriture", "lot_trop_petit", str(entry.write_batch))
+        )
     problems += _split_problems(where, entry.split, modes.file)
     return problems
 

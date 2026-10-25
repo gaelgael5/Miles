@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from miles.auth.author import request_author
-from miles.sources.layout import Entry, EntryModes, SourceDoc
+from miles.sources.layout import DEFAULT_WRITE_BATCH, Entry, EntryModes, SourceDoc
 from miles.sources.service import (
     Saved,
     SourceInvalidError,
@@ -54,6 +54,8 @@ class EntryIO(BaseModel):
     # Requis par le seul mode fichier.
     split: str = Field(default="", max_length=1024)
     unified_transaction: bool = False
+    # Lectures consécutives avant enregistrement ; au moins une, sinon rien n'est écrit.
+    write_batch: int = Field(default=DEFAULT_WRITE_BATCH, ge=1)
 
 
 class SourceIO(BaseModel):
@@ -93,6 +95,7 @@ def _doc(body: SourceIO) -> SourceDoc:
                 EntryModes(e.modes.element, e.modes.batch, e.modes.file),
                 e.split.strip(),
                 e.unified_transaction,
+                e.write_batch,
             )
             for e in body.entries
         ),
@@ -112,6 +115,7 @@ def _io(doc: SourceDoc) -> SourceIO:
                 modes=ModesIO(element=e.modes.element, batch=e.modes.batch, file=e.modes.file),
                 split=e.split,
                 unified_transaction=e.unified_transaction,
+                write_batch=e.write_batch,
             )
             for e in doc.entries
         ],

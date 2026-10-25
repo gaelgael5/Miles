@@ -961,7 +961,8 @@
       "entrySourceModelHelp": "The model of what will arrive on the method. It is what types it.",
       "entryChainHelp": "The chain that starts from the source model on its first step and reaches the target data model on its last.",
       "modesHelp": "At least one method, otherwise the entry exposes nothing.",
-      "removeEntry": "Remove entry {{rank}}"
+      "removeEntry": "Remove entry {{rank}}",
+      "writeBatchHelp": "How many objects are read in a row before being saved. 1 writes each object as it is read. This setting says HOW OFTEN one writes; the box above says WHEN one commits — the two are independent."
     },
     "fields": {
       "name": "Name",
@@ -971,7 +972,8 @@
       "modes": "Entry methods",
       "entrySourceModel": "Source model of entry {{rank}}",
       "entryChain": "Transformation chain of entry {{rank}}",
-      "entrySplit": "Split path of entry {{rank}}"
+      "entrySplit": "Split path of entry {{rank}}",
+      "writeBatch": "Reads before saving, entry {{rank}}"
     },
     "editor": {
       "save": "Save the source",
@@ -999,7 +1001,8 @@
       "aucun_mode": "At least one entry method must be ticked, otherwise the entry exposes nothing.",
       "chaine_sans_etape": "Chain “{{detail}}” carries no step.",
       "chaine_part_d_ailleurs": "The chain starts from “{{detail}}”, not from the declared source model.",
-      "chaine_arrive_ailleurs": "The chain reaches “{{detail}}”, not the target data model."
+      "chaine_arrive_ailleurs": "The chain reaches “{{detail}}”, not the target data model.",
+      "lot_trop_petit": "At least one read before saving is required ({{detail}} would never write anything)."
     },
     "errors": {
       "nom_pris": "A different source already has this name on the branch.",

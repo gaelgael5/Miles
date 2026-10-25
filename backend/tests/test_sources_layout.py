@@ -20,6 +20,7 @@ WEB = Entry(
     EntryModes(element=True, batch=True, file=True),
     "$.sites[*]",
     False,
+    1,
 )
 # Refondue le 25/10/2026 : une source dit OÙ ça va, et porte ses entrées.
 DOC = SourceDoc("crm", "CRM", "sites", (WEB,))
@@ -61,7 +62,7 @@ def test_an_entry_with_an_unknown_key_is_unreadable() -> None:
     text = (
         'nom: "crm"\nlibelle: "CRM"\nstorage: "sites"\nentrees:\n'
         '  - type: "web"\n    modele_source: "a/b"\n    chaine: "c"\n'
-        "    modes:\n      element: true\n    surprise: 1\n"
+        '    decoupage: ""\n    modes:\n      element: true\n    surprise: 1\n'
     )
 
     assert read_source(text) is None
@@ -146,6 +147,51 @@ def test_each_entry_is_reported_under_its_own_rank() -> None:
         ("entrees[0].modele_source", "modele_invalide"),
         ("entrees[1].chaine", "chaine_absente"),
     }
+
+
+def test_the_write_batch_says_how_often_one_writes_not_when_one_commits() -> None:
+    """Gael, 25/10/2026 : « un nombre de lectures consécutives avant enregistrement ».
+
+    Indépendant de la transaction unifiée : écrire par lots de 500 dans une transaction
+    unique est une combinaison valide, et c'est même le cas d'usage d'un gros fichier.
+    """
+    both = replace(DOC, entries=(replace(WEB, write_batch=500, unified_transaction=True),))
+
+    assert form_problems(both) == []
+    assert read_source(source_text(both)) == both
+
+
+def test_a_write_batch_below_one_would_never_write(write: int = 0) -> None:
+    broken = replace(DOC, entries=(replace(WEB, write_batch=write),))
+
+    assert [(p.path, p.code, p.detail) for p in form_problems(broken)] == [
+        ("entrees[0].lot_ecriture", "lot_trop_petit", "0")
+    ]
+
+
+def test_an_absent_write_batch_falls_back_on_writing_each_read() -> None:
+    """1 par défaut : on écrit ce qu'on vient de lire, le comportement le plus sûr."""
+    text = (
+        'nom: "crm"\nlibelle: "CRM"\nstorage: "sites"\nentrees:\n'
+        '  - type: "web"\n    modele_source: "a/b"\n    chaine: "c"\n'
+        "    modes:\n      element: true\n"
+    )
+
+    doc = read_source(text)
+
+    assert doc is not None and doc.entries[0].write_batch == 1
+
+
+def test_a_write_batch_that_is_not_a_whole_number_is_unreadable() -> None:
+    # `True` est un `int` en Python : la garde le refuse explicitement.
+    for value in ('"500"', "true", "1.5"):
+        text = (
+            'nom: "crm"\nlibelle: "CRM"\nstorage: "sites"\nentrees:\n'
+            '  - type: "web"\n    modele_source: "a/b"\n    chaine: "c"\n'
+            '    decoupage: ""\n'
+            f"    modes:\n      element: true\n    lot_ecriture: {value}\n"
+        )
+        assert read_source(text) is None, value
 
 
 def test_form_problems_are_all_reported() -> None:

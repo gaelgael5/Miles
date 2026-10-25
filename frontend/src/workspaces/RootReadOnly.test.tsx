@@ -31,6 +31,7 @@ const SOURCE = {
       modes: { element: true, batch: false, file: false },
       split: "",
       unified_transaction: false,
+  write_batch: 1,
     },
   ],
 };

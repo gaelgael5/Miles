@@ -961,7 +961,8 @@
       "entrySourceModelHelp": "Le modèle de ce qui arrivera sur la méthode. C'est lui qui la type.",
       "entryChainHelp": "La chaîne qui part du modèle source à sa première étape et arrive au modèle de la donnée cible à sa dernière.",
       "modesHelp": "Au moins une méthode, sinon l'entrée n'expose rien.",
-      "removeEntry": "Retirer l'entrée {{rank}}"
+      "removeEntry": "Retirer l'entrée {{rank}}",
+      "writeBatchHelp": "Combien d'objets sont lus d'affilée avant d'être enregistrés. 1 écrit chaque objet dès sa lecture. Ce réglage dit TOUS LES COMBIEN on écrit ; la case au-dessus dit QUAND on valide — les deux sont indépendants."
     },
     "fields": {
       "name": "Nom",
@@ -971,7 +972,8 @@
       "modes": "Méthodes d'entrée",
       "entrySourceModel": "Modèle source de l'entrée {{rank}}",
       "entryChain": "Chaîne de transformation de l'entrée {{rank}}",
-      "entrySplit": "Chaîne de découpage de l'entrée {{rank}}"
+      "entrySplit": "Chaîne de découpage de l'entrée {{rank}}",
+      "writeBatch": "Lectures avant enregistrement de l'entrée {{rank}}"
     },
     "editor": {
       "save": "Enregistrer la source",
@@ -999,7 +1001,8 @@
       "aucun_mode": "Au moins une méthode d'entrée doit être cochée, sinon l'entrée n'expose rien.",
       "chaine_sans_etape": "La chaîne « {{detail}} » ne porte aucune étape.",
       "chaine_part_d_ailleurs": "La chaîne part de « {{detail}} », pas du modèle source déclaré.",
-      "chaine_arrive_ailleurs": "La chaîne arrive à « {{detail}} », pas au modèle de la donnée cible."
+      "chaine_arrive_ailleurs": "La chaîne arrive à « {{detail}} », pas au modèle de la donnée cible.",
+      "lot_trop_petit": "Il faut au moins une lecture avant enregistrement ({{detail}} n'écrirait jamais rien)."
     },
     "errors": {
       "nom_pris": "Une autre source porte déjà ce nom sur la branche.",

@@ -18,6 +18,8 @@ export function emptyEntry(kind: string): SourceEntry {
     modes: { element: false, batch: false, file: false },
     split: "",
     unified_transaction: false,
+    // 1 : on écrit ce qu'on vient de lire. Le comportement le plus sûr par défaut.
+    write_batch: 1,
   };
 }
 
@@ -137,6 +139,21 @@ function EntryCard({
         />
         {t("sources.fields.unifiedTransaction")}
       </label>
+      <label className="field">
+        {t("sources.fields.writeBatch", { rank: rank + 1 })}
+        <input
+          required
+          type="number"
+          min={1}
+          step={1}
+          disabled={disabled}
+          value={entry.write_batch}
+          // Un champ nombre rend "" quand on efface : on garde 1 plutôt que NaN, que le
+          // contrat d'entrée refuserait avec un message qui ne dirait pas quoi faire.
+          onChange={(e) => set({ write_batch: Number(e.target.value) || 1 })}
+        />
+      </label>
+      <p className="help">{t("sources.form.writeBatchHelp")}</p>
       {!disabled && (
         <div className="actions">
           <button type="button" className="btn btn-secondary" onClick={onRemove}>

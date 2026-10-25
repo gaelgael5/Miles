@@ -15,6 +15,7 @@ const ENTRY = {
   modes: { element: true, batch: true, file: false },
   split: "",
   unified_transaction: false,
+  write_batch: 1,
 };
 const SOURCE = { name: "crm", label: "CRM", storage: "sites", entries: [ENTRY] };
 const BARE = { name: "crm", label: "CRM", storage: "sites", entries: [] };
@@ -150,6 +151,33 @@ describe("the entries of a source (25/10/2026)", () => {
     // La mutation est asynchrone : on attend son retour avant de lire l'appel.
     expect(await screen.findByText(/rewrite every object/)).toBeInTheDocument();
     expect(calls.find((c) => c.key === `PUT ${ROUTE}/crm${Q}`)?.body).toEqual(SOURCE);
+  });
+
+  it("declares how many reads happen before a save, independently of the commit", async () => {
+    const calls = open(SOURCE);
+    expect(await screen.findByLabelText("Reads before saving, entry 1")).toHaveValue(1);
+
+    fireEvent.change(screen.getByLabelText("Reads before saving, entry 1"), {
+      target: { value: "500" },
+    });
+    // Les deux réglages coexistent : l'un dit tous les combien on écrit, l'autre quand
+    // on valide. Cocher la transaction unifiée ne doit pas effacer le lot.
+    fireEvent.click(screen.getByLabelText(/Single transaction/));
+    fireEvent.click(screen.getByText("Save the source"));
+
+    expect(await screen.findByText(/rewrite every object/)).toBeInTheDocument();
+    const sent = calls.find((c) => c.key === `PUT ${ROUTE}/crm${Q}`)?.body as typeof SOURCE;
+    expect(sent.entries[0]).toMatchObject({ write_batch: 500, unified_transaction: true });
+  });
+
+  it("keeps a usable value when the number field is emptied", async () => {
+    open(SOURCE);
+    const field = await screen.findByLabelText("Reads before saving, entry 1");
+
+    fireEvent.change(field, { target: { value: "" } });
+
+    // Vidé, le champ retombe sur 1 : NaN serait refusé par un message qui ne dit rien.
+    expect(field).toHaveValue(1);
   });
 
   it("asks for the split path only when the file mode is ticked", async () => {

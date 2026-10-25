@@ -39,6 +39,7 @@ ENTRY: dict[str, Any] = {
     "modes": {"element": True, "batch": True, "file": True},
     "split": "$.accounts[*]",
     "unified_transaction": False,
+    "write_batch": 1,
 }
 SOURCE: dict[str, Any] = {
     "name": "comptes",
@@ -200,6 +201,18 @@ async def test_replay_name_taken_and_a_changed_entry_announcing_a_rewrite(forge:
     assert changed.json()["rewrite_announced"] is True
     assert (renamed.status_code, renamed.json()["detail"]) == (409, "nom_fige")
     assert await forge.commits() == before + 1
+
+
+async def test_the_write_batch_is_declared_and_refused_below_one(forge: Forge) -> None:
+    """Gael, 25/10/2026 : combien de lectures consécutives avant enregistrement."""
+    declared = await _declare(forge, with_entry(write_batch=500, unified_transaction=True))
+    refused = await _declare(forge, with_entry(write_batch=0), name="zero")
+
+    assert declared.status_code == 201, declared.text
+    text = await forge.file("sources/comptes.yaml")
+    assert text is not None and "lot_ecriture: 500" in text
+    # Le plancher est tenu par le contrat d'entrée : 422 avant la validation métier.
+    assert refused.status_code == 422, refused.text
 
 
 async def test_a_chain_designated_by_an_entry_cannot_be_deleted(forge: Forge) -> None:

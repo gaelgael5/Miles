@@ -27,7 +27,13 @@ export interface SourceEntry {
   modes: EntryModes;
   /** Où sont les items dans le fichier déposé. Requis par le seul mode fichier. */
   split: string;
+  /** Une seule transaction pour tout l'import, ou une par lot écrit. */
   unified_transaction: boolean;
+  /**
+   * Lectures consécutives avant enregistrement (Gael, 25/10/2026). Il dit TOUS LES
+   * COMBIEN on écrit ; la transaction unifiée dit QUAND on valide. Indépendants.
+   */
+  write_batch: number;
 }
 
 /**
