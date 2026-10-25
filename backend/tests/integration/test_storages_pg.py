@@ -199,15 +199,21 @@ async def test_a_storage_designated_by_a_source_cannot_be_deleted(forge: Forge) 
     await _declare(forge)
     chain = {"label": "Import", "steps": [{"name": "copier", "template": '{ "code": $.code }'}]}
     await forge.client.put(f"{CHAINS}/sites-import", json=chain, timeout=120)
+    # Forme du 25/10/2026 : la source est un conteneur, la chaîne vit dans une entrée.
     source = {
         "name": "crm",
         "label": "CRM",
         "storage": "sites",
-        "source_model": "shared/site",
-        "split": "$.sites[*]",
-        "chain": "sites-import",
-        "large_file": False,
-        "unified_transaction": False,
+        "entries": [
+            {
+                "kind": "web",
+                "source_model": "shared/site",
+                "chain": "sites-import",
+                "modes": {"element": True, "batch": False, "file": False},
+                "split": "",
+                "unified_transaction": False,
+            }
+        ],
     }
     declared = await forge.client.post(SOURCES, json=source, timeout=120)
     assert declared.status_code == 201, declared.text
