@@ -363,3 +363,9 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
   border: 1px solid var(--bordure-carte); border-radius: 6px;
 }
 .entry-card h3 { margin: 0 0 12px; font-size: 15px; }
+
+/* Le visualiseur Swagger (Gael, 25/10/2026) : il apporte sa propre feuille, on ne lui
+   impose que la largeur et le retrait du bandeau, qui n'a pas lieu d'être ici. */
+.swagger-host { margin-top: 12px; }
+.swagger-host .swagger-ui .topbar { display: none; }
+.swagger-host .swagger-ui .info { margin: 16px 0; }

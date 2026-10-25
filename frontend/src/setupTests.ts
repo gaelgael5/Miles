@@ -6,3 +6,5 @@ import "./i18n/i18n";
 vi.mock("./dataModels/monaco", () => ({ MODEL_URI_SUFFIX: ".schema.yaml" }));
 vi.mock("./dataModels/YamlEditor", () => import("./test/YamlEditorStub"));
 vi.mock("./dataModels/JsltEditor", () => import("./test/JsltEditorStub"));
+// Swagger UI non plus : il mesure et dessine, ce que jsdom ne fait pas.
+vi.mock("./contracts/SwaggerView", () => import("./test/SwaggerViewStub"));

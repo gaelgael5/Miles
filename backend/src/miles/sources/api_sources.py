@@ -189,6 +189,23 @@ async def get_source(
         return _refusal(exc)
 
 
+@router.get("/{name}/openapi")
+async def source_openapi(
+    workspace_id: str, request: Request, name: str, service: Service, branch: str | None = None
+) -> object:
+    """Le document OpenAPI que cette source promet, dérivé de sa déclaration.
+
+    Rendu tel quel, sans modèle de réponse : c'est un document OpenAPI, et le typer avec
+    pydantic reviendrait à tenir une seconde définition d'OpenAPI dans Miles.
+    """
+    try:
+        return await service.resolve_openapi(
+            request_author(request), workspace_id, name, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+
+
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=SavedOut)
 async def declare_source(
     workspace_id: str,

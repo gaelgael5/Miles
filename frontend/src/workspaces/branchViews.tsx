@@ -9,6 +9,7 @@ import { BranchGraphScreen } from "./BranchGraphScreen";
 import { ChainScreen } from "./ChainScreen";
 import { ChainsScreen } from "./ChainsScreen";
 import { ContractModelsScreen } from "./ContractModelsScreen";
+import { SwaggerScreen } from "../contracts/SwaggerScreen";
 import { ContractScreen } from "./ContractScreen";
 import { ContractsScreen } from "./ContractsScreen";
 import { DataModelScreen } from "./DataModelScreen";
@@ -59,7 +60,43 @@ function viewScreen(
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.
-  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.step ?? ""}/${selection.source ?? ""}/${selection.storage ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}`;
+  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.step ?? ""}/${selection.source ?? ""}/${selection.storage ?? ""}/${selection.swagger ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}`;
+  if (
+    selection.view === "contracts" &&
+    selection.contract !== undefined &&
+    selection.swagger !== undefined
+  ) {
+    const version = Number(selection.swagger.replace("v", ""));
+    return (
+      <SwaggerScreen
+        key={key}
+        target={target}
+        subject={{ kind: "contract", slug: selection.contract, version }}
+        title={`${selection.contract} — v${version}`}
+        onBack={() =>
+          onSelect({
+            id: workspace.id,
+            view: "contracts",
+            branch,
+            contract: selection.contract,
+          })
+        }
+      />
+    );
+  }
+  if (selection.view === "sources" && selection.source !== undefined && selection.swagger) {
+    return (
+      <SwaggerScreen
+        key={key}
+        target={target}
+        subject={{ kind: "source", name: selection.source }}
+        title={selection.source}
+        onBack={() =>
+          onSelect({ id: workspace.id, view: "sources", branch, source: selection.source })
+        }
+      />
+    );
+  }
   if (selection.view === "contracts" && selection.contract !== undefined) {
     return (
       <ContractScreen
@@ -67,6 +104,15 @@ function viewScreen(
         target={target}
         slug={selection.contract}
         onBack={() => onSelect({ id: workspace.id, view: "contracts", branch })}
+        onSwagger={(version) =>
+          onSelect({
+            id: workspace.id,
+            view: "contracts",
+            branch,
+            contract: selection.contract,
+            swagger: `v${version}`,
+          })
+        }
       />
     );
   }
@@ -149,6 +195,15 @@ function viewScreen(
         target={target}
         name={selection.source}
         onBack={() => onSelect({ id: workspace.id, view: "sources", branch })}
+        onSwagger={() =>
+          onSelect({
+            id: workspace.id,
+            view: "sources",
+            branch,
+            source: selection.source,
+            swagger: "api",
+          })
+        }
       />
     );
   }

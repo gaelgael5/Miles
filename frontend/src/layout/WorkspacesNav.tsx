@@ -34,6 +34,9 @@ export type WorkspaceSelection = {
   source?: string;
   // Un storage ouvert, avec la vue « storages ».
   storage?: string;
+  // Lecture en Swagger (25/10/2026) : « vN » sur un contrat ouvert, « api » sur une
+  // source ouverte. Porté par la sélection pour que la vue reste partageable.
+  swagger?: string;
   // Un modèle de données ouvert (« portée/nom »), avec la vue « dataModels ».
   model?: string;
   // Le sens des contrats dont on liste les modèles, avec la vue « contractModels ».

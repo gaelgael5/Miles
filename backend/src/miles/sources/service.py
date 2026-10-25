@@ -7,8 +7,12 @@ from datetime import datetime
 import asyncpg
 import structlog
 
+from miles.datamodels.grammar import load_yaml
+from miles.datamodels.layout import MODEL_RE, model_path
+from miles.datamodels.service import inlined_schema
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles.sources import openapi
 from miles.sources.checks import branch_problems
 from miles.sources.layout import (
     SourceDoc,
@@ -19,6 +23,7 @@ from miles.sources.layout import (
     source_path,
     source_text,
 )
+from miles.storages.layout import read_storage, storage_path
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceConflictError
 
@@ -91,6 +96,34 @@ class SourcesService:
         if doc is None or doc.name != name:
             raise SourceNotFoundError(name)
         return doc
+
+    async def resolve_openapi(
+        self, viewer: EventAuthor, workspace_id: str, name: str, *, branch: str | None = None
+    ) -> dict[str, object]:
+        """Le document OpenAPI que cette source promet, dérivé de sa déclaration.
+
+        Les modèles sources y sont INLINÉS : un `$ref` vers « miles:/… » ne veut rien
+        dire pour un visualiseur Swagger, qui ne sait pas lire le dépôt.
+        """
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
+            doc = read_source(await copy.read(source_path(name)))
+            if doc is None or doc.name != name:
+                raise SourceNotFoundError(name)
+            schemas: dict[str, object] = {}
+            for entry in doc.entries:
+                match = MODEL_RE.match(entry.source_model)
+                if match is None:
+                    continue
+                content = await copy.read(model_path(match["scope"], match["name"]))
+                if content is None:
+                    continue
+                schemas[entry.source_model] = await inlined_schema(
+                    copy, load_yaml(content), (match["scope"], match["name"])
+                )
+            stored = read_storage(await copy.read(storage_path(doc.storage)))
+        return openapi.document(doc, schemas, stored.model if stored is not None else None)
 
     async def resolve_save(
         self,

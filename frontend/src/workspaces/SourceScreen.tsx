@@ -7,7 +7,17 @@ import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { SourceForm } from "./SourceForm";
 import { sourceErrorKey } from "./SourcesScreen";
 
-function Editor({ target, source, onDeleted }: { target: WorkTarget; source: Source; onDeleted: () => void }) {
+function Editor({
+  target,
+  source,
+  onDeleted,
+  onSwagger,
+}: {
+  target: WorkTarget;
+  source: Source;
+  onDeleted: () => void;
+  onSwagger: () => void;
+}) {
   const { t } = useTranslation();
   const save = useSaveSource(target, source.name);
   const remove = useDeleteSource(target, source.name);
@@ -25,6 +35,11 @@ function Editor({ target, source, onDeleted }: { target: WorkTarget; source: Sou
         submitLabel={t("sources.editor.save")}
         onSubmit={(changed) => save.mutate(changed)}
       >
+        {/* L'API que cette source promet, lue dans le même visualiseur que les
+            contrats (Gael, 25/10/2026) : elle est dérivée de la déclaration. */}
+        <button type="button" className="btn btn-secondary" onClick={onSwagger}>
+          {t("sources.editor.swagger")}
+        </button>
         <button type="button" className="btn btn-secondary" onClick={() => setConfirming(true)}>
           {t("sources.editor.delete")}
         </button>
@@ -58,7 +73,18 @@ function Editor({ target, source, onDeleted }: { target: WorkTarget; source: Sou
 }
 
 /** Une source de données : sa déclaration, modifiable, et sa suppression. */
-export function SourceScreen({ target, name, onBack }: { target: WorkTarget; name: string; onBack: () => void }) {
+export function SourceScreen({
+  target,
+  name,
+  onBack,
+  onSwagger,
+}: {
+  target: WorkTarget;
+  name: string;
+  onBack: () => void;
+  /** Lire l'API que cette source promet (Gael, 25/10/2026). */
+  onSwagger: () => void;
+}) {
   const { t } = useTranslation();
   const source = useSource(target, name);
   return (
@@ -71,7 +97,15 @@ export function SourceScreen({ target, name, onBack }: { target: WorkTarget; nam
       </h1>
       {source.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
       {source.isError && <p className="alert" role="alert">{t("sources.errors.unreadable")}</p>}
-      {source.data && <Editor key={name} target={target} source={source.data} onDeleted={onBack} />}
+      {source.data && (
+        <Editor
+          key={name}
+          target={target}
+          source={source.data}
+          onDeleted={onBack}
+          onSwagger={onSwagger}
+        />
+      )}
     </section>
   );
 }

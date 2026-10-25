@@ -347,6 +347,15 @@ async def _users(copy: WorkCopy, entries: list[ModelEntry], target: ModelEntry) 
 _MAX_MODEL_DEPTH = 8
 
 
+async def inlined_schema(copy: WorkCopy, schema: Any, origin: tuple[str, str]) -> Any:
+    """Le schéma, renvois vers d'autres modèles remplacés par leur contenu.
+
+    Exposé pour les documents qui partent du dépôt : un `$ref` vers « miles:/… » ne veut
+    rien dire hors de Miles — ni pour un visualiseur Swagger, ni pour un appelant.
+    """
+    return await _inlined(copy, schema, {origin})
+
+
 async def _inlined(copy: WorkCopy, node: Any, seen: set[tuple[str, str]], depth: int = 0) -> Any:
     """Remplace les `$ref` vers d'autres modèles par leur schéma, en place.
 

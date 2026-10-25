@@ -727,7 +727,8 @@
       "outside": "Déposée hors de Miles : date inconnue",
       "new": "Nouvelle",
       "unmapped": "Non mappée",
-      "removed": "Exposées par la v{{number}}, plus par celle-ci (leurs mappings servent encore la v{{number}}) :"
+      "removed": "Exposées par la v{{number}}, plus par celle-ci (leurs mappings servent encore la v{{number}}) :",
+      "swagger": "Voir en Swagger"
     },
     "delete": {
       "action": "Supprimer le contrat",
@@ -981,7 +982,8 @@
       "savedRewrite": "Source enregistrée. La chaîne a changé : le prochain import réécrira tous les objets.",
       "delete": "Supprimer la source",
       "deleteTitle": "Supprimer cette source ?",
-      "deleteBody": "Le fichier sources/{{name}}.yaml sera retiré de la branche."
+      "deleteBody": "Le fichier sources/{{name}}.yaml sera retiré de la branche.",
+      "swagger": "Voir l'API en Swagger"
     },
     "problems": {
       "nom_invalide": "Nom : lettres minuscules, chiffres et tirets, sans doublon.",
@@ -1280,5 +1282,9 @@
     "expand": "Déplier {{name}}",
     "collapse": "Replier {{name}}",
     "done": "Terminé"
+  },
+  "swagger": {
+    "back": "Retour",
+    "unreadable": "Le document n'a pas pu être lu."
   }
 }

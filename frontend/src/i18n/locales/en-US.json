@@ -727,7 +727,8 @@
       "outside": "Deposited outside Miles: date unknown",
       "new": "New",
       "unmapped": "Not mapped",
-      "removed": "Exposed by v{{number}}, no longer by this version (their mappings still serve v{{number}}):"
+      "removed": "Exposed by v{{number}}, no longer by this version (their mappings still serve v{{number}}):",
+      "swagger": "View in Swagger"
     },
     "delete": {
       "action": "Delete the contract",
@@ -981,7 +982,8 @@
       "savedRewrite": "Source saved. The chain changed: the next import will rewrite every object.",
       "delete": "Delete the source",
       "deleteTitle": "Delete this source?",
-      "deleteBody": "The file sources/{{name}}.yaml will be removed from the branch."
+      "deleteBody": "The file sources/{{name}}.yaml will be removed from the branch.",
+      "swagger": "View the API in Swagger"
     },
     "problems": {
       "nom_invalide": "Name: lowercase letters, digits and dashes, unique.",
@@ -1280,5 +1282,9 @@
     "expand": "Expand {{name}}",
     "collapse": "Collapse {{name}}",
     "done": "Done"
+  },
+  "swagger": {
+    "back": "Back",
+    "unreadable": "The document could not be read."
   }
 }

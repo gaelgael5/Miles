@@ -19,6 +19,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-i18next": "^15.7.4",
+    "swagger-ui-dist": "^5.17.14",
     "yaml": "^2.9.1"
   },
   "devDependencies": {

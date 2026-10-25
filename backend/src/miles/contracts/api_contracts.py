@@ -108,6 +108,28 @@ async def get_contract(
     )
 
 
+@router.get("/{slug}/versions/{number}/openapi")
+async def contract_spec(
+    workspace_id: str,
+    slug: str,
+    number: int,
+    request: Request,
+    service: Service,
+    branch: str | None = None,
+) -> object:
+    """Le document OpenAPI d'une version, pour le visualiseur Swagger.
+
+    Rendu tel quel, sans modèle de réponse : le typer avec pydantic reviendrait à tenir
+    une seconde définition d'OpenAPI dans Miles.
+    """
+    try:
+        return await service.resolve_spec(
+            request_author(request), workspace_id, slug, number, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+
+
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ContractOut)
 async def declare_contract(
     workspace_id: str,

@@ -82,7 +82,13 @@ function OperationLine({ operation }: { operation: Operation }) {
   );
 }
 
-function VersionRow({ version }: { version: ContractVersionDetail }) {
+function VersionRow({
+  version,
+  onSwagger,
+}: {
+  version: ContractVersionDetail;
+  onSwagger: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const deposited = version.imported_at
@@ -106,6 +112,12 @@ function VersionRow({ version }: { version: ContractVersionDetail }) {
           v{version.number} — {version.title ?? t("contracts.versions.unreadable")}
         </button>
         <div className="row-sub">{deposited}</div>
+      </div>
+      {/* Au-dessus de la couverture cliquable : lire en Swagger n'est pas déplier. */}
+      <div className="actions row-actions">
+        <button type="button" className="btn btn-secondary" onClick={onSwagger}>
+          {t("contracts.versions.swagger")}
+        </button>
       </div>
       <div className="cell">
         <div className="caption">{t("contracts.list.captionOperations")}</div>
@@ -155,10 +167,13 @@ export function ContractScreen({
   target,
   slug,
   onBack,
+  onSwagger,
 }: {
   target: WorkTarget;
   slug: string;
   onBack: () => void;
+  /** Lire une version en Swagger (Gael, 25/10/2026). */
+  onSwagger: (version: number) => void;
 }) {
   const { t } = useTranslation();
   const contract = useContract(target, slug);
@@ -251,7 +266,11 @@ export function ContractScreen({
           ) : (
             <ul className="card-list plain-list">
               {detail.versions.map((v) => (
-                <VersionRow key={v.number} version={v} />
+                <VersionRow
+                  key={v.number}
+                  version={v}
+                  onSwagger={() => onSwagger(v.number)}
+                />
               ))}
             </ul>
           )}

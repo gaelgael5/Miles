@@ -21,7 +21,13 @@ from miles.contracts.layout import (
     version_path,
     versions_in,
 )
-from miles.contracts.openapi import ParsedContract, parse_contract
+from miles.contracts.openapi import (
+    ContractInvalidError,
+    ContractSyntaxError,
+    ParsedContract,
+    UnsupportedVersionError,
+    parse_contract,
+)
 from miles.contracts.reading import Contract, contract_at
 from miles.events.journal import db_write_event
 from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
@@ -91,6 +97,34 @@ class ContractsService:
         if contract is None:
             raise ContractNotFoundError(slug)
         return contract
+
+    async def resolve_spec(
+        self,
+        viewer: EventAuthor,
+        workspace_id: str,
+        slug: str,
+        number: int,
+        *,
+        branch: str | None = None,
+    ) -> dict[str, object]:
+        """Le document OpenAPI d'une version, tel qu'il a été intégré.
+
+        Rendu en objet et non en texte : le visualiseur attend du JSON, et c'est Miles
+        qui sait que le dépôt garde du YAML — pas le navigateur.
+        """
+        slug = checked_slug(slug)
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
+            content = await copy.read(version_path(slug, number))
+        if content is None:
+            raise ContractNotFoundError(f"{slug} v{number}")
+        try:
+            parsed = parse_contract(content)
+        except (ContractSyntaxError, ContractInvalidError, UnsupportedVersionError) as exc:
+            raise ContractNotFoundError(f"{slug} v{number}") from exc
+        document: dict[str, object] = parsed.document
+        return document
 
     async def resolve_declare(
         self,
