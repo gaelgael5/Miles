@@ -82,7 +82,8 @@ Les campagnes repartent.
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
 
 **`6a0daab6` n'est PAS éligible**, contrairement à ce que montre son statut : il décrit un
-protocole entre deux produits qui n'existent pas encore. Voir « Chaînage » ci-dessous.
+protocole entre deux produits qui n'existent pas encore. Son corps le dit désormais lui-même.
+Voir « Chaînage » ci-dessous.
 
 ## Cinq décisions prises par Gael le 27/10 — les questions sont closes
 
@@ -129,9 +130,12 @@ traverse pas les produits.
 ces deux-là en parallèle → `6a0daab6` (échange de clés).
 
 **Ce chaînage n'est pas déclaré en propriété sur `6a0daab6`** : `bloque_par` n'accepte qu'une
-`story`, et les trois prérequis sont des `enabler`. Les enablers le déclarent dans leur corps.
-Tant que ce n'est pas réglé, `6a0daab6` **paraît éligible alors qu'il ne l'est pas** — il décrit
-un protocole entre deux produits qui n'existent pas encore dans le dépôt.
+`story`, et les trois prérequis sont des `enabler`. Le statut ne peut pas le porter non plus —
+un `story` n'a que `nouveau / à faire / en cours / en review / done`, aucun rôle « bloqué ».
+Faute de mécanisme, **`6a0daab6` porte ses prérequis en tête de son corps** (section
+« Prérequis : trois produits à monter avant que ce ticket soit faisable », écrite le 27/10) :
+son statut le montre toujours éligible, c'est cette section qui dit le contraire. La lire
+avant de prendre le ticket.
 
 ## Décisions renversées le 26/10 — ne pas repartir des anciennes
 
