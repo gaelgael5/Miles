@@ -53,6 +53,13 @@ if ! docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null 2>&1; then
   # vers quelque chose qui n'existe plus, et l'échec reste opaque — il l'est resté six fois.
   {
     echo "PostgreSQL jetable jamais prêt après 180 s."
+    # La machine était-elle chargée ? C'est la seule question que les captures du 27/10
+    # laissent ouverte : au repos, le conteneur est prêt en 1 à 3 s (mesuré six fois,
+    # avec et sans fsync à l'initdb). Sans ces lignes, le prochain échec ne la tranchera
+    # pas davantage que les six précédents.
+    echo "charge machine : $(cat /proc/loadavg)"
+    echo "conteneurs actifs : $(docker ps -q | wc -l)"
+    echo "disque : $(df -h / | tail -1)"
     echo "état du conteneur : $(docker inspect -f \
       '{{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} err={{.State.Error}}' \
       "$RUN_ID-db" 2>&1)"
