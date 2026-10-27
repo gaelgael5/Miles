@@ -1,0 +1,70 @@
+# Stack du module d'enrôlement : sa base, son back-office, son front. Rien n'est partagé
+# avec le portail — ni la base, ni le compte d'amorçage, ni le secret de session
+# (décision de Gael du 27/10/2026). Le nom du projet est distinct, de sorte que les deux
+# stacks cohabitent sur la même machine de test.
+name: miles-enrolement
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: enrolement
+      POSTGRES_USER: enrolement
+      # Généré sur l'hôte par dev-deploy.sh dans .env (non versionné), jamais dans l'image.
+      POSTGRES_PASSWORD: ${MILES_DB_PASSWORD:?MILES_DB_PASSWORD absent de .env — lancer dev-deploy.sh}
+    volumes:
+      - enrolement-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enrolement -d enrolement"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+      # Le socle partagé est hors du produit : il entre par un contexte additionnel
+      # plutôt qu'en élargissant le contexte à la racine, qui embarquerait les autres
+      # produits dans l'image.
+      additional_contexts:
+        socle: ../socle/python
+    environment:
+      MILES_DATABASE_URL: postgresql://enrolement:${MILES_DB_PASSWORD:?}@db:5432/enrolement
+      MILES_LOG_LEVEL: ${MILES_LOG_LEVEL:-info}
+      MILES_ENV_FILE: /run/miles/.env
+      MILES_ENV_BACKUP_FILE: /run/miles/.env.bak
+      MILES_COOKIE_SECURE: ${MILES_COOKIE_SECURE:-true}
+      # Clé des secrets de l'instance : générée une fois dans .env, jamais régénérée
+      # (les secrets en base deviendraient illisibles). Absente : le backend refuse de démarrer.
+      MILES_SECRETS_KEY: ${MILES_SECRETS_KEY:?MILES_SECRETS_KEY absent de .env — lancer dev-deploy.sh}
+      # Adresse publique (URL de retour OIDC) ; vide : la connexion OIDC est indisponible.
+      MILES_PUBLIC_URL: ${MILES_PUBLIC_URL:-}
+    volumes:
+      # Fichier par fichier, pas le dossier du dépôt : le backend y écrit le compte
+      # d'amorçage, et .env.bak sert à restaurer .env si cette écriture est interrompue.
+      # dev-deploy.sh crée les deux avant le démarrage. Ce .env est PROPRE au produit :
+      # l'administrateur du portail n'ouvre rien ici.
+      - ./.env:/run/miles/.env
+      - ./.env.bak:/run/miles/.env.bak
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+      # Même mécanisme que pour le backend, avec le socle web.
+      additional_contexts:
+        socle-web: ../socle/web
+    ports:
+      - "${MILES_HTTP_PORT:-8081}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  enrolement-db:

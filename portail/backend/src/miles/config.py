@@ -18,8 +18,13 @@ class DatabaseSettings(BaseSettings):
     concerne que le service web.
     """
 
-    # extra="forbid" : une clef mal orthographiée doit faire échouer le démarrage,
-    # pas laisser silencieusement s'appliquer une valeur par défaut.
+    # extra="forbid" : une clef inconnue fournie EN CODE est refusée. Attention à la
+    # portée réelle — pydantic-settings ne confronte à cette règle que les sources qu'il
+    # énumère, et l'environnement ne s'énumère pas (il porte PATH, HOME et le reste).
+    # Une variable MILES_* mal orthographiée est donc IGNORÉE et le défaut s'applique :
+    # mesuré le 27/10/2026, et tenu par un test qui dit la limite au lieu de la supposer
+    # absente. Une liste blanche des MILES_* a été écartée, le préfixe portant aussi des
+    # valeurs qui ne sont pas des champs ici (MILES_ADMIN_*, MILES_DB_PASSWORD…).
     # hide_input_in_errors : un démarrage refusé est journalisé, et l'erreur pydantic
     # recopierait sinon les valeurs lues — mots de passe et clé des secrets compris.
     model_config = SettingsConfigDict(
