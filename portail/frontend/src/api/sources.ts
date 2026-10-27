@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError, request } from "./http";
+import { ApiError, request } from "@miles/socle-web";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
 /** Plafond du mode tableau (Gael, 25/10/2026) ; le backend l'applique, voir MAX_BATCH. */

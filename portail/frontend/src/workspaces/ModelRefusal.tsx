@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { ApiError } from "@miles/socle-web";
 import type { ModelProblem } from "../api/dataModels";
-import { ApiError } from "../api/http";
 
 type Detail = {
   code?: string;

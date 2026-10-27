@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import "../i18n/i18n";
-import { mockApi } from "../test/mockApi";
+import { mockApi } from "@miles/socle-web/testing";
 import { ConsentScreen } from "./ConsentScreen";
 import { navigation, rememberPendingAuthorize, restorePendingAuthorize } from "./pendingAuthorize";
 

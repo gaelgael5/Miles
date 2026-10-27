@@ -1,11 +1,9 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiError, invalidField, PageHead, slugFromLabel } from "@miles/socle-web";
 import { useBranchViews } from "../api/branches";
-import { ApiError, invalidField } from "../api/http";
-import { slugFromLabel } from "../api/secrets";
 import { type Workspace, useCreateWorkspace, useWorkspaces } from "../api/workspaces";
-import { PageHead } from "../layout/PageHead";
 import {
   type WorkspaceSelection,
   type WorkspaceView,

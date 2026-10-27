@@ -1,9 +1,9 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiError, invalidField } from "@miles/socle-web";
 import { useCreateBranch, useSetBranchView } from "../api/branches";
 import { proposeSlug } from "../api/contracts";
-import { ApiError, invalidField } from "../api/http";
 import type { Workspace } from "../api/workspaces";
 
 function refusalKey(error: unknown): string {

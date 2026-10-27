@@ -1,14 +1,13 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiError, ConfirmDialog } from "@miles/socle-web";
 import {
   type GitIdentity,
   useGitIdentities,
   useRegisterGitIdentity,
   useRemoveGitIdentity,
 } from "../api/gitIdentities";
-import { ApiError } from "../api/http";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 
 function refusal(error: unknown): string {
   if (error instanceof ApiError && typeof error.detail === "object" && error.detail !== null) {

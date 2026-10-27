@@ -1,7 +1,5 @@
 {
   "app": {
-    "signedInAs": "Connecté en tant que {{username}}",
-    "logout": "Se déconnecter",
     "nav": {
       "workspaces": "Workspaces",
       "security": "Services de sécurité",
@@ -15,219 +13,10 @@
       "apiKeys": "Clés d'API",
       "oauthClients": "Clients OAuth"
     },
-    "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé.",
-    "brand": "Miles",
     "sub": "Back-office",
-    "freshInstall": "Installation neuve",
-    "navigation": "Navigation principale",
     "sections": {
       "global": "Global",
       "workspaces": "Workspaces"
-    }
-  },
-  "health": {
-    "title": "État du service",
-    "loading": "Vérification du service…",
-    "ok": "Service opérationnel",
-    "degraded": "Service dégradé",
-    "unreachable": "Back-office injoignable",
-    "databaseUp": "Base de données joignable",
-    "databaseDown": "Base de données injoignable",
-    "schema": "Version de schéma {{current}} sur {{expected}}",
-    "schemaNone": "Schéma jamais initialisé (version attendue {{expected}})",
-    "intro": "Base de données et schéma de cette installation du back-office."
-  },
-  "auth": {
-    "loading": "Vérification de la session…",
-    "unreachable": "Back-office injoignable"
-  },
-  "bootstrap": {
-    "title": "Créer le compte administrateur",
-    "intro": "Aucun administrateur n'existe encore sur cette installation. Le compte créé ici est l'administrateur d'amorçage : il garde l'administration racine quelles que soient les règles OIDC.",
-    "email": "Adresse e-mail",
-    "username": "Nom d'utilisateur",
-    "password": "Mot de passe",
-    "confirmation": "Confirmer le mot de passe",
-    "warning": "Cet écran disparaît définitivement dès que le compte existe, et sa création est journalisée.",
-    "submit": "Créer le compte",
-    "errors": {
-      "mismatch": "Les deux mots de passe diffèrent.",
-      "closed": "Un administrateur existe déjà : cet écran est fermé.",
-      "weakPassword": {
-        "min_length": "Le mot de passe doit compter au moins {{limit}} caractères.",
-        "max_length": "Le mot de passe compte au plus {{limit}} caractères."
-      },
-      "invalid": {
-        "email": "Cette adresse e-mail n'est pas acceptée.",
-        "username": "Nom d'utilisateur : 3 à 64 caractères, minuscules, chiffres, point, tiret ou souligné, commençant par une lettre ou un chiffre."
-      },
-      "unexpected": "Le compte n'a pas pu être créé. Voir les journaux du back-office."
-    }
-  },
-  "login": {
-    "title": "Connexion",
-    "username": "Nom d'utilisateur",
-    "password": "Mot de passe",
-    "submit": "Se connecter",
-    "errors": {
-      "invalid": "Nom d'utilisateur ou mot de passe incorrect.",
-      "throttled": "Trop de tentatives échouées. Réessayer dans quelques minutes.",
-      "unexpected": "La connexion a échoué. Voir les journaux du back-office."
-    },
-    "oidcTitle": "Ou se connecter avec",
-    "oidcErrors": {
-      "connecteur_inconnu": "Ce connecteur n'existe pas ou est inactif.",
-      "fournisseur_injoignable": "{{connector}} : le fournisseur d'identité est injoignable. Les autres connecteurs restent utilisables.",
-      "refus_fournisseur": "{{connector}} : le fournisseur d'identité a refusé la connexion.",
-      "jeton_invalide": "{{connector}} : la réponse du fournisseur d'identité n'a pas pu être vérifiée. Connexion refusée.",
-      "state_invalide": "La connexion a expiré ou n'a pas commencé dans ce navigateur. Recommencez.",
-      "url_publique_absente": "La connexion OIDC n'est pas configurée sur cette installation (adresse publique absente).",
-      "configuration_connecteur": "{{connector}} : le secret client du connecteur est indisponible. Contactez l'administrateur.",
-      "unexpected": "La connexion a échoué. Voir les journaux du back-office."
-    },
-    "culture": "Langue des boutons de connexion"
-  },
-  "secrets": {
-    "title": "Secrets",
-    "intro": "Secrets de cette installation : secrets client OIDC, jetons de dépôt, identifiants de services. Une valeur est chiffrée en base et n'est plus jamais affichée ; les autres écrans choisissent un secret par son nom.",
-    "save": "Enregistrer",
-    "cancel": "Annuler",
-    "fields": {
-      "label": "Libellé",
-      "slug": "Identifiant (slug)",
-      "type": "Type",
-      "value": "Valeur",
-      "newValue": "Nouvelle valeur",
-      "typePlaceholder": "— Choisir un type —"
-    },
-    "create": {
-      "title": "Nouveau secret",
-      "open": "Ajouter un secret",
-      "submit": "Enregistrer le secret",
-      "fixedType": "Type : {{type}}",
-      "neverShownAgain": "La valeur ne sera plus jamais affichée, pas même à vous."
-    },
-    "list": {
-      "loading": "Chargement des secrets…",
-      "empty": "Aucun secret déclaré pour l'instant.",
-      "usedBy_one": "utilisé par {{count}} objet",
-      "usedBy_other": "utilisé par {{count}} objets",
-      "copySlug": "Copier l'identifiant",
-      "relabel": "Renommer",
-      "replace": "Remplacer la valeur",
-      "replaceValue": "Remplacer la valeur",
-      "delete": "Supprimer",
-      "captionType": "Type",
-      "captionUsage": "Utilisation"
-    },
-    "errors": {
-      "invalid": {
-        "slug": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets, sans tiret au début.",
-        "label": "Libellé : 1 à 200 caractères.",
-        "secret_type": "Type : 2 à 64 caractères, majuscules, chiffres et soulignés, commençant par une lettre.",
-        "value": "Valeur : obligatoire, 16 Kio au plus, et jamais une référence ${…}."
-      },
-      "slugTaken": "Cet identifiant est déjà pris par un autre secret.",
-      "inUse": "Ce secret est encore utilisé et ne peut pas être supprimé. Détachez-le de :",
-      "unreachable": "Impossible de charger les secrets.",
-      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
-    },
-    "picker": {
-      "none": "— Aucun secret —",
-      "createInline": "Créer un secret",
-      "orphan": "Le secret choisi ({{slug}}) n'existe plus. Choisissez-en un autre.",
-      "orphanOption": "Secret introuvable : {{slug}}",
-      "createFor": {
-        "GIT_TOKEN": "Ajouter un PAT"
-      }
-    },
-    "types": {
-      "OIDC_CLIENT_SECRET": "Secret client d'un connecteur OIDC",
-      "SECURITY_SERVICE_CLIENT_SECRET": "Secret client du service de sécurité racine",
-      "GIT_TOKEN": "Jeton du compte de service git"
-    },
-    "deleteConfirm": {
-      "title": "Supprimer ce secret ?",
-      "body": "Le secret « {{label}} » ({{slug}}) et sa valeur chiffrée seront supprimés définitivement. Cette action est irréversible.",
-      "confirm": "Supprimer définitivement",
-      "inUse_one": "Il est utilisé par {{count}} objet : la suppression sera refusée tant qu'il n'en est pas détaché.",
-      "inUse_other": "Il est utilisé par {{count}} objets : la suppression sera refusée tant qu'il n'en est pas détaché."
-    }
-  },
-  "cultures": {
-    "title": "Cultures",
-    "intro": "Toutes les cultures existent déjà ; activez celles dont l'installation se sert. Les cultures actives sont proposées partout où une valeur se saisit par culture.",
-    "filter": "Filtrer par code ou par nom",
-    "selected_one": "{{count}} culture sélectionnée",
-    "selected_other": "{{count}} cultures sélectionnées",
-    "activate": "Activer la sélection",
-    "deactivate": "Désactiver la sélection",
-    "keepValues": "Désactiver une culture ne supprime rien : les valeurs saisies pour elle sont conservées et reviennent si on la réactive.",
-    "active": "Active",
-    "fallbackNote": "(repli de l'installation, toujours active)",
-    "loading": "Chargement des cultures…",
-    "noMatch": "Aucune culture ne correspond à « {{filter}} ».",
-    "errors": {
-      "fallback": "en-US est le repli de l'installation et ne peut pas être désactivée.",
-      "unreachable": "Impossible de charger les cultures.",
-      "unexpected": "Le changement a échoué. Voir les journaux du back-office."
-    }
-  },
-  "oidc": {
-    "title": "Connecteurs OIDC",
-    "intro": "Chaque connecteur actif devient un bouton de l'écran de connexion. Les connecteurs se déclarent pour toute l'installation ; leur secret client se choisit parmi les secrets déclarés.",
-    "fields": {
-      "id": "Identifiant",
-      "label": "Libellé",
-      "issuer": "Émetteur (adresse du fournisseur)",
-      "clientId": "Identifiant client",
-      "clientSecret": "Secret client",
-      "scopes": "Scopes",
-      "active": "Actif (proposé sur l'écran de connexion)",
-      "groupsClaim": "Claim portant les groupes",
-      "displayNameClaim": "Claim portant le nom affiché",
-      "recognizeAdmin": "Reconnaître l'administrateur",
-      "manageAssociations": "Gérer les associations",
-      "labelIn": "Libellé — {{culture}}"
-    },
-    "form": {
-      "newTitle": "Nouveau connecteur",
-      "editTitle": "Modifier le connecteur",
-      "save": "Enregistrer",
-      "cancel": "Annuler",
-      "checkedOnSave": "À l'enregistrement, le fournisseur est interrogé pour vérifier qu'il répond comme un fournisseur OIDC.",
-      "recognizeAdminGrants": "Cochée, un compte de cet annuaire portant l'e-mail de l'administrateur d'amorçage devient administrateur racine. Ne la cochez que sur un annuaire où personne ne choisit son adresse.",
-      "manageAssociationsGrants": "Cochée, les identités de cet annuaire peuvent être associées à une identité de même adresse, sur proposition d'un compte acceptée par l'autre sous sept jours.",
-      "fallbackLabel": "(repli, obligatoire)",
-      "duplicateLabel": "Un autre connecteur porte déjà ce libellé en {{culture}} : les deux boutons se ressembleront."
-    },
-    "list": {
-      "add": "Ajouter un connecteur",
-      "loading": "Chargement des connecteurs…",
-      "empty": "Aucun connecteur déclaré : seul le compte d'amorçage peut se connecter.",
-      "active": "Actif",
-      "inactive": "Inactif",
-      "edit": "Modifier",
-      "delete": "Supprimer",
-      "recognizesAdmin": "reconnaît l'administrateur",
-      "captionState": "État"
-    },
-    "errors": {
-      "issuerUnreachable": "Le fournisseur ne répond pas à cette adresse, ou pas comme un fournisseur OIDC. Rien n'a été enregistré.",
-      "invalid": {
-        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
-        "label": "Libellé : 1 à 200 caractères.",
-        "issuer": "Émetteur : une adresse https, sans requête ni fragment.",
-        "client_id": "Identifiant client : obligatoire, 200 caractères au plus.",
-        "client_secret_slug": "Choisissez un secret déclaré de type « Secret client d'un connecteur OIDC ».",
-        "scopes": "Scopes : openid est obligatoire.",
-        "groups_claim": "Claim des groupes : lettres, chiffres et . _ : / - seulement.",
-        "display_name_claim": "Claim du nom affiché : lettres, chiffres et . _ : / - seulement."
-      },
-      "idTaken": "Cet identifiant est déjà pris par un autre connecteur.",
-      "inUse": "Des comptes se sont déjà connectés par ce connecteur : il ne peut pas être supprimé. Désactivez-le plutôt.",
-      "unreachable": "Impossible de charger les connecteurs.",
-      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }
   },
   "security": {
@@ -780,29 +569,8 @@
     }
   },
   "profile": {
-    "title": "Mon profil",
-    "intro": "Qui vous êtes pour le portail, et vos préférences personnelles.",
-    "identity": "Identité",
-    "fields": {
-      "kind": "Session",
-      "name": "Nom",
-      "email": "E-mail",
-      "directory": "Connecteur OIDC",
-      "subject": "Identifiant stable (sub)",
-      "language": "Langue du portail"
-    },
-    "kind": {
-      "local_admin": "Compte d'amorçage",
-      "oidc": "Annuaire OIDC"
-    },
-    "rootAdmin": "Administrateur racine",
-    "language": "Langue",
-    "languageHelp": "Retenue pour votre compte : vous la retrouvez après connexion, sur tout navigateur.",
     "branches": "Branche affichée par workspace",
     "noBranch": "Aucun workspace n'a encore de branche de travail.",
-    "errors": {
-      "language": "La langue n'a pas pu être enregistrée."
-    },
     "git": {
       "title": "Identité git",
       "intro": "Pour modifier le paramétrage d'une branche, vous travaillez sous votre propre compte git : enregistrez un jeton d'accès personnel pour chaque connexion git. Il est vérifié auprès de la forge, chiffré, et jamais réaffiché.",
@@ -1083,11 +851,6 @@
       "unset": "MILES_PUBLIC_URL n'est pas configurée sur cette instance : le service MCP répond sur {{path}} de l'adresse publique de Miles.",
       "help": "Déclarez cette adresse dans la gateway MCP du portail, avec la barre finale, et présentez la clé en « Authorization: Bearer <clé> » ou « X-API-Key: <clé> ». Jamais la clé dans l'adresse."
     }
-  },
-  "copy": {
-    "done": "Copié",
-    "failed": "Copie impossible",
-    "failedHelp": "Le navigateur a refusé la copie : sélectionnez le texte et copiez-le à la main."
   },
   "oauth": {
     "title": "Clients OAuth",

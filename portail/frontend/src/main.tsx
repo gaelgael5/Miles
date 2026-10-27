@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { rememberPendingAuthorize } from "./oauth/pendingAuthorize";
 import "./i18n/i18n";
-import "./styles/miles.css";
+import "@miles/socle-web/styles.css";
 
 // Avant tout rendu : une connexion OIDC quittera la page et reviendra sur « / ».
 rememberPendingAuthorize();

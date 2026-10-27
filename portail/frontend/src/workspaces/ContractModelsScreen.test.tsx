@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { WorkspaceViews } from "../layout/WorkspaceViews";
-import { mockApi } from "../test/mockApi";
+import { mockApi } from "@miles/socle-web/testing";
 import { CONFIGURED, HELD, renderWorkspaces } from "./workspaceFixtures";
 
 // Modèles dérivés des contrats (story 47f55d8b) : listés par sens, contrat et version,

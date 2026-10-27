@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "@miles/socle-web";
 import {
   type Storage,
   storageProblems,
@@ -10,7 +11,6 @@ import {
   useStorage,
 } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { StorageForm } from "./StorageForm";
 import { storageErrorKey } from "./StoragesScreen";
 

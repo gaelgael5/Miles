@@ -1,0 +1,47 @@
+{
+  "name": "@miles/socle-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "//": "Pas d'étape de construction : le paquet expose ses SOURCES TypeScript, que le bundler du produit compile avec les siennes. Un paquet pré-construit imposerait un ordre de build entre le socle et chaque produit, et un artefact de plus à garder à jour.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles/miles.css",
+    "./testing": "./src/test/mockApi.ts"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.104.4",
+    "i18next": "^23.16.8",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-i18next": "^15.7.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@tanstack/react-query": "^5.104.4",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "i18next": "^23.16.8",
+    "jsdom": "^25.0.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-i18next": "^15.7.4",
+    "typescript": "5.6",
+    "typescript-eslint": "^8.71.2",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
+  }
+}

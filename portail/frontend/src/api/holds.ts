@@ -1,6 +1,6 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { request } from "@miles/socle-web";
 
-import { request } from "./http";
 
 /**
  * Prise de main d'une branche fille (story 9def0adc) : une personne par branche, une

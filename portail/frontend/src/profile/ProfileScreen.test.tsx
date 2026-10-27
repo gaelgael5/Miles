@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import { App } from "../App";
 import i18n from "../i18n/i18n";
-import { mockApi } from "../test/mockApi";
+import { mockApi } from "@miles/socle-web/testing";
 import { CONFIGURED } from "../workspaces/workspaceFixtures";
 
 const STATUS = { "GET /api/bootstrap/status": { status: 200, body: { admin_declared: true } } };

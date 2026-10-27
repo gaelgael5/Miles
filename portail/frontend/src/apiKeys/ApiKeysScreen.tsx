@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog, CopyButton, invalidField, PageHead } from "@miles/socle-web";
 import {
   type ApiKey,
   type Grant,
@@ -11,10 +12,6 @@ import {
   useRevokeApiKey,
   useSetApiKeyGrants,
 } from "../api/apiKeys";
-import { invalidField } from "../api/http";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
-import { CopyButton } from "../layout/CopyButton";
-import { PageHead } from "../layout/PageHead";
 import { GrantsEditor } from "./GrantsEditor";
 
 function errorKey(error: unknown): string {

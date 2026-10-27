@@ -1,7 +1,7 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
-import { mockApi } from "../test/mockApi";
+import { mockApi } from "@miles/socle-web/testing";
 import {
   BARE,
   CONFIGURED,

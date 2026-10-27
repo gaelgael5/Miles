@@ -1,8 +1,8 @@
 import { type ChangeEvent, Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiError } from "@miles/socle-web";
 import { type SampleFormat, useInferSchema } from "../api/dataModels";
-import { ApiError } from "../api/http";
 import type { WorkTarget } from "../api/workTarget";
 
 const SampleEditor = lazy(() => import("./YamlEditor"));

@@ -1,7 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 
 import "../i18n/i18n";
-import { mockApi } from "../test/mockApi";
+import { mockApi } from "@miles/socle-web/testing";
 import { CONFIGURED, HELD, renderWorkspaces } from "../workspaces/workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };

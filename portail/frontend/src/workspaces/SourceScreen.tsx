@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "@miles/socle-web";
 import { type Source, sourceProblems, useDeleteSource, useSaveSource, useSource } from "../api/sources";
 import type { WorkTarget } from "../api/workTarget";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { SourceForm } from "./SourceForm";
 import { sourceErrorKey } from "./SourcesScreen";
 

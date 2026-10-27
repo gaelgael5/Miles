@@ -1,7 +1,8 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, useBootstrap } from "../api/auth";
+import { useBootstrap } from "../api/auth";
+import { ApiError } from "../api/http";
 
 function errorKey(error: unknown): { key: string; values?: Record<string, string> } {
   if (!(error instanceof ApiError)) {

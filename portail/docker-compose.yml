@@ -75,6 +75,10 @@ services:
     build:
       context: ./frontend
       target: runtime
+      # Même mécanisme que pour le backend : le socle web est hors du produit et entre
+      # par un contexte additionnel, jamais en élargissant le contexte à la racine.
+      additional_contexts:
+        socle-web: ../socle/web
     ports:
       - "${MILES_HTTP_PORT:-8080}:80"
     depends_on:

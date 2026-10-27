@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog, PageHead, SecretPicker, slugFromLabel } from "@miles/socle-web";
 import {
   type GitConnection,
   useConnections,
@@ -9,11 +10,7 @@ import {
   useUpdateConnection,
 } from "../api/gitAccess";
 import { dependentFailure, errorMessage, usedBy } from "../api/gitAccessErrors";
-import { slugFromLabel } from "../api/secrets";
 import { newVerificationSuffix } from "../api/workspaces";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
-import { PageHead } from "../layout/PageHead";
-import { SecretPicker } from "../secrets/SecretPicker";
 import { AccessReportView } from "../workspaces/AccessReportView";
 
 /** Déclaration (sans `connection`) ou modification (avec), remontée par `key` à chaque ouverture. */

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useQuery } from "@tanstack/react-query";
 
-import { request } from "../api/http";
+import { request } from "@miles/socle-web";
 import { type WorkTarget, atBranch, branchKey } from "../api/workTarget";
 
 const SwaggerView = lazy(() => import("./SwaggerView"));

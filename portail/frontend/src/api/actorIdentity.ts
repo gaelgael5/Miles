@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { request } from "@miles/socle-web";
 
-import { request } from "./http";
 
 /** GUID d'acteur (story 52ac5782) : le même que dans le profil du portail, pour l'OBO. */
 export interface ActorIdentity {

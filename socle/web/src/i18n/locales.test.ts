@@ -9,7 +9,7 @@ function keysOf(tree: object, prefix = ""): string[] {
   );
 }
 
-describe("locales", () => {
+describe("locales du socle", () => {
   it("every culture carries exactly the keys of the en-US fallback", () => {
     expect(keysOf(frFR).sort()).toEqual(keysOf(enUS).sort());
   });

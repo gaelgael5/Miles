@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 
-import { ApiError } from "./http";
+import { ApiError } from "@miles/socle-web";
 import type { AccessReport } from "./workspaces";
 
 /** Un workspace perdrait un droit : le changement n'a pas été appliqué. */

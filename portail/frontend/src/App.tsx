@@ -1,23 +1,26 @@
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { type Me, useLogout } from "./api/auth";
-import { usePreferences } from "./api/preferences";
-import { AuthGate } from "./auth/AuthGate";
-import { readStoredCulture } from "./auth/visitorCulture";
+import {
+  AuthGate,
+  ConnectorsScreen,
+  CulturesScreen,
+  HealthStatus,
+  type Me,
+  readStoredCulture,
+  SecretsScreen,
+  Topbar,
+  useLogout,
+  usePreferences,
+} from "@miles/socle-web";
 import { ApiKeysScreen } from "./apiKeys/ApiKeysScreen";
-import { CulturesScreen } from "./cultures/CulturesScreen";
 import { GitConnectionsScreen } from "./gitConnections/GitConnectionsScreen";
-import { HealthStatus } from "./health/HealthStatus";
 import { applyLanguage } from "./i18n/i18n";
-import { Topbar } from "./layout/Topbar";
 import { type WorkspaceSelection, WorkspacesNav } from "./layout/WorkspacesNav";
 import { ConsentScreen } from "./oauth/ConsentScreen";
 import { OAuthClientsScreen } from "./oauth/OAuthClientsScreen";
 import { AUTHORIZE_PATH, restorePendingAuthorize } from "./oauth/pendingAuthorize";
-import { ConnectorsScreen } from "./oidc/ConnectorsScreen";
 import { ProfileScreen } from "./profile/ProfileScreen";
-import { SecretsScreen } from "./secrets/SecretsScreen";
 import { SecurityServiceScreen } from "./security/SecurityServiceScreen";
 import { WorkspacesScreen } from "./workspaces/WorkspacesScreen";
 

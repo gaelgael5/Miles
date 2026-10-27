@@ -1,11 +1,8 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { invalidField } from "../api/http";
+import { ConfirmDialog, CopyButton, invalidField, PageHead } from "@miles/socle-web";
 import { type OAuthClient, useDeclareOAuthClient, useDeleteOAuthClient, useOAuthClients, useOAuthEndpoints } from "../api/oauth";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
-import { CopyButton } from "../layout/CopyButton";
-import { PageHead } from "../layout/PageHead";
 
 function errorKey(error: unknown): string {
   const field = invalidField(error);

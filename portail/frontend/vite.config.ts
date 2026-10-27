@@ -8,6 +8,12 @@ const backendUrl = process.env.MILES_BACKEND_URL ?? "http://localhost:8000";
 
 export default defineConfig({
   plugins: [react()],
+  // Le socle web arrive par une dépendance de chemin : son code est résolu à son
+  // emplacement réel, HORS de node_modules du produit, et ses imports de react s'y
+  // résoudraient donc dans SON node_modules — deux copies de React dans la page, et
+  // « Invalid hook call » au premier rendu. `dedupe` force une seule instance.
+  // Ne pas retirer : la panne ne se voit pas à la construction, seulement à l'exécution.
+  resolve: { dedupe: ["react", "react-dom", "i18next", "react-i18next", "@tanstack/react-query"] },
   // Travailleurs en modules ES : celui de monaco-yaml se découpe en morceaux, qu'un
   // travailleur « iife » (le format par défaut) ne sait pas charger — Monaco retombait
   // alors sur le fil principal, sans service YAML.

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError } from "../api/http";
+import { ApiError } from "@miles/socle-web";
 import { storageProblems, useSaveStorage, useStorages } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";

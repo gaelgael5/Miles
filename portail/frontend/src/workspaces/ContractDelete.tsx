@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "@miles/socle-web";
 import { useDeleteContract } from "../api/contracts";
 import type { WorkTarget } from "../api/workTarget";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { ContractRefusal } from "./ContractRefusal";
 
 /**

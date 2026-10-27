@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { request } from "./http";
+import { request } from "@miles/socle-web";
 import type { Commit } from "../workspaces/graphLanes";
 
 /** Branche de travail d'un workspace : la base, ou une branche fille tirée d'elle. */

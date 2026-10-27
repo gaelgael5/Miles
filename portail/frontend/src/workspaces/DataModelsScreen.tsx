@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "@miles/socle-web";
 import { proposeSlug } from "../api/contracts";
 import {
   type DataModel,
@@ -12,7 +13,6 @@ import {
 import { useDomains } from "../api/domains";
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { DomainForm } from "./DomainForm";
 import { ModelRefusal } from "./ModelRefusal";
 

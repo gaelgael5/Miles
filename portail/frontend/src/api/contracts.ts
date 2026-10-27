@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { request } from "./http";
+import { request } from "@miles/socle-web";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
 /** Externe : appel d'un service distant ; interne : webhook reçu. Jamais de défaut.

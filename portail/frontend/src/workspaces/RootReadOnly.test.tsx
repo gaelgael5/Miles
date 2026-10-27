@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 
 import "../i18n/i18n";
-import { mockApi } from "../test/mockApi";
+import { mockApi } from "@miles/socle-web/testing";
 import type { WorkspaceSelection } from "../layout/WorkspacesNav";
 import { CONFIGURED, renderWorkspaces } from "./workspaceFixtures";
 

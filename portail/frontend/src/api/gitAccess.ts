@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { request } from "@miles/socle-web";
 
-import { request } from "./http";
 
 /** Une forge ou une organisation, et son PAT. */
 export interface GitConnection {

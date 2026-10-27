@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
+import { ApiError } from "@miles/socle-web";
 
-import { ApiError } from "../api/http";
 
 type Detail = {
   code?: string;

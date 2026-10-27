@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
-import { mockApi } from "../test/mockApi";
+import { mockApi } from "@miles/socle-web/testing";
 import { ApiKeysScreen } from "./ApiKeysScreen";
 
 const SECRET = "mlk_secret-de-quarante-trois-caracteres-xxxxxxxx";

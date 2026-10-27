@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { request } from "@miles/socle-web";
 
-import { request } from "./http";
 
 export interface OAuthClient {
   id: string;

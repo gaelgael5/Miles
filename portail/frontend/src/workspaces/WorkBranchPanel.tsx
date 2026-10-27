@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError } from "../api/http";
+import { ApiError } from "@miles/socle-web";
 import { type TreeDiagnosis, type Workspace, useOpenWorkBranch } from "../api/workspaces";
 
 function diagnosisOf(error: unknown): TreeDiagnosis | null {

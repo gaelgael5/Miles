@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { request } from "./http";
+import { request } from "@miles/socle-web";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
 /** Emplacement d'un modèle : « shared » pour un transverse, sinon le nom du domaine. */

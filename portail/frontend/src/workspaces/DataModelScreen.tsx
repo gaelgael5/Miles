@@ -2,6 +2,7 @@ import type { JsonSchema } from "jsonjoy-builder";
 import { Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "@miles/socle-web";
 import {
   type DataModelContent,
   SHARED_SCOPE,
@@ -12,7 +13,6 @@ import {
 import type { WorkTarget } from "../api/workTarget";
 import { ImportSmart } from "../dataModels/ImportSmart";
 import { isBlankSchema, parseSchema, sameSchema, schemaText } from "../dataModels/schemaText";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { ModelRefusal } from "./ModelRefusal";
 

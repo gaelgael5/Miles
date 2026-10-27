@@ -1,8 +1,8 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiError, ConfirmDialog, invalidField } from "@miles/socle-web";
 import { useConnections } from "../api/gitAccess";
-import { ApiError, invalidField } from "../api/http";
 import { useSecurityServices } from "../api/security";
 import {
   type AccessReport,
@@ -15,7 +15,6 @@ import {
   verificationBranch,
 } from "../api/workspaces";
 import { AccessReportView } from "./AccessReportView";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { BranchForm } from "./BranchForm";
 import { HoldControl } from "./HoldControl";
 import { WorkBranchPanel } from "./WorkBranchPanel";

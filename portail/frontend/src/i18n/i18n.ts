@@ -1,29 +1,17 @@
-import i18n from "i18next";
-import { initReactI18next } from "react-i18next";
+import { i18n, initI18n } from "@miles/socle-web";
 
 import enUS from "./locales/en-US.json";
 import frFR from "./locales/fr-FR.json";
 
-// en-US est le repli imposé par le cadrage : toujours active, jamais désactivable.
-export const FALLBACK_CULTURE = "en-US";
+/**
+ * Câblage des libellés du portail sur l'instance i18next du socle.
+ *
+ * Chaque produit a ce module, et c'est le seul endroit où ses libellés rencontrent ceux
+ * du socle : importer ce fichier initialise i18next. Les espaces de noms `app` et
+ * `profile` sont partagés — le socle porte la marque et l'identité, le portail son
+ * sous-titre, son menu et ses sections de profil.
+ */
+initI18n({ "en-US": enUS, "fr-FR": frFR });
 
-void i18n.use(initReactI18next).init({
-  // Garder PORTAL_LANGUAGES aligné : c'est la liste que le profil propose.
-  resources: { "en-US": { translation: enUS }, "fr-FR": { translation: frFR } },
-  lng: FALLBACK_CULTURE,
-  fallbackLng: FALLBACK_CULTURE,
-  interpolation: { escapeValue: false },
-});
-
-/** Cultures pour lesquelles le portail a une traduction ; les autres retombent sur en-US. */
-export const PORTAL_LANGUAGES: readonly string[] = ["en-US", "fr-FR"];
-
-/** Affiche le portail dans cette culture si elle est traduite, sinon en en-US (repli visible). */
-export function applyLanguage(code: string | null | undefined): void {
-  const target = code && PORTAL_LANGUAGES.includes(code) ? code : FALLBACK_CULTURE;
-  if (i18n.language !== target) {
-    void i18n.changeLanguage(target);
-  }
-}
-
+export { applyLanguage, FALLBACK_CULTURE, UI_LANGUAGES } from "@miles/socle-web";
 export default i18n;

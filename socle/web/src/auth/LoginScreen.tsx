@@ -1,7 +1,8 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, useLogin } from "../api/auth";
+import { useLogin } from "../api/auth";
+import { ApiError } from "../api/http";
 import { usePublicCultures } from "../api/cultures";
 import { startLoginUrl, usePublicConnectors } from "../api/oidc";
 import { applyLanguage } from "../i18n/i18n";

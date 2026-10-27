@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { JSX } from "react";
 
 import "../i18n/i18n";
-import { mockApi } from "../test/mockApi";
+import { mockApi } from "@miles/socle-web/testing";
 import { OAuthGrantsSection } from "../profile/OAuthGrantsSection";
 import { OAuthClientsScreen } from "./OAuthClientsScreen";
 

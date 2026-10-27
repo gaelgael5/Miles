@@ -1,9 +1,8 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiError, CopyButton } from "@miles/socle-web";
 import { type ActorIdentity, useActorIdentity, useRemoveActorIdentity, useSetActorIdentity } from "../api/actorIdentity";
-import { ApiError } from "../api/http";
-import { CopyButton } from "../layout/CopyButton";
 
 function errorKey(error: unknown): string {
   if (error instanceof ApiError && error.status === 409) {

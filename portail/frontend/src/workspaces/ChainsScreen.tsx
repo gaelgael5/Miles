@@ -1,9 +1,9 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { invalidField } from "@miles/socle-web";
 import { useChains, useSaveChain } from "../api/chains";
 import { proposeSlug } from "../api/contracts";
-import { invalidField } from "../api/http";
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
 

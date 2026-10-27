@@ -1,8 +1,8 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
-import type { Routes } from "../test/mockApi";
-import { mockApi } from "../test/mockApi";
+import type { Routes } from "@miles/socle-web/testing";
+import { mockApi } from "@miles/socle-web/testing";
 import { CONFIGURED, SETTINGS, renderWorkspaces } from "./workspaceFixtures";
 
 // Prise de main d'une branche enfant (story 9def0adc) : une personne par branche, les

@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiError, ConfirmDialog } from "@miles/socle-web";
 import type { WorkTarget } from "../api/workTarget";
 
 import {
@@ -11,8 +12,6 @@ import {
   useSaveVersion,
   useVersions,
 } from "../api/dataModels";
-import { ApiError } from "../api/http";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 
 type Detail = {
   code?: string;

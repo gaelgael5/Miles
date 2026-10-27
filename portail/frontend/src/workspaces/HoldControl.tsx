@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiError, ConfirmDialog } from "@miles/socle-web";
 import { useBranchViews } from "../api/branches";
 import {
   type Shelf,
@@ -12,9 +13,7 @@ import {
   useTakeHold,
   useUnlockHold,
 } from "../api/holds";
-import { ApiError } from "../api/http";
 import type { Workspace } from "../api/workspaces";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { baseBranchOf, viewedBranchOf } from "../layout/WorkspacesNav";
 
 type Detail = {

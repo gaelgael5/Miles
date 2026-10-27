@@ -1,8 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { PageHead } from "../layout/PageHead";
-import { invalidField } from "../api/http";
+import { invalidField, PageHead, SecretPicker } from "@miles/socle-web";
 import {
   type SecurityInput,
   type SecurityService,
@@ -11,7 +10,6 @@ import {
   useUpdateSecurityService,
   useVerifySecurityService,
 } from "../api/security";
-import { SecretPicker } from "../secrets/SecretPicker";
 
 const EMPTY: SecurityInput = { base_url: "", realm: "", client_id: "", client_secret_slug: "" };
 

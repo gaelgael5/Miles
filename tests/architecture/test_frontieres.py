@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from architecture.frontieres import file_paquets_de, resolve_violations
+from architecture.frontieres import (
+    PAQUET_SOCLE_WEB,
+    file_paquets_de,
+    file_racines_web,
+    resolve_violations,
+    resolve_violations_web,
+)
 
 DEPOT = Path(__file__).resolve().parents[2]
 
@@ -71,3 +77,72 @@ def test_un_import_relatif_ne_franchit_jamais_une_frontiere(tmp_path: Path) -> N
     relatif.write_text("from . import autre\nfrom .db import pool\n", encoding="utf-8")
 
     assert resolve_violations(tmp_path) == ()
+
+
+# --- Frontière côté TypeScript ---------------------------------------------------------
+
+
+def test_aucun_front_ne_sort_de_sa_racine_par_un_chemin_relatif() -> None:
+    violations = resolve_violations_web(DEPOT)
+    assert not violations, "frontières franchies côté front :\n" + "\n".join(
+        str(v) for v in violations
+    )
+
+
+def test_les_racines_front_lues_sont_bien_celles_du_depot() -> None:
+    # Même garde que pour Python : un chemin devenu faux ferait passer le test précédent
+    # sur un ensemble vide.
+    noms = {racine.nom for racine in file_racines_web(DEPOT)}
+    assert "socle-web" in noms
+    assert "portail" in noms
+
+
+def _front_factice(racine: Path) -> tuple[Path, Path]:
+    socle = racine / "socle" / "web" / "src"
+    produit = racine / "portail" / "frontend" / "src"
+    for repertoire in (socle, produit):
+        repertoire.mkdir(parents=True)
+    return socle, produit
+
+
+def test_un_produit_qui_atteint_le_socle_par_un_chemin_relatif_est_detecte(
+    tmp_path: Path,
+) -> None:
+    _, produit = _front_factice(tmp_path)
+    (produit / "App.tsx").write_text(
+        'import { AuthGate } from "../../../socle/web/src/auth/AuthGate";\n', encoding="utf-8"
+    )
+    violations = resolve_violations_web(tmp_path)
+    assert [(v.racine, v.importe) for v in violations] == [
+        ("portail", "../../../socle/web/src/auth/AuthGate")
+    ]
+
+
+def test_un_produit_qui_atteint_le_front_d_un_autre_produit_est_detecte(tmp_path: Path) -> None:
+    _, produit = _front_factice(tmp_path)
+    autre = tmp_path / "enrolement" / "frontend" / "src"
+    autre.mkdir(parents=True)
+    (autre / "Menu.tsx").write_text(
+        'import { WorkspacesNav } from "../../../portail/frontend/src/layout/WorkspacesNav";\n',
+        encoding="utf-8",
+    )
+    violations = resolve_violations_web(tmp_path)
+    assert [v.racine for v in violations] == ["enrolement"]
+
+
+def test_le_socle_web_qui_atteint_un_produit_est_detecte(tmp_path: Path) -> None:
+    socle, _ = _front_factice(tmp_path)
+    (socle / "index.ts").write_text(
+        'export * from "../../../portail/frontend/src/api/workspaces";\n', encoding="utf-8"
+    )
+    violations = resolve_violations_web(tmp_path)
+    assert [v.racine for v in violations] == ["socle-web"]
+
+
+def test_un_produit_consomme_le_socle_web_par_le_nom_de_son_paquet(tmp_path: Path) -> None:
+    _, produit = _front_factice(tmp_path)
+    (produit / "App.tsx").write_text(
+        f'import {{ AuthGate }} from "{PAQUET_SOCLE_WEB}";\nimport "./styles.css";\n',
+        encoding="utf-8",
+    )
+    assert resolve_violations_web(tmp_path) == ()

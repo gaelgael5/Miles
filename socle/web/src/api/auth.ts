@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, request } from "./http";
 
-export { ApiError };
-
 export interface BootstrapStatus {
   admin_declared: boolean;
 }

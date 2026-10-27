@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@miles/socle-web": "file:../../socle/web",
     "@tanstack/react-query": "^5.104.4",
     "i18next": "^23.16.8",
     "jsonjoy-builder": "file:vendor/jsonjoy-builder-1.0.4-89529b6.tgz",

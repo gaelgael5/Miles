@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiError, ConfirmDialog } from "@miles/socle-web";
 import {
   type Chain,
   type ChainStep,
@@ -12,9 +13,7 @@ import {
   useSaveChain,
   useSaveChainSample,
 } from "../api/chains";
-import { ApiError } from "../api/http";
 import type { WorkTarget } from "../api/workTarget";
-import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { ChainSample } from "./ChainSample";
 import { ChainStepScreen } from "./ChainStepScreen";

@@ -1,7 +1,5 @@
 {
   "app": {
-    "signedInAs": "Signed in as {{username}}",
-    "logout": "Sign out",
     "nav": {
       "workspaces": "Workspaces",
       "security": "Security services",
@@ -15,219 +13,10 @@
       "apiKeys": "API keys",
       "oauthClients": "OAuth clients"
     },
-    "noRights": "You are signed in through {{directory}}, but no right is granted to you yet.",
-    "brand": "Miles",
     "sub": "Back-office",
-    "freshInstall": "Fresh installation",
-    "navigation": "Main navigation",
     "sections": {
       "global": "Global",
       "workspaces": "Workspaces"
-    }
-  },
-  "health": {
-    "title": "Service status",
-    "loading": "Checking the service…",
-    "ok": "Service operational",
-    "degraded": "Service degraded",
-    "unreachable": "Back-office unreachable",
-    "databaseUp": "Database reachable",
-    "databaseDown": "Database unreachable",
-    "schema": "Schema version {{current}} of {{expected}}",
-    "schemaNone": "Schema never initialised (expected version {{expected}})",
-    "intro": "Database and schema of this back-office installation."
-  },
-  "auth": {
-    "loading": "Checking your session…",
-    "unreachable": "Back-office unreachable"
-  },
-  "bootstrap": {
-    "title": "Create the administrator account",
-    "intro": "No administrator exists yet on this installation. The account you create here is the bootstrap administrator: it keeps root administration whatever the OIDC rules.",
-    "email": "Email",
-    "username": "Username",
-    "password": "Password",
-    "confirmation": "Confirm password",
-    "warning": "This screen disappears for good as soon as the account exists, and its creation is logged.",
-    "submit": "Create the account",
-    "errors": {
-      "mismatch": "The two passwords differ.",
-      "closed": "An administrator already exists: this screen is closed.",
-      "weakPassword": {
-        "min_length": "The password needs at least {{limit}} characters.",
-        "max_length": "The password allows at most {{limit}} characters."
-      },
-      "invalid": {
-        "email": "This email address is not accepted.",
-        "username": "Username: 3 to 64 characters, lowercase letters, digits, dot, dash or underscore, starting with a letter or digit."
-      },
-      "unexpected": "The account could not be created. See the back-office logs."
-    }
-  },
-  "login": {
-    "title": "Sign in",
-    "username": "Username",
-    "password": "Password",
-    "submit": "Sign in",
-    "errors": {
-      "invalid": "Wrong username or password.",
-      "throttled": "Too many failed attempts. Try again in a few minutes.",
-      "unexpected": "Sign-in failed. See the back-office logs."
-    },
-    "oidcTitle": "Or sign in with",
-    "oidcErrors": {
-      "connecteur_inconnu": "This connector does not exist or is inactive.",
-      "fournisseur_injoignable": "{{connector}}: the identity provider cannot be reached. Other connectors remain available.",
-      "refus_fournisseur": "{{connector}}: the identity provider refused the sign-in.",
-      "jeton_invalide": "{{connector}}: the identity provider's answer could not be verified. Sign-in refused.",
-      "state_invalide": "The sign-in expired or did not start in this browser. Try again.",
-      "url_publique_absente": "OIDC sign-in is not configured on this installation (public address missing).",
-      "configuration_connecteur": "{{connector}}: the connector's client secret is unavailable. Contact the administrator.",
-      "unexpected": "Sign-in failed. See the back-office logs."
-    },
-    "culture": "Language of the sign-in buttons"
-  },
-  "secrets": {
-    "title": "Secrets",
-    "intro": "Secrets of this installation: OIDC client secrets, repository tokens, service credentials. A value is encrypted in the database and never shown again; other screens select a secret by name.",
-    "save": "Save",
-    "cancel": "Cancel",
-    "fields": {
-      "label": "Label",
-      "slug": "Identifier (slug)",
-      "type": "Type",
-      "value": "Value",
-      "newValue": "New value",
-      "typePlaceholder": "— Choose a type —"
-    },
-    "create": {
-      "title": "New secret",
-      "open": "Add a secret",
-      "submit": "Save the secret",
-      "fixedType": "Type: {{type}}",
-      "neverShownAgain": "The value will never be displayed again, not even to you."
-    },
-    "list": {
-      "loading": "Loading secrets…",
-      "empty": "No secret declared yet.",
-      "usedBy_one": "used by {{count}} object",
-      "usedBy_other": "used by {{count}} objects",
-      "copySlug": "Copy identifier",
-      "relabel": "Rename",
-      "replace": "Replace the value",
-      "replaceValue": "Replace the value",
-      "delete": "Delete",
-      "captionType": "Type",
-      "captionUsage": "Usage"
-    },
-    "errors": {
-      "invalid": {
-        "slug": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes, not starting with a dash.",
-        "label": "Label: 1 to 200 characters.",
-        "secret_type": "Type: 2 to 64 characters, uppercase letters, digits and underscores, starting with a letter.",
-        "value": "Value: required, at most 16 KiB, and never a ${…} reference."
-      },
-      "slugTaken": "This identifier is already used by another secret.",
-      "inUse": "This secret is still used and cannot be deleted. Detach it from:",
-      "unreachable": "Secrets could not be loaded.",
-      "unexpected": "The operation failed. See the back-office logs."
-    },
-    "picker": {
-      "none": "— No secret —",
-      "createInline": "Create a secret",
-      "orphan": "The selected secret ({{slug}}) no longer exists. Choose another one.",
-      "orphanOption": "Missing secret: {{slug}}",
-      "createFor": {
-        "GIT_TOKEN": "Add a PAT"
-      }
-    },
-    "types": {
-      "OIDC_CLIENT_SECRET": "OIDC connector client secret",
-      "SECURITY_SERVICE_CLIENT_SECRET": "Root security service client secret",
-      "GIT_TOKEN": "Git service account token"
-    },
-    "deleteConfirm": {
-      "title": "Delete this secret?",
-      "body": "The secret “{{label}}” ({{slug}}) and its encrypted value will be deleted permanently. This cannot be undone.",
-      "confirm": "Delete permanently",
-      "inUse_one": "It is used by {{count}} object: the deletion will be refused until it is detached.",
-      "inUse_other": "It is used by {{count}} objects: the deletion will be refused until they are detached."
-    }
-  },
-  "cultures": {
-    "title": "Cultures",
-    "intro": "Every culture already exists; activate the ones this installation uses. Active cultures are offered wherever a value is entered per culture.",
-    "filter": "Filter by code or name",
-    "selected_one": "{{count}} culture selected",
-    "selected_other": "{{count}} cultures selected",
-    "activate": "Activate the selection",
-    "deactivate": "Deactivate the selection",
-    "keepValues": "Deactivating a culture deletes nothing: values entered for it are kept and come back if it is reactivated.",
-    "active": "Active",
-    "fallbackNote": "(fallback of the installation, always active)",
-    "loading": "Loading cultures…",
-    "noMatch": "No culture matches “{{filter}}”.",
-    "errors": {
-      "fallback": "en-US is the fallback of the installation and cannot be deactivated.",
-      "unreachable": "Cultures could not be loaded.",
-      "unexpected": "The change failed. See the back-office logs."
-    }
-  },
-  "oidc": {
-    "title": "OIDC connectors",
-    "intro": "Each active connector becomes a sign-in button. Connectors are declared for the whole installation; their client secret is chosen among the declared secrets.",
-    "fields": {
-      "id": "Identifier",
-      "label": "Label",
-      "issuer": "Issuer (provider address)",
-      "clientId": "Client ID",
-      "clientSecret": "Client secret",
-      "scopes": "Scopes",
-      "active": "Active (offered on the sign-in screen)",
-      "groupsClaim": "Claim carrying the groups",
-      "displayNameClaim": "Claim carrying the display name",
-      "recognizeAdmin": "Recognise the administrator",
-      "manageAssociations": "Manage associations",
-      "labelIn": "Label — {{culture}}"
-    },
-    "form": {
-      "newTitle": "New connector",
-      "editTitle": "Edit connector",
-      "save": "Save",
-      "cancel": "Cancel",
-      "checkedOnSave": "On save, the provider is queried to check that it answers as an OIDC provider.",
-      "recognizeAdminGrants": "When checked, an account of this directory carrying the bootstrap administrator's email becomes root administrator. Check it only on a directory where nobody chooses their own address.",
-      "manageAssociationsGrants": "When checked, identities of this directory can be associated with an identity carrying the same address, proposed by one account and accepted by the other within seven days.",
-      "fallbackLabel": "(fallback, required)",
-      "duplicateLabel": "Another connector already has this label in {{culture}}: the two buttons will look the same."
-    },
-    "list": {
-      "add": "Add a connector",
-      "loading": "Loading connectors…",
-      "empty": "No connector declared: only the bootstrap account can sign in.",
-      "active": "Active",
-      "inactive": "Inactive",
-      "edit": "Edit",
-      "delete": "Delete",
-      "recognizesAdmin": "recognises the administrator",
-      "captionState": "State"
-    },
-    "errors": {
-      "issuerUnreachable": "The provider does not answer at this address, or not as an OIDC provider. Nothing was saved.",
-      "invalid": {
-        "id": "Identifier: 2 to 63 characters, lowercase letters, digits and dashes.",
-        "label": "Label: 1 to 200 characters.",
-        "issuer": "Issuer: an https address, without query or fragment.",
-        "client_id": "Client ID: required, at most 200 characters.",
-        "client_secret_slug": "Choose a declared secret of type “OIDC connector client secret”.",
-        "scopes": "Scopes: must include openid.",
-        "groups_claim": "Groups claim: letters, digits and . _ : / - only.",
-        "display_name_claim": "Display name claim: letters, digits and . _ : / - only."
-      },
-      "idTaken": "This identifier is already used by another connector.",
-      "inUse": "Accounts already signed in through this connector: it cannot be deleted. Deactivate it instead.",
-      "unreachable": "Connectors could not be loaded.",
-      "unexpected": "The operation failed. See the back-office logs."
     }
   },
   "security": {
@@ -780,29 +569,8 @@
     }
   },
   "profile": {
-    "title": "My profile",
-    "intro": "Who you are for the portal, and your personal preferences.",
-    "identity": "Identity",
-    "fields": {
-      "kind": "Session",
-      "name": "Name",
-      "email": "E-mail",
-      "directory": "OIDC connector",
-      "subject": "Stable identifier (sub)",
-      "language": "Portal language"
-    },
-    "kind": {
-      "local_admin": "Bootstrap account",
-      "oidc": "OIDC directory"
-    },
-    "rootAdmin": "Root administrator",
-    "language": "Language",
-    "languageHelp": "Kept for your account: you will find it again after signing in, on any browser.",
     "branches": "Branch viewed per workspace",
     "noBranch": "No workspace has a work branch yet.",
-    "errors": {
-      "language": "The language could not be saved."
-    },
     "git": {
       "title": "Git identity",
       "intro": "To modify the configuration of a branch, you work under your own git account: register a personal access token for each git connection. It is checked with the forge, encrypted, and never shown again.",
@@ -1083,11 +851,6 @@
       "unset": "MILES_PUBLIC_URL is not configured on this instance: the MCP service answers on {{path}} of Miles' public address.",
       "help": "Declare this address in the portal's MCP gateway, with the trailing slash, and present the key as “Authorization: Bearer <key>” or “X-API-Key: <key>”. Never put the key in the address."
     }
-  },
-  "copy": {
-    "done": "Copied",
-    "failed": "Copy failed",
-    "failedHelp": "The browser refused to copy: select the text and copy it by hand."
   },
   "oauth": {
     "title": "OAuth clients",

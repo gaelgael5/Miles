@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { request } from "@miles/socle-web";
 
-import { request } from "./http";
 
 export type Right = "lire" | "creer_branche" | "pousser" | "poser_tag" | "supprimer_branche";
 

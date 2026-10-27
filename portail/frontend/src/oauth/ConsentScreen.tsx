@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError } from "../api/http";
+import { ApiError } from "@miles/socle-web";
 import { type Access, type ConsentView, useConsentView, useDecide } from "../api/oauth";
 import { forgetPendingAuthorize, navigation } from "./pendingAuthorize";
 

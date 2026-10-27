@@ -13,11 +13,18 @@ exécuterait le code qu'on cherche justement à contrôler.
 from __future__ import annotations
 
 import ast
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 SOCLE = "socle/python/src"
+SOCLE_WEB = "socle/web/src"
 PRODUITS = ("portail", "enrolement", "environnement")
+
+# Seule référence admise d'un produit vers le socle web : le nom du paquet. Tout chemin
+# relatif qui sort de la racine est un franchissement, y compris vers le socle — sinon
+# un produit pourrait atteindre le front d'un autre par « ../../autre/frontend/src ».
+PAQUET_SOCLE_WEB = "@miles/socle-web"
 
 
 @dataclass(frozen=True)
@@ -102,4 +109,63 @@ def resolve_violations(depot: Path) -> tuple[Violation, ...]:
                     violations.append(
                         Violation(fichier.relative_to(depot), ligne, module, racine.nom)
                     )
+    return tuple(violations)
+
+
+# --- Frontière côté TypeScript ---------------------------------------------------------
+# Les fronts n'ont pas de paquets de premier niveau comme Python : la règle s'exprime
+# donc sur les chemins. Un import RELATIF qui sort de sa racine est un franchissement,
+# et c'est tout ce qu'il y a à vérifier — le socle web n'est atteignable que par le nom
+# de son paquet, et aucun produit n'est un paquet.
+_SPECIFICATEUR = re.compile(r"""(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"']+)["']""")
+
+
+def file_racines_web(depot: Path) -> tuple[Racine, ...]:
+    """Les racines de code front présentes : le socle web, puis les produits qui existent.
+
+    Même règle que pour Python : un produit absent du disque est ignoré, pour que ce test
+    passe avant comme après la création de `enrolement/` et `environnement/`.
+    """
+    racines: list[Racine] = []
+    socle = depot / SOCLE_WEB
+    if socle.is_dir():
+        racines.append(Racine("socle-web", socle, frozenset()))
+    for produit in PRODUITS:
+        src = depot / produit / "frontend" / "src"
+        if src.is_dir():
+            racines.append(Racine(produit, src, frozenset()))
+    return tuple(racines)
+
+
+def file_imports_web(fichier: Path) -> tuple[tuple[str, int], ...]:
+    """Les spécificateurs de module importés par un fichier TypeScript, avec leur ligne.
+
+    Lu par expression régulière et non par un analyseur TypeScript : la vérification doit
+    tourner sans node ni dépendances installées, comme son équivalent Python tourne sans
+    l'environnement des produits.
+    """
+    texte = fichier.read_text(encoding="utf-8")
+    trouves: list[tuple[str, int]] = []
+    for correspondance in _SPECIFICATEUR.finditer(texte):
+        ligne = texte.count("\n", 0, correspondance.start()) + 1
+        trouves.append((correspondance.group(1), ligne))
+    return tuple(trouves)
+
+
+def resolve_violations_web(depot: Path) -> tuple[Violation, ...]:
+    """Les franchissements de frontière entre les fronts du socle et des produits."""
+    violations: list[Violation] = []
+    for racine in file_racines_web(depot):
+        for fichier in sorted(racine.repertoire.rglob("*.ts")) + sorted(
+            racine.repertoire.rglob("*.tsx")
+        ):
+            for specificateur, ligne in file_imports_web(fichier):
+                if not specificateur.startswith("."):
+                    continue
+                vise = (fichier.parent / specificateur).resolve()
+                if vise.is_relative_to(racine.repertoire.resolve()):
+                    continue
+                violations.append(
+                    Violation(fichier.relative_to(depot), ligne, specificateur, racine.nom)
+                )
     return tuple(violations)

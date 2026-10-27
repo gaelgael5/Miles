@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { request } from "./http";
+import { request } from "@miles/socle-web";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
 /** Une étape : un template, et la cible où poser son résultat (vide : il devient le message). */

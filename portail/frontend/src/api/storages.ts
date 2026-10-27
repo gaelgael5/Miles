@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError, request } from "./http";
+import { ApiError, request } from "@miles/socle-web";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
 /** Trois colonnes au plus par index (Gael, 24/10/2026) ; autant d'index que nécessaire. */

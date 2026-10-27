@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import type { WorkspaceSelection } from "../layout/WorkspacesNav";
 
-import type { Routes } from "../test/mockApi";
+import type { Routes } from "@miles/socle-web/testing";
 import { WorkspacesScreen } from "./WorkspacesScreen";
 
 export const REPORT = {
