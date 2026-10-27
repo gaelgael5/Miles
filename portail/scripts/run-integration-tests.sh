@@ -57,6 +57,14 @@ if ! docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null 2>&1; then
     # laissent ouverte : au repos, le conteneur est prêt en 1 à 3 s (mesuré six fois,
     # avec et sans fsync à l'initdb). Sans ces lignes, le prochain échec ne la tranchera
     # pas davantage que les six précédents.
+    # CE QUE LA BOUCLE JETTE, et qui manque depuis sept échecs : la boucle redirige
+    # stdout ET stderr vers /dev/null, donc une erreur de `docker exec` y est invisible.
+    # Le conteneur tourne et postgres écoute : c'est donc l'appel lui-même qui échoue.
+    echo "dernier essai, sortie complète :"
+    docker exec "$RUN_ID-db" pg_isready -U postgres 2>&1 | sed 's/^/  /' || true
+    echo "  code de retour : $?"
+    echo "connexion directe : $(docker exec "$RUN_ID-db" \
+      psql -U postgres -tAc 'select 1' 2>&1 | head -2 | tr '\n' ' ')"
     echo "charge machine : $(cat /proc/loadavg)"
     echo "conteneurs actifs : $(docker ps -q | wc -l)"
     echo "disque : $(df -h / | tail -1)"
