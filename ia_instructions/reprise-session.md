@@ -14,8 +14,8 @@ base — et son propre `dev-deploy.sh`. Rien ne se déploie depuis la racine.
 | Répertoire | Produit | État |
 |---|---|---|
 | `portail/` | Portail de configuration | livré, déployé sur test1 |
-| `enrolement/` | Service d'enrôlement | **à construire, prochaine étape** |
-| `environnement/` | Back-office d'environnement | après |
+| `enrolement/` | Service d'enrôlement | **à construire** — ticket `1ea3f3de`, après le socle `5695664d` |
+| `environnement/` | Back-office d'environnement | réduit à l'appariement d'abord — ticket `8c95ecc7` |
 
 Livré dans `portail/` les 24-27/10, tout vert sur test1 :
 
@@ -51,22 +51,66 @@ Verdict attendu : trois étapes (`300+ passed`, `1 passed`, `7 passed`). **Un jo
   d'initialisation, calcul de la stack) **qui n'existe pas dans le backlog**. Sans lui,
   le ticket consomme un schéma que personne ne produit. Signalé le 27/10.
 
-## Ce qui est éligible, sans prédécesseur
+## Ce qui est éligible, et par quoi commencer
 
-- `6a0daab6` — **échange de clés à l'appariement** (deux paires, code brûlé à l'usage,
-  appels signés dans les deux sens). Tête de la feature « Apparier un environnement au
-  service d'enrôlement », *prête pour dev*. C'est par là que Gael veut attaquer.
+- `5695664d` — **extraire le socle technique partagé** (amorçage, OIDC, sessions, cultures,
+  secrets, journal d'events, runner de migrations) en paquet de code. **C'est la tête de
+  file** : les deux coquilles et l'appariement l'attendent. Refactoring du portail livré,
+  qui doit en sortir identique.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
 
-## Deux questions posées à Gael, sans réponse encore
+**`6a0daab6` n'est PAS éligible**, contrairement à ce que montre son statut : il décrit un
+protocole entre deux produits qui n'existent pas encore. Voir « Chaînage » ci-dessous.
 
-1. **Ce qu'on partage tout de suite** entre portail et enrôlement — compte d'amorçage à la
-   première connexion, gestion OIDC. Gael a dit « au fur et à mesure » : donc *dupliquer
-   d'abord, extraire au deuxième usage*, plutôt qu'inventer un socle commun sur un seul
-   usage.
-2. **Monter la coquille complète** du produit enrôlement — stack, base, front,
-   `dev-deploy.sh` — avant de coder l'appariement, ou l'inverse.
+## Cinq décisions prises par Gael le 27/10 — les questions sont closes
+
+Les deux questions que ce fichier portait en suspens sont répondues, et trois autres ont été
+posées et tranchées dans le même échange. **Le détail et sa raison sont dans les tickets**
+(`5695664d`, `1ea3f3de`, `8c95ecc7`) ; ici, le résumé pour ne pas repartir à l'envers.
+
+1. **On monte la coquille d'enrôlement complète**, et le produit d'environnement réduit à ce
+   que l'appariement exige. Pas les deux coquilles complètes, pas le protocole seul.
+2. **On extrait le socle maintenant**, puisque l'enrôlement est le deuxième usage de
+   l'amorçage et de l'OIDC. L'option « dupliquer d'abord » est écartée.
+3. **Le socle ne porte que du code, aucun SQL** : le schéma reste l'affaire de chaque produit.
+   Conséquence assumée — la dérive de schéma entre produits est portée par la revue humaine,
+   pas par un test. Les deux autres options (séquence propre au socle, SQL de référence
+   recopié avec test de conformité) sont écartées : ne pas les rouvrir.
+4. **Sessions étanches**, un cookie par produit, aucun secret de session commun — mais la
+   reconnexion par OIDC est silencieuse quand le même connecteur est déclaré dans deux
+   produits. C'est l'annuaire qui reconnaît, jamais notre cookie.
+5. **Amorçage étanche** : un compte par produit, dans son propre `.env` et sa propre base.
+   L'administrateur du portail n'ouvre rien sur l'enrôlement.
+
+Les deux autres points que le cadrage désignait comme non délégués sont **déjà tranchés par
+le cadrage** et embarqués comme contraintes : le journal d'events reste dans la base de son
+produit (sinon la règle de transaction unique tombe), et le rapprochement d'identités ne
+traverse pas les produits.
+
+### Ce qui est mesuré, à ne pas re-découvrir
+
+- **Socle : environ 3 400 lignes** — `auth/` 932, `oidc/` 1290, `secrets/` 724, `cultures/` 228,
+  `events/` 312 (sauf `known.py`), `db/` 167.
+- **Deux inversions de dépendance, et ce sont les seules.** `events/known.py` (52 lignes)
+  importe 17 paquets du portail mais **reste dans le produit** — `events/model.py` reçoit déjà
+  ses types par injection et `known.py` n'est lu que par `app.py`. Et `db/pool.py` doit recevoir
+  ses paramètres au lieu d'importer `miles.config`.
+- **`auth.gate` est importée par 37 modules d'API** : l'extraction touche leur ligne d'import,
+  rien d'autre chez eux.
+- **`additional_contexts` de compose fonctionne sur `test1`** — vérifié par un vrai build le
+  27/10 (compose v5.6.1, Docker 29.9.2). Chaque produit garde `context: ./backend` et ajoute
+  le socle en contexte additionnel ; jamais la racine du dépôt.
+
+### Chaînage, et une limite de l'outil
+
+`5695664d` (socle) → `1ea3f3de` (coquille enrôlement) et `8c95ecc7` (environnement réduit),
+ces deux-là en parallèle → `6a0daab6` (échange de clés).
+
+**Ce chaînage n'est pas déclaré en propriété sur `6a0daab6`** : `bloque_par` n'accepte qu'une
+`story`, et les trois prérequis sont des `enabler`. Les enablers le déclarent dans leur corps.
+Tant que ce n'est pas réglé, `6a0daab6` **paraît éligible alors qu'il ne l'est pas** — il décrit
+un protocole entre deux produits qui n'existent pas encore dans le dépôt.
 
 ## Décisions renversées le 26/10 — ne pas repartir des anciennes
 
