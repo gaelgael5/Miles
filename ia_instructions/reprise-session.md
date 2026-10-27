@@ -170,11 +170,18 @@ Lire `LESSONS.md` — il porte les leçons du dépôt. Les plus coûteuses de ce
 ## Gestes du quotidien
 
 ```bash
+cd socle/python   && uv run ruff check src tests && uv run mypy src && uv run pytest -q
 cd portail/backend && uv run ruff check src tests && uv run mypy src && uv run pytest -q
 cd portail/frontend && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
+cd tests && uv run pytest -q                # frontière socle / produits — à lancer après
+                                            # tout déplacement de code entre les racines
 portail/dev-deploy.sh                      # livrer, PORTAL_TOKEN sur stdin, jamais en argv
 portail/scripts/run-integration-tests.sh   # campagne, à lancer détachée
 ```
+
+**Trois paquets Python, trois environnements.** `socle/python`, `portail/backend` et
+`tests` ont chacun leur `pyproject.toml` et leur verrou : `uv sync` dans l'un ne fait rien
+pour les autres. Un `pytest` vert dans un seul des trois ne dit rien des deux autres.
 
 Le reste — machine de test, annuaire, compte d'amorçage, pièges de déploiement — est dans
 `tests_and_ressources.md`, à côté.
