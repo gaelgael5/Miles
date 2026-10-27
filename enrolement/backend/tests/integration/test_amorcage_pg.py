@@ -73,7 +73,10 @@ async def test_la_connexion_locale_pose_un_cookie_sans_domaine_parent(
         # origine. Un domaine parent le rendrait lisible par les autres produits.
         assert "domain=" not in pose.lower()
         assert "httponly" in pose.lower()
-        assert "samesite=lax" in pose.lower()
+        # strict et non lax : mesuré sur la stack livrée le 27/10/2026. Le parcours OIDC
+        # revient par une redirection du navigateur, qui est une navigation de haut niveau
+        # — un cookie strict la suit, et c'est le socle qui pose cette valeur.
+        assert "samesite=strict" in pose.lower()
         await visiteur.aclose()
 
 

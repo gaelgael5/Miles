@@ -54,25 +54,45 @@ son propre `dev-deploy.sh`.** Rien ne se déploie depuis la racine.
 | Répertoire | Produit | État |
 |---|---|---|
 | `portail/` | Portail de configuration : workspaces, paramétrage, storages, sources | livré |
-| `enrolement/` | Service d'enrôlement : référentiel des devices, appariement des environnements | à venir |
+| `enrolement/` | Service d'enrôlement : référentiel des devices, appariement des environnements | coquille livrée, métier à venir |
 | `environnement/` | Back-office d'environnement : une stack et une base par environnement | à venir |
 
-Ce qui se partagera entre produits — compte d'amorçage à la première connexion, gestion
-OIDC — sera **extrait au fur et à mesure**, quand un deuxième produit en aura besoin :
-on n'invente pas un socle commun avant d'avoir deux usages à servir.
+Ce qui se partage entre produits est **extrait au fur et à mesure**, quand un deuxième
+produit en a besoin : on n'invente pas un socle commun avant d'avoir deux usages à servir.
+C'est fait depuis le 27/10/2026 pour l'amorçage, l'OIDC, les sessions, les cultures, les
+secrets, le journal d'events, les migrations, la journalisation et le contrôle de santé.
+
+| Répertoire | Socle partagé | Consommé par |
+|---|---|---|
+| `socle/python` | paquet `miles_socle` — **aucun SQL**, le schéma reste l'affaire de chaque produit | `<produit>/backend`, chemin relatif dans `pyproject.toml` |
+| `socle/web` | paquet `@miles/socle-web` — coquille front et écrans répliqués | `<produit>/frontend`, chemin relatif dans `package.json` |
+
+**La frontière est tenue par un test, pas par une intention** : `tests/` à la racine lit les
+imports (Python par `ast`, TypeScript par motif) et refuse qu'un produit en atteigne un
+autre, ou que le socle atteigne un produit. À lancer après tout déplacement de code entre
+les racines.
 
 ## Commandes essentielles
-Layout d'un produit : `backend/` (paquet `miles`, `migrations/NNNN_*.sql` immuables),
-`frontend/` (Vite), `scripts/`, `docker-compose.yml`, `dev-deploy.sh`.
-Les commandes ci-dessous valent pour `portail/` ; les autres produits les reprendront.
+Layout d'un produit : `backend/` (paquet Python, `migrations/NNNN_*.sql` immuables),
+`frontend/` (Vite), `scripts/`, `docker-compose.yml`, `dev-deploy.sh`. Remplacer `<produit>`
+par `portail` ou `enrolement` : les commandes sont les mêmes, les environnements sont
+**indépendants** — un verrou et un `node_modules` par racine.
 ```bash
-cd portail/backend && uv sync                           # installer
-cd portail/backend && uv run ruff check src tests && uv run ruff format --check src tests && uv run mypy src
-cd portail/backend && uv run pytest -v                  # unitaires (sans base)
-portail/scripts/run-integration-tests.sh                # intégration PostgreSQL — machine de test
-cd portail/frontend && npm ci && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
-portail/dev-deploy.sh                                   # livrer (machine de test uniquement)
+cd <produit>/backend && uv sync                         # installer
+cd <produit>/backend && uv run ruff check src tests && uv run ruff format --check src tests && uv run mypy src
+cd <produit>/backend && uv run pytest -v                # unitaires (sans base)
+<produit>/scripts/run-integration-tests.sh              # intégration PostgreSQL — machine de test
+cd <produit>/frontend && npm ci && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
+<produit>/dev-deploy.sh                                 # livrer (machine de test uniquement)
 ```
+Les socles s'éprouvent seuls, et il faut le faire après les avoir touchés :
+```bash
+cd socle/python && uv run ruff check src tests && uv run mypy src && uv run pytest -q
+cd socle/web    && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
+cd tests        && uv run pytest -q                     # frontière socle / produits
+```
+Le portail est publié sur **8080**, le module d'enrôlement sur **8081** : les deux stacks
+cohabitent sur la même machine de test.
 
 ## Backlog
 Le backlog des tâches est dans le workspace docflow `terminal-pr`, bloc `backlog`. C'est la

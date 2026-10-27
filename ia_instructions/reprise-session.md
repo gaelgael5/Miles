@@ -13,9 +13,14 @@ base — et son propre `dev-deploy.sh`. Rien ne se déploie depuis la racine.
 
 | Répertoire | Produit | État |
 |---|---|---|
-| `portail/` | Portail de configuration | livré, déployé sur test1 |
-| `enrolement/` | Service d'enrôlement | **à construire** — ticket `1ea3f3de`, après le socle `5695664d` |
+| `portail/` | Portail de configuration | livré, déployé sur test1, **port 8080** |
+| `enrolement/` | Service d'enrôlement | **coquille livrée** le 27/10, déployée sur test1, **port 8081** — ticket `1ea3f3de` ; le métier reste à faire |
 | `environnement/` | Back-office d'environnement | réduit à l'appariement d'abord — ticket `8c95ecc7` |
+
+**Deux socles partagés**, et c'est là que vit le code commun : `socle/python` (paquet
+`miles_socle`, **aucun SQL**) et `socle/web` (paquet `@miles/socle-web`). La frontière
+entre les cinq racines est tenue par `tests/` — 12 tests, Python par `ast` et TypeScript
+par motif. À lancer après tout déplacement de code entre racines.
 
 Livré dans `portail/` les 24-27/10, tout vert sur test1 :
 
@@ -52,6 +57,29 @@ et `db`, environ 3 400 lignes, **aucun SQL**. Le portail en sort identique.
   **301 + 1 + 7 = 309, zéro échec** ; 25 migrations inchangées ; image inspectée, aucune
   trace des autres produits.
 
+### Puis le socle web, et le deuxième produit — 27/10 au soir
+
+Monter l'enrôlement a révélé que `5695664d` n'avait extrait que le Python. **Arbitré par
+Gael : on factorise maintenant**, même règle que pour le socle Python — deux usages.
+
+- `socle/web` (paquet `@miles/socle-web`) porte la coquille front et les écrans que le
+  cadrage déclare « répliqués dans les trois produits » : amorçage, connexion, connecteurs
+  OIDC, cultures, secrets, profil, santé. **35 fichiers déplacés par `git mv`, aucun test
+  réécrit** ; 41 fichiers et 255 tests au total, comme avant déplacement.
+- Trois pièges qui ne se devinent pas, et qui sont commentés sur place : l'i18n
+  s'initialise par **appel** et non par effet de bord d'import (le socle ne connaît pas les
+  libellés de son consommateur, et les espaces `app` et `profile` sont partagés, d'où une
+  fusion en profondeur) ; `resolve.dedupe` est **obligatoire** côté produit, sinon la page
+  embarque deux React ; l'image du front installe le socle avec **son** verrou, la
+  résolution de modules remontant depuis le fichier qui importe.
+- Quatre modules du portail étaient du socle déguisé et sont partis aussi :
+  journalisation, sonde de santé et sa route, `cli_admin`. Le CLI de migration s'est coupé
+  en deux — mécanique au socle, configuration au produit. `miles_socle.testing` porte les
+  doublures d'accès à la base, livrées DANS le paquet, chaque produit ayant sa suite.
+- **`enrolement/` est monté** : sa base, ses 7 migrations repartant de `0001`, son back qui
+  consomme le socle, son front, sa stack, son `dev-deploy.sh`. Il démarre, se déploie et
+  se connecte — et rien de plus.
+
 ## La panne des campagnes est résolue
 
 **Cause établie le 27/10, reproduite 6 fois sur 6** : elle était dans notre boucle
@@ -75,11 +103,16 @@ Les campagnes repartent.
 
 ## Ce qui est éligible, et par quoi commencer
 
-- `1ea3f3de` — **monter la coquille du produit enrôlement** (stack, base, back, front,
-  `dev-deploy.sh`). **C'est la tête de file maintenant** que le socle est extrait.
-- `8c95ecc7` — monter l'environnement réduit à l'appariement. Parallélisable avec le précédent.
+- `8c95ecc7` — **monter l'environnement réduit à l'appariement**. C'est la tête de file
+  maintenant que la coquille d'enrôlement est livrée, et le dernier prérequis de
+  `6a0daab6`. Le chemin est tracé : reprendre `enrolement/` à l'identique, en plus
+  réduit — stack, base, 7 migrations, back qui consomme le socle, front qui consomme
+  `@miles/socle-web`, `dev-deploy.sh`. Prévoir un troisième port (8082).
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
+- Le **métier** de l'enrôlement : la coquille ne porte rien de lui. Référentiel des
+  devices, enrôlement d'une installation, dispatch, parc, tags, groupes — autant de
+  tickets de l'epic *Module d'enrôlement*.
 
 **`6a0daab6` n'est PAS éligible**, contrairement à ce que montre son statut : il décrit un
 protocole entre deux produits qui n'existent pas encore. Son corps le dit désormais lui-même.
@@ -174,18 +207,24 @@ Lire `LESSONS.md` — il porte les leçons du dépôt. Les plus coûteuses de ce
 ## Gestes du quotidien
 
 ```bash
-cd socle/python   && uv run ruff check src tests && uv run mypy src && uv run pytest -q
-cd portail/backend && uv run ruff check src tests && uv run mypy src && uv run pytest -q
-cd portail/frontend && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
+cd socle/python        && uv run ruff check src tests && uv run mypy src && uv run pytest -q
+cd socle/web           && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
+cd portail/backend     && uv run ruff check src tests && uv run mypy src && uv run pytest -q
+cd portail/frontend    && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
+cd enrolement/backend  && uv run ruff check src tests && uv run mypy src && uv run pytest -q
+cd enrolement/frontend && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
 cd tests && uv run pytest -q                # frontière socle / produits — à lancer après
                                             # tout déplacement de code entre les racines
-portail/dev-deploy.sh                      # livrer, PORTAL_TOKEN sur stdin, jamais en argv
-portail/scripts/run-integration-tests.sh   # campagne, à lancer détachée
+<produit>/dev-deploy.sh                     # livrer, PORTAL_TOKEN sur stdin, jamais en argv
+<produit>/scripts/run-integration-tests.sh  # campagne, à lancer détachée
 ```
 
-**Trois paquets Python, trois environnements.** `socle/python`, `portail/backend` et
-`tests` ont chacun leur `pyproject.toml` et leur verrou : `uv sync` dans l'un ne fait rien
-pour les autres. Un `pytest` vert dans un seul des trois ne dit rien des deux autres.
+**Six racines, six environnements.** `socle/python`, `portail/backend`,
+`enrolement/backend` et `tests` ont chacun leur `pyproject.toml` et leur verrou ;
+`socle/web`, `portail/frontend` et `enrolement/frontend` ont chacun leur `package.json`,
+leur verrou et leur `node_modules`. `uv sync` ou `npm ci` dans l'une ne fait rien pour les
+autres, et un vert dans une seule ne dit rien des cinq suivantes. **Toucher à un socle
+oblige à repasser sur ses deux consommateurs.**
 
 Le reste — machine de test, annuaire, compte d'amorçage, pièges de déploiement — est dans
 `tests_and_ressources.md`, à côté.
