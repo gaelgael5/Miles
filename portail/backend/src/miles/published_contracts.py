@@ -9,8 +9,12 @@ from miles.app import build_app
 from miles.mcp_api.server import MCP_PATH, build_server
 
 # Contrats publiés pour les agents (article docflow terminal-pr « Contrats d'interface ») :
-# générés depuis le code, versionnés dans docs/contracts, et un test vérifie qu'ils sont à
-# jour. Écrits à la main, ils divergeraient du service sans que rien ne le signale.
+# générés depuis le code, versionnés dans `<produit>/docs/contracts`, et un test vérifie
+# qu'ils sont à jour. Écrits à la main, ils divergeraient du service sans que rien ne le
+# signale.
+#
+# Rangés AVEC leur produit depuis le découpage du 27/10/2026 : ces deux-là décrivent la
+# surface du portail, et les deux autres produits publieront les leurs.
 CONTRACTS_DIR = Path(__file__).resolve().parents[3] / "docs" / "contracts"
 OPENAPI_FILE = "miles-agent-access.openapi.json"
 MCP_TOOLS_FILE = "miles-mcp-tools.json"

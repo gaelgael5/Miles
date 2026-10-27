@@ -37,7 +37,7 @@ cookie) s'appliquent. Détail : cadrage `terminal-pr`, « Correspondances OIDC v
 
 ## Architecture applicative — décisions invariantes
 - **Backend** : Python, FastAPI, asyncpg (requêtes paramétrées, pas d'ORM ni d'Alembic : migrations
-  SQL numérotées jouées par `miles-migrate`). **Frontend** : TypeScript / React / Vite dans `frontend/`.
+  SQL numérotées jouées par `miles-migrate`). **Frontend** : TypeScript / React / Vite dans `<produit>/frontend/`.
 - **État** : **PostgreSQL**, non rediscutable (validé le 2026-10-14) — transactions multi-tables
   (objet + ligne d'index dans la même transaction), journal partitionné à la journée, `jsonb`.
   Un incident en cours d'écriture ne doit jamais corrompre l'existant, et ça se teste.
@@ -46,16 +46,32 @@ cookie) s'appliquent. Détail : cadrage `terminal-pr`, « Correspondances OIDC v
 - **Transformation** : JSLT (grammaire ANTLR de `Black-Beard-Sdk/jslt`) ; forme d'intégration
   côté Python *à confirmer*.
 
+## Trois produits, un seul dépôt
+Découpage posé par Gael le 27/10/2026, qui suit le cadrage « Découpage en trois produits ».
+**Chaque produit a son répertoire, sa stack indépendante — front, back-office, base — et
+son propre `dev-deploy.sh`.** Rien ne se déploie depuis la racine.
+
+| Répertoire | Produit | État |
+|---|---|---|
+| `portail/` | Portail de configuration : workspaces, paramétrage, storages, sources | livré |
+| `enrolement/` | Service d'enrôlement : référentiel des devices, appariement des environnements | à venir |
+| `environnement/` | Back-office d'environnement : une stack et une base par environnement | à venir |
+
+Ce qui se partagera entre produits — compte d'amorçage à la première connexion, gestion
+OIDC — sera **extrait au fur et à mesure**, quand un deuxième produit en aura besoin :
+on n'invente pas un socle commun avant d'avoir deux usages à servir.
+
 ## Commandes essentielles
-Layout : `backend/` (paquet `miles`, `migrations/NNNN_*.sql` immuables), `frontend/` (Vite),
-`scripts/`, `docker-compose.yml`, `dev-deploy.sh`.
+Layout d'un produit : `backend/` (paquet `miles`, `migrations/NNNN_*.sql` immuables),
+`frontend/` (Vite), `scripts/`, `docker-compose.yml`, `dev-deploy.sh`.
+Les commandes ci-dessous valent pour `portail/` ; les autres produits les reprendront.
 ```bash
-cd backend && uv sync                                   # installer
-cd backend && uv run ruff check src tests && uv run ruff format --check src tests && uv run mypy src
-cd backend && uv run pytest -v                          # unitaires (sans base)
-scripts/run-integration-tests.sh                        # intégration PostgreSQL — machine de test
-cd frontend && npm ci && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
-./dev-deploy.sh                                         # livrer (machine de test uniquement)
+cd portail/backend && uv sync                           # installer
+cd portail/backend && uv run ruff check src tests && uv run ruff format --check src tests && uv run mypy src
+cd portail/backend && uv run pytest -v                  # unitaires (sans base)
+portail/scripts/run-integration-tests.sh                # intégration PostgreSQL — machine de test
+cd portail/frontend && npm ci && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
+portail/dev-deploy.sh                                   # livrer (machine de test uniquement)
 ```
 
 ## Backlog
@@ -82,7 +98,7 @@ charge la skill AVANT d'écrire quoi que ce soit — pas après, pas « si ça s
 | écrire ou modifier du code de production ou de test, corriger un bug, déclarer « terminé » | la skill `tests` |
 | écrire ou modifier du code, quel que soit le fichier | la skill `code-comments` |
 | écrire, modifier ou relire un fichier `.py`, ou toucher `pyproject.toml` | la skill `python` |
-| écrire, modifier ou relire un fichier `.ts` / `.tsx` sous `frontend/` | la skill `typescript-frontend` |
+| écrire, modifier ou relire un fichier `.ts` / `.tsx` sous un `frontend/` | la skill `typescript-frontend` |
 | écrire une migration, une requête SQL ou du code d'accès aux données | la skill `postgresql` |
 | ajouter, lire, injecter ou journaliser un secret ; toucher Dockerfile, compose, `.env` ; committer | la skill `secrets` |
 | toucher au login, aux connecteurs OIDC, aux rôles, aux routes protégées, au cookie de session | la skill `oidc-authentication` (voir la divergence ci-dessus) |
@@ -135,7 +151,7 @@ le travail livrable sur une machine de test. Commits en français, conventionnel
 **Merger `dev` sur `main` est formellement interdit sans demande explicite de l'humain.**
 
 ### Livraison et machines de test
-Livrer = pousser sur `dev`, puis lancer `dev-deploy.sh` sur la machine de test — jamais de
+Livrer = pousser sur `dev`, puis lancer le `dev-deploy.sh` DU PRODUIT sur la machine de test — jamais de
 construction, de `docker run` ni de retouche manuelle de la cible. Les machines de test `test1`,
 `test2`… sont à ta disposition. Charge la skill `test-machine-deployment` AVANT de déployer.
 Machines attribuées : `ia_instructions/tests_and_ressources.md`. `dev-deploy.sh` déclare la stack

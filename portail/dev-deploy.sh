@@ -14,19 +14,36 @@
 # « login:code » (outil MCP totp_code), fourni à CHAQUE passage, jamais écrit nulle part.
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Le dépôt porte trois produits depuis le 27/10/2026 ; chacun a son répertoire, sa stack
+# et son dev-deploy.sh. Ce script ne connaît que LE SIEN — d'où le nom de la variable.
+PRODUIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPOT_DIR="$(cd "$PRODUIT_DIR/.." && pwd)"
 BRANCH="dev"
-STATE_DIR="$REPO_DIR/.deploy"
+STATE_DIR="$PRODUIT_DIR/.deploy"
 LOG_FILE="$STATE_DIR/deploy-$(date +%Y%m%d-%H%M%S).log"
 PURGE_STAMP="$STATE_DIR/last-purge"
-ENV_FILE="$REPO_DIR/.env"
-BACKUP_ENV_FILE="$REPO_DIR/.env.bak"
+ENV_FILE="$PRODUIT_DIR/.env"
+BACKUP_ENV_FILE="$PRODUIT_DIR/.env.bak"
 ADMIN_PASSWORD_FILE="$STATE_DIR/admin-password"
 # uid de l'utilisateur non root de l'image backend (backend/Dockerfile).
 RUNTIME_UID=10001
 MOSQUITTO_IMAGE="eclipse-mosquitto:2.0.20"
 MOSQUITTO_UID=1883
 MOSQUITTO_DIR="$STATE_DIR/mosquitto"
+
+# Reprise unique du 27/10/2026 : avant le découpage en produits, l'état d'exécution vivait
+# à la racine du dépôt. Le déplacer plutôt que le régénérer — MILES_SECRETS_KEY ne se
+# régénère JAMAIS, sinon les secrets déjà chiffrés en base deviennent illisibles.
+reprendre_racine() {
+  local nom
+  for nom in .env .env.bak .deploy; do
+    if [[ ! -e "$PRODUIT_DIR/$nom" && -e "$DEPOT_DIR/$nom" ]]; then
+      mv "$DEPOT_DIR/$nom" "$PRODUIT_DIR/$nom"
+      echo "repris de la racine : $nom"
+    fi
+  done
+}
+reprendre_racine
 DEPLOY_KEY="$HOME/.ssh/miles_deploy_key"
 TOTAL_STEPS=11
 # Nom publié à l'annuaire : doit rester le `name:` de docker-compose.yml, sinon le lien de la
@@ -49,7 +66,7 @@ done
 
 step() { echo "==> [$1/$TOTAL_STEPS] $2"; }
 fail() { echo "ÉCHEC : $*" >&2; exit 1; }
-compose() { docker compose --project-directory "$REPO_DIR" --env-file "$ENV_FILE" "$@"; }
+compose() { docker compose --project-directory "$PRODUIT_DIR" --env-file "$ENV_FILE" "$@"; }
 env_value() { grep "^$1=" "$ENV_FILE" | tail -1 | cut -d= -f2- || true; }
 # Valeur non secrète prise dans l'environnement au premier passage, puis figée : .env fait foi.
 persist_default() {
@@ -102,18 +119,18 @@ docker info >/dev/null 2>&1 || fail "démon docker injoignable : sudo usermod -a
 # --- 2. Mise à jour depuis le dépôt, puis ré-exécution ---------------------------------
 step 2 "mise à jour depuis origin/$BRANCH"
 # Pas de mode « déploie ce qui est là » : sans réseau ni accès au dépôt, on échoue.
-git -C "$REPO_DIR" fetch origin "$BRANCH" \
+git -C "$DEPOT_DIR" fetch origin "$BRANCH" \
   || fail "récupération impossible (accès au dépôt ? dépôt privé : --bootstrap-deploy-key)"
-[[ "$(git -C "$REPO_DIR" branch --show-current)" == "$BRANCH" ]] \
-  || fail "la copie n'est pas sur $BRANCH : git -C $REPO_DIR checkout $BRANCH"
-before="$(git -C "$REPO_DIR" rev-parse HEAD)"
-git -C "$REPO_DIR" merge --ff-only "origin/$BRANCH" \
+[[ "$(git -C "$DEPOT_DIR" branch --show-current)" == "$BRANCH" ]] \
+  || fail "la copie n'est pas sur $BRANCH : git -C $PRODUIT_DIR checkout $BRANCH"
+before="$(git -C "$DEPOT_DIR" rev-parse HEAD)"
+git -C "$DEPOT_DIR" merge --ff-only "origin/$BRANCH" \
   || fail "copie locale divergente d'origin/$BRANCH : aucune retouche locale n'est admise ici"
-if [[ "$before" != "$(git -C "$REPO_DIR" rev-parse HEAD)" && -z "${MILES_DEPLOY_REEXEC:-}" ]]; then
+if [[ "$before" != "$(git -C "$DEPOT_DIR" rev-parse HEAD)" && -z "${MILES_DEPLOY_REEXEC:-}" ]]; then
   # Le code a changé : on se relance dans la version récupérée, sinon un script, un compose
   # ou un Dockerfile périmés déploieraient le code neuf.
   echo "nouvelle version récupérée, ré-exécution du script à jour"
-  MILES_DEPLOY_REEXEC=1 exec "$REPO_DIR/dev-deploy.sh" "$@"
+  MILES_DEPLOY_REEXEC=1 exec "$PRODUIT_DIR/dev-deploy.sh" "$@"
 fi
 
 # --- 3 & 4. État et configuration, sans rien écraser -----------------------------------
@@ -167,14 +184,14 @@ MQTT_PORT="$(env_value MILES_MQTT_PORT)"
 # Comptes et droits du broker, refaits à chaque passage depuis .env et mosquitto/acl :
 # rien d'autre ne les porte, et leur propriétaire doit être mosquitto (fichiers en 600).
 # Les comptes des terminaux viendront de l'enrôlement ; seul le back-office existe ici.
-grep -q "image: $MOSQUITTO_IMAGE\$" "$REPO_DIR/docker-compose.yml" \
+grep -q "image: $MOSQUITTO_IMAGE\$" "$PRODUIT_DIR/docker-compose.yml" \
   || fail "MOSQUITTO_IMAGE ($MOSQUITTO_IMAGE) diffère de l'image mqtt de docker-compose.yml"
 mkdir -p "$MOSQUITTO_DIR"
 (umask 077 && printf 'miles-backend:%s\n' "$(env_value MILES_MQTT_PASSWORD)" > "$MOSQUITTO_DIR/passwd")
 # -U hache en place le fichier en clair : le mot de passe ne passe jamais en argument.
 docker run --rm -v "$MOSQUITTO_DIR/passwd:/p" "$MOSQUITTO_IMAGE" mosquitto_passwd -U /p \
   || fail "hachage des comptes du broker impossible"
-cp "$REPO_DIR/mosquitto/acl" "$MOSQUITTO_DIR/acl"
+cp "$PRODUIT_DIR/mosquitto/acl" "$MOSQUITTO_DIR/acl"
 chmod 600 "$MOSQUITTO_DIR/passwd" "$MOSQUITTO_DIR/acl"
 chown "$MOSQUITTO_UID:$MOSQUITTO_UID" "$MOSQUITTO_DIR/passwd" "$MOSQUITTO_DIR/acl"
 
@@ -255,7 +272,7 @@ declare_exposition() {
   fi
 }
 step 4 "déclaration à l'annuaire du portail"
-grep -q "^name: $SERVICE_NAME\$" "$REPO_DIR/docker-compose.yml" \
+grep -q "^name: $SERVICE_NAME\$" "$PRODUIT_DIR/docker-compose.yml" \
   || fail "SERVICE_NAME ($SERVICE_NAME) diffère du name: de docker-compose.yml"
 declare_exposition
 # Code à usage unique : rien en aval n'en a besoin, et il ne doit atteindre aucun conteneur.
@@ -333,7 +350,7 @@ for _ in $(seq 1 "$HEALTH_WAIT_S"); do
   sleep 1
 done
 [[ "$healthy" -eq 1 ]] || fail "santé KO après ${HEALTH_WAIT_S}s : curl -s http://127.0.0.1:$HTTP_PORT/api/health"
-echo "déploiement OK : $(git -C "$REPO_DIR" rev-parse --short HEAD) sur http://$(hostname):$HTTP_PORT"
+echo "déploiement OK : $(git -C "$DEPOT_DIR" rev-parse --short HEAD) sur http://$(hostname):$HTTP_PORT"
 
 # --- 10. Récupération d'espace disque, au plus une fois par semaine --------------------
 # Après la santé (ne retarde pas la mise à disposition), cache et images détaggées

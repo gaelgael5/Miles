@@ -8,7 +8,8 @@
 # détruits à la sortie, pour que deux exécutions concurrentes ne se détruisent jamais.
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Le répertoire du PRODUIT, pas du dépôt : depuis le 27/10/2026 le dépôt en porte trois.
+PRODUIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_ID="miles-it-$(date +%s)-$$"
 PG_PASSWORD="$(openssl rand -hex 16)"
 RUNTIME_UID=10001
@@ -65,7 +66,7 @@ docker run -d --name "$RUN_ID-gitea" --network "$RUN_ID" \
   -e GITEA__security__INSTALL_LOCK=true -e GITEA__database__DB_TYPE=sqlite3 \
   -e GITEA__server__ROOT_URL="http://$RUN_ID-gitea:3000/" "$GITEA_IMAGE" >/dev/null
 
-docker build -q --target test -t "$RUN_ID-backend" "$REPO_DIR/backend" >/dev/null
+docker build -q --target test -t "$RUN_ID-backend" "$PRODUIT_DIR/backend" >/dev/null
 
 # Le fournisseur démarre en quelques secondes : on attend sa découverte, depuis le réseau.
 oidc_ready=0
@@ -146,7 +147,7 @@ echo "montage fichier par fichier : écriture vérifiée côté hôte"
 echo "==> [3/3] request/response MQTT 5 contre Mosquitto"
 MQTT_DIR="$MOUNT_DIR/mosquitto"
 mkdir -p "$MQTT_DIR"
-cp "$REPO_DIR/mosquitto/mosquitto.conf" "$REPO_DIR/mosquitto/acl" "$MQTT_DIR/"
+cp "$PRODUIT_DIR/mosquitto/mosquitto.conf" "$PRODUIT_DIR/mosquitto/acl" "$MQTT_DIR/"
 declare -A MQTT_PASSWORDS
 : > "$MQTT_DIR/passwd"
 for user in miles-backend term-42 term-43; do
