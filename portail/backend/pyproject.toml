@@ -27,7 +27,8 @@ dependencies = [
 
 [project.scripts]
 miles-migrate = "miles.cli:main"
-miles-admin = "miles.cli_admin:main"
+# Entièrement générique : le point d'entrée est celui du socle, sans glu côté produit.
+miles-admin = "miles_socle.auth.cli_admin:main"
 miles-contracts = "miles.published_contracts:main"
 
 [tool.uv.sources]

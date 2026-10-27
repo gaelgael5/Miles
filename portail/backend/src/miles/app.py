@@ -25,6 +25,9 @@ from miles_socle.cultures.service import CulturesService
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.pool import db_create_pool
 from miles_socle.events.model import EventTypeCatalog
+from miles_socle.health.api_health import router as health_router
+from miles_socle.health.probe import resolve_health
+from miles_socle.log_config import configure_logging
 from miles_socle.oidc.api_connectors import router as oidc_connectors_router
 from miles_socle.oidc.api_login import router as oidc_login_router
 from miles_socle.oidc.service import OidcService
@@ -33,7 +36,6 @@ from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
 from miles_socle.secrets.service import SecretsService
 
-from miles.api_health import router as health_router
 from miles.apikeys.api_apikeys import router as api_keys_router
 from miles.apikeys.service import ApiKeysService
 from miles.chains.api_chains import router as chains_api_router
@@ -53,10 +55,8 @@ from miles.gitaccess.api_gitaccess import connections_router
 from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.resolver import AccessResolver
-from miles.health import resolve_health
 from miles.identities.api_identities import router as identities_router
 from miles.identities.service import GitIdentitiesService
-from miles.log_config import configure_logging
 from miles.mcp_api.server import MCP_MOUNT, MCP_PATH, build_server, mcp_app
 from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder

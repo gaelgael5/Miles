@@ -8,9 +8,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from miles.api_health import router
-from miles.health import HealthReport, resolve_health
-from tests.conftest import FakeConnection
+from miles_socle.health.api_health import router
+from miles_socle.health.probe import HealthReport, resolve_health
+from miles_socle.testing import FakeConnection
 
 
 class FakePool:

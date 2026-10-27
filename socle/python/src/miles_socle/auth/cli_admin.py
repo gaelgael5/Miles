@@ -10,13 +10,13 @@ EXIT_REFUSED = 2
 
 
 def main(argv: list[str] | None = None) -> int:
-    """`miles-admin hash-password` : empreinte argon2id d'un mot de passe lu sur stdin.
+    """`<produit>-admin hash-password` : empreinte argon2id d'un mot de passe lu sur stdin.
 
     Utilisé par dev-deploy.sh pour déclarer le compte d'amorçage d'une machine de
     test. Le mot de passe arrive par stdin, jamais en argument : l'argv de tout
     processus est lisible par `ps`.
     """
-    parser = argparse.ArgumentParser(prog="miles-admin")
+    parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["hash-password"])
     parser.parse_args(argv)
     password = sys.stdin.readline().rstrip("\n")

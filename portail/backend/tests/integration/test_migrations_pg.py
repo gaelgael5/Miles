@@ -6,9 +6,9 @@ import asyncpg
 import pytest
 from miles_socle.db.migration_files import MigrationError, file_load_migrations
 from miles_socle.db.migrations import db_schema_version, resolve_apply_migrations
+from miles_socle.health.probe import resolve_health
 
 from miles.config import DEFAULT_MIGRATIONS_DIR
-from miles.health import resolve_health
 from tests.conftest import write_migrations
 
 pytestmark = pytest.mark.integration

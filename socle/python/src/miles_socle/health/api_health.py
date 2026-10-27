@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, ConfigDict
 
-from miles.health import HealthProbe
+from miles_socle.health.probe import HealthProbe
 
 router = APIRouter()
 

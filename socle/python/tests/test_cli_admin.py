@@ -3,9 +3,9 @@ from __future__ import annotations
 import io
 
 import pytest
-from miles_socle.auth.passwords import verify_password
 
-from miles.cli_admin import EXIT_OK, EXIT_REFUSED, main
+from miles_socle.auth.cli_admin import EXIT_OK, EXIT_REFUSED, main
+from miles_socle.auth.passwords import verify_password
 
 
 def test_hash_password_reads_stdin_and_prints_verifiable_hash(
