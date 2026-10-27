@@ -39,16 +39,32 @@ docker network create "$RUN_ID" >/dev/null
 docker run -d --name "$RUN_ID-db" --network "$RUN_ID" \
   -e POSTGRES_PASSWORD="$PG_PASSWORD" postgres:16 >/dev/null
 
-# Attente portée à 180 s le 27/10/2026, après six échecs intermittents sur « jamais prêt »
-# (24-27/10). La cause n'est PAS établie ; ce qui l'est, par capture directe du conteneur
-# au moment d'un échec : il tournait, sans OOM ni erreur docker — postgres n'acceptait
-# simplement pas de connexion dans la fenêtre. Un plafond qu'on dépasse parfois se
-# relève ; la boucle sort au premier succès, donc cela ne coûte rien quand tout va bien.
+# CAUSE ÉTABLIE le 27/10/2026, reproduite 6 fois sur 6, des sept échecs « jamais prêt »
+# du 24 au 27/10 — et elle était ici, pas dans la machine ni dans postgres.
+# L'entrypoint de `postgres:16` lance un serveur TEMPORAIRE pendant initdb, qui n'écoute
+# QUE la socket Unix. `pg_isready` y répond « accepting connections », puis REPASSE en
+# échec quand l'entrypoint arrête ce serveur pour démarrer le vrai. L'ancienne boucle
+# sortait sur ce premier succès, puis posait une SECONDE sonde indépendante : quand
+# celle-ci tombait dans la fenêtre d'arrêt, le script annonçait « jamais prêt après
+# 180 s » au bout de quelques secondes — d'où un journal de 77 octets et une
+# intermittence qui dépendait du seul instant de la seconde sonde.
+# Deux corrections, et les deux comptent :
+#   -h 127.0.0.1 force la sonde en TCP, que le serveur temporaire n'expose pas — il
+#   devient donc invisible, au lieu d'être pris pour le vrai ;
+#   la décision se prend DANS la boucle, sur trois succès consécutifs, au lieu d'être
+#   rejouée après coup : re-poser la question qu'on vient de trancher est ce qui a
+#   transformé une fenêtre de quelques centaines de millisecondes en sept échecs.
+pret=0
 for _ in $(seq 1 180); do
-  docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null 2>&1 && break
+  if docker exec "$RUN_ID-db" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then
+    pret=$((pret + 1))
+    if [ "$pret" -ge 3 ]; then break; fi
+  else
+    pret=0
+  fi
   sleep 1
 done
-if ! docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null 2>&1; then
+if [ "$pret" -lt 3 ]; then
   # Le trap de sortie DÉTRUIT le conteneur : sans ces lignes, « voir docker logs » renvoie
   # vers quelque chose qui n'existe plus, et l'échec reste opaque — il l'est resté six fois.
   {
@@ -61,7 +77,10 @@ if ! docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null 2>&1; then
     # stdout ET stderr vers /dev/null, donc une erreur de `docker exec` y est invisible.
     # Le conteneur tourne et postgres écoute : c'est donc l'appel lui-même qui échoue.
     echo "dernier essai, sortie complète :"
-    docker exec "$RUN_ID-db" pg_isready -U postgres 2>&1 | sed 's/^/  /' || true
+    # Même sonde que la boucle — en TCP. Une sonde de diagnostic qui n'interroge pas la
+    # même chose que la boucle rend un verdict qui ne dit rien de l'échec : c'est ce qui
+    # a fait lire « accepting connections, code 0 » juste sous « jamais prêt ».
+    docker exec "$RUN_ID-db" pg_isready -h 127.0.0.1 -U postgres 2>&1 | sed 's/^/  /' || true
     echo "  code de retour : $?"
     echo "connexion directe : $(docker exec "$RUN_ID-db" \
       psql -U postgres -tAc 'select 1' 2>&1 | head -2 | tr '\n' ' ')"
