@@ -6,6 +6,8 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 from miles.chains.layout import (
     CHAIN_FILE,
@@ -22,8 +24,6 @@ from miles.chains.layout import (
     template_path,
 )
 from miles.datamodels.schema import target_of
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
 from miles.sources.layout import names_in, read_source, source_path
 from miles.transform.chain import StepSpec, compile_chain

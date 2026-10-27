@@ -4,13 +4,13 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from miles_socle.secrets.model import Secret
 
 from miles.git.access import GitAccess
 from miles.git.forge import Repository
 from miles.git.versions import fetch_versions, tag_head
 from miles.git.workcopy import BranchMissingError
 from miles.git.workdirs import WorkDirs
-from miles.secrets.model import Secret
 
 TOKEN = GitAccess(token=Secret("jeton-local"))
 AUTHOR = "alice via Miles <alice@annuaire.miles.invalid>"

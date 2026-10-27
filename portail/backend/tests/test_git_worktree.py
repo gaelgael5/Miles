@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from miles_socle.secrets.model import Secret
 
 from miles.git.access import GitAccess
 from miles.git.forge import Repository
@@ -16,7 +17,6 @@ from miles.git.worktree import (
     is_blank,
     open_work_branch,
 )
-from miles.secrets.model import Secret
 
 TOKEN = GitAccess(token=Secret("jeton-local"))
 # Les branches vivent sous « back/<workspace>/ » : le workspace fait partie du nom.

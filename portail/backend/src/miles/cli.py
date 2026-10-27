@@ -5,11 +5,11 @@ import asyncio
 import sys
 
 import structlog
+from miles_socle.db.migration_files import MigrationError, file_load_migrations
+from miles_socle.db.migrations import db_schema_version, resolve_apply_migrations
+from miles_socle.db.pool import db_connect
 
 from miles.config import DatabaseSettings
-from miles.db.migration_files import MigrationError, file_load_migrations
-from miles.db.migrations import db_schema_version, resolve_apply_migrations
-from miles.db.pool import db_connect
 from miles.log_config import configure_logging
 
 log = structlog.get_logger(__name__)

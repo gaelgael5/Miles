@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import pytest
-
-from miles.db.migration_files import Migration, MigrationError
-from miles.db.migrations import (
+from miles_socle.db.migration_files import Migration, MigrationError
+from miles_socle.db.migrations import (
     MIGRATION_LOCK_KEY,
     db_applied_checksums,
     db_schema_version,
     resolve_apply_migrations,
     resolve_pending,
 )
+
 from tests.conftest import FakeConnection
 
 

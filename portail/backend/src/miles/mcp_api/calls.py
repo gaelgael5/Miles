@@ -7,13 +7,13 @@ from typing import Any, TypeVar
 import structlog
 from mcp.server.mcpserver import Context
 from mcp.server.mcpserver.exceptions import ToolError
+from miles_socle.events.model import DelegatedAuthor, EventAuthor
 from starlette.requests import Request
 
 from miles.apikeys.model import KEY_DIRECTORY, KeyPrincipal
 from miles.chains.service import ChainInUseError, ChainNotFoundError
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError
 from miles.datamodels.service import ModelInUseError, ModelNotFoundError
-from miles.events.model import DelegatedAuthor, EventAuthor
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE
 from miles.mcp_api.errors import refusal, refusal_code
 from miles.obo.service import Actor

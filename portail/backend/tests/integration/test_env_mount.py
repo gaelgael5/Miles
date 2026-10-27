@@ -4,9 +4,8 @@ import os
 from pathlib import Path
 
 import pytest
-
-from miles.auth.admin_store import AdminAccountStore
-from miles.auth.env_file import file_read_env
+from miles_socle.auth.admin_store import AdminAccountStore
+from miles_socle.auth.env_file import file_read_env
 
 pytestmark = pytest.mark.integration
 

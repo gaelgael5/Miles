@@ -4,12 +4,12 @@ from typing import Literal
 
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
+from miles_socle.auth.author import request_author
+from miles_socle.auth.context import AuthContext
+from miles_socle.auth.sessions import LOCAL_ADMIN_KIND, OIDC_KIND, Session
 from pydantic import BaseModel, ConfigDict, Field
 
 from miles.apikeys.model import Access
-from miles.auth.author import request_author
-from miles.auth.context import AuthContext
-from miles.auth.sessions import LOCAL_ADMIN_KIND, OIDC_KIND, Session
 from miles.oauth.access import GrantNotFoundError, OAuthAccess
 from miles.oauth.flow import AuthorizeRedirect, AuthorizeRefused, OAuthFlow
 from miles.oauth.model import LOCAL_KIND, Person

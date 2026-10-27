@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.27",
     "jsonschema==4.26.0",
     "mcp==2.3.0",
+    "miles-socle",
     "openapi-spec-validator==0.9.0",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
@@ -28,6 +29,14 @@ dependencies = [
 miles-migrate = "miles.cli:main"
 miles-admin = "miles.cli_admin:main"
 miles-contracts = "miles.published_contracts:main"
+
+[tool.uv.sources]
+# Le socle vit hors du répertoire du produit : il est partagé avec les autres produits
+# du dépôt (décision du 27/10/2026). Le chemin relatif vaut tel quel dans l'image, où
+# le socle arrive par un contexte de build additionnel copié dans /socle/python —
+# `/app/../../socle/python` et `portail/backend/../../socle/python` désignent le même
+# emplacement relatif, ce qui évite une seconde configuration pour Docker.
+miles-socle = { path = "../../socle/python", editable = true }
 
 [dependency-groups]
 dev = [

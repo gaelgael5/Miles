@@ -6,6 +6,8 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 from miles.contracts.derived import derive_models
 from miles.contracts.layout import (
@@ -29,8 +31,6 @@ from miles.contracts.openapi import (
     parse_contract,
 )
 from miles.contracts.reading import Contract, contract_at
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceInputError, checked_label, commit_author

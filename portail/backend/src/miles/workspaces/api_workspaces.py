@@ -5,9 +5,9 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
+from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict
 
-from miles.auth.author import request_author
 from miles.git.worktree import NonConformTreeError, diagnosis_json
 from miles.workspaces.model import (
     AccessCheckFailedError,

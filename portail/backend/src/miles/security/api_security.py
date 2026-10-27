@@ -5,9 +5,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
+from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict
 
-from miles.auth.author import request_author
 from miles.security.service import (
     SecurityInput,
     SecurityInputError,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from miles.secrets.model import Secret
+from miles_socle.secrets.model import Secret
 
 
 @dataclass(frozen=True)

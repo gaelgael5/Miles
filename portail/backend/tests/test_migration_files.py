@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from miles_socle.db.migration_files import MigrationError, file_load_migrations
 
 from miles.config import DEFAULT_MIGRATIONS_DIR
-from miles.db.migration_files import MigrationError, file_load_migrations
 from tests.conftest import write_migrations
 
 

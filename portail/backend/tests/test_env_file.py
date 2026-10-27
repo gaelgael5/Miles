@@ -4,8 +4,7 @@ import stat
 from pathlib import Path
 
 import pytest
-
-from miles.auth.env_file import (
+from miles_socle.auth.env_file import (
     EnvEntriesPresentError,
     EnvFileError,
     file_append_entries,
@@ -13,6 +12,7 @@ from miles.auth.env_file import (
     parse_env,
     render_entries,
 )
+
 from tests.auth_fixtures import BASE_ENV, write_env
 
 HASH = "$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA"

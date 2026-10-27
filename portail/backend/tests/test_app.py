@@ -10,12 +10,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from miles_socle.auth.admin_account import AdminConfigError
+from miles_socle.db.migration_files import MigrationError
+from miles_socle.secrets.crypto import SecretsKeyError
 from pydantic import ValidationError
 
 from miles import app as app_module
-from miles.auth.admin_account import AdminConfigError
-from miles.db.migration_files import MigrationError
-from miles.secrets.crypto import SecretsKeyError
 from tests.auth_fixtures import BASE_ENV, write_env
 from tests.conftest import FakeConnection, write_migrations
 

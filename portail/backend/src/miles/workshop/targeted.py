@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from miles_socle.events.model import EventAuthor
+
 from miles.contracts.derived import present_models
 from miles.contracts.layout import checked_slug, slugs_in
 from miles.contracts.reading import Contract, contract_at
-from miles.events.model import EventAuthor
 from miles.workshop.domains import (
     MAX_CONTENT_BYTES,
     DomainContent,

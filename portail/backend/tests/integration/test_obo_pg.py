@@ -5,8 +5,13 @@ from datetime import timedelta
 
 import httpx
 import pytest
+from miles_socle.auth.sessions import (
+    OIDC_KIND,
+    SESSION_COOKIE,
+    db_create_session,
+    new_session_token,
+)
 
-from miles.auth.sessions import OIDC_KIND, SESSION_COOKIE, db_create_session, new_session_token
 from miles.obo.signature import sign_actor
 from tests.integration.portal_stack import utc_now
 from tests.integration.test_api_keys_pg import Stack, _call, _issue, _result, bearer, stack

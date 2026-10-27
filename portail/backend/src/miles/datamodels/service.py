@@ -7,6 +7,8 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 from miles.datamodels.example import example_of
 from miles.datamodels.grammar import ModelGrammarError, Problem, load_yaml
@@ -29,8 +31,6 @@ from miles.datamodels.schema import (
     references_in,
     target_of,
 )
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.workcopy import WorkCopy
 from miles.workshop.domains import domains_in
 from miles.workshop.target import Gesture, WorkBranches

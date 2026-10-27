@@ -4,12 +4,12 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from miles_socle.secrets.model import Secret
 
 from miles.git.access import GitAccess
 from miles.git.forge import Repository
 from miles.git.rights import Reason, Right, classify, run_access_check, verification_name
 from miles.git.runner import GitResult
-from miles.secrets.model import Secret
 
 TOKEN = GitAccess(token=Secret("jeton-sans-usage-en-local"))
 SUFFIX = "0a1b2c3d"

@@ -7,7 +7,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
-from miles.events.model import DelegatedAuthor, EventAuthor
+from miles_socle.events.model import DelegatedAuthor, EventAuthor
+
 from miles.git.rights import AccessReport
 
 CREATED_EVENT = "workspace.created"

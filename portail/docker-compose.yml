@@ -21,6 +21,11 @@ services:
     build:
       context: ./backend
       target: runtime
+      # Le socle partagé est hors du produit : il entre par un contexte additionnel
+      # plutôt qu'en élargissant le contexte à la racine, qui embarquerait les autres
+      # produits dans l'image. Vérifié sur machine de test le 27/10/2026.
+      additional_contexts:
+        socle: ../socle/python
     environment:
       MILES_DATABASE_URL: postgresql://miles:${MILES_DB_PASSWORD:?}@db:5432/miles
       MILES_LOG_LEVEL: ${MILES_LOG_LEVEL:-info}

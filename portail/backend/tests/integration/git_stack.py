@@ -7,6 +7,10 @@ from pathlib import Path
 
 import httpx
 import pytest
+from miles_socle.events.model import EventTypeCatalog
+from miles_socle.secrets.crypto import SecretCipher
+from miles_socle.secrets.service import EVENT_TYPES as SECRET_EVENTS
+from miles_socle.secrets.service import SecretsService
 
 from miles.apikeys.service import EVENT_TYPES as API_KEY_EVENTS
 from miles.apikeys.service import ApiKeysService
@@ -20,7 +24,6 @@ from miles.contracts.service import EVENT_TYPES as CONTRACT_EVENTS
 from miles.contracts.service import ContractsService
 from miles.datamodels.service import EVENT_TYPES as DATA_MODEL_EVENTS
 from miles.datamodels.service import DataModelsService
-from miles.events.model import EventTypeCatalog
 from miles.git.holdspace import HOLDS_DIR, HoldSpaces
 from miles.git.workdirs import WorkDirs
 from miles.gitaccess.connections import ConnectionsService
@@ -34,9 +37,6 @@ from miles.oauth.clients import EVENT_TYPES as OAUTH_EVENTS
 from miles.oauth.clients import OAuthClientsService
 from miles.oauth.flow import OAuthFlow
 from miles.obo.service import ActorIdentitiesService
-from miles.secrets.crypto import SecretCipher
-from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
-from miles.secrets.service import SecretsService
 from miles.sources.service import EVENT_TYPES as SOURCE_EVENTS
 from miles.sources.service import SourcesService
 from miles.storages.service import EVENT_TYPES as STORAGE_EVENTS

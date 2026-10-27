@@ -7,9 +7,9 @@ from datetime import datetime
 from typing import Any
 
 import asyncpg
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.access import GitAccess
 from miles.git.forge import parse_repository, repository_under
 from miles.git.rights import AccessReport, run_access_check

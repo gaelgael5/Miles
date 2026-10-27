@@ -4,8 +4,8 @@ from collections.abc import Callable
 
 import httpx
 import pytest
+from miles_socle.secrets.model import Secret
 
-from miles.secrets.model import Secret
 from miles.security.probe import Outcome, probe_keycloak, realm_issuer
 
 BASE = "https://security.example.org"

@@ -4,11 +4,11 @@ from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import pytest
+from miles_socle.auth.sessions import db_create_session, db_delete_session, db_find_session
+from miles_socle.db.migration_files import file_load_migrations
+from miles_socle.db.migrations import resolve_apply_migrations
 
-from miles.auth.sessions import db_create_session, db_delete_session, db_find_session
 from miles.config import DEFAULT_MIGRATIONS_DIR
-from miles.db.migration_files import file_load_migrations
-from miles.db.migrations import resolve_apply_migrations
 
 pytestmark = pytest.mark.integration
 

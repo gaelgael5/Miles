@@ -4,11 +4,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
+from miles_socle.auth.author import request_author
+from miles_socle.auth.context import AuthContext
+from miles_socle.auth.sessions import Session
 from pydantic import BaseModel, ConfigDict, Field
 
-from miles.auth.author import request_author
-from miles.auth.context import AuthContext
-from miles.auth.sessions import Session
 from miles.obo.service import ActorIdentitiesService, ActorInvalidError, ActorTakenError
 
 # Personnelle, comme les préférences : ouverte à toute session (OIDC_SESSION_PATHS), elle

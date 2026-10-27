@@ -8,9 +8,11 @@ from datetime import datetime
 import asyncpg
 import httpx
 import structlog
+from miles_socle.events.journal import EventDb, db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.secrets.crypto import Sealed, SecretCipher
+from miles_socle.secrets.model import Secret
 
-from miles.events.journal import EventDb, db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.forge import RepositoryUrlError, parse_repository
 from miles.identities.forge_api import (
     EmailOrigin,
@@ -19,8 +21,6 @@ from miles.identities.forge_api import (
     can_write,
     fetch_account,
 )
-from miles.secrets.crypto import Sealed, SecretCipher
-from miles.secrets.model import Secret
 
 log = structlog.get_logger(__name__)
 

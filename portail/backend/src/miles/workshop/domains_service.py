@@ -6,9 +6,9 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.workshop.domains import DOMAINS, checked_domain, domains_in
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceInputError

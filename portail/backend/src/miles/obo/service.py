@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import asyncpg
-
-from miles.events.model import EventAuthor
+from miles_socle.events.model import EventAuthor
 
 ACTOR_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 

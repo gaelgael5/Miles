@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import httpx
 import pytest
+from miles_socle.secrets.model import Secret
 
 from miles.identities.forge_api import (
     EmailOrigin,
@@ -14,7 +15,6 @@ from miles.identities.forge_api import (
     can_write,
     fetch_account,
 )
-from miles.secrets.model import Secret
 
 ROOT = "https://api.github.com"
 TOKEN = Secret("ghp_personnel")

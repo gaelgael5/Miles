@@ -4,11 +4,11 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
+from miles_socle.auth.api_preferences import PreferencesService
+from miles_socle.cultures.service import EVENT_TYPES as CULTURE_EVENTS
+from miles_socle.cultures.service import CulturesService
+from miles_socle.events.model import EventAuthor, EventTypeCatalog
 
-from miles.auth.api_preferences import PreferencesService
-from miles.cultures.service import EVENT_TYPES as CULTURE_EVENTS
-from miles.cultures.service import CulturesService
-from miles.events.model import EventAuthor, EventTypeCatalog
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration

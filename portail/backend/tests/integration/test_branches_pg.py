@@ -5,8 +5,8 @@ from pathlib import Path
 
 import httpx
 import pytest
+from miles_socle.events.model import EventAuthor
 
-from miles.events.model import EventAuthor
 from tests.integration.test_contracts_pg import EMPTY
 from tests.integration.test_datamodels_pg import PERSONNE, body_of
 from tests.integration.test_sources_pg import SOURCE

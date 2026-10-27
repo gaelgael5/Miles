@@ -6,12 +6,12 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from miles_socle.auth.admin_store import AdminAccountStore
+from miles_socle.auth.context import AuthContext
+from miles_socle.auth.sessions import SESSION_COOKIE
+from miles_socle.auth.throttle import LoginThrottle
 
 from miles.app import build_app
-from miles.auth.admin_store import AdminAccountStore
-from miles.auth.context import AuthContext
-from miles.auth.sessions import SESSION_COOKIE
-from miles.auth.throttle import LoginThrottle
 from tests.auth_fixtures import ADMIN_PASSWORD, BASE_ENV, FakeClock, FakeSessionDb, write_env
 
 START = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)

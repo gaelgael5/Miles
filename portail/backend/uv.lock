@@ -989,6 +989,7 @@ dependencies = [
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "mcp" },
+    { name = "miles-socle" },
     { name = "openapi-spec-validator" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -1023,6 +1024,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "jsonschema", specifier = "==4.26.0" },
     { name = "mcp", specifier = "==2.3.0" },
+    { name = "miles-socle", editable = "../../socle/python" },
     { name = "openapi-spec-validator", specifier = "==0.9.0" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
@@ -1045,6 +1047,43 @@ dev = [
     { name = "ruff", specifier = ">=0.8" },
     { name = "types-jsonschema", specifier = ">=4.26.0.20261006" },
     { name = "types-pyyaml", specifier = ">=6.0" },
+]
+
+[[package]]
+name = "miles-socle"
+version = "0.1.0"
+source = { editable = "../../socle/python" }
+dependencies = [
+    { name = "argon2-cffi" },
+    { name = "asyncpg" },
+    { name = "cryptography" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "structlog" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "argon2-cffi", specifier = ">=23.1" },
+    { name = "asyncpg", specifier = ">=0.30" },
+    { name = "cryptography", specifier = ">=44" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.9" },
+    { name = "structlog", specifier = ">=24.4" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "asyncpg-stubs", specifier = ">=0.30" },
+    { name = "mypy", specifier = ">=1.13" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "pytest-cov", specifier = ">=6.0" },
+    { name = "ruff", specifier = ">=0.8" },
 ]
 
 [[package]]

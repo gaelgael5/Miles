@@ -97,7 +97,11 @@ docker run -d --name "$RUN_ID-gitea" --network "$RUN_ID" \
   -e GITEA__security__INSTALL_LOCK=true -e GITEA__database__DB_TYPE=sqlite3 \
   -e GITEA__server__ROOT_URL="http://$RUN_ID-gitea:3000/" "$GITEA_IMAGE" >/dev/null
 
-docker build -q --target test -t "$RUN_ID-backend" "$PRODUIT_DIR/backend" >/dev/null
+# --build-context socle=… : même mécanisme que le compose du produit. Sans lui, le
+# verrou référence un paquet absent du contexte et la construction échoue sur la
+# résolution, pas sur le code.
+docker build -q --target test -t "$RUN_ID-backend" \
+  --build-context "socle=$PRODUIT_DIR/../socle/python" "$PRODUIT_DIR/backend" >/dev/null
 
 # Le fournisseur démarre en quelques secondes : on attend sa découverte, depuis le réseau.
 oidc_ready=0

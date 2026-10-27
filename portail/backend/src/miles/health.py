@@ -6,8 +6,7 @@ from dataclasses import dataclass
 
 import asyncpg
 import structlog
-
-from miles.db.migrations import db_schema_version
+from miles_socle.db.migrations import db_schema_version
 
 log = structlog.get_logger(__name__)
 

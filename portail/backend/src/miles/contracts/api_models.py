@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
+from miles_socle.auth.author import request_author
 
-from miles.auth.author import request_author
 from miles.contracts.api_contracts import Service as Contracts
 from miles.contracts.models_service import ContractModelsService
 from miles.contracts.refusals import REFUSALS as _REFUSALS

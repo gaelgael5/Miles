@@ -7,15 +7,15 @@ from pathlib import Path
 
 import httpx
 import pytest
+from miles_socle.cultures.service import EVENT_TYPES as CULTURE_EVENTS
+from miles_socle.cultures.service import CulturesService
+from miles_socle.events.model import EventTypeCatalog
+from miles_socle.oidc.service import EVENT_TYPES as OIDC_EVENTS
+from miles_socle.oidc.service import OidcService
+from miles_socle.secrets.crypto import SecretCipher
+from miles_socle.secrets.service import EVENT_TYPES as SECRET_EVENTS
+from miles_socle.secrets.service import SecretsService
 
-from miles.cultures.service import EVENT_TYPES as CULTURE_EVENTS
-from miles.cultures.service import CulturesService
-from miles.events.model import EventTypeCatalog
-from miles.oidc.service import EVENT_TYPES as OIDC_EVENTS
-from miles.oidc.service import OidcService
-from miles.secrets.crypto import SecretCipher
-from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
-from miles.secrets.service import SecretsService
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration

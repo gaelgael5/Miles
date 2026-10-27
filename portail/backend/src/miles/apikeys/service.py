@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 from miles.apikeys.model import (
     KEY_ID_RE,
@@ -22,8 +24,6 @@ from miles.apikeys.model import (
     same_digest,
     shown_prefix,
 )
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.workspaces.model import checked_label
 
 log = structlog.get_logger(__name__)

@@ -4,12 +4,12 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from miles_socle.secrets.model import Secret
 
 from miles.git.access import GitAccess
 from miles.git.forge import Repository
 from miles.git.holdspace import HoldSpaces
 from miles.git.workcopy import BranchMovedError
-from miles.secrets.model import Secret
 
 TOKEN = GitAccess(token=Secret("jeton-de-lea"))
 LEA = "Léa Martin <lea@forge.invalid>"

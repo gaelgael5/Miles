@@ -6,6 +6,8 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 from miles.contracts.derived import (
     checked_model_name,
@@ -16,8 +18,6 @@ from miles.contracts.derived import (
 from miles.contracts.layout import checked_slug, version_path, versions_in
 from miles.contracts.openapi import parse_contract
 from miles.contracts.service import ContractNotFoundError
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.workshop.target import Gesture, WorkBranches
 
 log = structlog.get_logger(__name__)

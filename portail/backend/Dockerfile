@@ -6,6 +6,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PROJECT_ENVIRONMENT=/opt/venv
 WORKDIR /app
+# Le socle partagé arrive par un contexte de build additionnel, et non en élargissant
+# le contexte à la racine du dépôt : l'image embarquerait sinon les autres produits.
+# Destination choisie pour que `../../socle/python` — le chemin inscrit dans
+# pyproject.toml — désigne le même endroit ici et dans le dépôt : /app/../../ vaut /.
+COPY --from=socle . /socle/python
 COPY pyproject.toml uv.lock ./
 # --frozen : l'image se construit sur le verrou du dépôt, jamais sur une résolution
 # du jour qui ferait tourner en test autre chose que ce qui a été validé.

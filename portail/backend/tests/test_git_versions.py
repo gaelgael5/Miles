@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from miles_socle.secrets.model import Secret
 
 from miles.datamodels.grammar import Problem
 from miles.git.access import GitAccess
@@ -17,7 +18,6 @@ from miles.git.versions import (
     tag_head,
 )
 from miles.git.workcopy import checkout
-from miles.secrets.model import Secret
 from miles.workshop.validation import FileReport, validate_branch
 
 TOKEN = GitAccess(token=Secret("jeton-local"))

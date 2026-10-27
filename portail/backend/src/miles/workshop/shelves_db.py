@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from miles.events.model import EventAuthor
+from miles_socle.events.model import EventAuthor
 
 _SELECT = (
     "SELECT s.workspace_id, w.name AS workspace_name, s.slug, s.holder_directory,"

@@ -4,7 +4,8 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
-from miles.events.model import EventAuthor
+from miles_socle.events.model import EventAuthor
+
 from miles.git.snapshot import snapshot
 from miles.workshop.target import Gesture, WorkBranches
 

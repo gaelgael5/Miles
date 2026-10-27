@@ -6,8 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
-from miles.db.migration_files import Migration, file_load_migrations
+from miles_socle.db.migration_files import Migration, file_load_migrations
 
 
 class FakeConnection:

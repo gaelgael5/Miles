@@ -5,9 +5,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
+from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict, Field
 
-from miles.auth.author import request_author
 from miles.identities.forge_api import ForgeCheckError, UnsupportedForgeError
 from miles.identities.service import (
     MAX_TOKEN_LENGTH,

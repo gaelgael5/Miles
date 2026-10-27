@@ -9,21 +9,21 @@ from pathlib import Path
 import asyncpg
 import httpx
 from fastapi import FastAPI
-
-from miles.app import build_app
-from miles.auth.admin_store import AdminAccountStore
-from miles.auth.context import AuthContext
-from miles.auth.passwords import hash_password
-from miles.auth.sessions import (
+from miles_socle.auth.admin_store import AdminAccountStore
+from miles_socle.auth.context import AuthContext
+from miles_socle.auth.passwords import hash_password
+from miles_socle.auth.sessions import (
     LOCAL_ADMIN_KIND,
     SESSION_COOKIE,
     db_create_session,
     new_session_token,
 )
-from miles.auth.throttle import LoginThrottle
+from miles_socle.auth.throttle import LoginThrottle
+from miles_socle.db.migration_files import file_load_migrations
+from miles_socle.db.migrations import resolve_apply_migrations
+
+from miles.app import build_app
 from miles.config import DEFAULT_MIGRATIONS_DIR
-from miles.db.migration_files import file_load_migrations
-from miles.db.migrations import resolve_apply_migrations
 from tests.auth_fixtures import ADMIN_PASSWORD, BASE_ENV, write_env
 
 

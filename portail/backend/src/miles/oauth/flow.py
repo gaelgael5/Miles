@@ -10,10 +10,10 @@ from urllib.parse import urlencode
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 from miles.apikeys.model import Access
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.oauth.clients import GRANTED_EVENT, OAuthClient, OAuthClientsService
 from miles.oauth.model import (
     ACCESS_PREFIX,

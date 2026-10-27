@@ -6,12 +6,12 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 from miles.datamodels.grammar import load_yaml
 from miles.datamodels.layout import MODEL_RE, model_path
 from miles.datamodels.service import inlined_schema
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.sources import openapi
 from miles.sources.checks import branch_problems
 from miles.sources.layout import (

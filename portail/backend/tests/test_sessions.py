@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from miles.auth.sessions import (
+from miles_socle.auth.sessions import (
     db_create_session,
     db_delete_session,
     db_find_session,
     new_session_token,
     token_digest,
 )
+
 from tests.auth_fixtures import FakeSessionDb
 
 NOW = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)

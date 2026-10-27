@@ -7,12 +7,12 @@ from datetime import UTC, datetime
 
 import asyncpg
 import pytest
+from miles_socle.db.migration_files import file_load_migrations
+from miles_socle.db.migrations import resolve_apply_migrations
+from miles_socle.events.journal import db_object_history, db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 from miles.config import DEFAULT_MIGRATIONS_DIR
-from miles.db.migration_files import file_load_migrations
-from miles.db.migrations import resolve_apply_migrations
-from miles.events.journal import db_object_history, db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 pytestmark = pytest.mark.integration
 

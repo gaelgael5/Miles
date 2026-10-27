@@ -7,9 +7,9 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.holdspace import HeldCopy
 from miles.git.shelf import ShelfMissingError, ShelfTakenError, drop_shelf, merge_shelf, shelve
 from miles.workshop.holds_db import Hold, db_hold

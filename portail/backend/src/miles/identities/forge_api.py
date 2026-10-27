@@ -7,8 +7,7 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 import structlog
-
-from miles.secrets.model import Secret
+from miles_socle.secrets.model import Secret
 
 log = structlog.get_logger(__name__)
 

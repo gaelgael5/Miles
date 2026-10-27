@@ -4,11 +4,11 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from miles_socle.auth.admin_account import AdminConfigError, InvalidAdminInputError
+from miles_socle.auth.admin_store import AdminAccountStore
+from miles_socle.auth.env_file import EnvEntriesPresentError, EnvFileError, file_read_env
+from miles_socle.auth.passwords import WeakPasswordError, verify_password
 
-from miles.auth.admin_account import AdminConfigError, InvalidAdminInputError
-from miles.auth.admin_store import AdminAccountStore
-from miles.auth.env_file import EnvEntriesPresentError, EnvFileError, file_read_env
-from miles.auth.passwords import WeakPasswordError, verify_password
 from tests.auth_fixtures import ADMIN_PASSWORD, BASE_ENV, write_env
 
 

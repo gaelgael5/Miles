@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from miles_socle.secrets.model import SecretError
+from miles_socle.secrets.service import SecretsService
+
 from miles.git.access import GitAccess
 from miles.gitaccess.model import TOKEN_TYPE, GitAccessInputError, GitAccessNotFoundError
-from miles.secrets.model import SecretError
-from miles.secrets.service import SecretsService
 
 
 @dataclass(frozen=True)

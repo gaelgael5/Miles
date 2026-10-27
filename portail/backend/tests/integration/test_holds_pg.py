@@ -6,8 +6,8 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
+from miles_socle.events.model import EventAuthor
 
-from miles.events.model import EventAuthor
 from miles.workshop.holds import AlreadyHoldingError, BranchHeldError
 from tests.integration.git_stack import env
 from tests.integration.test_contracts_pg import EMPTY

@@ -7,10 +7,10 @@ from typing import Any
 
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
+from miles_socle.events.model import DelegatedAuthor, EventAuthor
 from structlog.testing import capture_logs
 
 from miles.apikeys.model import Access, Grant, KeyPrincipal
-from miles.events.model import DelegatedAuthor, EventAuthor
 from miles.mcp_api.calls import Caller, tool_refusal
 from miles.obo.service import Actor
 from miles.workspaces.model import HoldRequiredError, WorkspaceConflictError

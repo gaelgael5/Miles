@@ -4,8 +4,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
+from miles_socle.auth.author import request_author
 
-from miles.auth.author import request_author
 from miles.contracts.refusals import REFUSALS as _REFUSALS
 from miles.contracts.refusals import error as _error
 from miles.contracts.refusals import refusal as _refusal

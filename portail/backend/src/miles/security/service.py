@@ -9,12 +9,12 @@ from typing import Any
 import asyncpg
 import httpx
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.oidc.model import CONNECTOR_ID_RE, ConnectorInputError, validate_issuer
+from miles_socle.secrets.model import Consumer, SecretError
+from miles_socle.secrets.service import SecretsService, resolve_attach_secret, resolve_detach_secret
 
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
-from miles.oidc.model import CONNECTOR_ID_RE, ConnectorInputError, validate_issuer
-from miles.secrets.model import Consumer, SecretError
-from miles.secrets.service import SecretsService, resolve_attach_secret, resolve_detach_secret
 from miles.security.probe import Outcome, probe_keycloak
 
 log = structlog.get_logger(__name__)

@@ -4,10 +4,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
+from miles_socle.auth.author import request_author
+from miles_socle.events.model import EventAuthor
 from pydantic import BaseModel, ConfigDict
 
-from miles.auth.author import request_author
-from miles.events.model import EventAuthor
 from miles.workshop.holds import (
     AlreadyHoldingError,
     BranchHeldError,

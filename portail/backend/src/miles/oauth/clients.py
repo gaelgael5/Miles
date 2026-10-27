@@ -7,9 +7,9 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.oauth.model import CLIENT_ID_RE, checked_redirect_uri, new_client_id
 from miles.workspaces.model import WorkspaceInputError, checked_label
 

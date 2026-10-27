@@ -5,10 +5,10 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
+from miles_socle.auth.author import request_author
+from miles_socle.events.model import EventAuthor
 from pydantic import BaseModel, ConfigDict
 
-from miles.auth.author import request_author
-from miles.events.model import EventAuthor
 from miles.git.snapshot import CommitNotFoundError
 from miles.transform.catalog import app_floor, functions_catalog, models_catalog
 from miles.transform.engine import function_registry

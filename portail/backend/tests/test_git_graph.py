@@ -4,12 +4,12 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from miles_socle.secrets.model import Secret
 
 from miles.git.access import GitAccess
 from miles.git.forge import Repository
 from miles.git.graph import read_graph
 from miles.git.worktree import RepositoryAccessError
-from miles.secrets.model import Secret
 
 TOKEN = GitAccess(token=Secret("jeton-local"))
 WORKSPACE = "ams"

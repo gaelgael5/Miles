@@ -7,9 +7,11 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.secrets.model import Consumer, SecretError
+from miles_socle.secrets.service import resolve_attach_secret, resolve_detach_secret
 
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.access import GitAccess
 from miles.git.forge import RepositoryUrlError, parse_base_url
 from miles.git.rights import SUFFIX_RE
@@ -28,8 +30,6 @@ from miles.gitaccess.model import (
     validate_label,
 )
 from miles.gitaccess.resolver import AccessResolver
-from miles.secrets.model import Consumer, SecretError
-from miles.secrets.service import resolve_attach_secret, resolve_detach_secret
 
 log = structlog.get_logger(__name__)
 

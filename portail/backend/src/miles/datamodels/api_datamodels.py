@@ -4,9 +4,9 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
+from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict, Field
 
-from miles.auth.author import request_author
 from miles.datamodels.grammar import MAX_TEXT_BYTES, ModelGrammarError, ModelSyntaxError
 from miles.datamodels.inference import SampleNotAnObjectError, infer_root, read_sample
 from miles.datamodels.layout import ModelEntry

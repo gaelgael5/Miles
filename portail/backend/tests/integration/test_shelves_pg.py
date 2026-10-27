@@ -5,10 +5,10 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
+from miles_socle.events.model import EventAuthor
+from miles_socle.secrets.model import Secret
 
-from miles.events.model import EventAuthor
 from miles.identities.service import _aad
-from miles.secrets.model import Secret
 from miles.workshop.shelving import ShelfConflictError
 from tests.integration.git_stack import env
 from tests.integration.test_datamodels_pg import PERSONNE

@@ -4,8 +4,8 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
+from miles_socle.events.model import LOCAL_DIRECTORY, EventAuthor
 
-from miles.events.model import LOCAL_DIRECTORY, EventAuthor
 from tests.integration.git_stack import env
 from tests.integration.work_stack import Forge, open_work_forge
 

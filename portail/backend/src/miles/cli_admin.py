@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from miles.auth.passwords import WeakPasswordError, check_password_policy, hash_password
+from miles_socle.auth.passwords import WeakPasswordError, check_password_policy, hash_password
 
 EXIT_OK = 0
 EXIT_REFUSED = 2

@@ -8,9 +8,10 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.journal import db_write_event
+from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.oidc.model import CONNECTOR_ID_RE
 
-from miles.events.journal import db_write_event
-from miles.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles.git.access import GitAccess
 from miles.git.forge import Repository, RepositoryUrlError, parse_repository, repository_under
 from miles.git.holdspace import HoldSpaces
@@ -24,7 +25,6 @@ from miles.git.worktree import (
 )
 from miles.gitaccess.model import GitAccessError
 from miles.gitaccess.resolver import AccessResolver
-from miles.oidc.model import CONNECTOR_ID_RE
 from miles.workshop.holds_db import db_holds
 from miles.workspaces.model import (
     CHECKED_EVENT,

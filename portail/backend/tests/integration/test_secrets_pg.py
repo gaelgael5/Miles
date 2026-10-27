@@ -10,22 +10,22 @@ import asyncpg
 import httpx
 import pytest
 from fastapi import FastAPI
-from structlog.testing import capture_logs
-
-from miles.events.model import EventAuthor, EventError, EventTypeCatalog
-from miles.secrets.crypto import SecretCipher
-from miles.secrets.model import (
+from miles_socle.events.model import EventAuthor, EventError, EventTypeCatalog
+from miles_socle.secrets.crypto import SecretCipher
+from miles_socle.secrets.model import (
     Consumer,
     SecretNotFoundError,
     SecretTypeMismatchError,
     SecretUndecipherableError,
 )
-from miles.secrets.service import (
+from miles_socle.secrets.service import (
     EVENT_TYPES,
     SecretsService,
     resolve_attach_secret,
     resolve_detach_secret,
 )
+from structlog.testing import capture_logs
+
 from tests.integration.portal_stack import open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration

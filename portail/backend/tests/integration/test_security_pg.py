@@ -6,11 +6,11 @@ from pathlib import Path
 
 import httpx
 import pytest
+from miles_socle.events.model import EventTypeCatalog
+from miles_socle.secrets.crypto import SecretCipher
+from miles_socle.secrets.service import EVENT_TYPES as SECRET_EVENTS
+from miles_socle.secrets.service import SecretsService
 
-from miles.events.model import EventTypeCatalog
-from miles.secrets.crypto import SecretCipher
-from miles.secrets.service import EVENT_TYPES as SECRET_EVENTS
-from miles.secrets.service import SecretsService
 from miles.security.service import EVENT_TYPES as SECURITY_EVENTS
 from miles.security.service import SecurityServices
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
