@@ -32,16 +32,38 @@ Livré dans `portail/` les 24-27/10, tout vert sur test1 :
 - **Bouton de version grisé** quand il n'y a rien à figer, sur la réponse du serveur
   (`versions/freezable`) et non sur une règle recopiée.
 
-## Ce qui tourne à l'instant
+## Ce qui vient d'être livré — le socle partagé
 
-Une **campagne d'intégration** sur `91ab795`, lancée détachée sur test1. Lire le verdict :
+**Ticket `5695664d`, en revue.** Le socle technique est sorti du portail et vit dans
+`socle/python` (paquet `miles_socle`) : `auth`, `oidc`, `secrets`, `cultures`, `events`
+et `db`, environ 3 400 lignes, **aucun SQL**. Le portail en sort identique.
 
-```bash
-ssh test1 'tail -3 /root/Miles/portail/.deploy/integration-final.log'
-```
+- Les deux inversions prévues étaient bien les seules. `events/known.py` est remonté en
+  `miles/event_types.py` côté produit ; `db/pool.py` déclare un `Protocol` au lieu
+  d'importer `miles.config`.
+- `tests/architecture` tient la frontière : il lit les imports à l'`ast` sans charger le
+  code, et **trois de ses six tests introduisent la faute pour de vrai** — un test de
+  frontière qui ne peut pas échouer ne tient rien.
+- Le socle entre dans l'image par un contexte de build additionnel. **L'image bâtit dans
+  `/src/portail/backend`, pas dans `/app`** : uv refuse de normaliser un chemin qui remonte
+  au-dessus de son répertoire de base, et `/app/../../socle/python` sortait de la racine.
+  Ne pas « simplifier » en revenant à `/app`.
+- Vérifié : 802 unitaires avant, **657 portail + 145 socle = 802** après ; campagne
+  **301 + 1 + 7 = 309, zéro échec** ; 25 migrations inchangées ; image inspectée, aucune
+  trace des autres produits.
 
-Verdict attendu : trois étapes (`300+ passed`, `1 passed`, `7 passed`). **Un journal de
-77 octets n'est pas un succès** — voir la leçon ci-dessous.
+## La panne des campagnes est résolue
+
+**Cause établie le 27/10, reproduite 6 fois sur 6** : elle était dans notre boucle
+d'attente, pas dans la machine. L'entrypoint de `postgres:16` lance un serveur
+**temporaire** pendant `initdb`, qui n'écoute que la socket Unix ; `pg_isready` y répond,
+puis repasse en échec quand l'entrypoint l'arrête pour démarrer le vrai. La boucle sortait
+sur ce premier succès, puis posait une **seconde sonde indépendante** qui, tombée dans la
+fenêtre d'arrêt, annonçait « jamais prêt après 180 s » en quelques secondes.
+
+Correctif : sonde en TCP (`-h 127.0.0.1`), que le serveur temporaire n'expose pas, et
+décision **dans** la boucle sur trois succès consécutifs. Vérifié 6/6, prêt en 4-5 s.
+Les campagnes repartent.
 
 ## Ce qui attend Gael, et qui bloque
 
@@ -53,10 +75,9 @@ Verdict attendu : trois étapes (`300+ passed`, `1 passed`, `7 passed`). **Un jo
 
 ## Ce qui est éligible, et par quoi commencer
 
-- `5695664d` — **extraire le socle technique partagé** (amorçage, OIDC, sessions, cultures,
-  secrets, journal d'events, runner de migrations) en paquet de code. **C'est la tête de
-  file** : les deux coquilles et l'appariement l'attendent. Refactoring du portail livré,
-  qui doit en sortir identique.
+- `1ea3f3de` — **monter la coquille du produit enrôlement** (stack, base, back, front,
+  `dev-deploy.sh`). **C'est la tête de file maintenant** que le socle est extrait.
+- `8c95ecc7` — monter l'environnement réduit à l'appariement. Parallélisable avec le précédent.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
 
@@ -128,12 +149,13 @@ La déclaration d'un storage reste l'entrée du script engendré.
 
 Lire `LESSONS.md` — il porte les leçons du dépôt. Les plus coûteuses de cette session :
 
-- **Un journal de campagne de 77 octets n'est pas un succès.** Sept échecs intermittents
-  du 24 au 27/10 sur « PostgreSQL jetable jamais prêt », campagne jamais lancée. J'ai
-  annoncé « 0 échec » trois fois sur un compteur qui ne pouvait pas être non nul avant la
-  fin. **Cause toujours inconnue** : machine, disque, mémoire, image, réseau, contention
-  et `initdb` lent sont tous écartés par mesure. Le script instrumente désormais l'échec
-  (état et logs du conteneur, charge, sortie de `pg_isready`) — le prochain la donnera.
+- **Un journal de campagne de 77 octets n'est pas un succès.** Sept échecs du 24 au 27/10
+  sur « PostgreSQL jetable jamais prêt », campagne jamais lancée. J'ai annoncé « 0 échec »
+  trois fois sur un compteur qui ne pouvait pas être non nul avant la fin. **La cause est
+  établie depuis le 27/10 et corrigée** (voir ci-dessus) : elle était dans notre boucle.
+  On avait écarté machine, disque, mémoire, image, réseau et contention — tout sauf le
+  code qu'on avait écrit. La leçon de lecture, elle, reste entière : vérifier la taille du
+  journal ET les trois lignes de résumé avant d'annoncer un verdict.
 - **Changer la forme d'une charge utile, c'est la balayer dans TOUS les fichiers qui la
   construisent**, pas seulement le sien. Trois fois le même lot oublié au milieu de
   `test_storages_pg.py`, trois campagnes de vingt-cinq minutes pour le trouver.
