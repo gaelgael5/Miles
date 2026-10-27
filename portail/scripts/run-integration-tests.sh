@@ -39,12 +39,28 @@ docker network create "$RUN_ID" >/dev/null
 docker run -d --name "$RUN_ID-db" --network "$RUN_ID" \
   -e POSTGRES_PASSWORD="$PG_PASSWORD" postgres:16 >/dev/null
 
-for _ in $(seq 1 60); do
+# Attente portée à 180 s le 27/10/2026, après six échecs intermittents sur « jamais prêt »
+# (24-27/10). La cause n'est PAS établie ; ce qui l'est, par capture directe du conteneur
+# au moment d'un échec : il tournait, sans OOM ni erreur docker — postgres n'acceptait
+# simplement pas de connexion dans la fenêtre. Un plafond qu'on dépasse parfois se
+# relève ; la boucle sort au premier succès, donc cela ne coûte rien quand tout va bien.
+for _ in $(seq 1 180); do
   docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null 2>&1 && break
   sleep 1
 done
-docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null \
-  || { echo "PostgreSQL jetable jamais prêt (docker logs $RUN_ID-db)" >&2; exit 1; }
+if ! docker exec "$RUN_ID-db" pg_isready -U postgres >/dev/null 2>&1; then
+  # Le trap de sortie DÉTRUIT le conteneur : sans ces lignes, « voir docker logs » renvoie
+  # vers quelque chose qui n'existe plus, et l'échec reste opaque — il l'est resté six fois.
+  {
+    echo "PostgreSQL jetable jamais prêt après 180 s."
+    echo "état du conteneur : $(docker inspect -f \
+      '{{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} err={{.State.Error}}' \
+      "$RUN_ID-db" 2>&1)"
+    echo "dernières lignes du conteneur :"
+    docker logs --tail 20 "$RUN_ID-db" 2>&1 | sed 's/^/  /'
+  } >&2
+  exit 1
+fi
 
 docker run -d --name "$RUN_ID-oidc" --network "$RUN_ID" -e JSON_CONFIG="$OIDC_CONFIG" \
   "$OIDC_IMAGE" >/dev/null
