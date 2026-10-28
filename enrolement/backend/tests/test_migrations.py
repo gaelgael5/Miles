@@ -14,7 +14,7 @@ def test_la_sequence_part_de_un_et_ne_saute_aucun_numero() -> None:
 
 
 def test_toutes_les_tables_que_le_socle_interroge_sont_creees() -> None:
-    """Le socle ne porte aucun SQL : si le produit oublie une table, c'est 500 à l'exécution.
+    """Le socle ne porte aucune migration : si le produit oublie une table, c'est 500.
 
     Ce contrôle reste volontairement LOCAL au produit — il lit ses propres migrations et
     rien d'autre. Comparer le schéma de deux produits a été écarté le 27/10/2026 : l'écart
@@ -35,6 +35,9 @@ def test_toutes_les_tables_que_le_socle_interroge_sont_creees() -> None:
         "oidc_login_attempts",
         "oidc_identities",
         "user_preferences",
+        "module_identity",
+        "pairing_request",
+        "environment_peer",
     ):
         assert f"CREATE TABLE {table} (" in sql, f"table absente des migrations : {table}"
 

@@ -14,7 +14,11 @@ def test_la_sequence_part_de_un_et_ne_saute_aucun_numero() -> None:
 
 
 def test_toutes_les_tables_que_le_socle_interroge_sont_creees() -> None:
-    """Le socle ne porte aucun SQL : si le produit oublie une table, c'est 500 à l'exécution.
+    """Le socle ne porte aucune MIGRATION : si le produit oublie une table, c'est 500.
+
+    Le socle porte bien les requêtes de ses propres tables — secrets, sessions, journal,
+    identité du module —, mais aucun schéma : celui de chaque produit est relu produit par
+    produit. L'accord entre les deux n'est donc tenu que par ce test, et par PostgreSQL.
 
     Ce contrôle reste volontairement LOCAL au produit — il lit ses propres migrations et
     rien d'autre. Comparer le schéma de deux produits a été écarté le 27/10/2026 : l'écart
@@ -37,6 +41,7 @@ def test_toutes_les_tables_que_le_socle_interroge_sont_creees() -> None:
         "user_preferences",
         "module_identity",
         "enrolment_peer",
+        "pairing_attempt",
     ):
         assert f"CREATE TABLE {table} (" in sql, f"table absente des migrations : {table}"
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 
 from fastapi import FastAPI, Request, status
@@ -11,8 +12,17 @@ from miles_socle.signing.calls import (
     verify_call,
 )
 from miles_socle.signing.keys import KeyPair, fingerprint, generate_keypair, parse_public_key
+from miles_socle.signing.protocol import (
+    PAIRING_CONFIRM_PATH,
+    PAIRING_REQUEST_PATH,
+    PEER_PING_PATH,
+)
 
 PEER_ORIGIN = "http://enrolement.test"
+# Le code que cette contrepartie attend. Figé, parce que ce qui est éprouvé ici est le
+# côté ENVIRONNEMENT : la dérivation TOTP, sa fenêtre et sa brûlure appartiennent au
+# module d'enrôlement et sont éprouvées dans sa campagne, contre son vrai code.
+EXPECTED_CODE = "314159"
 
 
 @dataclass
@@ -32,26 +42,65 @@ class EnrolmentDouble:
     # appariement rompu : elle doit alors refuser nos appels.
     expects_public_key: str = ""
     received: list[str] = field(default_factory=list)
+    # Ce que la contrepartie répondra à la confirmation. Les refus du vrai module
+    # d'enrôlement sont OPAQUES (401) sauf la dérive d'horloge (409), et c'est ce que ce
+    # module doit savoir traduire sans rien inventer de ce que le pair n'a pas dit.
+    confirm_status: int = 200
+    confirm_payload: dict[str, object] | None = None
+    # Les corps reçus, en OCTETS : c'est là-dedans qu'un test va chercher qu'aucune clé
+    # privée n'est partie, plutôt que de s'en remettre à l'intention.
+    bodies: list[bytes] = field(default_factory=list)
 
     def app(self) -> FastAPI:
         app = FastAPI()
 
-        @app.post("/api/peer/ping")
+        @app.post(PAIRING_REQUEST_PATH, status_code=202)
+        async def pairing_request(request: Request) -> JSONResponse:
+            body = await request.body()
+            self.bodies.append(body)
+            origine = request.headers.get(ORIGIN_HEADER) or ""
+            # Le vrai module d'enrôlement vérifie la signature contre la clé que CE corps
+            # dépose : la doublure fait de même, sans quoi elle laisserait passer ce que
+            # le vrai refuserait.
+            depose = str(json.loads(body)["public_key"])
+            if not self._verifie(request, body, depose):
+                return JSONResponse(status_code=401, content={"detail": "appariement_refuse"})
+            self.expects_public_key = depose
+            self.received.append(origine)
+            return JSONResponse(
+                status_code=202,
+                content={"base_url": origine, "expires_at": "2026-10-28T13:00:00+00:00"},
+            )
+
+        @app.post(PAIRING_CONFIRM_PATH)
+        async def pairing_confirm(request: Request) -> JSONResponse:
+            body = await request.body()
+            self.bodies.append(body)
+            if not self._verifie(request, body, self.expects_public_key):
+                return JSONResponse(status_code=401, content={"detail": "appariement_refuse"})
+            if self.confirm_status != 200:
+                return JSONResponse(
+                    status_code=self.confirm_status,
+                    content=self.confirm_payload or {"detail": "appariement_refuse"},
+                )
+            if str(json.loads(body)["code"]) != EXPECTED_CODE:
+                return JSONResponse(status_code=401, content={"detail": "appariement_refuse"})
+            return JSONResponse(
+                content={
+                    "base_url": PEER_ORIGIN,
+                    "public_key": self.keypair.public_key,
+                    "algorithm": "ed25519",
+                }
+            )
+
+        @app.post(PEER_PING_PATH)
         async def ping(request: Request) -> JSONResponse:
             body = await request.body()
             origine = request.headers.get(ORIGIN_HEADER) or ""
-            try:
-                verify_call(
-                    parse_public_key(self.expects_public_key),
-                    request.headers.get(SIGNATURE_HEADER),
-                    origin=origine,
-                    method=request.method,
-                    target=request.url.path,
-                    body=body,
-                )
-            except CallSignatureError as refus:
+            if not self._verifie(request, body, self.expects_public_key):
                 return JSONResponse(
-                    status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": refus.reason}
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": "signature_refusee"},
                 )
             self.received.append(origine)
             return JSONResponse(
@@ -64,3 +113,22 @@ class EnrolmentDouble:
             )
 
         return app
+
+    def _verifie(self, request: Request, body: bytes, public_key: str) -> bool:
+        """La doublure ne réimplémente aucune cryptographie : elle appelle le socle.
+
+        C'est ce qui donne sa valeur au test — une doublure qui dirait « oui » sans
+        vérifier prouverait seulement qu'on sait écrire une doublure complaisante.
+        """
+        try:
+            verify_call(
+                parse_public_key(public_key),
+                request.headers.get(SIGNATURE_HEADER),
+                origin=request.headers.get(ORIGIN_HEADER) or "",
+                method=request.method,
+                target=request.url.path,
+                body=body,
+            )
+        except (CallSignatureError, ValueError):
+            return False
+        return True

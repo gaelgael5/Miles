@@ -4,10 +4,10 @@ from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, CallSignatureError
 from miles_socle.signing.keys import fingerprint
-from pydantic import BaseModel, ConfigDict
+from miles_socle.signing.peers import IdentityError
+from miles_socle.signing.protocol import PEER_PING_PATH, PongOut
 
-from environnement.identity.model import IdentityError
-from environnement.identity.service import PEER_PING_PATH, IdentityService
+from environnement.identity.service import IdentityService
 
 MODULE = "environnement"
 # Routeur à part, et c'est tout l'intérêt : `app.py` lit SES chemins pour les déclarer au
@@ -16,28 +16,6 @@ MODULE = "environnement"
 # exprimable. Même raison que la table des écrans du front, pour la même panne : ce qui
 # est tenu à deux endroits finit par diverger, et la divergence paraît verte.
 router = APIRouter()
-
-
-class PongOut(BaseModel):
-    """Réponse de l'échange de vivacité. UNE seule définition, pour les deux sens.
-
-    Ce module la sert sur sa propre route, et l'attend de son pair quand c'est lui qui
-    appelle : c'est le MÊME contrat. Deux modèles de même forme auraient divergé au
-    premier champ ajouté d'un seul côté.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    module: str
-    # NOTRE adresse publique, pas celle de l'appelant — qui la connaît déjà. Nulle quand
-    # MILES_PUBLIC_URL n'est pas configurée ; dans ce cas ce module ne peut pas non plus
-    # signer d'appel sortant, et le dire est plus utile que de rendre une chaîne vide.
-    origin: str | None
-    # Empreinte de la clé qui a VÉRIFIÉ l'appel, et empreinte de la nôtre. C'est ce qui
-    # rend un désaccord de clés diagnosticable après un ré-appariement : l'appelant
-    # compare ce qu'il croit détenir à ce que nous avons réellement employé.
-    verified_key_fingerprint: str
-    own_key_fingerprint: str
 
 
 @router.post(PEER_PING_PATH, response_model=PongOut)

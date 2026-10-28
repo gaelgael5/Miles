@@ -4,25 +4,31 @@ from datetime import datetime
 
 import httpx
 import structlog
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
-from miles_socle.signing.keys import fingerprint
-from pydantic import BaseModel, ConfigDict, Field
-
-# Le contrat de l'échange est défini là où ce module le SERT : une seconde définition
-# de même forme, ici, aurait divergé au premier champ ajouté d'un seul côté.
-from environnement.identity.api_peer import PongOut
-from environnement.identity.model import (
-    MAX_BASE_URL_LENGTH,
-    EnrolmentPeer,
-    IdentityError,
+from miles_socle.signing.identity_model import (
     IdentityInconsistentError,
-    IdentityInputError,
     IdentityMissingError,
     IdentitySlugTakenError,
     ModuleIdentity,
     OriginMissingError,
+)
+from miles_socle.signing.keys import fingerprint
+from miles_socle.signing.peers import MAX_BASE_URL_LENGTH, IdentityError, IdentityInputError
+
+# Le contrat de l'échange est au socle : ce module le SERT sur sa route de pair et
+# l'ATTEND de son pair quand c'est lui qui appelle. Deux définitions de même forme
+# auraient divergé au premier champ ajouté d'un seul côté.
+from miles_socle.signing.protocol import PongOut
+from pydantic import BaseModel, ConfigDict, Field
+
+from environnement.identity.model import (
+    EnrolmentPeer,
+    PairingAttempt,
+    PairingAttemptMissingError,
+    PairingRefusedByPeerError,
+    PeerClockSkewError,
     PeerMissingError,
     PeerRefusedError,
     PeerUnexpectedResponseError,
@@ -49,6 +55,30 @@ class PeerIn(BaseModel):
 
     base_url: str = Field(max_length=MAX_BASE_URL_LENGTH)
     public_key: str = Field(max_length=64)
+
+
+class PairingIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # L'origine du module d'enrôlement chez qui frapper. Saisie par un administrateur :
+    # validée par le service avant tout usage en URL d'appel sortant.
+    base_url: str = Field(max_length=MAX_BASE_URL_LENGTH)
+
+
+class PairingConfirmIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Le code recopié depuis l'écran du module d'enrôlement. Borné ici, validé au chiffre
+    # près par le service : six caractères suffisent à refuser une saisie démesurée avant
+    # qu'elle n'atteigne quoi que ce soit.
+    code: str = Field(max_length=16)
+
+
+class AttemptOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    base_url: str
+    created_at: datetime
 
 
 class PeerOut(BaseModel):
@@ -96,7 +126,28 @@ def _pong_out(pong: PeerPong) -> PongOut:
     )
 
 
+def _attempt_out(attempt: PairingAttempt) -> AttemptOut:
+    return AttemptOut(base_url=attempt.base_url, created_at=attempt.created_at)
+
+
 def _error(exc: IdentityError) -> JSONResponse:
+    if isinstance(exc, PeerClockSkewError):
+        # Le seul refus d'appariement qui dise sa cause, et il la tient du pair. Sans lui,
+        # on chercherait du côté du code pendant que la cause est une machine à l'heure près.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "horloges_desynchronisees", "drift_s": exc.drift_s},
+        )
+    if isinstance(exc, PairingRefusedByPeerError):
+        # 409 : rien n'est à corriger dans la requête, c'est l'appariement qui n'a pas
+        # abouti. Le pair ne dit pas lequel des cas, et ce module n'en invente pas un.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT, content={"detail": "appariement_refuse"}
+        )
+    if isinstance(exc, PairingAttemptMissingError):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND, content={"detail": "aucune_demande"}
+        )
     if isinstance(exc, IdentityInputError):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": exc.field}
@@ -193,3 +244,68 @@ async def post_peer_ping(request: Request) -> PongOut | JSONResponse:
             status_code=status.HTTP_502_BAD_GATEWAY, content={"detail": "pair_injoignable"}
         )
     return _pong_out(pong)
+
+
+def _injoignable(exc: httpx.HTTPError) -> JSONResponse:
+    """L'injoignabilité du pair n'est pas une faute de ce module.
+
+    Le détail va au journal, jamais dans la réponse : il porte des URL et des messages de
+    bibliothèque dont l'appelant n'a pas à connaître la forme.
+    """
+    log.warning("pair_injoignable", error=type(exc).__name__)
+    return JSONResponse(
+        status_code=status.HTTP_502_BAD_GATEWAY, content={"detail": "pair_injoignable"}
+    )
+
+
+@router.get("/pairing", response_model=AttemptOut)
+async def get_pairing(request: Request) -> AttemptOut | JSONResponse:
+    """La demande d'appariement en cours : chez qui on a frappé, et quand."""
+    try:
+        return _attempt_out(await _service(request).resolve_attempt())
+    except IdentityError as exc:
+        return _error(exc)
+
+
+@router.post("/pairing", response_model=AttemptOut, status_code=status.HTTP_202_ACCEPTED)
+async def post_pairing(request: Request, body: PairingIn) -> AttemptOut | JSONResponse:
+    """Frappe chez un module d'enrôlement. 202 : rien n'est acquis sans un geste humain.
+
+    Le geste suivant appartient à un administrateur de l'AUTRE module, qui voit la demande
+    apparaître et en lit le code. C'est pour cela que cette route ne rend pas de pair.
+    """
+    try:
+        attempt = await _service(request).resolve_request_pairing(
+            request_author(request), body.base_url
+        )
+    except IdentityError as exc:
+        return _error(exc)
+    except httpx.HTTPError as exc:
+        return _injoignable(exc)
+    return _attempt_out(attempt)
+
+
+@router.post("/pairing/confirm", response_model=PeerOut)
+async def post_pairing_confirm(request: Request, body: PairingConfirmIn) -> PeerOut | JSONResponse:
+    """Présente le code recopié. À l'issue, chacun détient la clé publique de l'autre."""
+    try:
+        peer = await _service(request).resolve_confirm_pairing(request_author(request), body.code)
+    except IdentityError as exc:
+        return _error(exc)
+    except httpx.HTTPError as exc:
+        return _injoignable(exc)
+    return _peer_out(peer)
+
+
+@router.delete("/pairing", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_pairing(request: Request) -> Response:
+    """Abandonne la demande en cours. Celle du pair expirera d'elle-même.
+
+    Annotée `Response` et non `None` : une route en 204 ne peut pas déclarer de corps, et
+    un type de retour optionnel en fait déduire un à FastAPI — qui refuse de démarrer.
+    """
+    try:
+        await _service(request).resolve_cancel_attempt(request_author(request))
+    except IdentityError as exc:
+        return _error(exc)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

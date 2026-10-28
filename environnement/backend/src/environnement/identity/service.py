@@ -1,27 +1,19 @@
 from __future__ import annotations
 
+import json
 import re
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, NoReturn
+from typing import NoReturn
 
 import asyncpg
 import httpx
 import structlog
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import (
-    LOCAL_DIRECTORY,
-    EventAuthor,
-    EventTypeCatalog,
-    NewEvent,
-    ObjectRef,
-)
+from miles_socle.events.model import EventAuthor, EventTypeCatalog
 from miles_socle.secrets.crypto import SecretCipher
-from miles_socle.secrets.model import Consumer, Secret
 from miles_socle.secrets.service import SecretsService
-from miles_socle.secrets.store import db_declare_usage, db_insert_secret
 from miles_socle.signing.calls import (
     ORIGIN_HEADER,
     SIGNATURE_HEADER,
@@ -31,59 +23,59 @@ from miles_socle.signing.calls import (
     validate_origin,
     verify_call,
 )
-from miles_socle.signing.keys import (
-    encode_public_key,
-    fingerprint,
-    generate_keypair,
-    load_private_key,
-    parse_public_key,
-)
-
-from environnement.identity.model import (
-    SIGNING_KEY_CONSUMER_KIND,
-    SIGNING_KEY_LABEL,
-    SIGNING_KEY_SLUG,
-    SIGNING_KEY_TYPE,
+from miles_socle.signing.identity import ModuleIdentityService
+from miles_socle.signing.identity_model import (
     SINGLETON,
-    EnrolmentPeer,
-    IdentityInconsistentError,
-    IdentityMissingError,
-    IdentitySlugTakenError,
     ModuleIdentity,
     OriginMissingError,
-    PeerMissingError,
-    PeerRefusedError,
-    PeerUnexpectedResponseError,
+)
+from miles_socle.signing.keys import fingerprint, parse_public_key
+from miles_socle.signing.peers import (
+    IdentityInputError,
     validate_base_url,
     validate_public_key,
 )
+from miles_socle.signing.protocol import (
+    PAIRING_CONFIRM_PATH,
+    PAIRING_REQUEST_PATH,
+    PEER_PING_PATH,
+    PING_BODY,
+)
+
+from environnement.identity.model import (
+    SIGNING_KEY_LABEL,
+    EnrolmentPeer,
+    PairingAttempt,
+    PairingAttemptMissingError,
+    PairingRefusedByPeerError,
+    PeerClockSkewError,
+    PeerMissingError,
+    PeerRefusedError,
+    PeerUnexpectedResponseError,
+)
 from environnement.identity.store import (
-    db_get_identity,
+    db_delete_attempt,
+    db_get_attempt,
     db_get_peer,
-    db_get_private_key_slug,
-    db_insert_identity,
-    db_lock_identity,
-    db_secret_exists,
+    db_upsert_attempt,
     db_upsert_peer,
 )
 
 log = structlog.get_logger(__name__)
 
-IDENTITY_CREATED_EVENT = "module.identity_created"
 PEER_REGISTERED_EVENT = "module.peer_registered"
-EVENT_TYPES = frozenset({IDENTITY_CREATED_EVENT, PEER_REGISTERED_EVENT})
-_IDENTITY_OBJECT_KIND = "module_identity"
+PAIRING_REQUESTED_EVENT = "module.pairing_requested"
+PAIRING_CANCELLED_EVENT = "module.pairing_cancelled"
+EVENT_TYPES = frozenset({PEER_REGISTERED_EVENT, PAIRING_REQUESTED_EVENT, PAIRING_CANCELLED_EVENT})
 _PEER_OBJECT_KIND = "enrolment_peer"
-# Le chemin de l'échange de vivacité, des DEUX côtés : il entre dans la chaîne signée,
-# donc l'émetteur et le vérificateur doivent en avoir la même idée au caractère près.
-PEER_PING_PATH = "/api/peer/ping"
-_PING_BODY = b"{}"
-# Clé du verrou consultatif qui sérialise la pose de l'identité. Valeur arbitraire mais
-# FIGÉE : elle n'a qu'à être unique parmi les verrous consultatifs de ce produit.
-_IDENTITY_LOCK_KEY = 20261028
-# L'identité naît au premier démarrage, sans humain dans la boucle. L'attribuer au compte
-# d'amorçage serait un mensonge dans le journal : personne ne l'a demandée.
-SYSTEM_AUTHOR = EventAuthor(LOCAL_DIRECTORY, "systeme")
+_ATTEMPT_OBJECT_KIND = "pairing_attempt"
+# Le code recopié par l'humain : six chiffres, et rien d'autre. Validé AVANT de partir sur
+# le réseau — c'est une saisie, et l'envoyer tel quel ferait porter au pair la validation
+# d'une entrée qui est la nôtre.
+_CODE_RE = re.compile(r"^[0-9]{6}$")
+# Dérive annoncée par le pair, bornée avant d'être relue : c'est la réponse d'un autre
+# service, et un entier démesuré n'a pas à traverser jusqu'à un écran.
+_MAX_DRIFT_S = 7 * 24 * 3600
 # Un pair lent ne doit pas retenir une requête d'administration indéfiniment.
 PEER_HTTP_TIMEOUT_S = 5.0
 
@@ -117,19 +109,13 @@ class PeerPong:
 
 @dataclass(frozen=True)
 class IdentityService:
-    """L'identité du module : sa paire de clés, son pair apparié, ses appels signés.
+    """L'identité du module et son pair unique : ce que l'environnement ajoute au socle.
 
-    La clé privée est rangée dans la table des secrets du produit (chiffrée par
-    MILES_SECRETS_KEY) et le renvoi vers sa ligne vit dans `module_identity`. Deux voies
-    d'accès au dispositif des secrets, et ce n'est pas une incohérence :
-
-    - en ÉCRITURE, le socle est appelé à son niveau magasin, parce que le secret et la
-      ligne d'identité doivent être écrits dans la MÊME transaction — une panne entre les
-      deux laisserait une identité qui pointe vers un secret absent. Le service du socle,
-      lui, ouvre sa propre transaction ;
-    - en LECTURE, c'est le service du socle qui répond, parce qu'il vérifie au passage le
-      type du secret : lire comme clé de signature ce qu'un écran aurait rangé comme jeton
-      git se découvrirait au premier appel refusé chez le pair.
+    La paire de clés, son secret et son contrôle de cohérence viennent du socle
+    (`ModuleIdentityService`) — l'enrôlement emploie exactement le même code, et c'est la
+    condition pour que les deux bouts signent et vérifient la même chose. Ce qui est ici
+    est ce qui n'appartient qu'à l'environnement : son pair UNIQUE, et les deux sens de
+    l'échange avec lui.
     """
 
     pool: asyncpg.Pool
@@ -142,62 +128,26 @@ class IdentityService:
     # (MILES_PUBLIC_URL) et jamais lue des en-têtes : un `Host` forgé ferait signer pour
     # une origine qui n'est pas la nôtre.
     origin: str | None
+    # Composé plutôt que reçu : les appelants (production et harnais de test) construisent
+    # déjà ce service avec exactement ce qu'il faut au socle, et leur faire assembler les
+    # deux ajouterait un câblage de plus à tenir d'accord — la panne que le socle a
+    # justement supprimée.
+    module: ModuleIdentityService = field(init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "module",
+            ModuleIdentityService(
+                self.pool, self.secrets, self.cipher, self.catalog, self.now, SIGNING_KEY_LABEL
+            ),
+        )
 
     async def resolve_identity(self) -> ModuleIdentity:
-        """L'identité du module, engendrée chez lui au PREMIER USAGE et jamais ensuite.
+        return await self.module.resolve_identity()
 
-        Idempotent par construction : tout appel ultérieur relit, et ne régénère rien. Une
-        régénération casserait l'appariement et imposerait de réapparier à la main, puis
-        de réaffecter les devices — c'est l'interdit central du ticket 8c95ecc7.
-
-        AU PREMIER USAGE, et non au démarrage de l'application. Divergence volontaire avec
-        la première version de ce code, et elle vient d'une panne mesurée sur machine de
-        test le 28/10/2026 : `dev-deploy.sh` lance la stack PUIS joue les migrations, donc
-        sur une base neuve le backend démarre quand aucune table n'existe. Écrire au
-        démarrage le faisait tomber en boucle de redémarrage, et son redémarrage tuait la
-        commande de migration lancée dans son conteneur — le schéma restait à 7 et le
-        déploiement échouait sans que la cause soit lisible. Aucun composant ne doit donc
-        exiger un objet de schéma pour démarrer. Ne pas « simplifier » en revenant à un
-        appel dans la durée de vie de l'application.
-        """
-        async with self.pool.acquire() as conn, conn.transaction():
-            await db_lock_identity(conn, _IDENTITY_LOCK_KEY)
-            existante = await db_get_identity(conn)
-            if existante is not None:
-                return existante
-            if await db_secret_exists(conn, SIGNING_KEY_SLUG):
-                # Refus qui NOMME la cause, au lieu d'une violation d'unicité qui
-                # avorterait la transaction et sortirait en erreur de serveur.
-                log.error("slug_de_l_identite_deja_pris", slug=SIGNING_KEY_SLUG)
-                raise IdentitySlugTakenError(
-                    f"un secret porte déjà le slug « {SIGNING_KEY_SLUG} » alors que le module"
-                    " n'a pas d'identité : le supprimer ou le renommer"
-                )
-            paire = generate_keypair()
-            # La clé privée n'existe en clair que dans cette variable et le temps de ce
-            # scellement : ni journal, ni valeur de retour, ni réponse HTTP ne la portent.
-            sealed = self.cipher.seal(SIGNING_KEY_SLUG, Secret(paire.private_pem))
-            maintenant = self.now()
-            await db_insert_secret(
-                conn, SIGNING_KEY_SLUG, SIGNING_KEY_LABEL, SIGNING_KEY_TYPE, sealed, maintenant
-            )
-            await db_declare_usage(
-                conn, SIGNING_KEY_SLUG, Consumer(SIGNING_KEY_CONSUMER_KIND, SINGLETON)
-            )
-            identite = await db_insert_identity(
-                conn, paire.public_key, SIGNING_KEY_SLUG, maintenant
-            )
-            await self._write_event(
-                conn,
-                IDENTITY_CREATED_EVENT,
-                _IDENTITY_OBJECT_KIND,
-                {"public_key_fingerprint": fingerprint(paire.public_key)},
-            )
-        log.info(
-            "identite_du_module_engendree",
-            public_key_fingerprint=fingerprint(identite.public_key),
-        )
-        return identite
+    async def resolve_private_key(self) -> Ed25519PrivateKey:
+        return await self.module.resolve_private_key()
 
     async def resolve_peer(self) -> EnrolmentPeer:
         pair = await db_get_peer(self.pool)
@@ -210,17 +160,19 @@ class IdentityService:
     ) -> EnrolmentPeer:
         """Enregistre le module d'enrôlement apparié, ou REMPLACE celui qui existe.
 
-        En attendant le protocole d'appariement (ticket 6a0daab6), qui déposera ces mêmes
-        valeurs sans intervention humaine. Jamais un second pair : le modèle n'en admet
-        qu'un, le module d'enrôlement étant l'autorité unique sur l'affectation des devices.
+        Jamais un second pair : le modèle n'en admet qu'un, le module d'enrôlement étant
+        l'autorité unique sur l'affectation des devices. C'est aussi par ici que passe le
+        dépôt de clé à l'issue de l'appariement, et c'est voulu — un seul endroit écrit le
+        pair, qu'un humain l'ait saisi ou que le protocole l'ait rapporté.
         """
         base_url, public_key = validate_base_url(base_url), validate_public_key(public_key)
         async with self.pool.acquire() as conn, conn.transaction():
             pair = await db_upsert_peer(conn, base_url, public_key, self.now())
-            await self._write_event(
+            await self.module.write_event(
                 conn,
                 PEER_REGISTERED_EVENT,
                 _PEER_OBJECT_KIND,
+                SINGLETON,
                 {"base_url": base_url, "public_key_fingerprint": fingerprint(public_key)},
                 author=author,
             )
@@ -228,33 +180,6 @@ class IdentityService:
             "pair_enregistre", base_url=base_url, public_key_fingerprint=fingerprint(public_key)
         )
         return pair
-
-    async def resolve_private_key(self) -> Ed25519PrivateKey:
-        """La clé privée, pour le temps d'une signature. Relue à CHAQUE fois, jamais gardée.
-
-        Un cache continuerait de signer avec l'ancienne clé après un ré-appariement, et le
-        symptôme apparaîtrait chez le pair — loin d'ici. Le coût est un aller-retour en
-        base et une ouverture AES-GCM, sur un chemin qui n'est pas celui du trafic de masse.
-        """
-        identite = await self.resolve_identity()
-        slug = await db_get_private_key_slug(self.pool)
-        if slug is None:  # pragma: no cover - la ligne vient d'être lue juste au-dessus
-            raise IdentityMissingError("aucune identité en base")
-        rangee = await self.secrets.resolve_secret(slug, SIGNING_KEY_TYPE)
-        privee = load_private_key(rangee.reveal())
-        # Les deux moitiés doivent aller ensemble. La clé publique est celle que le pair
-        # détient : signer avec une autre privée produirait des appels refusés CHEZ LUI,
-        # sans que rien ici ne soit rouge. On refuse donc de signer plutôt que de mal signer.
-        if encode_public_key(privee.public_key()) != identite.public_key:
-            log.error(
-                "identite_incoherente",
-                public_key_fingerprint=fingerprint(identite.public_key),
-                secret_slug=slug,
-            )
-            raise IdentityInconsistentError(
-                "la clé privée rangée ne correspond pas à la clé publique déclarée"
-            )
-        return privee
 
     async def resolve_verify_incoming(
         self,
@@ -307,25 +232,7 @@ class IdentityService:
     async def resolve_ping_peer(self) -> PeerPong:
         """Émet un appel signé vers le pair : l'autre sens du même échange."""
         pair = await self.resolve_peer()
-        origine = self.origin
-        if origine is None:
-            raise OriginMissingError("MILES_PUBLIC_URL absente : le module ne peut pas signer")
-        privee = await self.resolve_private_key()
-        entete = sign_call(
-            privee, origin=origine, method="POST", target=PEER_PING_PATH, body=_PING_BODY
-        )
-        reponse = await self.http.post(
-            # `base_url` est une origine SANS chemin : la cible signée et le chemin de la
-            # requête coïncident donc, ce qui est la condition pour que le pair vérifie la
-            # même chaîne que celle qu'on a signée.
-            f"{pair.base_url}{PEER_PING_PATH}",
-            content=_PING_BODY,
-            headers={
-                ORIGIN_HEADER: origine,
-                SIGNATURE_HEADER: entete,
-                "Content-Type": "application/json",
-            },
-        )
+        reponse = await self.post_signed(pair.base_url, PEER_PING_PATH, PING_BODY)
         if reponse.status_code == 401:
             # Distingué d'une panne de réseau : le pair a répondu, et il nous refuse. Le
             # statut seul ne dit pas POURQUOI — son portillon d'authentification et son
@@ -338,9 +245,7 @@ class IdentityService:
             )
             raise PeerRefusedError("le pair n'a pas accepté notre appel signé")
         if reponse.status_code != 200:
-            # Il a répondu : ce n'est donc ni un problème de réseau ni un refus. Le plus
-            # probable au 28/10/2026 est que son côté du protocole n'est pas encore
-            # déployé — ticket 6a0daab6.
+            # Il a répondu : ce n'est donc ni un problème de réseau ni un refus.
             log.warning(
                 "reponse_inattendue_du_pair",
                 base_url=pair.base_url,
@@ -356,20 +261,160 @@ class IdentityService:
             own_key_fingerprint=str(charge["own_key_fingerprint"]),
         )
 
+    async def post_signed(self, base_url: str, path: str, body: bytes) -> httpx.Response:
+        """POST signé par la clé privée du module. Seul endroit qui compose l'appel sortant.
+
+        `base_url` est une origine SANS chemin : la cible signée et le chemin de la requête
+        coïncident donc, ce qui est la condition pour que le pair vérifie exactement la
+        chaîne qu'on a signée.
+        """
+        origine = self.origin
+        if origine is None:
+            raise OriginMissingError("MILES_PUBLIC_URL absente : le module ne peut pas signer")
+        privee = await self.resolve_private_key()
+        entete = sign_call(privee, origin=origine, method="POST", target=path, body=body)
+        return await self.http.post(
+            f"{base_url}{path}",
+            content=body,
+            headers={
+                ORIGIN_HEADER: origine,
+                SIGNATURE_HEADER: entete,
+                "Content-Type": "application/json",
+            },
+        )
+
+    async def resolve_attempt(self) -> PairingAttempt:
+        """La demande d'appariement en cours. Pour que l'écran sache chez qui on a frappé."""
+        tentative = await db_get_attempt(self.pool)
+        if tentative is None:
+            raise PairingAttemptMissingError("aucune demande d'appariement en cours")
+        return tentative
+
+    async def resolve_request_pairing(
+        self, author: EventAuthor, enrolment_base_url: str
+    ) -> PairingAttempt:
+        """Frappe chez le module d'enrôlement et y dépose NOTRE clé publique.
+
+        Premier des deux dépôts. L'appel est signé par notre clé privée, et le pair le
+        vérifie contre la clé publique que ce corps porte : cela ne dit pas qui nous
+        sommes — un humain le dira avec le code — mais cela prouve que nous détenons bien
+        la privée de la publique déposée. Sans quoi n'importe qui déposerait la clé d'un
+        autre sous une origine qu'il ne contrôle pas.
+
+        Aucune clé privée ne figure dans ce corps, et il n'en existe aucun champ.
+        """
+        base_url = validate_base_url(enrolment_base_url)
+        identite = await self.resolve_identity()
+        corps = json.dumps({"public_key": identite.public_key}).encode("utf-8")
+        reponse = await self.post_signed(base_url, PAIRING_REQUEST_PATH, corps)
+        if reponse.status_code != 202:
+            self._refuse_peer(reponse, base_url)
+        maintenant = self.now()
+        async with self.pool.acquire() as conn, conn.transaction():
+            tentative = await db_upsert_attempt(conn, base_url, maintenant)
+            await self.module.write_event(
+                conn,
+                PAIRING_REQUESTED_EVENT,
+                _ATTEMPT_OBJECT_KIND,
+                SINGLETON,
+                {
+                    "base_url": base_url,
+                    "public_key_fingerprint": fingerprint(identite.public_key),
+                },
+                author=author,
+            )
+        log.info("appariement_demande", base_url=base_url)
+        return tentative
+
+    async def resolve_confirm_pairing(self, author: EventAuthor, code: str) -> EnrolmentPeer:
+        """Présente le code recopié, et range la clé publique que le pair rend en retour.
+
+        Second dépôt : à l'issue, chacun détient sa clé privée et la clé publique de
+        l'autre, et plus aucun appel entre les deux ne demande d'intervention humaine.
+        """
+        code = _validate_code(code)
+        tentative = await self.resolve_attempt()
+        corps = json.dumps({"code": code}).encode("utf-8")
+        reponse = await self.post_signed(tentative.base_url, PAIRING_CONFIRM_PATH, corps)
+        if reponse.status_code != 200:
+            self._refuse_peer(reponse, tentative.base_url)
+        charge = reponse.json()
+        # La clé rendue par le pair est une entrée venue du réseau : validée avant d'être
+        # écrite, et avant tout usage comme vérificateur de ses appels.
+        public_key = validate_public_key(str(charge["public_key"]))
+        base_url = validate_base_url(str(charge["base_url"]))
+        pair = await self.resolve_register_peer(author, base_url, public_key)
+        async with self.pool.acquire() as conn, conn.transaction():
+            # La tentative disparaît APRÈS que le pair est écrit : l'ordre inverse
+            # laisserait, sur une panne entre les deux, ni pair ni demande — donc un
+            # appariement à refaire depuis le début sans que rien ne le dise.
+            await db_delete_attempt(conn)
+        log.info(
+            "appariement_conclu",
+            base_url=base_url,
+            peer_key_fingerprint=fingerprint(public_key),
+        )
+        return pair
+
+    async def resolve_cancel_attempt(self, author: EventAuthor) -> None:
+        """Abandonne la demande en cours. Le pair, lui, laissera la sienne expirer."""
+        async with self.pool.acquire() as conn, conn.transaction():
+            if not await db_delete_attempt(conn):
+                raise PairingAttemptMissingError("aucune demande d'appariement en cours")
+            await self.module.write_event(
+                conn, PAIRING_CANCELLED_EVENT, _ATTEMPT_OBJECT_KIND, SINGLETON, {}, author=author
+            )
+        log.info("appariement_annule")
+
+    def _refuse_peer(self, reponse: httpx.Response, base_url: str) -> NoReturn:
+        """Traduit le refus du pair sans rien inventer de ce qu'il n'a pas dit."""
+        if reponse.status_code == 409:
+            derive = _peer_drift_s(reponse)
+            if derive is not None:
+                log.warning(
+                    "appariement_horloges_desynchronisees", base_url=base_url, drift_s=derive
+                )
+                raise PeerClockSkewError(derive)
+        if reponse.status_code in (401, 409):
+            # Le pair ne dit pas LEQUEL des cas — code faux, demande inconnue, expirée,
+            # brûlée, refusée — et c'est volontaire chez lui. Ne pas en choisir un ici :
+            # une cause plausible mais fausse envoie chercher au mauvais endroit.
+            log.warning(
+                "appariement_refuse_par_le_pair",
+                base_url=base_url,
+                peer_detail=_peer_detail(reponse),
+            )
+            raise PairingRefusedByPeerError("le module d'enrôlement a refusé l'appariement")
+        log.warning(
+            "reponse_inattendue_du_pair", base_url=base_url, status_code=reponse.status_code
+        )
+        raise PeerUnexpectedResponseError(reponse.status_code)
+
     def _refuse(self, reason: str, declared_origin: str) -> NoReturn:
         log.warning("appel_signe_refuse", reason=reason, declared_origin=declared_origin)
         raise CallSignatureError(reason)
 
-    async def _write_event(
-        self,
-        conn: Any,
-        event_type: str,
-        object_kind: str,
-        properties: Mapping[str, Any],
-        *,
-        author: EventAuthor = SYSTEM_AUTHOR,
-    ) -> None:
-        # Jamais la clé privée, et pas même la clé publique en entier : l'empreinte suffit
-        # à reconnaître une clé dans un journal, et c'est elle qu'un humain compare.
-        event = NewEvent(event_type, (ObjectRef(object_kind, SINGLETON),), author, dict(properties))
-        await db_write_event(conn, event, self.catalog, self.now)
+
+def _validate_code(code: str) -> str:
+    if not _CODE_RE.match(code.strip()):
+        raise IdentityInputError("code")
+    return code.strip()
+
+
+def _peer_drift_s(reponse: httpx.Response) -> int | None:
+    """La dérive d'horloge annoncée par le pair, si elle a la forme attendue.
+
+    Bornée et typée avant toute relecture : ce nombre vient d'un autre service, et il
+    finira sur un écran. `None` quand la réponse n'est pas celle qu'on croit, auquel cas
+    l'appelant retombe sur le refus générique plutôt que d'inventer une cause.
+    """
+    try:
+        charge = reponse.json()
+    except ValueError:
+        return None
+    if charge.get("detail") != "horloges_desynchronisees":
+        return None
+    derive = charge.get("drift_s")
+    if not isinstance(derive, int) or isinstance(derive, bool) or abs(derive) > _MAX_DRIFT_S:
+        return None
+    return derive

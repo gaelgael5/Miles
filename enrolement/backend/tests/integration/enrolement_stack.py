@@ -2,14 +2,20 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
+import asyncpg
+import httpx
+from fastapi import FastAPI
+from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.testing.files import ADMIN_PASSWORD, ADMIN_USERNAME, BASE_ENV, admin_env, write_env
-from miles_socle.testing.stack import SocleStack, open_socle_stack, utc_now
+from miles_socle.testing.stack import open_socle_stack, utc_now
 
 from enrolement.app import build_app
 from enrolement.config import DEFAULT_MIGRATIONS_DIR
 from enrolement.event_types import code_event_types
+from enrolement.pairing.service import PairingService
 
 # Réexportés : les tests d'intégration du produit s'en servent, et ils viennent du socle
 # parce que la forme du `.env` et le compte d'amorçage sont imposés par lui, pas choisis ici.
@@ -27,12 +33,28 @@ __all__ = [
 BASE_URL = "http://enrolement"
 PUBLIC_URL = "http://enrolement.test"
 ADMIN_EMAIL = "admin@enrolement.invalid"
+# Courte, pour que l'expiration soit éprouvée sans attendre : une demande ouverte puis
+# relue une seconde plus tard doit avoir disparu. La borne basse de la configuration est
+# à 60 s ; ici on passe la valeur directement au service, ce qui est le seul écart avec
+# la production et il est volontaire.
+REQUEST_TTL_S = 900
 
-# La coquille n'ajoute aucun service aux sept du socle : son montage EST celui du socle.
-# Nommé ici pour que les tests du produit continuent de parler de leur produit, et pour
-# que le jour où l'enrôlement ajoute un service — le référentiel des devices, la route de
-# pair du ticket 6a0daab6 — il ait l'endroit où le câbler.
-EnrolementStack = SocleStack
+
+@dataclass
+class EnrolementStack:
+    """Le montage du socle, plus ce que ce produit ajoute : son service d'appariement."""
+
+    pool: asyncpg.Pool
+    app: FastAPI
+    client: httpx.AsyncClient
+    env_file: Path
+    http: httpx.AsyncClient
+    cipher: SecretCipher
+    pairing: PairingService
+
+    def anonymous(self) -> httpx.AsyncClient:
+        """Un client SANS session : l'état d'un visiteur, et celui d'un pair qui frappe."""
+        return httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url=BASE_URL)
 
 
 @asynccontextmanager
@@ -42,13 +64,14 @@ async def open_stack(
     *,
     admin_email: str | None = ADMIN_EMAIL,
     public_url: str = PUBLIC_URL,
+    request_ttl_s: int = REQUEST_TTL_S,
 ) -> AsyncIterator[EnrolementStack]:
     """Monte le produit sur une base réelle, sans passer par uvicorn.
 
     Les sept services du socle sont câblés par `open_socle_stack`, une fois pour les trois
-    produits. La garde de `test_cablage_pg.py` vérifie que rien de ce que pose `app.py` ne
-    manque au montage — c'est elle qui remplace le « après tout ajout à `app.py`, vérifier
-    ici » que ce fichier portait, et que LESSONS.md a vu échouer deux fois.
+    produits ; ce qui reste ici est ce que ce produit ajoute. La garde de
+    `test_cablage.py` vérifie que rien de ce que pose `app.py` ne manque au montage — et
+    elle a mordu le 28/10/2026, à l'ajout du service d'appariement.
 
     `admin_email=None` monte une installation NEUVE, sans administrateur : c'est l'état
     dans lequel l'écran d'amorçage est ouvert, et le seul où il l'est.
@@ -63,4 +86,25 @@ async def open_stack(
         public_url=public_url,
         admin_email=admin_email,
     ) as socle:
-        yield socle
+        pairing = PairingService(
+            socle.pool,
+            socle.app.state.secrets,
+            socle.cipher,
+            socle.catalog,
+            utc_now,
+            public_url,
+            request_ttl_s,
+        )
+        socle.app.state.pairing = pairing
+        # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît au
+        # premier USAGE. Un montage qui la créerait d'avance cacherait justement le cas que
+        # la machine de test a révélé le 28/10/2026 — un démarrage sur base non migrée.
+        yield EnrolementStack(
+            socle.pool,
+            socle.app,
+            socle.client,
+            socle.env_file,
+            socle.http,
+            socle.cipher,
+            pairing,
+        )

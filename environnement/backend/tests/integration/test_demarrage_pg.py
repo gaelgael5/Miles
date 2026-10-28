@@ -3,8 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from miles_socle.db.migration_files import file_load_migrations
 
 from environnement.app import create_app
+from environnement.config import DEFAULT_MIGRATIONS_DIR
 from tests.conftest import SECRETS_KEY
 from tests.integration.environnement_stack import ADMIN_USERNAME, admin_env, write_env
 
@@ -44,7 +46,10 @@ async def test_le_demarrage_n_exige_aucune_table_du_produit(
     assert rapport.database_reachable
     assert rapport.schema_version is None
     assert not rapport.healthy
-    assert rapport.expected_schema_version == 8
+    # Déduite des fichiers de migration, jamais écrite en dur : un nombre figé ici
+    # rougirait à la migration suivante sur un message qui ne parle pas de ce qu'il mesure.
+    attendue = file_load_migrations(DEFAULT_MIGRATIONS_DIR)[-1].version
+    assert rapport.expected_schema_version == attendue
 
 
 async def test_le_compte_d_amorcage_est_lu_avant_toute_base(

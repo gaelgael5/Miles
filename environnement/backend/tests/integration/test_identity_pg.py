@@ -13,11 +13,15 @@ from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.model import Secret
 from miles_socle.secrets.store import db_insert_secret
 from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, sign_call
+from miles_socle.signing.identity_model import (
+    IDENTITY_CREATED_EVENT,
+    SIGNING_KEY_SLUG,
+    SIGNING_KEY_TYPE,
+)
 from miles_socle.signing.keys import fingerprint, generate_keypair, load_private_key
 
 from environnement.config import DEFAULT_MIGRATIONS_DIR
-from environnement.identity.model import SIGNING_KEY_SLUG, SIGNING_KEY_TYPE
-from environnement.identity.service import IDENTITY_CREATED_EVENT, PEER_PING_PATH
+from environnement.identity.service import PEER_PING_PATH
 from tests.integration.environnement_stack import EnvironnementStack, open_stack, utc_now
 from tests.integration.peer_double import PEER_ORIGIN, EnrolmentDouble
 

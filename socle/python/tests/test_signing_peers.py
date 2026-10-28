@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import pytest
-from miles_socle.signing.keys import generate_keypair
 
-from environnement.identity.model import (
-    SIGNING_KEY_TYPE,
+from miles_socle.signing.identity_model import SIGNING_KEY_TYPE
+from miles_socle.signing.keys import generate_keypair
+from miles_socle.signing.peers import (
     IdentityInputError,
     validate_algorithm,
     validate_base_url,
@@ -13,9 +13,9 @@ from environnement.identity.model import (
 
 
 def test_une_cle_publique_engendree_par_le_socle_a_la_forme_attendue() -> None:
-    # Les deux moitiés du dispositif doivent s'accorder : ce que le socle produit doit
-    # passer la contrainte du modèle ET celle de la base. Sans ce test, un changement
-    # d'encodage dans le socle se découvrirait au premier démarrage sur base neuve.
+    # Les deux moitiés du dispositif doivent s'accorder : ce que ce paquet engendre doit
+    # passer son propre validateur ET la contrainte de la base des trois produits. Sans ce
+    # test, un changement d'encodage se découvrirait au premier démarrage sur base neuve.
     public = generate_keypair().public_key
 
     assert validate_public_key(public) == public
@@ -81,8 +81,8 @@ def test_seul_ed25519_est_admis() -> None:
 
 
 def test_le_type_du_secret_est_celui_que_le_socle_connait() -> None:
-    # Le socle refuse tout type absent de sa liste : un type inventé ici ferait échouer
-    # la création de la clé au premier démarrage, et nulle part ailleurs.
+    # Le dispositif des secrets refuse tout type absent de sa liste : un type inventé ici
+    # ferait échouer la création de la clé au premier démarrage, et nulle part ailleurs.
     from miles_socle.secrets.model import SECRET_TYPES
 
     assert SIGNING_KEY_TYPE in SECRET_TYPES

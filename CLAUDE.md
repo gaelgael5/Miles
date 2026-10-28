@@ -62,11 +62,16 @@ produit en a besoin : on n'invente pas un socle commun avant d'avoir deux usages
 C'est fait depuis le 27/10/2026 pour l'amorçage, l'OIDC, les sessions, les cultures, les
 secrets, le journal d'events, les migrations, la journalisation et le contrôle de santé ;
 depuis le 28/10/2026 pour les **clés et les appels signés** entre modules (`miles_socle.signing`),
-dont les deux côtés doivent vérifier la même chaîne canonique au caractère près.
+dont les deux côtés doivent vérifier la même chaîne canonique au caractère près — et, le
+même jour, pour l'**identité de module** (`signing/identity.py`, deuxième usage avec le
+module d'enrôlement) et le **contrat d'appel** (`signing/protocol.py`), qui porte les
+chemins et les formes des routes de pair. Les chemins entrent dans la chaîne signée : deux
+constantes de même valeur dans deux produits auraient divergé au premier renommage fait
+d'un seul côté, et la signature serait refusée sans que rien ne soit faux de part ni d'autre.
 
 | Répertoire | Socle partagé | Consommé par |
 |---|---|---|
-| `socle/python` | paquet `miles_socle` — **aucun SQL**, le schéma reste l'affaire de chaque produit | `<produit>/backend`, chemin relatif dans `pyproject.toml` |
+| `socle/python` | paquet `miles_socle` — **aucune migration** : il porte les requêtes de SES tables (secrets, sessions, journal, identité du module), le schéma reste l'affaire de chaque produit | `<produit>/backend`, chemin relatif dans `pyproject.toml` |
 | `socle/web` | paquet `@miles/socle-web` — coquille front et écrans répliqués | `<produit>/frontend`, chemin relatif dans `package.json` |
 | `socle/deploy` | `gardes.sh` et `integration.sh` — les gardes du déploiement et des campagnes | `<produit>/dev-deploy.sh` et `<produit>/scripts/`, par `source` |
 
@@ -92,7 +97,8 @@ déploiement est la seule voie de livraison du projet.
 | `frontend/vite.config.ts`, `eslint.config.js` | les partager fait résoudre `vite`, son greffon react ou les greffons eslint depuis le `node_modules` du socle. C'est la famille de pannes que `LESSONS.md` porte deux fois pour le front, et elle est invisible en local |
 | `frontend/nginx.conf` | celui du portail diverge déjà de 34 lignes (surface MCP, éditeur JSLT) : un « commun » qui ne vaut que pour deux produits sur trois n'est pas une référence |
 | `frontend/src/main.tsx`, `setupTests.ts` | le point d'entrée nomme l'`App` du produit, et les doublures de test sont celles de ses écrans |
-| les **migrations** | le socle ne porte aucun SQL (décision du 27/10/2026) ; l'écart entre les trois schémas est tenu par la revue humaine |
+| les **migrations** | le socle ne porte aucune migration (décision du 27/10/2026) ; l'écart entre les trois schémas est tenu par la revue humaine. Les tables que le socle interroge — dont `module_identity` — sont donc déclarées par CHAQUE produit, et un test du produit vérifie qu'aucune ne manque |
+| le **protocole d'appariement** | l'enrôlement SERT les routes, l'environnement les APPELLE : deux rôles, pas deux copies. Seuls leurs chemins et leurs formes sont au socle, parce qu'ils entrent dans la signature. Le code TOTP reste à l'enrôlement, seul à en dériver un — un usage, donc pas d'extraction |
 
 Est partagé côté front, et c'est tout : `socle/web/tsconfig.base.json`, parce qu'`extends`
 ne traverse aucune résolution de greffon — `strict` et `noUncheckedIndexedAccess` sont des

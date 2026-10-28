@@ -3,6 +3,7 @@ from __future__ import annotations
 from miles_socle.cultures import service as cultures_events
 from miles_socle.oidc import service as oidc_events
 from miles_socle.secrets import service as secrets_events
+from miles_socle.signing import identity_model as module_identity_events
 
 from environnement.identity import service as identity_events
 
@@ -19,5 +20,6 @@ def code_event_types() -> frozenset[str]:
         cultures_events.EVENT_TYPES
         | oidc_events.EVENT_TYPES
         | secrets_events.EVENT_TYPES
+        | module_identity_events.EVENT_TYPES
         | identity_events.EVENT_TYPES
     )
