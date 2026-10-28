@@ -24,9 +24,10 @@ EXIT_SCHEMA_BEHIND = 3
 class MigrateSettings(DatabaseAccess, Protocol):
     """Ce dont la migration a besoin en plus de l'accès à la base.
 
-    Comme pour le pool, le socle ne connaît que la FORME de la configuration : chaque
-    produit garde sa propre classe, avec ses défauts et son répertoire de migrations —
-    le socle ne porte aucun SQL (décision du 27/10/2026).
+    Comme pour le pool, le socle ne connaît que la FORME de la configuration. Le
+    répertoire des migrations, en particulier, reste déclaré par le produit : le socle ne
+    porte aucun SQL (décision du 27/10/2026) et n'a donc rien à dire de son emplacement —
+    c'est le seul champ de configuration que `SocleDatabaseSettings` laisse au produit.
     """
 
     @property

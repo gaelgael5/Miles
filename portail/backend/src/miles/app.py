@@ -5,36 +5,29 @@ import contextlib
 import socket
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from datetime import timedelta
-from functools import partial
 
 import httpx
 import structlog
 import urban_json_editor
 from fastapi import FastAPI
+from miles_socle.app_state import wire_socle_services
 from miles_socle.auth.admin_store import AdminAccountStore
 from miles_socle.auth.api_auth import router as auth_router
-from miles_socle.auth.api_preferences import PreferencesService
 from miles_socle.auth.api_preferences import router as preferences_router
-from miles_socle.auth.context import AuthContext, utc_now
+from miles_socle.auth.context import utc_now
 from miles_socle.auth.gate import auth_gate
-from miles_socle.auth.throttle import LoginThrottle
 from miles_socle.cultures.api_cultures import public_router as login_cultures_router
 from miles_socle.cultures.api_cultures import router as cultures_router
-from miles_socle.cultures.service import CulturesService
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.pool import db_create_pool
 from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.api_health import router as health_router
-from miles_socle.health.probe import resolve_health
 from miles_socle.log_config import configure_logging
 from miles_socle.oidc.api_connectors import router as oidc_connectors_router
 from miles_socle.oidc.api_login import router as oidc_login_router
-from miles_socle.oidc.service import OidcService
 from miles_socle.secrets.api_secrets import router as secrets_router
 from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
-from miles_socle.secrets.service import SecretsService
 
 from miles.apikeys.api_apikeys import router as api_keys_router
 from miles.apikeys.service import ApiKeysService
@@ -119,32 +112,27 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         pool = await db_create_pool(settings)
-        app.state.health_probe = partial(
-            resolve_health, pool, expected_version, settings.db_connect_timeout_s
-        )
-        app.state.auth = AuthContext(
-            store=store,
-            db=pool,
-            throttle=LoginThrottle(),
-            session_ttl=timedelta(seconds=settings.session_ttl_s),
-            cookie_secure=settings.cookie_secure,
-        )
-        app.state.secrets = SecretsService(pool, cipher, catalog, utc_now)
-        app.state.cultures = CulturesService(pool, catalog, utc_now)
-        app.state.preferences = PreferencesService(pool, app.state.cultures, utc_now)
         # Pas de redirection suivie : un fournisseur qui redirige la découverte ou
-        # l'échange de code ne doit pas nous emmener ailleurs sans qu'on le voie.
+        # l'échange de code ne doit pas nous emmener ailleurs sans qu'on le voie. Construit
+        # ici parce que c'est l'appelant qui le ferme, et que ce produit le PARTAGE avec ses
+        # propres services — le service de sécurité et les identités git s'en servent.
         http = httpx.AsyncClient(timeout=OIDC_HTTP_TIMEOUT_S, follow_redirects=False)
-        app.state.oidc = OidcService(
-            pool,
-            http,
-            app.state.secrets,
-            catalog,
-            utc_now,
-            settings.public_url,
-            settings.allow_http_identity_providers,
-            admin_email=lambda: store.account.email if store.account else None,
+        # Les sept services du socle, câblés par le socle : la MÊME fonction que celle
+        # qu'appellent les harnais des tests d'intégration des deux autres produits. L'ordre
+        # de création — les préférences reçoivent les cultures — n'est plus écrit qu'une
+        # fois, pour les trois.
+        wire_socle_services(
+            app,
+            settings=settings,
+            pool=pool,
+            store=store,
+            cipher=cipher,
+            catalog=catalog,
+            http=http,
+            expected_schema_version=expected_version,
         )
+        # Puis les services propres au module de paramétrage, qui s'appuient sur ceux du
+        # socle : ils lisent `app.state.secrets`, posé juste au-dessus.
         app.state.security = SecurityServices(
             pool, http, app.state.secrets, catalog, utc_now, settings.allow_http_identity_providers
         )

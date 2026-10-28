@@ -1060,6 +1060,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "structlog" },
 ]
@@ -1073,6 +1074,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "httpx", marker = "extra == 'testing'", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.9" },
+    { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.9" },
     { name = "pytest", marker = "extra == 'testing'", specifier = ">=8.3" },
     { name = "pytest-asyncio", marker = "extra == 'testing'", specifier = ">=0.24" },

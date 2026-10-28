@@ -9,10 +9,14 @@ from pydantic import SecretStr
 class DatabaseAccess(Protocol):
     """Ce dont le socle a besoin pour joindre une base, sans savoir d'où ça vient.
 
-    Divergence volontaire : le pool importait `miles.config.DatabaseSettings`, ce qui
-    faisait dépendre le socle du produit qui le consomme. Chaque produit garde sa propre
-    classe de configuration — elle porte son préfixe d'environnement et ses défauts — et
-    le socle n'en connaît que la forme.
+    Un Protocol, bien que `SocleDatabaseSettings` existe désormais au socle et le satisfasse :
+    le pool n'a pas à exiger pydantic. Un harnais de test, un script ou un outil peut lui
+    passer un objet de la bonne FORME, et c'est ce qui permet au montage des tests
+    d'intégration de câbler sans construire une configuration complète.
+
+    Historique utile : le pool importait `miles.config.DatabaseSettings`, ce qui faisait
+    dépendre le socle du produit qui le consomme. L'inversion a été faite le 27/10/2026 ;
+    ne pas la défaire au motif que la classe de base est maintenant ici.
     """
 
     @property

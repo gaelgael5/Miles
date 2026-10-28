@@ -1,11 +1,12 @@
 """Montage d'un produit sur une base réelle, sans passer par uvicorn.
 
-Les sept services du socle sont câblés ICI, une fois, pour les trois produits. Écueil payé
-deux fois dans le portail (LESSONS.md, 22 puis 24/10/2026) : un service ajouté à
-l'application et oublié dans le montage de test fait tomber tous les tests d'intégration de
-ce service, pour une raison qui n'a rien à voir avec lui. Avec trois produits, c'était trois
-endroits où l'oubli était possible ; il n'en reste qu'un, et `wiring.py` porte la garde qui
-le rend visible.
+Les sept services du socle sont câblés par `wire_socle_services` — LA MÊME fonction que
+celle qu'appelle `app.py` en production. C'est ce qui rend impossible, et non plus
+seulement improbable, l'oubli d'un service du socle ici : il n'y a plus deux listes à
+tenir d'accord. Écueil payé deux fois dans le portail (LESSONS.md, 22 puis 24/10/2026) —
+un service ajouté à l'application et oublié dans le montage faisait tomber tous les tests
+de ce service, sur une erreur qui ne parlait pas de lui. `wiring.py` garde ce qui reste :
+les services PROPRES à un produit, que le socle ne connaît pas.
 
 Le produit n'est pas importé : son `build_app`, son répertoire de migrations et ses types
 d'events arrivent par INJECTION. Le socle qui les importerait importerait un produit, et le
@@ -24,27 +25,43 @@ import asyncpg
 import httpx
 from fastapi import FastAPI
 
+from miles_socle.app_state import wire_socle_services
 from miles_socle.auth.admin_store import AdminAccountStore
-from miles_socle.auth.api_preferences import PreferencesService
-from miles_socle.auth.context import AuthContext
 from miles_socle.auth.sessions import (
     LOCAL_ADMIN_KIND,
     SESSION_COOKIE,
     db_create_session,
     new_session_token,
 )
-from miles_socle.auth.throttle import LoginThrottle
-from miles_socle.cultures.service import CulturesService
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.migrations import resolve_apply_migrations
 from miles_socle.events.model import EventTypeCatalog
-from miles_socle.health.probe import resolve_health
-from miles_socle.oidc.service import OidcService
 from miles_socle.secrets.crypto import SecretCipher
-from miles_socle.secrets.service import SecretsService
 from miles_socle.testing.files import ADMIN_USERNAME, BASE_ENV, admin_env, write_env
 
 HEALTH_TIMEOUT_S = 5.0
+
+
+@dataclass(frozen=True)
+class TestRuntime:
+    """La configuration du montage de test, à la forme que `wire_socle_services` attend.
+
+    Trois valeurs diffèrent de la production, et chacune pour une raison :
+
+    - `cookie_secure=False`, sans quoi le cookie ne traverse pas le transport ASGI des
+      tests. En production il est vrai, et c'est l'attribut `Domain` — toujours absent —
+      qui porte l'étanchéité entre produits ;
+    - `allow_http_identity_providers=True`, parce que la campagne éprouve le parcours
+      contre un fournisseur JETABLE servi en HTTP. En production c'est une garde : un
+      fournisseur en HTTP laisse passer jetons et codes en clair ;
+    - une session d'une heure, qui suffit à un test et n'a pas à durer douze heures.
+    """
+
+    public_url: str | None
+    session_ttl_s: int
+    cookie_secure: bool = False
+    allow_http_identity_providers: bool = True
+    db_connect_timeout_s: float = HEALTH_TIMEOUT_S
 
 
 def utc_now() -> datetime:
@@ -110,40 +127,23 @@ async def open_socle_stack(
         catalog = EventTypeCatalog(event_types)
         cipher = SecretCipher(bytes(range(32)))
         app = build_app()
-        app.state.health_probe = lambda: resolve_health(
-            pool, migrations[-1].version, HEALTH_TIMEOUT_S
-        )
         store = AdminAccountStore.file_load(env, backup)
-        app.state.auth = AuthContext(
-            store=store,
-            db=pool,
-            throttle=LoginThrottle(),
-            session_ttl=session_ttl,
-            # Faux pour que le cookie traverse le transport ASGI des tests ; en production
-            # il est vrai, et c'est l'attribut Domain — toujours absent — qui porte
-            # l'étanchéité entre produits.
-            cookie_secure=False,
-        )
-        app.state.secrets = SecretsService(pool, cipher, catalog, utc_now)
-        app.state.cultures = CulturesService(pool, catalog, utc_now)
-        # Après les cultures, et pas avant : les préférences les reçoivent. Les intervertir
-        # ne casse pas à la construction, seulement à l'exécution.
-        app.state.preferences = PreferencesService(pool, app.state.cultures, utc_now)
         async with httpx.AsyncClient() as http:
-            app.state.oidc = OidcService(
-                pool,
-                http,
-                app.state.secrets,
-                catalog,
-                utc_now,
-                public_url,
-                # Les tests d'intégration éprouvent le parcours contre un fournisseur
-                # JETABLE servi en HTTP. En production ce drapeau est faux, et c'est une
-                # garde : un fournisseur en HTTP laisse passer jetons et codes en clair.
-                allow_http_issuer=True,
-                admin_email=lambda: store.account.email if store.account else None,
+            # La MÊME fonction que celle qu'appelle `app.py` : il n'y a plus deux listes de
+            # services à tenir d'accord.
+            wire_socle_services(
+                app,
+                settings=TestRuntime(
+                    public_url=public_url, session_ttl_s=int(session_ttl.total_seconds())
+                ),
+                pool=pool,
+                store=store,
+                cipher=cipher,
+                catalog=catalog,
+                http=http,
+                expected_schema_version=migrations[-1].version,
+                now=utc_now,
             )
-            app.state.public_url = public_url
             cookies = {}
             if admin_email is not None:
                 token, digest = new_session_token()
