@@ -55,7 +55,11 @@ class EnrolmentDouble:
     # Trois valeurs, et la troisième est celle du VRAI module d'enrôlement une fois la
     # demande disparue : il n'a plus aucune clé pour vérifier l'appel, et il refuse
     # plutôt que de confirmer à un inconnu qu'une origine n'est pas appariée.
-    #   « en_attente » → 200 en attente | « inconnue » → 200 inconnue | « disparue » → 401
+    #   « en_attente » → 200 en attente | « inconnue » → 200 inconnue
+    #   « disparue »   → 401 « appariement_refuse », ce que rend SA ROUTE DE PAIR
+    #   « sans_route » → 401 « session_requise », ce que rend SON PORTILLON quand la route
+    #                    n'existe pas encore chez lui. Les deux 401 ont la même forme, et
+    #                    seul le détail les sépare.
     status_state: str = "en_attente"
     expires_at: str = "2099-01-01T00:00:00+00:00"
     # Le nom déclaré tel qu'il est ARRIVÉ. Les tests y lisent ce qui est réellement parti,
@@ -114,6 +118,8 @@ class EnrolmentDouble:
                 return JSONResponse(status_code=401, content={"detail": "appariement_refuse"})
             if self.status_state == "disparue":
                 return JSONResponse(status_code=401, content={"detail": "appariement_refuse"})
+            if self.status_state == "sans_route":
+                return JSONResponse(status_code=401, content={"detail": "session_requise"})
             if self.status_state != "en_attente":
                 return JSONResponse(content={"state": "inconnue", "expires_at": None})
             return JSONResponse(content={"state": "en_attente", "expires_at": self.expires_at})

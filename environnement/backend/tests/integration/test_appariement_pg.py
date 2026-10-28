@@ -511,9 +511,11 @@ async def test_un_pair_injoignable_n_est_pas_un_refus(blank_db: str, tmp_path: P
         await stack.client.post(
             "/api/identity/pairing", json={"base_url": PEER_ORIGIN, "name": NOM}
         )
-        # La contrepartie refuse désormais nos appels signés : c'est la forme qu'a, vue
-        # d'ici, une route de pair absente ou un appariement rompu.
-        double.expects_public_key = "A" * 43
+        # Un 500 : il a répondu, mais pas à la question. Simuler l'injoignabilité par un
+        # 401 serait faux — c'est exactement ce que ce test faisait avant le 28/10/2026, et
+        # un 401 veut dire « demande disparue », pas « panne ».
+        double.confirm_status = 500
+        double.status_state = "sans_route"
 
         etat = await stack.client.get("/api/identity/pairing/state")
 

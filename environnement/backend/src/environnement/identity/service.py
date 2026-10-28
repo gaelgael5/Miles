@@ -412,20 +412,15 @@ class IdentityService:
             # panne de réseau détruirait un appariement en cours d'acceptation.
             log.warning("etat_d_appariement_indisponible", base_url=tentative.base_url)
             return PairingState("pair_injoignable", tentative, pair)
-        if reponse.status_code not in (200, 401):
+        disparue = _demande_disparue(reponse)
+        if disparue is None:
             log.warning(
                 "etat_d_appariement_indisponible",
                 base_url=tentative.base_url,
                 status_code=reponse.status_code,
+                peer_detail=_peer_detail(reponse),
             )
             return PairingState("pair_injoignable", tentative, pair)
-        # 401 sur CETTE route veut dire que le pair ne détient ni notre demande ni notre
-        # appariement : il n'a donc aucune clé avec quoi vérifier, et il refuse plutôt que
-        # de répondre « inconnue » à un inconnu — ce qui lui dirait que cette origine n'est
-        # pas appariée. Nous, qui avions une demande, savons que cela signifie qu'elle a
-        # disparu. Le lire comme « injoignable » afficherait une panne là où un humain
-        # vient de refuser (mesuré par la campagne du 28/10/2026).
-        disparue = reponse.status_code == 401 or str(reponse.json().get("state")) != "en_attente"
         if not disparue:
             return PairingState("en_attente", tentative, pair)
         if tentative.expires_at is None:
@@ -491,6 +486,33 @@ def _validate_code(code: str) -> str:
     if not _CODE_RE.match(code):
         raise IdentityInputError("code")
     return code
+
+
+def _demande_disparue(reponse: httpx.Response) -> bool | None:
+    """La demande a-t-elle disparu de chez le pair ? `None` quand il n'a pas répondu à ça.
+
+    Trois lectures, et la troisième est celle qui coûte le plus cher à se tromper :
+
+    - **200 avec un état** : il répond, on le croit ;
+    - **401 en disant `appariement_refuse`** : sa route de pair a parlé. Elle ne détient
+      plus ni notre demande ni notre appariement, donc plus aucune clé pour vérifier
+      l'appel, et elle refuse plutôt que de confirmer à un inconnu qu'une origine n'est
+      pas appariée. NOUS savons que nous avions une demande : pour nous, c'est qu'elle a
+      disparu. Le lire comme une panne afficherait « injoignable » là où un humain vient
+      de refuser (trouvé par la campagne du 28/10/2026) ;
+    - **tout autre 401** : ce n'est PAS sa route de pair qui parle, c'est son portillon
+      d'authentification, qui rend 401 sur toute route `/api` inconnue. Autrement dit sa
+      version ne sert pas encore cette route. `LESSONS.md` porte cette confusion depuis le
+      28/10/2026 : un 401 d'un module Miles ne prouve rien tant qu'on n'a pas lu POURQUOI.
+    """
+    if reponse.status_code == 200:
+        try:
+            return str(reponse.json().get("state")) != "en_attente"
+        except ValueError:
+            return None
+    if reponse.status_code == 401 and _peer_detail(reponse) == "appariement_refuse":
+        return True
+    return None
 
 
 def _peer_expires_at(reponse: httpx.Response) -> datetime | None:
