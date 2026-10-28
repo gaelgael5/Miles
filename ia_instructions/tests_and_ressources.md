@@ -13,8 +13,12 @@ Ajouter une ligne à chaque attribution, la retirer quand la ressource est repri
 diagnostic : l'adresse a changé à chaque fois (`100.74.129.165` → `100.74.9.236`).
 
 Notes sur `test1` (`host-test-37`), relevées le 2026-10-23 :
-- **Machine dédiée** : seuls les services standard y tournent (`devpod-alloy-agent`,
-  `devpod-alloy-metrics`, `browserless-chromium` sur 3000, `buildx_buildkit`).
+- **Plus dédiée depuis le 28/10/2026 au soir** : une pile tierce (`tutor-*` — web, backend,
+  postgres) y tourne désormais à côté des services standard (`devpod-alloy-agent`,
+  `devpod-alloy-metrics`, `browserless-chromium` sur 3000, `buildx_buildkit`). Conséquence
+  pratique : le disque se remplit plus vite qu'avant (85 % le 28/10 au soir, pour 40 Go), et
+  la purge hebdomadaire de `dev-deploy.sh` ne suffit plus à elle seule. Vérifier `df -h /`
+  avant une campagne, et ne jamais supposer que ce qui tourne ici nous appartient.
 - **Ports** : le portail est publié sur **8080** et son broker MQTT sur **1883** ; le module
   d'enrôlement sur **8081** ; le module d'environnement sur **8082**. Figés au premier
   déploiement dans le `.env` DU PRODUIT. **Trois stacks cohabitent** sur cette machine :
