@@ -583,3 +583,30 @@ async def test_une_demande_disparue_est_lue_comme_un_refus_et_non_comme_une_pann
         etat = await stack.client.get("/api/identity/pairing/state")
 
         assert etat.json()["state"] == "refusee"
+
+
+async def test_repointer_le_pair_a_la_main_n_efface_pas_le_nom_declare(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Le nom déclaré dit sous quel nom CE module est connu à l'autre bout.
+
+    Repointer l'adresse du pair — ce qu'un administrateur fait quand le transport change —
+    n'a aucune raison de l'effacer. Trouvé le 28/10/2026 en repointant pour de vrai sur
+    machine de test : le nom disparaissait en silence, pendant que l'écran de l'autre bout
+    continuait de l'afficher. Une perte silencieuse est pire qu'un refus.
+    """
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await stack.client.post(
+            "/api/identity/pairing", json={"base_url": PEER_ORIGIN, "name": NOM}
+        )
+        await stack.client.post("/api/identity/pairing/confirm", json={"code": EXPECTED_CODE})
+
+        repointe = await stack.client.put(
+            "/api/identity/peer",
+            json={"base_url": "http://autre-adresse.test", "public_key": double.keypair.public_key},
+        )
+
+        assert repointe.status_code == 200
+        assert repointe.json()["base_url"] == "http://autre-adresse.test"
+        assert repointe.json()["declared_name"] == NOM

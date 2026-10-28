@@ -44,13 +44,20 @@ async def db_upsert_peer(
     Le remplacement est le ré-appariement : il ne doit pas laisser deux identités pour une
     stack. `created_at` est conservé, parce qu'il date l'appariement initial, qui reste un
     fait même après rotation des clés.
+
+    `declared_name` nul CONSERVE celui qui est en place, au lieu de l'effacer. Ce champ dit
+    sous quel nom NOTRE module est connu à l'autre bout : repointer l'adresse du pair à la
+    main ne change rien à cela. Mesuré le 28/10/2026 en repointant le transport sur machine
+    de test — le nom déclaré disparaissait sans que rien ne le dise, et l'écran de l'autre
+    bout continuait pourtant de l'afficher. Une perte silencieuse est pire qu'un refus.
     """
     row = await db.fetchrow(
         "INSERT INTO enrolment_peer (id, base_url, public_key, algorithm, created_at,"
         " updated_at, declared_name) VALUES ($1, $2, $3, $4, $5, $5, $6)"
         " ON CONFLICT (id) DO UPDATE SET base_url = excluded.base_url,"
         " public_key = excluded.public_key, algorithm = excluded.algorithm,"
-        " updated_at = excluded.updated_at, declared_name = excluded.declared_name"
+        " updated_at = excluded.updated_at,"
+        " declared_name = coalesce(excluded.declared_name, enrolment_peer.declared_name)"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at, declared_name",
         SINGLETON,
         base_url,
