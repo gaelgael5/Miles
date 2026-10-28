@@ -5,6 +5,7 @@ from pathlib import Path
 import asyncpg
 import pytest
 import structlog
+from fastapi import FastAPI
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.migrations import resolve_apply_migrations
 from miles_socle.secrets.crypto import SecretCipher
@@ -362,3 +363,22 @@ async def test_un_secret_deja_pose_sur_le_slug_de_l_identite_fait_echouer_le_dem
     with pytest.raises(IdentityError, match=SIGNING_KEY_SLUG):
         async with open_stack(blank_db, tmp_path):
             pass
+
+
+async def test_un_pair_qui_repond_autre_chose_n_est_pas_dit_injoignable(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Troisième cas : le pair répond, mais pas ce qu'on attend — un 404, par exemple.
+
+    C'est l'état réel au 28/10/2026 : le côté enrôlement du protocole n'est pas déployé
+    (ticket 6a0daab6). Le dire « injoignable » enverrait chercher un problème de réseau
+    qui n'existe pas.
+    """
+    muet = FastAPI()
+    async with open_stack(blank_db, tmp_path, peer_app=muet) as stack:
+        await _declare_peer(stack, generate_keypair().public_key)
+
+        reponse = await stack.client.post("/api/identity/peer/ping")
+
+    assert reponse.status_code == 502
+    assert reponse.json() == {"detail": "reponse_inattendue_du_pair", "peer_status": 404}

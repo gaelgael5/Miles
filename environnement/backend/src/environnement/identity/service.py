@@ -52,6 +52,7 @@ from environnement.identity.model import (
     OriginMissingError,
     PeerMissingError,
     PeerRefusedError,
+    PeerUnexpectedResponseError,
     validate_base_url,
     validate_public_key,
 )
@@ -304,7 +305,16 @@ class IdentityService:
             # refusés. C'est un désaccord de clés, donc un appariement à refaire.
             log.warning("ping_refuse_par_le_pair", base_url=pair.base_url)
             raise PeerRefusedError("le pair a refusé notre appel signé")
-        reponse.raise_for_status()
+        if reponse.status_code != 200:
+            # Il a répondu : ce n'est donc ni un problème de réseau ni un refus. Le plus
+            # probable au 28/10/2026 est que son côté du protocole n'est pas encore
+            # déployé — ticket 6a0daab6.
+            log.warning(
+                "reponse_inattendue_du_pair",
+                base_url=pair.base_url,
+                status_code=reponse.status_code,
+            )
+            raise PeerUnexpectedResponseError(reponse.status_code)
         charge = reponse.json()
         origine_du_pair = charge.get("origin")
         return PeerPong(

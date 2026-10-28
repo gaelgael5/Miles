@@ -76,6 +76,19 @@ class OriginMissingError(IdentityError):
     """
 
 
+class PeerUnexpectedResponseError(IdentityError):
+    """Le pair a répondu, mais pas ce qu'on attend. Troisième cas, distinct des deux autres.
+
+    Un 404 veut dire que son côté du protocole n'est pas déployé ; un 500, qu'il est en
+    panne. Les ranger avec « injoignable » enverrait chercher un problème de réseau là où
+    il n'y en a pas, et avec « refusé » ferait réapparier pour rien.
+    """
+
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"réponse inattendue du pair : HTTP {status_code}")
+        self.status_code = status_code
+
+
 @dataclass(frozen=True)
 class ModuleIdentity:
     """Ce que le module peut montrer de son identité : tout, sauf la clé privée."""

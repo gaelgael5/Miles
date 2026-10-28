@@ -24,6 +24,7 @@ from environnement.identity.model import (
     OriginMissingError,
     PeerMissingError,
     PeerRefusedError,
+    PeerUnexpectedResponseError,
 )
 from environnement.identity.service import IdentityService, PeerPong
 
@@ -105,6 +106,11 @@ def _error(exc: IdentityError) -> JSONResponse:
         )
     if isinstance(exc, PeerMissingError):
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "aucun_pair"})
+    if isinstance(exc, PeerUnexpectedResponseError):
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            content={"detail": "reponse_inattendue_du_pair", "peer_status": exc.status_code},
+        )
     if isinstance(exc, PeerRefusedError):
         # 409 : rien n'est à corriger dans la requête, c'est l'état de l'appariement qui
         # est en conflit — la clé que le pair détient pour nous n'est pas la nôtre.
