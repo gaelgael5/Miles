@@ -1,116 +1,59 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ConfirmDialog, CopyButton, PageHead } from "@miles/socle-web";
+import { ConfirmDialog, PageHead } from "@miles/socle-web";
 
 import {
+  type EnvironmentRef,
   type PairedEnvironment,
   type PairingRequest,
+  useAttachPeerEnvironment,
+  useDesignateRequestEnvironment,
   usePairedEnvironments,
-  usePairingCode,
   usePairingRequests,
   useRejectRequest,
 } from "../api/pairing";
-
-/** Secondes restantes avant un instant donné, jamais négatives. */
-function resteJusqua(instant: string, maintenant: number): number {
-  return Math.max(0, Math.round((Date.parse(instant) - maintenant) / 1000));
-}
+import { CodeRevele, Duree, resteJusqua, useTicTac } from "./CodeRevele";
+import { EnvironmentPicker } from "./EnvironmentPicker";
 
 /**
- * Une horloge qui bat à la seconde, pour les comptes à rebours affichés.
+ * L'environnement rattaché, ou le signal qu'il manque.
  *
- * Locale et uniquement pour l'AFFICHAGE : ce qui décide de l'acceptation d'un code est
- * l'horloge du serveur, et les deux n'ont aucune raison de s'accorder. Afficher un compte
- * à rebours dérivé du serveur à chaque seconde coûterait une requête par seconde.
+ * « À rattacher » porte une pastille d'alerte, et c'est voulu : un appariement sans
+ * environnement est un état transitoire HÉRITÉ, pas l'état normal du premier jour — à
+ * l'inverse d'un environnement déclaré et pas encore apparié, que le référentiel montre
+ * en gris. Les deux absences ne se lisent pas pareil.
  */
-function useTicTac(): number {
-  const [maintenant, setMaintenant] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = window.setInterval(() => setMaintenant(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-  return maintenant;
-}
-
-function Duree({ secondes }: { secondes: number }) {
+function EnvironmentCell({ environnement }: { environnement: EnvironmentRef | null }) {
   const { t } = useTranslation();
-  const minutes = Math.floor(secondes / 60);
-  // Trois échelles, parce que la durée de vie d'une demande est PARAMÉTRABLE : une heure
-  // par défaut, sept jours au plus. « dans 10080 min » est exact et illisible.
-  const libelle =
-    minutes >= 60
-      ? t("pairing.requests.expiresInHours", { n: Math.round(minutes / 60) })
-      : minutes >= 1
-        ? t("pairing.requests.expiresInMinutes", { n: minutes })
-        : t("pairing.requests.expiresInSeconds", { n: secondes });
-  return <span className={secondes === 0 ? "badge badge-warning" : "badge"}>{libelle}</span>;
-}
-
-/**
- * Le code à recopier, et ce qu'il reste de sa fenêtre.
- *
- * Il n'est ni imprimable, ni téléchargeable, ni exportable : la seule sortie offerte est
- * le presse-papiers. Le rendre exportable en ferait un secret qui traîne, alors qu'il est
- * conçu pour ne valoir que quelques secondes et qu'une fois.
- */
-function CodeRevele({ baseUrl }: { baseUrl: string }) {
-  const { t } = useTranslation();
-  const code = usePairingCode(baseUrl);
-  const maintenant = useTicTac();
-  const [lu, setLu] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (code.data !== undefined) {
-      setLu(Date.now());
-    }
-  }, [code.data]);
-
-  if (code.isPending) {
-    return <p role="status">{t("pairing.code.loading")}</p>;
-  }
-  if (code.data === undefined) {
-    // Le plus souvent : la demande vient d'expirer ou d'être refusée ailleurs. Le dire
-    // vaut mieux qu'afficher un code vide que quelqu'un recopierait.
+  if (environnement === null) {
     return (
-      <p className="alert" role="status">
-        {t("pairing.code.gone")}
-      </p>
+      <span className="badge badge-warning">{t("pairing.designation.missing")}</span>
     );
   }
-  // Borné par ce que le SERVEUR a dit : l'effet qui pose `lu` s'exécute après le rendu,
-  // donc l'écart peut être très légèrement négatif et faire afficher une seconde de plus
-  // que ce qu'il reste. Mieux vaut annoncer un peu moins qu'un peu trop.
-  const reste = Math.min(
-    code.data.seconds_remaining,
-    Math.max(0, code.data.seconds_remaining - Math.floor((maintenant - lu) / 1000)),
-  );
   return (
-    <div className="row-detail">
-      <p className="help">{t("pairing.code.handOver")}</p>
-      {/* `actions` et non `facts` : `facts` est une grille à deux colonnes pour des
-          couples légende/valeur, et le bouton de copie s'y étirait sur toute la largeur
-          de la seconde colonne. Ici trois éléments se suivent sur une ligne. */}
-      <div className="actions">
-        <div className="code-block code-large" aria-label={t("pairing.code.label")}>
-          {code.data.code}
-        </div>
-        <CopyButton text={code.data.code} label={t("pairing.code.copy")} />
-        <span className={reste <= 5 ? "badge badge-warning" : "badge"} role="timer">
-          {t("pairing.code.renewsIn", { n: reste })}
-        </span>
-      </div>
-      <p className="help">{t("pairing.code.perishable")}</p>
-    </div>
+    <>
+      <div>{environnement.label}</div>
+      {/* Le slug sous le libellé : c'est lui qui s'écrit dans une procédure, et le
+          retrouver sans changer d'écran évite de le recopier de mémoire. */}
+      <div className="row-sub">{environnement.slug}</div>
+    </>
   );
 }
+
 
 function DemandeRow({ demande }: { demande: PairingRequest }) {
   const { t } = useTranslation();
   const [revele, setRevele] = useState(false);
   const [confirmeRefus, setConfirmeRefus] = useState(false);
+  const [ouvreChoix, setOuvreChoix] = useState(false);
   const refus = useRejectRequest();
+  const designation = useDesignateRequestEnvironment();
   const maintenant = useTicTac();
+  // Révéler le code EST le geste d'acceptation : sans environnement désigné, il n'y a
+  // personne à qui rattacher l'appariement, et le serveur refuse. Le bouton suit la même
+  // règle — mais il la DIT, au lieu d'être grisé en silence.
+  const revelable = demande.environment !== null;
 
   return (
     <li className="row">
@@ -131,6 +74,12 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
         </div>
       </div>
       <div className="cell">
+        <div className="caption">{t("pairing.designation.caption")}</div>
+        <div className="value">
+          <EnvironmentCell environnement={demande.environment} />
+        </div>
+      </div>
+      <div className="cell">
         <div className="caption">{t("pairing.requests.captionFingerprint")}</div>
         <div className="value">
           <span className="badge">{demande.public_key_fingerprint}</span>
@@ -140,10 +89,21 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
         <button
           type="button"
           className="btn btn-primary"
+          disabled={!revelable}
           aria-expanded={revele}
           onClick={() => setRevele((ouvert) => !ouvert)}
         >
           {revele ? t("pairing.requests.hideCode") : t("pairing.requests.showCode")}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          aria-expanded={ouvreChoix}
+          onClick={() => setOuvreChoix((ouvert) => !ouvert)}
+        >
+          {revelable
+            ? t("pairing.designation.change")
+            : t("pairing.designation.designate")}
         </button>
         <button
           type="button"
@@ -153,7 +113,28 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
           {t("pairing.requests.reject")}
         </button>
       </div>
-      {revele && <CodeRevele baseUrl={demande.base_url} />}
+      {/* La raison du refus est ÉCRITE, pas seulement signifiée par un bouton éteint :
+          un bouton grisé muet fait chercher la panne du côté des clés ou du réseau. */}
+      {!revelable && (
+        <p className="help" role="status">
+          {t("pairing.designation.required")}
+        </p>
+      )}
+      {ouvreChoix && (
+        <EnvironmentPicker
+          choisi={demande.environment?.id ?? null}
+          pending={designation.isPending}
+          error={designation.isError ? designation.error : null}
+          submitLabel={t("pairing.designation.submit")}
+          onChoose={(environmentId) =>
+            designation.mutate(
+              { baseUrl: demande.base_url, environmentId },
+              { onSuccess: () => setOuvreChoix(false) },
+            )
+          }
+        />
+      )}
+      {revele && revelable && <CodeRevele baseUrl={demande.base_url} />}
       {/* Le refus détruit le secret de la demande : un clic isolé ne doit pas suffire. */}
       {confirmeRefus && (
         <ConfirmDialog

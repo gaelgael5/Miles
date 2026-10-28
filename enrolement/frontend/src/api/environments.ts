@@ -18,6 +18,11 @@ export interface Environment {
    * l'état normal du premier jour.
    */
   paired_base_url: string | null;
+  /**
+   * L'origine d'une demande d'appariement EN ATTENTE qui l'a désigné. Elle ne le consomme
+   * pas — refusée ou expirée, elle le libère — mais elle retient sa suppression.
+   */
+  designated_base_url: string | null;
 }
 
 export interface EnvironmentInput {
@@ -59,11 +64,16 @@ export function refusKey(error: unknown): string {
     return error.detail === "label" ? "environments.errors.label" : "environments.errors.slug";
   }
   if (error.status === 409) {
-    // Deux refus de même code, deux gestes différents : corriger un slug pris, ou
-    // révoquer un appariement. Les fondre ferait chercher du côté du champ.
-    return error.detail === "environnement_apparie"
-      ? "environments.errors.paired"
-      : "environments.errors.slugTaken";
+    // Trois refus de même code, trois gestes différents : corriger un slug pris,
+    // révoquer un appariement, ou refuser la demande qui le désigne. Les fondre ferait
+    // chercher une révocation là où il n'y a qu'une liste déroulante à changer.
+    if (error.detail === "environnement_apparie") {
+      return "environments.errors.paired";
+    }
+    if (error.detail === "environnement_designe") {
+      return "environments.errors.designated";
+    }
+    return "environments.errors.slugTaken";
   }
   if (error.status === 404) {
     return "environments.errors.absent";

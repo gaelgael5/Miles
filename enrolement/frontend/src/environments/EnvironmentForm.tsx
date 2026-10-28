@@ -13,6 +13,7 @@ import { refusKey, slugFromLabel } from "../api/environments";
  * couple de champs, et elle ne se voit qu'à l'usage.
  */
 export function EnvironmentForm({
+  idPrefix = "environment",
   label: labelInitial,
   slug: slugInitial,
   submitLabel,
@@ -21,6 +22,13 @@ export function EnvironmentForm({
   onSubmit,
   onCancel,
 }: {
+  /**
+   * Préfixe des `id` des champs. Il existe parce que ce formulaire s'ouvre aussi en
+   * raccourci depuis l'écran d'appariement, où plusieurs lignes peuvent l'afficher en
+   * même temps : deux `id` identiques feraient pointer le libellé de l'un sur le champ
+   * de l'autre, et la saisie paraîtrait ne pas répondre.
+   */
+  idPrefix?: string;
   label: string;
   slug: string;
   submitLabel: string;
@@ -51,9 +59,9 @@ export function EnvironmentForm({
   return (
     <form className="panel" onSubmit={soumettre}>
       <div className="field">
-        <label htmlFor="environment-label">{t("environments.form.label")}</label>
+        <label htmlFor={`${idPrefix}-label`}>{t("environments.form.label")}</label>
         <input
-          id="environment-label"
+          id={`${idPrefix}-label`}
           type="text"
           value={label}
           maxLength={80}
@@ -63,9 +71,9 @@ export function EnvironmentForm({
         <p className="help">{t("environments.form.labelHelp")}</p>
       </div>
       <div className="field">
-        <label htmlFor="environment-slug">{t("environments.form.slug")}</label>
+        <label htmlFor={`${idPrefix}-slug`}>{t("environments.form.slug")}</label>
         <input
-          id="environment-slug"
+          id={`${idPrefix}-slug`}
           type="text"
           value={slug}
           maxLength={48}

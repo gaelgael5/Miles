@@ -353,7 +353,7 @@ async def test_la_designation_et_le_rattachement_sont_des_events_signes_de_leur_
         await _rattache(stack, "http://herite.test", autre)
 
         lignes = await stack.pool.fetch(
-            "SELECT type, properties, author_username FROM events"
+            "SELECT type, properties, author_directory, author_subject FROM events"
             " WHERE type = ANY($1::text[]) ORDER BY type",
             [ENVIRONMENT_ATTACHED_EVENT, ENVIRONMENT_DESIGNATED_EVENT],
         )
@@ -370,7 +370,10 @@ async def test_la_designation_et_le_rattachement_sont_des_events_signes_de_leur_
                 "environment_slug",
                 "environment_label",
             }
-            assert ligne["author_username"] is not None
+            # L'identité (annuaire, sub) et jamais la personne : une liaison tardive
+            # réunifie l'historique sans réécrire le journal.
+            assert ligne["author_directory"] != ""
+            assert ligne["author_subject"] != ""
 
 
 async def test_les_routes_de_designation_exigent_une_session(blank_db: str, tmp_path: Path) -> None:

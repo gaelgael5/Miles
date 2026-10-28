@@ -358,6 +358,9 @@ async def test_la_fenetre_precedente_passe_et_les_plus_anciennes_nomment_l_horlo
     lecture = datetime.now(UTC)
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
+        # Sans environnement désigné, le code n'est pas révélable (ticket bf2115cd) :
+        # la précondition est posée par les routes, comme à l'écran.
+        await _designe(stack, double)
         code = (await _instance(stack, now=_fige(lecture)).resolve_request_code(double.origin)).code
 
         # Une fenêtre d'écart : accepté, parce que recopier un code prend quelques secondes.
@@ -404,6 +407,7 @@ async def test_un_code_lu_par_une_instance_est_accepte_par_une_autre(
     double = EnvironmentDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
+        await _designe(stack, double)
         lectrice = _instance(stack)
 
         code = (await lectrice.resolve_request_code(double.origin)).code

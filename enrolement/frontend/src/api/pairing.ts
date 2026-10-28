@@ -1,5 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { request } from "@miles/socle-web";
+import { ApiError, request } from "@miles/socle-web";
+
+/**
+ * L'environnement du référentiel, vu depuis l'appariement : juste de quoi le nommer.
+ *
+ * L'identifiant est STABLE, le slug et le libellé sont renommables : l'écran affiche les
+ * seconds et renvoie le premier.
+ */
+export interface EnvironmentRef {
+  id: string;
+  slug: string;
+  label: string;
+}
 
 /** Une demande d'appariement en attente du geste humain. Jamais son secret. */
 export interface PairingRequest {
@@ -15,6 +27,12 @@ export interface PairingRequest {
   algorithm: string;
   created_at: string;
   expires_at: string;
+  /**
+   * L'environnement DÉSIGNÉ par un humain authentifié. Nul tant que personne n'a choisi,
+   * et c'est alors le code qui n'est pas révélable. À ne pas confondre avec `name`
+   * ci-dessus : l'un vient d'un inconnu et aide à reconnaître, l'autre désigne.
+   */
+  environment: EnvironmentRef | null;
 }
 
 export interface PairedEnvironment {
@@ -27,6 +45,12 @@ export interface PairedEnvironment {
   updated_at: string;
   /** Nul tant que le référentiel des devices n'existe pas : l'écran affiche « — ». */
   device_count: number | null;
+  /**
+   * Nul UNIQUEMENT pour les appariements hérités, conclus avant que la désignation
+   * n'existe : l'écran les signale « à rattacher ». Aucun appariement neuf ne peut plus
+   * se conclure sans — c'est un état transitoire hérité, pas un état admis.
+   */
+  environment: EnvironmentRef | null;
 }
 
 export interface PairingCode {
@@ -96,5 +120,66 @@ export function useRejectRequest() {
       }),
     // Les deux listes se relisent au serveur : lui seul sait ce qui reste.
     onSettled: () => client.invalidateQueries({ queryKey: PAIRING_KEY }),
+  });
+}
+
+/**
+ * La clef de libellé d'un refus d'appariement, choisie sur ce que le serveur a RÉELLEMENT dit.
+ *
+ * Chaque refus appelle un geste différent — désigner, en choisir un autre, révoquer,
+ * rafraîchir la liste —, et c'est pour cela qu'ils ne se fondent pas en « une erreur est
+ * survenue » : un message unique fait chercher la panne là où elle n'est pas.
+ */
+export function designationRefusKey(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    return "pairing.designation.errors.unexpected";
+  }
+  if (error.status === 409) {
+    if (error.detail === "appariement_conclu") {
+      return "pairing.designation.errors.settled";
+    }
+    return "pairing.designation.errors.taken";
+  }
+  if (error.status === 404) {
+    // L'environnement vient d'être supprimé ailleurs, ou la demande d'expirer : deux
+    // disparitions, et la liste relue dira laquelle.
+    return error.detail === "environnement_absent"
+      ? "pairing.designation.errors.environmentGone"
+      : "pairing.designation.errors.requestGone";
+  }
+  return "pairing.designation.errors.unexpected";
+}
+
+/** Désigne l'environnement d'une demande en attente. Libre tant qu'elle l'est. */
+export function useDesignateRequestEnvironment() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ baseUrl, environmentId }: { baseUrl: string; environmentId: string }) =>
+      request<PairingRequest>(
+        `/api/pairing/requests/environment?base_url=${encodeURIComponent(baseUrl)}`,
+        { method: "PUT", body: JSON.stringify({ environment_id: environmentId }) },
+      ),
+    // Le référentiel aussi : un environnement désigné n'est plus supprimable, et sa
+    // ligne doit le dire sans qu'on change d'écran puis revienne.
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: PAIRING_KEY });
+      void client.invalidateQueries({ queryKey: ["environments"] });
+    },
+  });
+}
+
+/** Rattache un appariement HÉRITÉ, conclu avant que la désignation n'existe. */
+export function useAttachPeerEnvironment() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ baseUrl, environmentId }: { baseUrl: string; environmentId: string }) =>
+      request<PairedEnvironment>(
+        `/api/pairing/peers/environment?base_url=${encodeURIComponent(baseUrl)}`,
+        { method: "PUT", body: JSON.stringify({ environment_id: environmentId }) },
+      ),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: PAIRING_KEY });
+      void client.invalidateQueries({ queryKey: ["environments"] });
+    },
   });
 }
