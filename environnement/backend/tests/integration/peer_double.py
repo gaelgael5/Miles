@@ -15,6 +15,7 @@ from miles_socle.signing.keys import KeyPair, fingerprint, generate_keypair, par
 from miles_socle.signing.protocol import (
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
+    PAIRING_STATUS_PATH,
     PEER_PING_PATH,
 )
 
@@ -47,6 +48,14 @@ class EnrolmentDouble:
     # module doit savoir traduire sans rien inventer de ce que le pair n'a pas dit.
     confirm_status: int = 200
     confirm_payload: dict[str, object] | None = None
+    # L'état que la contrepartie annoncera, et l'échéance qu'elle a accusée. C'est sur
+    # ces deux-là que l'environnement tranche entre « refusée » et « expirée » : le pair
+    # ne dit que « en attente » ou « inconnue », jamais laquelle des deux.
+    status_state: str = "en_attente"
+    expires_at: str = "2099-01-01T00:00:00+00:00"
+    # Le nom déclaré tel qu'il est ARRIVÉ. Les tests y lisent ce qui est réellement parti,
+    # plutôt que ce que l'écran croit avoir envoyé.
+    received_names: list[str] = field(default_factory=list)
     # Les corps reçus, en OCTETS : c'est là-dedans qu'un test va chercher qu'aucune clé
     # privée n'est partie, plutôt que de s'en remettre à l'intention.
     bodies: list[bytes] = field(default_factory=list)
@@ -67,9 +76,9 @@ class EnrolmentDouble:
                 return JSONResponse(status_code=401, content={"detail": "appariement_refuse"})
             self.expects_public_key = depose
             self.received.append(origine)
+            self.received_names.append(str(json.loads(body)["name"]))
             return JSONResponse(
-                status_code=202,
-                content={"base_url": origine, "expires_at": "2026-10-28T13:00:00+00:00"},
+                status_code=202, content={"base_url": origine, "expires_at": self.expires_at}
             )
 
         @app.post(PAIRING_CONFIRM_PATH)
@@ -92,6 +101,15 @@ class EnrolmentDouble:
                     "algorithm": "ed25519",
                 }
             )
+
+        @app.post(PAIRING_STATUS_PATH)
+        async def pairing_status(request: Request) -> JSONResponse:
+            body = await request.body()
+            if not self._verifie(request, body, self.expects_public_key):
+                return JSONResponse(status_code=401, content={"detail": "appariement_refuse"})
+            if self.status_state != "en_attente":
+                return JSONResponse(content={"state": "inconnue", "expires_at": None})
+            return JSONResponse(content={"state": "en_attente", "expires_at": self.expires_at})
 
         @app.post(PEER_PING_PATH)
         async def ping(request: Request) -> JSONResponse:

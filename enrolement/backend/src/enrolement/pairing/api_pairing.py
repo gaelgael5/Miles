@@ -46,6 +46,11 @@ class RequestOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     base_url: str
+    # Texte libre venu d'un tiers que personne n'a encore authentifié. Il aide un humain à
+    # reconnaître la demande qu'il accepte, et n'identifie RIEN : deux demandes peuvent
+    # porter le même, seule l'URL les distingue. Nul si la demande est antérieure au nom
+    # déclaré. React l'échappe à l'affichage ; il n'est ni un identifiant ni une clef.
+    name: str | None
     # L'empreinte, et non la clé : c'est elle qu'un humain compare à ce que l'écran de
     # l'environnement affiche, avant d'accepter.
     public_key_fingerprint: str
@@ -69,6 +74,16 @@ class PeerOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     base_url: str
+    name: str | None
+    # Nombre de devices que ce module a affectés à cet environnement. Il rend la
+    # révocation décidable : révoquer un environnement qui porte des devices n'est pas le
+    # même geste que révoquer un environnement vide (ticket ce66f5bb).
+    #
+    # NUL aujourd'hui, et c'est un refus de mentir : le référentiel des devices n'existe
+    # pas encore (ticket de dispatch). Écrire 0 afficherait « aucun device » sur un écran
+    # qui ne sait pas compter, et personne ne distinguerait plus « vide » d'« ignoré ».
+    # Le champ existe pour que l'écran dise « — » dès maintenant, et la vérité ensuite.
+    device_count: int | None
     public_key: str
     public_key_fingerprint: str
     algorithm: str
@@ -84,6 +99,7 @@ def _service(request: Request) -> PairingService:
 def _request_out(demande: PairingRequest) -> RequestOut:
     return RequestOut(
         base_url=demande.base_url,
+        name=demande.name,
         public_key_fingerprint=fingerprint(demande.public_key),
         algorithm=demande.algorithm,
         created_at=demande.created_at,
@@ -94,6 +110,8 @@ def _request_out(demande: PairingRequest) -> RequestOut:
 def _peer_out(pair: EnvironmentPeer) -> PeerOut:
     return PeerOut(
         base_url=pair.base_url,
+        name=pair.name,
+        device_count=None,
         public_key=pair.public_key,
         public_key_fingerprint=fingerprint(pair.public_key),
         algorithm=pair.algorithm,

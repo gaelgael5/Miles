@@ -15,7 +15,12 @@ from miles_socle.signing.identity_model import (
     OriginMissingError,
 )
 from miles_socle.signing.keys import fingerprint
-from miles_socle.signing.peers import MAX_BASE_URL_LENGTH, IdentityError, IdentityInputError
+from miles_socle.signing.peers import (
+    MAX_BASE_URL_LENGTH,
+    MAX_DECLARED_NAME_LENGTH,
+    IdentityError,
+    IdentityInputError,
+)
 
 # Le contrat de l'échange est au socle : ce module le SERT sur sa route de pair et
 # l'ATTEND de son pair quand c'est lui qui appelle. Deux définitions de même forme
@@ -63,6 +68,10 @@ class PairingIn(BaseModel):
     # L'origine du module d'enrôlement chez qui frapper. Saisie par un administrateur :
     # validée par le service avant tout usage en URL d'appel sortant.
     base_url: str = Field(max_length=MAX_BASE_URL_LENGTH)
+    # Le nom sous lequel CE module se présentera. Il sert à ce qu'un humain, devant la
+    # liste des demandes à l'autre bout, reconnaisse celle qu'il accepte — il n'identifie
+    # rien, et deux environnements peuvent porter le même.
+    name: str = Field(max_length=MAX_DECLARED_NAME_LENGTH)
 
 
 class PairingConfirmIn(BaseModel):
@@ -79,12 +88,32 @@ class AttemptOut(BaseModel):
 
     base_url: str
     created_at: datetime
+    name: str | None
+    expires_at: datetime | None
+
+
+class PairingStateOut(BaseModel):
+    """L'état que l'écran rend lisible, et les deux moitiés qui le composent.
+
+    La tentative et le pair voyagent ENSEMBLE : un ré-appariement les fait coexister, et
+    un écran qui ne verrait que l'état remplacerait l'un par l'autre avant que l'humain
+    n'ait tranché.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    state: str
+    attempt: AttemptOut | None
+    peer: PeerOut | None
 
 
 class PeerOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     base_url: str
+    # Le nom que CE module a déclaré en s'appariant — pas celui du pair, qui n'en déclare
+    # aucun. Il permet de retrouver son environnement dans la liste de l'autre bout.
+    declared_name: str | None
     public_key: str
     public_key_fingerprint: str
     algorithm: str
@@ -109,6 +138,7 @@ def _identity_out(identity: ModuleIdentity) -> IdentityOut:
 def _peer_out(peer: EnrolmentPeer) -> PeerOut:
     return PeerOut(
         base_url=peer.base_url,
+        declared_name=peer.declared_name,
         public_key=peer.public_key,
         public_key_fingerprint=fingerprint(peer.public_key),
         algorithm=peer.algorithm,
@@ -127,7 +157,12 @@ def _pong_out(pong: PeerPong) -> PongOut:
 
 
 def _attempt_out(attempt: PairingAttempt) -> AttemptOut:
-    return AttemptOut(base_url=attempt.base_url, created_at=attempt.created_at)
+    return AttemptOut(
+        base_url=attempt.base_url,
+        created_at=attempt.created_at,
+        name=attempt.name,
+        expires_at=attempt.expires_at,
+    )
 
 
 def _error(exc: IdentityError) -> JSONResponse:
@@ -267,6 +302,25 @@ async def get_pairing(request: Request) -> AttemptOut | JSONResponse:
         return _error(exc)
 
 
+@router.get("/pairing/state", response_model=PairingStateOut)
+async def get_pairing_state(request: Request) -> PairingStateOut | JSONResponse:
+    """L'état complet, celui que l'écran interroge en boucle pendant l'attente.
+
+    C'est la seule route qui sait dire « refusée » : la confirmation, elle, rend le même
+    refus opaque pour un code faux et pour une demande disparue — volontairement, à
+    l'autre bout. Sans cette route, l'écran afficherait « en attente » pour toujours.
+    """
+    try:
+        etat = await _service(request).resolve_pairing_state()
+    except IdentityError as exc:
+        return _error(exc)
+    return PairingStateOut(
+        state=etat.state,
+        attempt=None if etat.attempt is None else _attempt_out(etat.attempt),
+        peer=None if etat.peer is None else _peer_out(etat.peer),
+    )
+
+
 @router.post("/pairing", response_model=AttemptOut, status_code=status.HTTP_202_ACCEPTED)
 async def post_pairing(request: Request, body: PairingIn) -> AttemptOut | JSONResponse:
     """Frappe chez un module d'enrôlement. 202 : rien n'est acquis sans un geste humain.
@@ -276,7 +330,7 @@ async def post_pairing(request: Request, body: PairingIn) -> AttemptOut | JSONRe
     """
     try:
         attempt = await _service(request).resolve_request_pairing(
-            request_author(request), body.base_url
+            request_author(request), body.base_url, body.name
         )
     except IdentityError as exc:
         return _error(exc)

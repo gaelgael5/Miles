@@ -88,6 +88,10 @@ class PairingRequest:
     algorithm: str
     created_at: datetime
     expires_at: datetime
+    # Texte libre déclaré par le demandeur. N'IDENTIFIE RIEN : deux demandes peuvent
+    # porter le même, et c'est l'URL qui les distingue. Nul pour un appariement antérieur
+    # au nom déclaré — ce qu'aucune chaîne vide ne saurait dire sans mentir.
+    name: str | None
 
 
 @dataclass(frozen=True)
@@ -113,3 +117,4 @@ class EnvironmentPeer:
     algorithm: str
     created_at: datetime
     updated_at: datetime
+    name: str | None

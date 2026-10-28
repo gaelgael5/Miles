@@ -19,6 +19,7 @@ from miles_socle.signing.calls import ORIGIN_HEADER
 from miles_socle.signing.protocol import (
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
+    PAIRING_STATUS_PATH,
     PEER_PING_PATH,
 )
 
@@ -218,6 +219,7 @@ def test_seules_les_routes_de_pair_echappent_a_la_session() -> None:
         PEER_PING_PATH,
         PAIRING_REQUEST_PATH,
         PAIRING_CONFIRM_PATH,
+        PAIRING_STATUS_PATH,
     }
 
 
@@ -236,8 +238,9 @@ def test_les_routes_d_administration_de_l_appariement_exigent_une_session(
     ("chemin", "corps"),
     [
         (PEER_PING_PATH, {}),
-        (PAIRING_REQUEST_PATH, {"public_key": "A" * 43}),
+        (PAIRING_REQUEST_PATH, {"public_key": "A" * 43, "name": "Recette"}),
         (PAIRING_CONFIRM_PATH, {"code": "123456"}),
+        (PAIRING_STATUS_PATH, {}),
     ],
 )
 def test_un_appel_de_pair_non_signe_est_refuse_par_la_route(

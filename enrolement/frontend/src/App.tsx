@@ -16,6 +16,8 @@ import {
   usePreferences,
 } from "@miles/socle-web";
 
+import { PairingScreen } from "./pairing/PairingScreen";
+
 /**
  * Les écrans du menu, en UNE seule déclaration.
  *
@@ -26,6 +28,7 @@ import {
  * enrôlement d'une installation, appariement d'un environnement) s'ajouteront ici.
  */
 const ECRANS = [
+  { nom: "pairing", Ecran: PairingScreen },
   { nom: "cultures", Ecran: CulturesScreen },
   { nom: "secrets", Ecran: SecretsScreen },
   { nom: "oidc", Ecran: ConnectorsScreen },

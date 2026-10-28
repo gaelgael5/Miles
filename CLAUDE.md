@@ -41,7 +41,12 @@ cookie) s'appliquent. Détail : cadrage `terminal-pr`, « Correspondances OIDC v
 - **État** : **PostgreSQL**, non rediscutable (validé le 2026-10-14) — transactions multi-tables
   (objet + ligne d'index dans la même transaction), journal partitionné à la journée, `jsonb`.
   Un incident en cours d'écriture ne doit jamais corrompre l'existant, et ça se teste.
-- **Paramétrage** (écrans, scénarios, mappings, modèles) : **dans git**, jamais en base.
+- **Paramétrage fonctionnel d'un environnement** (écrans, scénarios, mappings, modèles) :
+  **dans git**, jamais en base. La raison, posée par Gael : git donne déjà la migration
+  et le **rollback** d'une version de paramétrage. En base, il faudrait les réinventer —
+  et aucune reconstruction maison ne vaudra `git revert` sur un commit relu.
+  Ce que la base porte, c'est l'ÉTAT : identité, appariement, secrets, journal, objets
+  ingérés. Ce que git porte, c'est le COMPORTEMENT.
 - **Transport terminal** : MQTT 5 request/response, sans wrapper maison.
 - **Transformation** : JSLT (grammaire ANTLR de `Black-Beard-Sdk/jslt`) ; forme d'intégration
   côté Python *à confirmer*.

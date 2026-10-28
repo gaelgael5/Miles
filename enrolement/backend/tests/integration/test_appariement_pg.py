@@ -552,3 +552,132 @@ async def test_le_service_refuse_de_conclure_sans_adresse_publique(
 
         with pytest.raises(PairingRefusedError):
             await _confirme_par(aveugle, double, code)
+
+
+async def test_le_nom_declare_accompagne_la_demande_puis_l_appariement(
+    blank_db: str, tmp_path: Path
+) -> None:
+    double = EnvironmentDouble(name="  Recette nord  ")
+    async with open_stack(blank_db, tmp_path) as stack:
+        async with stack.anonymous() as pair:
+            await double.knock(pair)
+
+            demandes = (await stack.client.get("/api/pairing/requests")).json()
+            # Les espaces de bord disparaissent : le nom arrive d'un formulaire, à l'autre bout.
+            assert demandes[0]["name"] == "Recette nord"
+
+            await double.confirm(pair, await _code(stack, double))
+
+        pairs = (await stack.client.get("/api/pairing/peers")).json()
+        assert pairs[0]["name"] == "Recette nord"
+        # Le référentiel des devices n'existe pas encore : NUL, et surtout pas zéro, qui
+        # afficherait « aucun device » sur un écran qui ne sait pas compter.
+        assert pairs[0]["device_count"] is None
+
+
+@pytest.mark.parametrize("nom", ["", "   ", "A" * 81, "deux\nlignes", "tabulation\tinterdite"])
+async def test_un_nom_declare_inacceptable_est_refuse(
+    blank_db: str, tmp_path: Path, nom: str
+) -> None:
+    """Le nom vient d'un tiers que personne n'a encore authentifié : borné et sans contrôle.
+
+    Un retour à la ligne casse une ligne de journal structuré, et l'écran de l'autre bout
+    afficherait une demande sur deux lignes qu'on lirait comme deux demandes.
+    """
+    double = EnvironmentDouble(name=nom)
+    async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
+        reponse = await double.knock(pair)
+
+        assert reponse.status_code == 422
+        assert reponse.json()["detail"] == "name"
+        assert await stack.pool.fetchval("SELECT count(*) FROM pairing_request") == 0
+
+
+async def test_deux_demandes_de_meme_nom_restent_distinguables(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Le nom déclaré n'identifie RIEN : c'est l'URL qui distingue, et elle est unique."""
+    premier = EnvironmentDouble(origin="http://env-un.test", name="Recette")
+    second = EnvironmentDouble(origin="http://env-deux.test", name="Recette")
+    async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
+        await premier.knock(pair)
+        await second.knock(pair)
+
+        demandes = (await stack.client.get("/api/pairing/requests")).json()
+
+        assert [d["name"] for d in demandes] == ["Recette", "Recette"]
+        assert {d["base_url"] for d in demandes} == {premier.origin, second.origin}
+        # Et les instants de réception les séparent aussi, ce que l'écran affiche.
+        assert demandes[0]["created_at"] <= demandes[1]["created_at"]
+
+
+async def test_un_nom_qui_ressemble_a_du_balisage_est_stocke_tel_quel(
+    blank_db: str, tmp_path: Path
+) -> None:
+    # L'échappement appartient à l'affichage. Le mutiler ici abîmerait un nom légitime en
+    # donnant l'illusion d'une protection, et masquerait un écran qui oublierait d'échapper.
+    hostile = '<img src=x onerror="alert(1)"> & Cie'
+    double = EnvironmentDouble(name=hostile)
+    async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
+        assert (await double.knock(pair)).status_code == 202
+
+        demandes = (await stack.client.get("/api/pairing/requests")).json()
+        assert demandes[0]["name"] == hostile
+
+
+async def test_l_environnement_peut_demander_ou_en_est_sa_demande(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Sans cette route, son écran afficherait « en attente » pour toujours.
+
+    Son code refusé et sa demande disparue lui rendent le même refus opaque — c'est
+    voulu —, donc rien d'autre ne lui dirait qu'un humain a dit non.
+    """
+    double = EnvironmentDouble()
+    async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
+        await double.knock(pair)
+
+        en_attente = await double.status(pair)
+
+        assert en_attente.status_code == 200
+        assert en_attente.json()["state"] == "en_attente"
+        assert en_attente.json()["expires_at"] is not None
+
+        await stack.client.delete("/api/pairing/requests", params={"base_url": double.origin})
+        inconnue = await double.status(pair)
+
+        assert inconnue.json() == {"state": "inconnue", "expires_at": None}
+
+
+async def test_chacun_ne_lit_que_sa_propre_demande(blank_db: str, tmp_path: Path) -> None:
+    """La route d'état est signée : elle ne dit rien à qui ne détient pas la clé déposée."""
+    legitime = EnvironmentDouble()
+    async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
+        await legitime.knock(pair)
+        # Même origine, autre clé : c'est le cas qui compte, parce qu'il ressemble à une
+        # demande valide de tous les côtés sauf celui qui décide.
+        imposteur = EnvironmentDouble(origin=legitime.origin)
+
+        assert (await imposteur.status(pair)).status_code == 401
+        # Et une origine dont ce module n'a jamais entendu parler n'apprend rien non plus :
+        # répondre « inconnue » lui confirmerait qu'elle n'est pas déjà appariée.
+        assert (
+            await EnvironmentDouble(origin="http://jamais-vu.test").status(pair)
+        ).status_code == 401
+
+
+async def test_apres_appariement_l_etat_reste_interrogeable(blank_db: str, tmp_path: Path) -> None:
+    """Un environnement qui vient d'être apparié repose la question avant de rafraîchir.
+
+    Sa demande a disparu : sans recours à la clé du pair déjà apparié, sa dernière
+    question serait refusée juste après son succès, et son écran dirait « refusée ».
+    """
+    double = EnvironmentDouble()
+    async with open_stack(blank_db, tmp_path) as stack:
+        await _apparie(stack, double)
+
+        async with stack.anonymous() as pair:
+            apres = await double.status(pair)
+
+        assert apres.status_code == 200
+        assert apres.json() == {"state": "inconnue", "expires_at": None}

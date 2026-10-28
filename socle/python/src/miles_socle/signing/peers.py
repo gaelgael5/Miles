@@ -22,6 +22,9 @@ PUBLIC_KEY_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 # la même chaîne, et la vérification échouerait sans que rien ne soit faux.
 BASE_URL_RE = re.compile(r"^https?://[A-Za-z0-9.-]{1,180}(:[0-9]{2,5})?$")
 MAX_BASE_URL_LENGTH = 200
+# Nom déclaré d'un module : assez pour « Environnement de recette — région nord », trop
+# peu pour qu'un tiers remplisse un écran ou un journal avec sa prose.
+MAX_DECLARED_NAME_LENGTH = 80
 
 
 class IdentityError(Exception):
@@ -63,3 +66,28 @@ def validate_algorithm(algorithm: str) -> str:
     if algorithm != ALGORITHM:
         raise IdentityInputError("algorithm")
     return algorithm
+
+
+def validate_declared_name(name: str) -> str:
+    """Nettoie un nom déclaré par un tiers NON ENCORE AUTHENTIFIÉ.
+
+    Trois gestes, et pas un de plus :
+
+    - les espaces de bord disparaissent, parce que le nom arrive par un formulaire ;
+    - les caractères de CONTRÔLE sont refusés — un retour à la ligne casse une ligne de
+      journal structuré, et `\0` tronque silencieusement dans certaines couches ;
+    - la longueur est bornée.
+
+    Ce qui n'est délibérément PAS fait : retirer les chevrons, les guillemets ou ce qui
+    ressemble à du balisage. L'échappement appartient à l'affichage, qui sait dans quel
+    contexte il écrit ; le faire ici mutilerait un nom légitime tout en donnant
+    l'illusion d'une protection — et le jour où un écran oublierait d'échapper, personne
+    ne le verrait puisque « c'est déjà nettoyé ».
+    """
+    name = name.strip()
+    # `isprintable` est vrai pour l'espace et pour les lettres accentuées, faux pour les
+    # tabulations, les retours à la ligne et les caractères de contrôle : c'est exactement
+    # la coupure voulue, et elle n'a pas à être réécrite en expression régulière.
+    if not name or len(name) > MAX_DECLARED_NAME_LENGTH or not name.isprintable():
+        raise IdentityInputError("name")
+    return name

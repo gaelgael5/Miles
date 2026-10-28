@@ -80,10 +80,18 @@ class PeerClockSkewError(IdentityError):
 
 @dataclass(frozen=True)
 class PairingAttempt:
-    """La demande en cours : chez qui on a frappé, et quand."""
+    """La demande en cours : chez qui on a frappé, sous quel nom, et jusqu'à quand."""
 
     base_url: str
     created_at: datetime
+    # Le nom sous lequel CE module s'est présenté. Nul pour une tentative ouverte avant
+    # que le nom déclaré n'existe.
+    name: str | None
+    # L'échéance annoncée par le pair en accusant la demande. C'est elle qui permet de
+    # distinguer REFUSÉE d'EXPIRÉE : le pair ne garde aucune trace d'une demande disparue
+    # et répond seulement « inconnue ». Inconnue avant l'échéance, un humain a refusé ;
+    # inconnue après, elle a expiré. Nulle, on ne peut pas trancher, et on le dit.
+    expires_at: datetime | None
 
 
 @dataclass(frozen=True)
@@ -95,3 +103,7 @@ class EnrolmentPeer:
     algorithm: str
     created_at: datetime
     updated_at: datetime
+    # Le nom que CE module a déclaré en s'appariant — PAS celui du pair, qui n'en déclare
+    # aucun. Il permet à l'administrateur de retrouver son environnement dans la liste de
+    # l'autre bout.
+    declared_name: str | None

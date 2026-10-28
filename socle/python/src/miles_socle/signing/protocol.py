@@ -13,7 +13,11 @@ ajouté d'un seul côté, et le second l'aurait ignoré en silence.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from miles_socle.signing.peers import MAX_DECLARED_NAME_LENGTH
 
 # Échange de vivacité entre deux modules appariés, dans un sens comme dans l'autre.
 PEER_PING_PATH = "/api/peer/ping"
@@ -21,6 +25,10 @@ PEER_PING_PATH = "/api/peer/ping"
 # Les deux routes sont servies par le module d'ENRÔLEMENT et appelées par l'ENVIRONNEMENT.
 PAIRING_REQUEST_PATH = "/api/peer/pairing/request"
 PAIRING_CONFIRM_PATH = "/api/peer/pairing/confirm"
+# L'environnement demande où en est SA demande. Il ne peut pas le déduire de ses
+# propres échanges : un code refusé et une demande disparue rendent le même refus
+# opaque, et sans cette route un écran afficherait « en attente » pour toujours.
+PAIRING_STATUS_PATH = "/api/peer/pairing/status"
 # Corps de l'échange de vivacité. Vide de sens, mais pas vide : son empreinte entre dans
 # la signature, donc il doit être identique des deux côtés.
 PING_BODY = b"{}"
@@ -44,16 +52,24 @@ class PongOut(BaseModel):
 
 
 class PairingRequestIn(BaseModel):
-    """Ce que l'environnement dépose en frappant : sa clé publique, et rien d'autre.
+    """Ce que l'environnement dépose en frappant : sa clé publique et son nom déclaré.
 
     Son origine n'est PAS dans le corps : elle est déjà dans l'en-tête d'origine, qui
     entre dans la chaîne signée. L'y remettre créerait deux sources pour la même valeur,
     dont une seule serait couverte par la signature.
+
+    Rien de plus que ces deux champs. Chaque champ ajouté ici est un champ à maintenir
+    synchronisé entre deux bases que personne ne réconcilie.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     public_key: str
+    # Texte libre d'un tiers NON ENCORE AUTHENTIFIÉ : il sert à ce qu'un humain
+    # reconnaisse la demande qu'il accepte, et n'identifie rien. Deux demandes peuvent
+    # porter le même. Borné ici, nettoyé par `validate_declared_name`, échappé à
+    # l'affichage.
+    name: str = Field(max_length=MAX_DECLARED_NAME_LENGTH)
 
 
 class PairingRequestOut(BaseModel):
@@ -71,6 +87,25 @@ class PairingConfirmIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: str
+
+
+class PairingStatusOut(BaseModel):
+    """Où en est la demande de l'appelant, vue par le module d'enrôlement.
+
+    Deux états seulement, et c'est volontaire : « en attente », ou « inconnue ». Le module
+    d'enrôlement ne garde aucune trace d'une demande refusée ou expirée — une pierre
+    tombale par tentative serait un état de plus à purger, et dirait à qui frappe au
+    hasard si une origine a déjà été refusée.
+
+    C'est l'APPELANT qui tranche entre « refusée » et « expirée », en comparant à
+    l'échéance qu'il a reçue en frappant : inconnue avant l'échéance, un humain a refusé ;
+    inconnue après, elle a expiré. Il détient les deux moitiés, le pair n'en détient qu'une.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    state: Literal["en_attente", "inconnue"]
+    expires_at: str | None
 
 
 class PairingConfirmOut(BaseModel):

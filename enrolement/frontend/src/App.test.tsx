@@ -21,6 +21,7 @@ const SANTE = {
 };
 // Les écrans du menu, et la requête qui prouve que chacun s'est réellement ouvert.
 const ECRANS: { nom: string; libelle: string; appel: string }[] = [
+  { nom: "pairing", libelle: "Pairing", appel: "GET /api/pairing/requests" },
   { nom: "cultures", libelle: "Cultures", appel: "GET /api/cultures" },
   { nom: "secrets", libelle: "Secrets", appel: "GET /api/secrets" },
   { nom: "oidc", libelle: "OIDC connectors", appel: "GET /api/oidc/connectors" },
@@ -43,6 +44,8 @@ const CONNECTE: Routes = {
   "GET /api/auth/me/preferences": { status: 200, body: { language: null } },
   "GET /api/health": { status: 200, body: SANTE },
   "GET /api/cultures": { status: 200, body: [] },
+  "GET /api/pairing/requests": { status: 200, body: [] },
+  "GET /api/pairing/peers": { status: 200, body: [] },
   "GET /api/secrets": { status: 200, body: [] },
   "GET /api/secret-types": { status: 200, body: { types: ["OIDC_CLIENT_SECRET"] } },
   "GET /api/oidc/connectors": { status: 200, body: [] },

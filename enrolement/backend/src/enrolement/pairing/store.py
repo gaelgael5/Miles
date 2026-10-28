@@ -26,6 +26,7 @@ def _request(row: Any) -> PairingRequest:
         row["algorithm"],
         row["created_at"],
         row["expires_at"],
+        row["name"],
     )
 
 
@@ -36,6 +37,7 @@ def _peer(row: Any) -> EnvironmentPeer:
         row["algorithm"],
         row["created_at"],
         row["updated_at"],
+        row["name"],
     )
 
 
@@ -60,6 +62,7 @@ async def db_upsert_request(
     sealed: Sealed,
     now: datetime,
     expires_at: datetime,
+    name: str,
 ) -> PairingRequest:
     """Ouvre la demande, ou RENOUVELLE celle qui existe pour la même origine.
 
@@ -69,12 +72,14 @@ async def db_upsert_request(
     """
     row = await db.fetchrow(
         "INSERT INTO pairing_request (base_url, public_key, algorithm, key_version, nonce,"
-        " ciphertext, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+        " ciphertext, created_at, expires_at, name)"
+        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
         " ON CONFLICT (base_url) DO UPDATE SET public_key = excluded.public_key,"
         " algorithm = excluded.algorithm, key_version = excluded.key_version,"
         " nonce = excluded.nonce, ciphertext = excluded.ciphertext,"
-        " created_at = excluded.created_at, expires_at = excluded.expires_at"
-        " RETURNING base_url, public_key, algorithm, created_at, expires_at",
+        " created_at = excluded.created_at, expires_at = excluded.expires_at,"
+        " name = excluded.name"
+        " RETURNING base_url, public_key, algorithm, created_at, expires_at, name",
         base_url,
         public_key,
         ALGORITHM,
@@ -83,6 +88,7 @@ async def db_upsert_request(
         sealed.ciphertext,
         now,
         expires_at,
+        name,
     )
     return _request(row)
 
@@ -90,7 +96,7 @@ async def db_upsert_request(
 async def db_get_request(db: PairingDb, base_url: str) -> tuple[PairingRequest, Sealed] | None:
     """La demande et son secret scellé. Le secret ne sort d'ici que scellé."""
     row = await db.fetchrow(
-        "SELECT base_url, public_key, algorithm, created_at, expires_at,"
+        "SELECT base_url, public_key, algorithm, created_at, expires_at, name,"
         " key_version, nonce, ciphertext FROM pairing_request WHERE base_url = $1",
         base_url,
     )
@@ -101,7 +107,7 @@ async def db_get_request(db: PairingDb, base_url: str) -> tuple[PairingRequest, 
 
 async def db_list_requests(db: PairingDb, /) -> list[PairingRequest]:
     rows = await db.fetch(
-        "SELECT base_url, public_key, algorithm, created_at, expires_at"
+        "SELECT base_url, public_key, algorithm, created_at, expires_at, name"
         " FROM pairing_request ORDER BY created_at"
     )
     return [_request(row) for row in rows]
@@ -130,7 +136,7 @@ async def db_lock_request(db: PairingDb, base_url: str) -> None:
 
 
 async def db_upsert_peer(
-    db: PairingDb, base_url: str, public_key: str, now: datetime
+    db: PairingDb, base_url: str, public_key: str, now: datetime, name: str | None
 ) -> EnvironmentPeer:
     """Enregistre l'environnement apparié, ou REMPLACE sa clé — jamais un doublon.
 
@@ -138,22 +144,24 @@ async def db_upsert_peer(
     l'appariement initial, qui reste un fait même après rotation des clés.
     """
     row = await db.fetchrow(
-        "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at, updated_at)"
-        " VALUES ($1, $2, $3, $4, $4)"
+        "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
+        " updated_at, name) VALUES ($1, $2, $3, $4, $4, $5)"
         " ON CONFLICT (base_url) DO UPDATE SET public_key = excluded.public_key,"
-        " algorithm = excluded.algorithm, updated_at = excluded.updated_at"
-        " RETURNING base_url, public_key, algorithm, created_at, updated_at",
+        " algorithm = excluded.algorithm, updated_at = excluded.updated_at,"
+        " name = excluded.name"
+        " RETURNING base_url, public_key, algorithm, created_at, updated_at, name",
         base_url,
         public_key,
         ALGORITHM,
         now,
+        name,
     )
     return _peer(row)
 
 
 async def db_get_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None:
     row = await db.fetchrow(
-        "SELECT base_url, public_key, algorithm, created_at, updated_at"
+        "SELECT base_url, public_key, algorithm, created_at, updated_at, name"
         " FROM environment_peer WHERE base_url = $1",
         base_url,
     )
@@ -162,7 +170,7 @@ async def db_get_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None:
 
 async def db_list_peers(db: PairingDb, /) -> list[EnvironmentPeer]:
     rows = await db.fetch(
-        "SELECT base_url, public_key, algorithm, created_at, updated_at"
+        "SELECT base_url, public_key, algorithm, created_at, updated_at, name"
         " FROM environment_peer ORDER BY base_url"
     )
     return [_peer(row) for row in rows]

@@ -13,11 +13,13 @@ from miles_socle.signing.peers import IdentityError, IdentityInputError
 from miles_socle.signing.protocol import (
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
+    PAIRING_STATUS_PATH,
     PEER_PING_PATH,
     PairingConfirmIn,
     PairingConfirmOut,
     PairingRequestIn,
     PairingRequestOut,
+    PairingStatusOut,
     PongOut,
 )
 from pydantic import BaseModel, ValidationError
@@ -110,6 +112,7 @@ async def post_pairing_request(request: Request) -> PairingRequestOut | JSONResp
             target=request.url.path,
             body=raw,
             public_key=corps.public_key,
+            name=corps.name,
         )
     except IdentityError as exc:
         return _refus(exc)
@@ -138,6 +141,30 @@ async def post_pairing_confirm(request: Request) -> PairingConfirmOut | JSONResp
     return PairingConfirmOut(
         base_url=conclu.base_url, public_key=conclu.public_key, algorithm=conclu.algorithm
     )
+
+
+@router.post(PAIRING_STATUS_PATH, response_model=PairingStatusOut)
+async def post_pairing_status(request: Request) -> PairingStatusOut | JSONResponse:
+    """Où en est la demande de l'appelant. Signée : chacun ne peut lire que la sienne.
+
+    Sans cette route, un écran d'environnement afficherait « en attente » pour toujours :
+    son code refusé et sa demande disparue rendent le même refus opaque, volontairement,
+    et rien ne lui dirait qu'un humain a dit non.
+    """
+    raw = await request.body()
+    try:
+        demande = await _service(request).resolve_request_state(
+            declared_origin=request.headers.get(ORIGIN_HEADER),
+            signature=request.headers.get(SIGNATURE_HEADER),
+            method=request.method,
+            target=request.url.path,
+            body=raw,
+        )
+    except IdentityError as exc:
+        return _refus(exc)
+    if demande is None:
+        return PairingStatusOut(state="inconnue", expires_at=None)
+    return PairingStatusOut(state="en_attente", expires_at=demande.expires_at.isoformat())
 
 
 @router.post(PEER_PING_PATH, response_model=PongOut)

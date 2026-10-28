@@ -5,7 +5,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import NoReturn
+from typing import Literal, NoReturn
 
 import asyncpg
 import httpx
@@ -33,11 +33,13 @@ from miles_socle.signing.keys import fingerprint, parse_public_key
 from miles_socle.signing.peers import (
     IdentityInputError,
     validate_base_url,
+    validate_declared_name,
     validate_public_key,
 )
 from miles_socle.signing.protocol import (
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
+    PAIRING_STATUS_PATH,
     PEER_PING_PATH,
     PING_BODY,
 )
@@ -94,6 +96,28 @@ def _peer_detail(reponse: httpx.Response) -> str:
     if isinstance(detail, str) and _PEER_DETAIL_RE.match(detail):
         return detail
     return "(sans code)"
+
+
+# Les états que l'écran d'appariement doit distinguer. « En attente » et « échoué » ne
+# peuvent pas être confondus : un écran qui les mélange fait recommencer la demande
+# indéfiniment, ou fait attendre une acceptation qui ne viendra jamais.
+PairingStateName = Literal[
+    "non_apparie", "en_attente", "apparie", "refusee", "expiree", "pair_injoignable"
+]
+
+
+@dataclass(frozen=True)
+class PairingState:
+    """Où en est l'appariement, vu de ce module. Les deux moitiés, pas seulement l'état.
+
+    `attempt` et `peer` sont rendus ENSEMBLE parce qu'un ré-appariement les fait coexister :
+    l'appariement courant tient encore pendant qu'une nouvelle demande attend. Un écran qui
+    ne verrait que l'état remplacerait l'un par l'autre avant que l'humain n'ait tranché.
+    """
+
+    state: PairingStateName
+    attempt: PairingAttempt | None
+    peer: EnrolmentPeer | None
 
 
 @dataclass(frozen=True)
@@ -156,7 +180,11 @@ class IdentityService:
         return pair
 
     async def resolve_register_peer(
-        self, author: EventAuthor, base_url: str, public_key: str
+        self,
+        author: EventAuthor,
+        base_url: str,
+        public_key: str,
+        declared_name: str | None = None,
     ) -> EnrolmentPeer:
         """Enregistre le module d'enrôlement apparié, ou REMPLACE celui qui existe.
 
@@ -167,7 +195,7 @@ class IdentityService:
         """
         base_url, public_key = validate_base_url(base_url), validate_public_key(public_key)
         async with self.pool.acquire() as conn, conn.transaction():
-            pair = await db_upsert_peer(conn, base_url, public_key, self.now())
+            pair = await db_upsert_peer(conn, base_url, public_key, self.now(), declared_name)
             await self.module.write_event(
                 conn,
                 PEER_REGISTERED_EVENT,
@@ -291,7 +319,7 @@ class IdentityService:
         return tentative
 
     async def resolve_request_pairing(
-        self, author: EventAuthor, enrolment_base_url: str
+        self, author: EventAuthor, enrolment_base_url: str, name: str
     ) -> PairingAttempt:
         """Frappe chez le module d'enrôlement et y dépose NOTRE clé publique.
 
@@ -304,14 +332,18 @@ class IdentityService:
         Aucune clé privée ne figure dans ce corps, et il n'en existe aucun champ.
         """
         base_url = validate_base_url(enrolment_base_url)
+        # Saisie d'un administrateur : validée ICI, avant de partir. L'envoyer telle quelle
+        # ferait porter au pair la validation d'une entrée qui est la nôtre.
+        name = validate_declared_name(name)
         identite = await self.resolve_identity()
-        corps = json.dumps({"public_key": identite.public_key}).encode("utf-8")
+        corps = json.dumps({"public_key": identite.public_key, "name": name}).encode("utf-8")
         reponse = await self.post_signed(base_url, PAIRING_REQUEST_PATH, corps)
         if reponse.status_code != 202:
             self._refuse_peer(reponse, base_url)
         maintenant = self.now()
+        echeance = _peer_expires_at(reponse)
         async with self.pool.acquire() as conn, conn.transaction():
-            tentative = await db_upsert_attempt(conn, base_url, maintenant)
+            tentative = await db_upsert_attempt(conn, base_url, maintenant, name, echeance)
             await self.module.write_event(
                 conn,
                 PAIRING_REQUESTED_EVENT,
@@ -319,6 +351,7 @@ class IdentityService:
                 SINGLETON,
                 {
                     "base_url": base_url,
+                    "declared_name": name,
                     "public_key_fingerprint": fingerprint(identite.public_key),
                 },
                 author=author,
@@ -343,7 +376,7 @@ class IdentityService:
         # écrite, et avant tout usage comme vérificateur de ses appels.
         public_key = validate_public_key(str(charge["public_key"]))
         base_url = validate_base_url(str(charge["base_url"]))
-        pair = await self.resolve_register_peer(author, base_url, public_key)
+        pair = await self.resolve_register_peer(author, base_url, public_key, tentative.name)
         async with self.pool.acquire() as conn, conn.transaction():
             # La tentative disparaît APRÈS que le pair est écrit : l'ordre inverse
             # laisserait, sur une panne entre les deux, ni pair ni demande — donc un
@@ -355,6 +388,46 @@ class IdentityService:
             peer_key_fingerprint=fingerprint(public_key),
         )
         return pair
+
+    async def resolve_pairing_state(self) -> PairingState:
+        """L'état complet de l'appariement, celui que l'écran rend lisible.
+
+        Sans demande en cours, il se lit localement. Avec une demande en cours, il faut
+        DEMANDER AU PAIR : son refus d'un code et la disparition de la demande rendent le
+        même refus opaque — volontairement —, donc rien d'ici ne distinguerait « un humain
+        n'a pas encore répondu » de « un humain a dit non ».
+
+        Le pair ne dit que « en attente » ou « inconnue ». C'est NOUS qui tranchons entre
+        refusée et expirée, en comparant à l'échéance qu'il nous a annoncée en accusant la
+        demande : nous détenons les deux moitiés, lui n'en détient qu'une.
+        """
+        pair = await db_get_peer(self.pool)
+        tentative = await db_get_attempt(self.pool)
+        if tentative is None:
+            return PairingState("apparie" if pair else "non_apparie", None, pair)
+        try:
+            reponse = await self.post_signed(tentative.base_url, PAIRING_STATUS_PATH, PING_BODY)
+        except (httpx.HTTPError, OriginMissingError):
+            # Injoignable n'est pas « refusée » : faire recommencer la demande pour une
+            # panne de réseau détruirait un appariement en cours d'acceptation.
+            log.warning("etat_d_appariement_indisponible", base_url=tentative.base_url)
+            return PairingState("pair_injoignable", tentative, pair)
+        if reponse.status_code != 200:
+            log.warning(
+                "etat_d_appariement_refuse",
+                base_url=tentative.base_url,
+                status_code=reponse.status_code,
+            )
+            return PairingState("pair_injoignable", tentative, pair)
+        if str(reponse.json().get("state")) == "en_attente":
+            return PairingState("en_attente", tentative, pair)
+        if tentative.expires_at is None:
+            # Sans échéance connue, on ne tranche pas : dire « refusée » quand on ne sait
+            # pas enverrait chercher un humain qui n'a rien fait.
+            return PairingState("expiree", tentative, pair)
+        return PairingState(
+            "expiree" if self.now() >= tentative.expires_at else "refusee", tentative, pair
+        )
 
     async def resolve_cancel_attempt(self, author: EventAuthor) -> None:
         """Abandonne la demande en cours. Le pair, lui, laissera la sienne expirer."""
@@ -399,6 +472,27 @@ def _validate_code(code: str) -> str:
     if not _CODE_RE.match(code.strip()):
         raise IdentityInputError("code")
     return code.strip()
+
+
+def _peer_expires_at(reponse: httpx.Response) -> datetime | None:
+    """L'échéance que le pair annonce en accusant la demande, si elle est lisible.
+
+    Bornée et typée avant d'être écrite : elle vient d'un autre service. `None` quand elle
+    n'a pas la forme attendue — on préfère ne pas savoir trancher entre refusée et expirée
+    plutôt que de trancher sur une date inventée.
+    """
+    try:
+        brut = reponse.json().get("expires_at")
+    except ValueError:
+        return None
+    if not isinstance(brut, str) or len(brut) > 40:
+        return None
+    try:
+        echeance = datetime.fromisoformat(brut)
+    except ValueError:
+        return None
+    # Une date sans fuseau est ambiguë, et la comparer à `now()` lèverait à l'exécution.
+    return None if echeance.tzinfo is None else echeance
 
 
 def _peer_drift_s(reponse: httpx.Response) -> int | None:

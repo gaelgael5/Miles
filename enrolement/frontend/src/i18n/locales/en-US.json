@@ -5,10 +5,54 @@
       "cultures": "Cultures",
       "secrets": "Secrets",
       "oidc": "OIDC connectors",
-      "health": "Service status"
+      "health": "Service status",
+      "pairing": "Pairing"
     },
     "sections": {
       "global": "Global"
+    }
+  },
+  "pairing": {
+    "title": "Environment pairing",
+    "lead": "Environments asking to connect, and those already paired.",
+    "loading": "Loading…",
+    "error": "The list could not be read.",
+    "requests": {
+      "title": "Pending requests",
+      "help": "Hand the code to whoever actually administers that environment: that gesture, and only it, is the acceptance. Pairing completes when they paste it on their side.",
+      "empty": "No pending request.",
+      "unnamed": "No declared name",
+      "captionReceived": "Received",
+      "captionExpires": "Expires",
+      "captionFingerprint": "Key fingerprint",
+      "showCode": "Show code",
+      "hideCode": "Hide code",
+      "reject": "Reject",
+      "expiresInMinutes": "in {{n}} min",
+      "expiresInSeconds": "in {{n}} s"
+    },
+    "code": {
+      "loading": "Reading the code…",
+      "gone": "This request no longer exists: it expired or was just rejected.",
+      "handOver": "Read out or paste this code to the environment's administrator.",
+      "label": "Pairing code",
+      "copy": "Copy code",
+      "renewsIn": "renews in {{n}} s",
+      "perishable": "The code changes with every window and is single-use. It cannot be printed or downloaded."
+    },
+    "reject": {
+      "title": "Reject this request?",
+      "confirm": "Reject",
+      "cancel": "Cancel",
+      "body": "The request from {{url}} will disappear and its code will stop working. The environment will have to ask again."
+    },
+    "paired": {
+      "title": "Paired environments",
+      "empty": "No paired environment.",
+      "captionSince": "Paired on",
+      "captionDevices": "Assigned devices",
+      "devicesUnknown": "—",
+      "devicesUnknownHelp": "The device registry does not exist yet: this number is unknown, and is deliberately not shown as zero."
     }
   }
 }

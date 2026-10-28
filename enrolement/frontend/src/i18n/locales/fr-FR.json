@@ -5,10 +5,54 @@
       "cultures": "Cultures",
       "secrets": "Secrets",
       "oidc": "Connecteurs OIDC",
-      "health": "État du service"
+      "health": "État du service",
+      "pairing": "Appariement"
     },
     "sections": {
       "global": "Global"
+    }
+  },
+  "pairing": {
+    "title": "Appariement des environnements",
+    "lead": "Les environnements qui demandent à se connecter, et ceux qui sont appariés.",
+    "loading": "Chargement…",
+    "error": "La liste n'a pas pu être lue.",
+    "requests": {
+      "title": "Demandes en attente",
+      "help": "Transmettre le code à la personne qui administre réellement cet environnement : c'est ce geste, et lui seul, qui vaut acceptation. L'appariement se conclut quand elle le colle chez elle.",
+      "empty": "Aucune demande en attente.",
+      "unnamed": "Nom non déclaré",
+      "captionReceived": "Reçue le",
+      "captionExpires": "Expire",
+      "captionFingerprint": "Empreinte de clé",
+      "showCode": "Afficher le code",
+      "hideCode": "Masquer le code",
+      "reject": "Refuser",
+      "expiresInMinutes": "dans {{n}} min",
+      "expiresInSeconds": "dans {{n}} s"
+    },
+    "code": {
+      "loading": "Lecture du code…",
+      "gone": "Cette demande n'existe plus : elle a expiré ou vient d'être refusée.",
+      "handOver": "Dicter ou coller ce code à l'administrateur de l'environnement.",
+      "label": "Code d'appariement",
+      "copy": "Copier le code",
+      "renewsIn": "se renouvelle dans {{n}} s",
+      "perishable": "Le code change à chaque fenêtre et ne sert qu'une fois. Il n'est ni imprimable ni téléchargeable."
+    },
+    "reject": {
+      "title": "Refuser cette demande ?",
+      "confirm": "Refuser",
+      "cancel": "Annuler",
+      "body": "La demande de {{url}} disparaîtra et son code cessera de valoir. L'environnement devra redemander."
+    },
+    "paired": {
+      "title": "Environnements appariés",
+      "empty": "Aucun environnement apparié.",
+      "captionSince": "Apparié le",
+      "captionDevices": "Devices affectés",
+      "devicesUnknown": "—",
+      "devicesUnknownHelp": "Le référentiel des devices n'existe pas encore : ce nombre n'est pas connu, et n'est donc pas affiché comme zéro."
     }
   }
 }

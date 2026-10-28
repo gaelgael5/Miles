@@ -20,8 +20,8 @@ class PeerDb(Protocol):
 
 async def db_get_peer(db: PeerDb, /) -> EnrolmentPeer | None:
     row = await db.fetchrow(
-        "SELECT base_url, public_key, algorithm, created_at, updated_at FROM enrolment_peer"
-        " WHERE id = $1",
+        "SELECT base_url, public_key, algorithm, created_at, updated_at, declared_name"
+        " FROM enrolment_peer WHERE id = $1",
         SINGLETON,
     )
     if row is None:
@@ -32,11 +32,12 @@ async def db_get_peer(db: PeerDb, /) -> EnrolmentPeer | None:
         row["algorithm"],
         row["created_at"],
         row["updated_at"],
+        row["declared_name"],
     )
 
 
 async def db_upsert_peer(
-    db: PeerDb, base_url: str, public_key: str, now: datetime
+    db: PeerDb, base_url: str, public_key: str, now: datetime, declared_name: str | None
 ) -> EnrolmentPeer:
     """Enregistre le pair, ou REMPLACE celui qui existe — jamais un second.
 
@@ -46,16 +47,17 @@ async def db_upsert_peer(
     """
     row = await db.fetchrow(
         "INSERT INTO enrolment_peer (id, base_url, public_key, algorithm, created_at,"
-        " updated_at) VALUES ($1, $2, $3, $4, $5, $5)"
+        " updated_at, declared_name) VALUES ($1, $2, $3, $4, $5, $5, $6)"
         " ON CONFLICT (id) DO UPDATE SET base_url = excluded.base_url,"
         " public_key = excluded.public_key, algorithm = excluded.algorithm,"
-        " updated_at = excluded.updated_at"
-        " RETURNING base_url, public_key, algorithm, created_at, updated_at",
+        " updated_at = excluded.updated_at, declared_name = excluded.declared_name"
+        " RETURNING base_url, public_key, algorithm, created_at, updated_at, declared_name",
         SINGLETON,
         base_url,
         public_key,
         ALGORITHM,
         now,
+        declared_name,
     )
     return EnrolmentPeer(
         row["base_url"],
@@ -63,17 +65,25 @@ async def db_upsert_peer(
         row["algorithm"],
         row["created_at"],
         row["updated_at"],
+        row["declared_name"],
     )
+
+
+def _attempt(row: Any) -> PairingAttempt:
+    return PairingAttempt(row["base_url"], row["created_at"], row["name"], row["expires_at"])
 
 
 async def db_get_attempt(db: PeerDb, /) -> PairingAttempt | None:
     row = await db.fetchrow(
-        "SELECT base_url, created_at FROM pairing_attempt WHERE id = $1", SINGLETON
+        "SELECT base_url, created_at, name, expires_at FROM pairing_attempt WHERE id = $1",
+        SINGLETON,
     )
-    return None if row is None else PairingAttempt(row["base_url"], row["created_at"])
+    return None if row is None else _attempt(row)
 
 
-async def db_upsert_attempt(db: PeerDb, base_url: str, now: datetime) -> PairingAttempt:
+async def db_upsert_attempt(
+    db: PeerDb, base_url: str, now: datetime, name: str, expires_at: datetime | None
+) -> PairingAttempt:
     """Ouvre la tentative, ou REMPLACE celle qui traînait.
 
     Frapper ailleurs abandonne la demande précédente : garder les deux laisserait l'humain
@@ -81,15 +91,19 @@ async def db_upsert_attempt(db: PeerDb, base_url: str, now: datetime) -> Pairing
     toute façon — un environnement n'a qu'un module d'enrôlement.
     """
     row = await db.fetchrow(
-        "INSERT INTO pairing_attempt (id, base_url, created_at) VALUES ($1, $2, $3)"
+        "INSERT INTO pairing_attempt (id, base_url, created_at, name, expires_at)"
+        " VALUES ($1, $2, $3, $4, $5)"
         " ON CONFLICT (id) DO UPDATE SET base_url = excluded.base_url,"
-        " created_at = excluded.created_at"
-        " RETURNING base_url, created_at",
+        " created_at = excluded.created_at, name = excluded.name,"
+        " expires_at = excluded.expires_at"
+        " RETURNING base_url, created_at, name, expires_at",
         SINGLETON,
         base_url,
         now,
+        name,
+        expires_at,
     )
-    return PairingAttempt(row["base_url"], row["created_at"])
+    return _attempt(row)
 
 
 async def db_delete_attempt(db: PeerDb, /) -> bool:

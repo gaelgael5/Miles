@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 
 import httpx
@@ -8,6 +9,7 @@ from miles_socle.signing.keys import KeyPair, generate_keypair, load_private_key
 from miles_socle.signing.protocol import (
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
+    PAIRING_STATUS_PATH,
     PEER_PING_PATH,
     PING_BODY,
 )
@@ -28,6 +30,9 @@ class EnvironmentDouble:
 
     origin: str = "http://environnement.test"
     keypair: KeyPair = field(default_factory=generate_keypair)
+    # Nom déclaré. Valeur neutre par défaut ; les tests qui éprouvent l'échappement en
+    # passent de hostiles.
+    name: str = "Environnement de recette"
 
     def headers(self, path: str, body: bytes, *, method: str = "POST") -> dict[str, str]:
         entete = sign_call(
@@ -55,8 +60,15 @@ class EnvironmentDouble:
     async def ping(self, client: httpx.AsyncClient) -> httpx.Response:
         return await self.post(client, PEER_PING_PATH, PING_BODY)
 
+    async def status(self, client: httpx.AsyncClient) -> httpx.Response:
+        return await self.post(client, PAIRING_STATUS_PATH, PING_BODY)
+
     def knock_body(self) -> bytes:
-        return b'{"public_key": "%s"}' % self.keypair.public_key.encode("ascii")
+        # Construit à la main plutôt que par `json.dumps` : ce sont ces OCTETS-LÀ qui sont
+        # signés, et un ré-encodage côté client produirait une autre suite d'octets donc
+        # une signature refusée. Les valeurs sont échappées par `json.dumps` champ à champ.
+        cle, nom = json.dumps(self.keypair.public_key), json.dumps(self.name)
+        return f'{{"public_key": {cle}, "name": {nom}}}'.encode()
 
 
 def confirm_body(code: str) -> bytes:
