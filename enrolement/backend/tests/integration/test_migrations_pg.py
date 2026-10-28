@@ -36,7 +36,7 @@ async def test_rejouees_sur_une_base_deja_migree_elles_n_appliquent_rien(blank_d
 
 
 async def test_les_tables_que_le_socle_interroge_existent_reellement(blank_db: str) -> None:
-    """La preuve que le schéma du produit satisfait le socle, qui ne porte aucun SQL.
+    """La preuve que le schéma du produit satisfait le socle, qui ne porte aucune migration.
 
     Les noms sont vérifiés dans le test unitaire ; ici c'est PostgreSQL qui répond, donc
     les contraintes, les types et les références ont réellement été acceptés.

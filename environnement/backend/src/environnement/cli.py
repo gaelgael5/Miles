@@ -6,5 +6,5 @@ from environnement.config import DatabaseSettings
 
 # `environnement-migrate` : la mécanique est au socle, le produit n'apporte que SA
 # configuration — son préfixe d'environnement et le répertoire de ses migrations, dont le
-# socle ne sait rien puisqu'il ne porte aucun SQL.
+# socle ne sait rien puisqu'il ne porte aucune migration.
 main = build_main(lambda: DatabaseSettings())  # type: ignore[call-arg]  # lu dans l'environnement

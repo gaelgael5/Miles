@@ -6,5 +6,5 @@ from miles.config import DatabaseSettings
 
 # `miles-migrate` : la mécanique est au socle, le portail n'apporte que SA configuration
 # — son préfixe d'environnement et le répertoire de ses migrations, dont le socle ne
-# sait rien puisqu'il ne porte aucun SQL.
+# sait rien puisqu'il ne porte aucune migration.
 main = build_main(lambda: DatabaseSettings())  # type: ignore[call-arg]  # lu dans l'environnement

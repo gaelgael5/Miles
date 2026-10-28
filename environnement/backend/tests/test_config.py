@@ -10,7 +10,7 @@ from tests.conftest import DSN, SECRETS_KEY
 
 
 def test_les_migrations_par_defaut_sont_celles_du_produit() -> None:
-    # Le socle ne porte aucun SQL : c'est ce répertoire-ci qui fait foi, et il doit
+    # Le socle ne porte aucune migration : c'est ce répertoire-ci qui fait foi, et il doit
     # exister dans l'image comme dans le dépôt.
     assert DEFAULT_MIGRATIONS_DIR.name == "migrations"
     assert (DEFAULT_MIGRATIONS_DIR / "0001_socle.sql").is_file()

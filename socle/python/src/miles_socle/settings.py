@@ -7,7 +7,7 @@ trois endroits où elles peuvent diverger. C'est déjà arrivé : le commentaire
 `extra="forbid"` promettait une garantie fausse et avait été recopié dans un deuxième
 produit AVANT d'être vérifié (LESSONS.md, 27/10/2026).
 
-Ce que le produit garde : son répertoire de migrations — le socle ne porte aucun SQL et
+Ce que le produit garde : son répertoire de migrations — le socle n'en porte aucune et
 n'a donc rien à dire de son emplacement — et ses propres champs.
 """
 
@@ -51,7 +51,7 @@ class SocleDatabaseSettings(SocleConfig):
     Séparée de la configuration du service web : `<produit>-migrate` n'a pas à exiger le
     `.env` monté, qui ne concerne que le service web.
 
-    Le répertoire des migrations n'est PAS ici : le socle ne porte aucun SQL, donc il n'a
+    Le répertoire des migrations n'est PAS ici : le socle n'en porte aucune, donc il n'a
     rien à dire de l'endroit où un produit range le sien. Chaque produit le déclare, avec
     son défaut.
     """
