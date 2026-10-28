@@ -114,6 +114,34 @@ Mesuré sur test1 le 28/10 : identité **identique après redéploiement** (mêm
 comme après, une clé inconnue refusée et journalisée avec son origine, les trois jetons de
 session étanches deux à deux, l'image sans aucune trace des autres produits.
 
+### Puis la construction des socles — 28/10, décidée par Gael
+
+« On continue sur la construction des socles », en **trois tranches**, dans cet ordre.
+Mesuré d'abord : entre les deux coquilles seules, 754 lignes d'échafaudage de test dont 80
+divergentes, 530 lignes d'infra quasi identiques, 200 lignes à **zéro divergence**.
+
+| Ticket | Tranche | État |
+|---|---|---|
+| `cadc9f40` | l'échafaudage de **test** | **livré le 28/10**, en revue |
+| `710ab8a2` | le **câblage** de `app.py` et la **configuration** | à faire |
+| `ef9a32ca` | l'**infra** : image, stack, déploiement, configs du front | à faire — sa première ligne est une question à trancher avec Gael |
+
+**Tranche 1, livrée.** `miles_socle.testing` est devenu un paquet : doublures, base jetable,
+forme du `.env`, fixtures unitaires, et le montage des sept services du socle sur une base
+réelle. Le produit y injecte son `build_app`, ses migrations et ses types d'events — le
+socle ne l'importe jamais. 175 lignes de moins dans les produits ; les harnais des coquilles
+passent de 151 à 66 et de 172 à 104.
+
+Mais le gain de lignes n'est pas le motif. **`tests/test_cablage.py`, dans chaque produit,
+rougit en NOMMANT un service posé par `app.py` et câblé dans aucun test d'intégration** —
+la panne que `LESSONS.md` portait deux fois, 22 puis 15 tests rouges. Lue par `ast`, donc
+unitaire et lancée à chaque fois. La liste des absents admis est fermée par défaut, et sa
+seule entrée est une trouvaille : la suite d'intégration du portail ne câble jamais sa
+sonde de santé.
+
+Le portail garde son montage minimal et son câblage par test : pré-câbler les sept services
+changerait ce que quinze fichiers observent, et **un refactoring ne réécrit pas les tests**.
+
 ## La panne des campagnes est résolue
 
 **Cause établie le 27/10, reproduite 6 fois sur 6** : elle était dans notre boucle
@@ -143,6 +171,10 @@ Les campagnes repartent.
   porte déjà les clés et les appels signés, et l'environnement porte sa paire persistante.
   Ce qui reste est le protocole lui-même — demande en attente, code TOTP brûlé à l'usage,
   dépôt mutuel des clés publiques — plus le côté enrôlement de la route de pair.
+- `710ab8a2` puis `ef9a32ca` — les deux tranches restantes de la construction des socles.
+  La seconde commence par une question d'architecture : jusqu'où un `dev-deploy.sh` partagé
+  est-il compatible avec « chaque produit a son `dev-deploy.sh` » ? À trancher avec Gael,
+  pas en codant.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
 - Le **métier** de l'enrôlement : la coquille ne porte rien de lui. Référentiel des
