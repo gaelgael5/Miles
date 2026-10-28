@@ -38,6 +38,7 @@ def test_toutes_les_tables_que_le_socle_interroge_sont_creees() -> None:
         "module_identity",
         "pairing_request",
         "environment_peer",
+        "environment",
     ):
         assert f"CREATE TABLE {table} (" in sql, f"table absente des migrations : {table}"
 

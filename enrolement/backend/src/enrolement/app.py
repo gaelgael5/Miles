@@ -27,6 +27,8 @@ from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
 
 from enrolement.config import Settings
+from enrolement.environments.api_environments import router as environments_router
+from enrolement.environments.service import EnvironmentService
 from enrolement.event_types import code_event_types
 from enrolement.pairing.api_pairing import router as pairing_router
 from enrolement.pairing.api_peer import router as peer_router
@@ -87,6 +89,7 @@ def create_app() -> FastAPI:
             settings.public_url,
             settings.pairing_request_ttl_s,
         )
+        app.state.environments = EnvironmentService(pool, catalog, utc_now)
         log.info(
             "demarrage",
             expected_schema_version=expected_version,
@@ -125,6 +128,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(oidc_login_router)
     app.include_router(preferences_router)
     app.include_router(pairing_router)
+    app.include_router(environments_router)
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée :
     # un chemin ouvert à côté de sa vérification serait ouvert à tous, et c'est
