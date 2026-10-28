@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -363,9 +364,12 @@ async def test_la_designation_et_le_rattachement_sont_des_events_signes_de_leur_
             ENVIRONMENT_DESIGNATED_EVENT,
         ]
         for ligne in lignes:
+            # `jsonb` revient en CHAÎNE : asyncpg ne décode pas sans codec, et comparer
+            # des clefs sur la chaîne comparerait ses caractères (mesuré le 28/10/2026).
+            proprietes = json.loads(ligne["properties"])
             # Le slug ET le libellé en plus de l'identifiant : relire le journal dans un an
             # se fait sous le nom qu'on employait alors, et les deux sont renommables.
-            assert set(ligne["properties"]) >= {
+            assert set(proprietes) >= {
                 "environment_id",
                 "environment_slug",
                 "environment_label",

@@ -47,6 +47,19 @@ function EnvironmentRow({
         <div className="caption">{t("environments.list.captionStack")}</div>
         <div className="value">{environnement.paired_base_url ?? "—"}</div>
       </div>
+      <div className="cell">
+        <div className="caption">{t("environments.list.captionDesignated")}</div>
+        {/* Une demande en attente qui le désigne ne le consomme pas — refusée ou
+            expirée, elle le libère — mais elle retient sa suppression. L'afficher
+            évite de découvrir le refus au moment de supprimer. */}
+        <div className="value">
+          {environnement.designated_base_url === null ? (
+            <span className="muted">—</span>
+          ) : (
+            <span className="badge">{t("environments.list.designated")}</span>
+          )}
+        </div>
+      </div>
       <div className="actions row-actions">
         <button type="button" className="btn btn-secondary" onClick={onRename}>
           {t("environments.actions.rename")}

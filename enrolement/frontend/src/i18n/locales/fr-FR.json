@@ -55,6 +55,30 @@
       "captionDevices": "Devices affectés",
       "devicesUnknown": "—",
       "devicesUnknownHelp": "Le référentiel des devices n'existe pas encore : ce nombre n'est pas connu, et n'est donc pas affiché comme zéro."
+    },
+    "designation": {
+      "caption": "Environnement",
+      "missing": "À rattacher",
+      "label": "Environnement du référentiel",
+      "none": "— choisir un environnement —",
+      "help": "Les environnements déjà appariés ne sont pas proposés : un environnement ne porte qu'un appariement.",
+      "designate": "Désigner l'environnement",
+      "change": "Changer l'environnement",
+      "submit": "Désigner",
+      "required": "Le code ne peut pas être affiché tant qu'aucun environnement n'est désigné : l'afficher, c'est accepter l'appariement, et il faut savoir à quoi le rattacher.",
+      "create": "Déclarer un environnement",
+      "createHelp": "Le nouvel environnement sera aussitôt désigné pour cette demande.",
+      "createSubmit": "Déclarer et désigner",
+      "attach": "Rattacher à un environnement",
+      "attachHelp": "Cet appariement a été conclu avant que les environnements ne soient déclarés. Le rattacher ne touche ni aux clés ni à l'appariement.",
+      "attachSubmit": "Rattacher",
+      "errors": {
+        "taken": "Un autre appariement porte déjà cet environnement. Choisissez-en un autre, ou révoquez l'appariement existant.",
+        "settled": "Cet appariement est conclu : son environnement ne se change plus. Révoquez-le puis réappariez la stack.",
+        "environmentGone": "Cet environnement n'est plus dans le référentiel. Rafraîchissez la liste.",
+        "requestGone": "Cette demande a disparu : elle a expiré, ou elle vient d'être refusée.",
+        "unexpected": "La désignation a échoué. Réessayez, puis consultez les journaux."
+      }
     }
   },
   "environments": {
@@ -79,7 +103,9 @@
       "captionPairing": "Appariement",
       "captionStack": "Stack appariée",
       "paired": "Apparié",
-      "notPaired": "Non apparié"
+      "notPaired": "Non apparié",
+      "designated": "Désigné",
+      "captionDesignated": "Demande en attente"
     },
     "actions": {
       "rename": "Renommer",
@@ -97,7 +123,8 @@
       "slugTaken": "Un autre environnement porte déjà ce slug.",
       "paired": "Cet environnement porte un appariement. Révoquez-le d'abord.",
       "absent": "Cet environnement n'existe plus.",
-      "unexpected": "Le serveur a refusé, sans dire pourquoi."
+      "unexpected": "Le serveur a refusé, sans dire pourquoi.",
+      "designated": "Une demande d'appariement en attente désigne cet environnement. Refusez-la, ou désignez-en un autre, avant de le supprimer."
     }
   }
 }

@@ -156,11 +156,23 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
 
 function ApparieRow({ environnement }: { environnement: PairedEnvironment }) {
   const { t } = useTranslation();
+  const [ouvreChoix, setOuvreChoix] = useState(false);
+  const rattachement = useAttachPeerEnvironment();
+  // Un appariement conclu AVANT que la désignation n'existe. Il ne se rattache qu'une
+  // fois : l'en changer déplacerait ses devices sans le dire, et ce geste s'appelle
+  // révoquer puis réapparier.
+  const aRattacher = environnement.environment === null;
   return (
     <li className="row">
       <div className="row-main">
         <div className="row-title">{environnement.name ?? t("pairing.requests.unnamed")}</div>
         <div className="row-sub">{environnement.base_url}</div>
+      </div>
+      <div className="cell">
+        <div className="caption">{t("pairing.designation.caption")}</div>
+        <div className="value">
+          <EnvironmentCell environnement={environnement.environment} />
+        </div>
       </div>
       <div className="cell">
         <div className="caption">{t("pairing.paired.captionSince")}</div>
@@ -186,6 +198,37 @@ function ApparieRow({ environnement }: { environnement: PairedEnvironment }) {
           <span className="badge">{environnement.public_key_fingerprint}</span>
         </div>
       </div>
+      {aRattacher && (
+        <div className="actions row-actions">
+          <button
+            type="button"
+            className="btn btn-primary"
+            aria-expanded={ouvreChoix}
+            onClick={() => setOuvreChoix((ouvert) => !ouvert)}
+          >
+            {t("pairing.designation.attach")}
+          </button>
+        </div>
+      )}
+      {aRattacher && !ouvreChoix && (
+        <p className="help" role="status">
+          {t("pairing.designation.attachHelp")}
+        </p>
+      )}
+      {ouvreChoix && (
+        <EnvironmentPicker
+          choisi={null}
+          pending={rattachement.isPending}
+          error={rattachement.isError ? rattachement.error : null}
+          submitLabel={t("pairing.designation.attachSubmit")}
+          onChoose={(environmentId) =>
+            rattachement.mutate(
+              { baseUrl: environnement.base_url, environmentId },
+              { onSuccess: () => setOuvreChoix(false) },
+            )
+          }
+        />
+      )}
     </li>
   );
 }

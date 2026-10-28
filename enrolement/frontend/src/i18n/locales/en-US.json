@@ -55,6 +55,30 @@
       "captionDevices": "Assigned devices",
       "devicesUnknown": "—",
       "devicesUnknownHelp": "The device registry does not exist yet: this number is unknown, and is deliberately not shown as zero."
+    },
+    "designation": {
+      "caption": "Environment",
+      "missing": "To be linked",
+      "label": "Environment from the registry",
+      "none": "— choose an environment —",
+      "help": "Environments that are already paired are not offered: an environment carries at most one pairing.",
+      "designate": "Choose the environment",
+      "change": "Change the environment",
+      "submit": "Choose",
+      "required": "The code cannot be shown until an environment is chosen: showing it accepts the pairing, and we must know what to link it to.",
+      "create": "Declare an environment",
+      "createHelp": "The new environment will immediately be chosen for this request.",
+      "createSubmit": "Declare and choose",
+      "attach": "Link to an environment",
+      "attachHelp": "This pairing was concluded before environments were declared. Linking it touches neither the keys nor the pairing.",
+      "attachSubmit": "Link",
+      "errors": {
+        "taken": "Another pairing already carries this environment. Pick a different one, or revoke the existing pairing.",
+        "settled": "This pairing is concluded: its environment can no longer be changed. Revoke it, then pair the stack again.",
+        "environmentGone": "This environment is no longer in the registry. Refresh the list.",
+        "requestGone": "This request is gone: it expired, or it was just rejected.",
+        "unexpected": "Choosing the environment failed. Try again, then check the logs."
+      }
     }
   },
   "environments": {
@@ -79,7 +103,9 @@
       "captionPairing": "Pairing",
       "captionStack": "Paired stack",
       "paired": "Paired",
-      "notPaired": "Not paired"
+      "notPaired": "Not paired",
+      "designated": "Chosen",
+      "captionDesignated": "Pending request"
     },
     "actions": {
       "rename": "Rename",
@@ -97,7 +123,8 @@
       "slugTaken": "Another environment already carries this slug.",
       "paired": "This environment carries a pairing. Revoke it first.",
       "absent": "This environment no longer exists.",
-      "unexpected": "The server refused, without saying why."
+      "unexpected": "The server refused, without saying why.",
+      "designated": "A pending pairing request points at this environment. Reject it, or choose a different environment, before deleting it."
     }
   }
 }

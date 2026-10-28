@@ -7,6 +7,10 @@ import "../i18n/i18n";
 
 const DANS_UNE_HEURE = new Date(Date.now() + 3_600_000).toISOString();
 
+// L'environnement du référentiel, désigné : sans lui le code n'est pas révélable, et
+// les cas qui ne portent PAS sur la désignation partiraient tous d'un état refusé.
+const RECETTE = { id: "5e1b3a0c-0000-4000-8000-000000000001", slug: "recette", label: "Recette" };
+
 const DEMANDE = {
   base_url: "https://env-recette.example.org",
   name: "Environnement de recette",
@@ -14,10 +18,13 @@ const DEMANDE = {
   algorithm: "ed25519",
   created_at: "2026-10-28T09:00:00+00:00",
   expires_at: DANS_UNE_HEURE,
+  environment: RECETTE,
 };
 
+const APPARIE_BASE_URL = "https://env-production.example.org";
+
 const APPARIE = {
-  base_url: "https://env-production.example.org",
+  base_url: APPARIE_BASE_URL,
   name: "Environnement de production",
   public_key: "A".repeat(43),
   public_key_fingerprint: "82876eb0c19c35fdf589d74b1d96ca65",
@@ -25,7 +32,20 @@ const APPARIE = {
   created_at: "2026-10-20T08:00:00+00:00",
   updated_at: "2026-10-20T08:00:00+00:00",
   device_count: null,
+  environment: {
+    id: "5e1b3a0c-0000-4000-8000-000000000002",
+    slug: "production",
+    label: "Production",
+  },
 };
+
+const ENVIRONNEMENTS = [
+  { ...RECETTE, created_at: "2026-10-27T08:00:00+00:00", updated_at: "2026-10-27T08:00:00+00:00",
+    paired_base_url: null, designated_base_url: null },
+  { id: "5e1b3a0c-0000-4000-8000-000000000003", slug: "production", label: "Production",
+    created_at: "2026-10-20T08:00:00+00:00", updated_at: "2026-10-20T08:00:00+00:00",
+    paired_base_url: APPARIE_BASE_URL, designated_base_url: null },
+];
 
 function monte(routes: Routes) {
   const calls = mockApi(routes);
@@ -43,6 +63,7 @@ function routes(demandes: unknown[], apparies: unknown[], autres: Routes = {}): 
   return {
     "GET /api/pairing/requests": { status: 200, body: demandes },
     "GET /api/pairing/peers": { status: 200, body: apparies },
+    "GET /api/environments": { status: 200, body: ENVIRONNEMENTS },
     ...autres,
   };
 }
@@ -209,5 +230,145 @@ describe("écran d'appariement du module d'enrôlement", () => {
       await screen.findByText(/no longer exists: it expired or was just rejected/i),
     ).toBeInTheDocument();
     expect(appels.some((appel) => appel.key.startsWith("GET /api/pairing/code"))).toBe(true);
+  });
+  it("refuses to reveal the code before an environment is chosen, and says why", async () => {
+    // Critère 1 : un bouton grisé MUET fait chercher la panne du côté des clés ou du
+    // réseau. La raison doit être écrite, pas seulement signifiée par un bouton éteint.
+    const appels = monte(routes([{ ...DEMANDE, environment: null }], []));
+
+    expect(await screen.findByRole("button", { name: "Show code" })).toBeDisabled();
+    expect(
+      screen.getByText(/showing it accepts the pairing, and we must know what to link it to/i),
+    ).toBeInTheDocument();
+    expect(appels.some((appel) => appel.key.startsWith("GET /api/pairing/code"))).toBe(false);
+  });
+
+  it("sends the chosen environment, then lets the code be revealed", async () => {
+    const appels = monte(
+      routes([{ ...DEMANDE, environment: null }], [], {
+        [`PUT /api/pairing/requests/environment?base_url=${encodeURIComponent(DEMANDE.base_url)}`]:
+          { status: 200, body: DEMANDE },
+      }),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Choose the environment" }));
+    const liste = await screen.findByLabelText("Environment from the registry");
+    // L'option est ATTENDUE : le référentiel se charge au montage du composant, et
+    // choisir une valeur qui n'est pas encore là ne change rien au champ.
+    await within(liste).findByRole("option", { name: /Recette/ });
+    fireEvent.change(liste, { target: { value: RECETTE.id } });
+    fireEvent.click(screen.getByRole("button", { name: "Choose" }));
+
+    await waitFor(() =>
+      expect(
+        appels.find((appel) => appel.key.startsWith("PUT /api/pairing/requests/environment"))?.body,
+      ).toEqual({ environment_id: RECETTE.id }),
+    );
+  });
+
+  it("never offers an environment that already carries a pairing", async () => {
+    // Deux stacks appariées pour un même environnement, et « à quelle stack appartient
+    // ce device » n'a plus de réponse unique.
+    monte(routes([{ ...DEMANDE, environment: null }], [APPARIE]));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Choose the environment" }));
+    const liste = await screen.findByLabelText("Environment from the registry");
+
+    // Attendu, et non lu tout de suite : la liste du référentiel est chargée par le
+    // composant au montage, donc APRÈS que le champ existe.
+    expect(await within(liste).findByRole("option", { name: /Recette/ })).toBeInTheDocument();
+    expect(within(liste).queryByRole("option", { name: /Production/ })).toBeNull();
+  });
+
+  it("creates an environment from the pairing screen and links the request at once", async () => {
+    // Critère 3 : un environnement créé puis laissé non désigné ferait croire le geste
+    // terminé alors que le code n'est toujours pas révélable.
+    const neuf = { ...RECETTE, id: "5e1b3a0c-0000-4000-8000-000000000009", slug: "preprod" };
+    const appels = monte(
+      routes([{ ...DEMANDE, environment: null }], [], {
+        "POST /api/environments": { status: 201, body: neuf },
+        [`PUT /api/pairing/requests/environment?base_url=${encodeURIComponent(DEMANDE.base_url)}`]:
+          { status: 200, body: DEMANDE },
+      }),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Choose the environment" }));
+    fireEvent.click(screen.getByRole("button", { name: "Declare an environment" }));
+    // Le slug se DÉRIVE du libellé, comme au référentiel : c'est le même formulaire,
+    // et le réécrire ici ferait diverger les deux au premier changement de règle.
+    fireEvent.change(await screen.findByLabelText("Label"), { target: { value: "Pré-prod" } });
+    expect(screen.getByLabelText("Slug")).toHaveValue("pre-prod");
+    fireEvent.click(screen.getByRole("button", { name: "Declare and choose" }));
+
+    await waitFor(() =>
+      expect(
+        appels.find((appel) => appel.key.startsWith("PUT /api/pairing/requests/environment"))?.body,
+      ).toEqual({ environment_id: neuf.id }),
+    );
+  });
+
+  it("flags an inherited pairing as needing a link, and links it without touching the keys", async () => {
+    // Critère 8 : un appariement conclu avant que la désignation n'existe. L'état est
+    // transitoire HÉRITÉ, pas l'état normal — d'où la pastille d'alerte.
+    const herite = { ...APPARIE, environment: null };
+    const appels = monte(
+      routes([], [herite], {
+        [`PUT /api/pairing/peers/environment?base_url=${encodeURIComponent(APPARIE_BASE_URL)}`]: {
+          status: 200,
+          body: APPARIE,
+        },
+      }),
+    );
+
+    expect(await screen.findByText("To be linked")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Link to an environment" }));
+    const liste = await screen.findByLabelText("Environment from the registry");
+    await within(liste).findByRole("option", { name: /Recette/ });
+    fireEvent.change(liste, { target: { value: RECETTE.id } });
+    fireEvent.click(screen.getByRole("button", { name: "Link" }));
+
+    await waitFor(() =>
+      expect(
+        appels.find((appel) => appel.key.startsWith("PUT /api/pairing/peers/environment"))?.body,
+      ).toEqual({ environment_id: RECETTE.id }),
+    );
+  });
+
+  it("offers no way to move a pairing that already carries an environment", async () => {
+    // Interdit explicite : le déplacer emporterait ses devices sans le dire. Ce geste
+    // existe, et il s'appelle révoquer puis réapparier.
+    monte(routes([], [APPARIE]));
+
+    expect(await screen.findByText("Production")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /link|change/i })).toBeNull();
+  });
+
+  it("names the refusal when the chosen environment was taken in the meantime", async () => {
+    const appels = monte(
+      routes([{ ...DEMANDE, environment: null }], [], {
+        [`PUT /api/pairing/requests/environment?base_url=${encodeURIComponent(DEMANDE.base_url)}`]:
+          { status: 409, body: { detail: "environnement_apparie" } },
+      }),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Choose the environment" }));
+    const liste = await screen.findByLabelText("Environment from the registry");
+    await within(liste).findByRole("option", { name: /Recette/ });
+    fireEvent.change(liste, { target: { value: RECETTE.id } });
+    fireEvent.click(screen.getByRole("button", { name: "Choose" }));
+
+    expect(
+      await screen.findByText(/Another pairing already carries this environment/i),
+    ).toBeInTheDocument();
+    expect(appels.some((appel) => appel.key.startsWith("PUT"))).toBe(true);
+  });
+
+  it("shows the registry label and slug of a paired environment", async () => {
+    // Critère 6 : le nom DÉCLARÉ reste affiché, et ne tient lieu de nom nulle part.
+    monte(routes([], [APPARIE]));
+
+    expect(await screen.findByText("Production")).toBeInTheDocument();
+    expect(screen.getByText("production")).toBeInTheDocument();
+    expect(screen.getByText("Environnement de production")).toBeInTheDocument();
   });
 });
