@@ -1,38 +1,22 @@
 from __future__ import annotations
 
-import base64
-from pathlib import Path
-
 import pytest
 from miles_socle.auth.admin_account import AdminAccount
 from miles_socle.auth.passwords import hash_password
+from miles_socle.testing import DSN, SECRETS_KEY
+from miles_socle.testing.fixtures import env_files
 from pydantic import SecretStr
 
 from enrolement.config import Settings
 
-DSN = "postgresql://miles:x@db:5432/miles"
-# Clé de 32 octets en base64url, comme celle que dev-deploy.sh engendre. Valeur d'essai
-# sans portée hors des tests : aucun secret du dépôt ne passe par là.
-#
-# ENGENDRÉE depuis des octets, et non écrite à la main. La valeur en dur qui tenait cette
-# place faisait 43 caractères, sans rembourrage : `parse_secrets_key` la REFUSAIT, ce qui
-# n'apparaissait nulle part parce qu'aucun test ne montait l'application entière — la
-# configuration ne lit pas cette clé, elle la transporte. Mesuré le 28/10/2026 sur machine
-# de test, au premier test qui a démarré la vraie durée de vie de l'application.
-SECRETS_KEY = base64.urlsafe_b64encode(bytes(range(32))).decode("ascii")
+# `env_files` vient du socle : les trois produits montaient le même `.env` d'essai. Importée
+# et non redéfinie — l'import suffit à pytest pour l'enregistrer —, d'où le réexport.
+__all__ = ["DSN", "SECRETS_KEY", "env_files"]
 
 
 @pytest.fixture
-def env_files(tmp_path: Path) -> tuple[Path, Path]:
-    """Le .env de l'hôte et sa sauvegarde, que le produit monte fichier par fichier."""
-    env, backup = tmp_path / ".env", tmp_path / ".env.bak"
-    env.write_text("", encoding="utf-8")
-    backup.write_text("", encoding="utf-8")
-    return env, backup
-
-
-@pytest.fixture
-def settings(env_files: tuple[Path, Path]) -> Settings:
+def settings(env_files: tuple[object, object]) -> Settings:
+    """La configuration du produit : c'est SA classe, et elle reste chez lui."""
     env, backup = env_files
     return Settings(  # type: ignore[arg-type]
         database_url=DSN,
@@ -44,6 +28,7 @@ def settings(env_files: tuple[Path, Path]) -> Settings:
 
 @pytest.fixture
 def admin_account() -> AdminAccount:
+    """Le compte d'amorçage du produit : son adresse le nomme, elle ne se partage pas."""
     return AdminAccount(
         email="admin@enrolement.invalid",
         username="admin",
