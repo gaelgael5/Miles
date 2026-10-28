@@ -6,7 +6,8 @@
       "secrets": "Secrets",
       "oidc": "Connecteurs OIDC",
       "health": "État du service",
-      "pairing": "Appariement"
+      "pairing": "Appariement",
+      "environments": "Environnements"
     },
     "sections": {
       "global": "Global"
@@ -54,6 +55,49 @@
       "captionDevices": "Devices affectés",
       "devicesUnknown": "—",
       "devicesUnknownHelp": "Le référentiel des devices n'existe pas encore : ce nombre n'est pas connu, et n'est donc pas affiché comme zéro."
+    }
+  },
+  "environments": {
+    "title": "Environnements",
+    "lead": "Les environnements que ce module connaît, et la stack appariée à chacun.",
+    "loading": "Chargement…",
+    "error": "La liste n'a pas pu être lue.",
+    "form": {
+      "createTitle": "Déclarer un environnement",
+      "renameTitle": "Renommer {{label}}",
+      "label": "Libellé",
+      "labelHelp": "Ce qui se lit. Il se renomme à tout moment.",
+      "slug": "Slug",
+      "slugHelp": "Ce qui s'écrit : minuscules, chiffres et traits d'union. Proposé depuis le libellé, libre à vous de le changer — une fois changé, le libellé ne le réécrit plus.",
+      "submitCreate": "Déclarer",
+      "submitRename": "Renommer",
+      "cancel": "Annuler"
+    },
+    "list": {
+      "title": "Environnements déclarés",
+      "empty": "Aucun environnement déclaré.",
+      "captionPairing": "Appariement",
+      "captionStack": "Stack appariée",
+      "paired": "Apparié",
+      "notPaired": "Non apparié"
+    },
+    "actions": {
+      "rename": "Renommer",
+      "delete": "Supprimer"
+    },
+    "delete": {
+      "title": "Supprimer cet environnement ?",
+      "body": "{{label}} disparaîtra de la liste. Plus aucun device ne pourra y être envoyé.",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "errors": {
+      "label": "Le libellé est vide, trop long, ou porte des caractères de contrôle.",
+      "slug": "Un slug est fait de minuscules, de chiffres et de traits d'union — et il ne peut pas être vide.",
+      "slugTaken": "Un autre environnement porte déjà ce slug.",
+      "paired": "Cet environnement porte un appariement. Révoquez-le d'abord.",
+      "absent": "Cet environnement n'existe plus.",
+      "unexpected": "Le serveur a refusé, sans dire pourquoi."
     }
   }
 }

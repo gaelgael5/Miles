@@ -128,6 +128,12 @@ class EnvironmentService:
                 environnement = await db_get_environment(conn, environment_id)
                 if environnement is None:
                     raise EnvironmentNotFoundError(f"aucun environnement sous {environment_id}")
+                # MESURÉ le 28/10/2026 : retirer cette lecture ne fait rougir aucun
+                # test — la clé étrangère `ON DELETE RESTRICT` tient seule, et le refus
+                # remonte par l'exception rattrapée plus bas. Elle reste parce qu'elle
+                # refuse AVANT d'ouvrir une écriture, là où l'autre voie laisse la
+                # transaction avorter. Ne pas la croire porteuse de la garde : la garde
+                # est dans la migration.
                 if environnement.paired_base_url is not None:
                     raise EnvironmentPairedError(
                         f"{environnement.slug} porte l'appariement de"

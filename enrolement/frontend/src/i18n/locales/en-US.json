@@ -6,7 +6,8 @@
       "secrets": "Secrets",
       "oidc": "OIDC connectors",
       "health": "Service status",
-      "pairing": "Pairing"
+      "pairing": "Pairing",
+      "environments": "Environments"
     },
     "sections": {
       "global": "Global"
@@ -54,6 +55,49 @@
       "captionDevices": "Assigned devices",
       "devicesUnknown": "—",
       "devicesUnknownHelp": "The device registry does not exist yet: this number is unknown, and is deliberately not shown as zero."
+    }
+  },
+  "environments": {
+    "title": "Environments",
+    "lead": "The environments this module knows, and which stack is paired to each.",
+    "loading": "Loading…",
+    "error": "The list could not be read.",
+    "form": {
+      "createTitle": "Declare an environment",
+      "renameTitle": "Rename {{label}}",
+      "label": "Label",
+      "labelHelp": "What people read. It can be renamed at any time.",
+      "slug": "Slug",
+      "slugHelp": "What gets written: lowercase letters, digits and hyphens. Proposed from the label, yours to change — once changed, the label no longer rewrites it.",
+      "submitCreate": "Declare",
+      "submitRename": "Rename",
+      "cancel": "Cancel"
+    },
+    "list": {
+      "title": "Declared environments",
+      "empty": "No environment declared yet.",
+      "captionPairing": "Pairing",
+      "captionStack": "Paired stack",
+      "paired": "Paired",
+      "notPaired": "Not paired"
+    },
+    "actions": {
+      "rename": "Rename",
+      "delete": "Delete"
+    },
+    "delete": {
+      "title": "Delete this environment?",
+      "body": "{{label}} will disappear from the list. Devices can no longer be sent to it.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "errors": {
+      "label": "The label is empty, too long, or carries control characters.",
+      "slug": "A slug is made of lowercase letters, digits and hyphens — and it cannot be empty.",
+      "slugTaken": "Another environment already carries this slug.",
+      "paired": "This environment carries a pairing. Revoke it first.",
+      "absent": "This environment no longer exists.",
+      "unexpected": "The server refused, without saying why."
     }
   }
 }

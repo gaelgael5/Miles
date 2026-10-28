@@ -16,6 +16,7 @@ import {
   usePreferences,
 } from "@miles/socle-web";
 
+import { EnvironmentsScreen } from "./environments/EnvironmentsScreen";
 import { PairingScreen } from "./pairing/PairingScreen";
 
 /**
@@ -29,6 +30,7 @@ import { PairingScreen } from "./pairing/PairingScreen";
  */
 const ECRANS = [
   { nom: "pairing", Ecran: PairingScreen },
+  { nom: "environments", Ecran: EnvironmentsScreen },
   { nom: "cultures", Ecran: CulturesScreen },
   { nom: "secrets", Ecran: SecretsScreen },
   { nom: "oidc", Ecran: ConnectorsScreen },
