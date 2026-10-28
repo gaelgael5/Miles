@@ -185,7 +185,7 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .field textarea { font-family: var(--police-mono); font-size: 12.5px; }
 .field-check { display: flex; gap: 10px; align-items: center; font-size: 14px; margin-bottom: 6px; }
 .field-check input { width: 18px; height: 18px; }
-.help { margin: 0 0 18px; font-size: 13px; color: var(--encre-faible); }
+.help { margin: 8px 0 18px; font-size: 13px; color: var(--encre-faible); }
 /* La marge haute négative resserre l'aide SOUS le champ qu'elle décrit, en mordant dans la
    marge basse de ce champ. Elle ne vaut donc QUE là : portée sans condition par `.help`,
    elle remontait l'aide PAR-DESSUS ce qui la précède — un titre de carte, ou l'input
@@ -193,8 +193,9 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
    d'appariement : le texte d'aide chevauchait le libellé et le cadre de saisie). */
 .field + .help, .picker-field + .help { margin-top: -10px; }
 /* Une aide écrite DANS le champ suit l'input, pas le libellé : la marge basse du champ
-   assure déjà la séparation avec le suivant. */
-.field > .help { margin: 6px 0 0; }
+   assure déjà la séparation avec le suivant. Et elle reprend la graisse normale : `.field`
+   met tout son contenu en 600 pour le libellé, ce qui rendait l'aide aussi lourde que lui. */
+.field > .help { margin: 6px 0 0; font-weight: 400; }
 fieldset { border: 1px solid var(--bordure-carte); border-radius: 6px; padding: 16px; margin: 0 0 18px; }
 .plain-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
@@ -257,6 +258,9 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
   margin: 0; padding: 14px 16px; background: var(--surface-douce); border: 1px solid var(--bordure-carte);
   border-radius: 6px; font-family: var(--police-mono); font-size: 12.5px; white-space: pre; overflow-x: auto;
 }
+/* Un code qu'on dicte de vive voix : il se lit à distance de l'écran, chiffre par chiffre.
+   À la taille du YAML, un 1 et un 7 mal lus font échouer l'appariement sans rien dire. */
+.code-block.code-large { font-size: 24px; font-weight: 700; letter-spacing: 0.18em; padding: 10px 18px; }
 /* Titre de carte et son action principale sur une ligne, l'action à droite. */
 .card-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
 .card-head h2 { margin: 0; }

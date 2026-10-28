@@ -88,8 +88,11 @@ function CodeRevele({ baseUrl }: { baseUrl: string }) {
   return (
     <div className="row-detail">
       <p className="help">{t("pairing.code.handOver")}</p>
-      <div className="facts">
-        <div className="code-block" aria-label={t("pairing.code.label")}>
+      {/* `actions` et non `facts` : `facts` est une grille à deux colonnes pour des
+          couples légende/valeur, et le bouton de copie s'y étirait sur toute la largeur
+          de la seconde colonne. Ici trois éléments se suivent sur une ligne. */}
+      <div className="actions">
+        <div className="code-block code-large" aria-label={t("pairing.code.label")}>
           {code.data.code}
         </div>
         <CopyButton text={code.data.code} label={t("pairing.code.copy")} />
