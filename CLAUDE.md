@@ -68,6 +68,7 @@ dont les deux côtés doivent vérifier la même chaîne canonique au caractère
 |---|---|---|
 | `socle/python` | paquet `miles_socle` — **aucun SQL**, le schéma reste l'affaire de chaque produit | `<produit>/backend`, chemin relatif dans `pyproject.toml` |
 | `socle/web` | paquet `@miles/socle-web` — coquille front et écrans répliqués | `<produit>/frontend`, chemin relatif dans `package.json` |
+| `socle/deploy` | `gardes.sh` et `integration.sh` — les gardes du déploiement et des campagnes | `<produit>/dev-deploy.sh` et `<produit>/scripts/`, par `source` |
 
 `miles_socle.testing` est livré **dans** le paquet : chaque produit a sa suite et aucun ne
 peut importer celle d'un autre. Il porte les doublures, la base jetable, la forme du `.env`
@@ -76,10 +77,32 @@ et le montage des services du socle sur une base réelle — le produit y inject
 `tests/test_cablage.py`, qui **rougit en nommant** un service posé par `app.py` et câblé
 dans aucun test d'intégration : c'est la garde qui remplace « penser à vérifier le harnais ».
 
+### Ce qui n'est PAS partagé, et pourquoi — ne pas « finir le travail »
+
+Décision de Gael du 28/10/2026 : **on partage les gardes, pas la séquence.** Une garde
+encode une panne mesurée et se répare en un endroit ; une séquence est ce qui diffère
+vraiment d'un produit à l'autre, et une erreur dedans ne doit casser qu'un produit — le
+déploiement est la seule voie de livraison du projet.
+
+| Reste au produit | Raison |
+|---|---|
+| la **séquence** de `dev-deploy.sh` et de `run-integration-tests.sh` | décision ci-dessus ; les étapes, leurs messages et leurs valeurs sont au produit |
+| `docker-compose.yml` | c'est la définition de SA stack : base, volume, ports, nom de projet |
+| `backend/Dockerfile`, `frontend/Dockerfile` | une image de base commune devient un prérequis de chaque déploiement, et le jour où elle manque les trois échouent sur un message qui ne parle pas d'elle |
+| `frontend/vite.config.ts`, `eslint.config.js` | les partager fait résoudre `vite`, son greffon react ou les greffons eslint depuis le `node_modules` du socle. C'est la famille de pannes que `LESSONS.md` porte deux fois pour le front, et elle est invisible en local |
+| `frontend/nginx.conf` | celui du portail diverge déjà de 34 lignes (surface MCP, éditeur JSLT) : un « commun » qui ne vaut que pour deux produits sur trois n'est pas une référence |
+| `frontend/src/main.tsx`, `setupTests.ts` | le point d'entrée nomme l'`App` du produit, et les doublures de test sont celles de ses écrans |
+| les **migrations** | le socle ne porte aucun SQL (décision du 27/10/2026) ; l'écart entre les trois schémas est tenu par la revue humaine |
+
+Est partagé côté front, et c'est tout : `socle/web/tsconfig.base.json`, parce qu'`extends`
+ne traverse aucune résolution de greffon — `strict` et `noUncheckedIndexedAccess` sont des
+règles du dépôt, pas des préférences de produit.
+
 **La frontière est tenue par un test, pas par une intention** : `tests/` à la racine lit les
-imports (Python par `ast`, TypeScript par motif) et refuse qu'un produit en atteigne un
-autre, ou que le socle atteigne un produit. À lancer après tout déplacement de code entre
-les racines.
+imports (Python par `ast`, TypeScript par motif) **et les `source` des scripts shell**, et
+refuse qu'un produit en atteigne un autre, ou que le socle atteigne un produit. À lancer
+après tout déplacement de code entre les racines — et après tout nouveau genre de référence
+inter-racines, qui doit y entrer le jour où on l'introduit.
 
 ## Commandes essentielles
 Layout d'un produit : `backend/` (paquet Python, `migrations/NNNN_*.sql` immuables),
