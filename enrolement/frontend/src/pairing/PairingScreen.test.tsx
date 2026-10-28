@@ -157,6 +157,29 @@ describe("écran d'appariement du module d'enrôlement", () => {
     expect(screen.queryByText("0")).toBeNull();
   });
 
+  it("interpolates the countdowns instead of printing the template", async () => {
+    // Trouvé dans un VRAI navigateur le 28/10/2026, pas sous jsdom : l'écran affichait
+    // « in {{n}} min » parce que la clef était appelée avec `count` quand le gabarit
+    // attend `n` — et `count` déclenche en plus la machinerie de pluriel d'i18next.
+    // Aucun test n'ASSERTAIT le texte du compte à rebours : il ne pouvait rien prouver.
+    monte(
+      routes([{ ...DEMANDE, expires_at: new Date(Date.now() + 300_000).toISOString() }], [], {
+        [`GET /api/pairing/code?base_url=${encodeURIComponent(DEMANDE.base_url)}`]: {
+          status: 200,
+          body: { base_url: DEMANDE.base_url, code: "314159", seconds_remaining: 21 },
+        },
+      }),
+    );
+
+    expect(await screen.findByText("in 5 min")).toBeInTheDocument();
+    expect(screen.queryByText(/\{\{/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show code" }));
+
+    expect(await screen.findByText("renews in 21 s")).toBeInTheDocument();
+    expect(screen.queryByText(/\{\{/)).toBeNull();
+  });
+
   it("says plainly when a revealed request has vanished", async () => {
     const appels = monte(
       routes([DEMANDE], [], {

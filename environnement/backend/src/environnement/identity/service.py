@@ -412,14 +412,21 @@ class IdentityService:
             # panne de réseau détruirait un appariement en cours d'acceptation.
             log.warning("etat_d_appariement_indisponible", base_url=tentative.base_url)
             return PairingState("pair_injoignable", tentative, pair)
-        if reponse.status_code != 200:
+        if reponse.status_code not in (200, 401):
             log.warning(
-                "etat_d_appariement_refuse",
+                "etat_d_appariement_indisponible",
                 base_url=tentative.base_url,
                 status_code=reponse.status_code,
             )
             return PairingState("pair_injoignable", tentative, pair)
-        if str(reponse.json().get("state")) == "en_attente":
+        # 401 sur CETTE route veut dire que le pair ne détient ni notre demande ni notre
+        # appariement : il n'a donc aucune clé avec quoi vérifier, et il refuse plutôt que
+        # de répondre « inconnue » à un inconnu — ce qui lui dirait que cette origine n'est
+        # pas appariée. Nous, qui avions une demande, savons que cela signifie qu'elle a
+        # disparu. Le lire comme « injoignable » afficherait une panne là où un humain
+        # vient de refuser (mesuré par la campagne du 28/10/2026).
+        disparue = reponse.status_code == 401 or str(reponse.json().get("state")) != "en_attente"
+        if not disparue:
             return PairingState("en_attente", tentative, pair)
         if tentative.expires_at is None:
             # Sans échéance connue, on ne tranche pas : dire « refusée » quand on ne sait
@@ -469,9 +476,21 @@ class IdentityService:
 
 
 def _validate_code(code: str) -> str:
-    if not _CODE_RE.match(code.strip()):
+    """Six chiffres, débarrassés de TOUT espace — pas seulement de ceux des bords.
+
+    Un code circule par copier-coller : il arrive avec des espaces avant, après, et
+    parfois au milieu, parce qu'on l'a lu « 314 159 » sur un écran qui l'aérait. Le
+    refuser pour cela revient à refuser le bon code.
+
+    Le nettoyage est ICI et pas seulement dans l'écran. Mesuré sur machine de test le
+    28/10/2026 : seul le navigateur nettoyait, et un appel direct à l'API avec « 314 159 »
+    rendait 422. Une règle qui ne vit que dans un écran est fausse pour tout autre
+    appelant — et pour le prochain écran, qui l'oubliera.
+    """
+    code = "".join(code.split())
+    if not _CODE_RE.match(code):
         raise IdentityInputError("code")
-    return code.strip()
+    return code
 
 
 def _peer_expires_at(reponse: httpx.Response) -> datetime | None:

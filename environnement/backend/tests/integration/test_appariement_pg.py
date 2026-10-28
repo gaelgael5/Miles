@@ -534,3 +534,50 @@ async def test_le_nom_declare_survit_a_l_appariement(blank_db: str, tmp_path: Pa
         pair = await stack.client.get("/api/identity/peer")
 
         assert pair.json()["declared_name"] == NOM
+
+
+@pytest.mark.parametrize("sale", ["  314159  ", "314 159", "\n314159\n", "31 41 59", "\t314159"])
+async def test_un_code_colle_sale_est_nettoye_et_non_refuse(
+    blank_db: str, tmp_path: Path, sale: str
+) -> None:
+    """Un code circule par copier-coller : il arrivera sale, et le refuser pour cela
+    reviendrait à refuser le bon code.
+
+    Éprouvé par l'API, et pas seulement par l'écran : mesuré le 28/10/2026 sur machine de
+    test, seul le navigateur nettoyait et un appel direct rendait 422. Une règle qui ne
+    vit que dans un écran est fausse pour tout autre appelant.
+    """
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await stack.client.post(
+            "/api/identity/pairing", json={"base_url": PEER_ORIGIN, "name": NOM}
+        )
+
+        reponse = await stack.client.post("/api/identity/pairing/confirm", json={"code": sale})
+
+        assert reponse.status_code == 200, reponse.text
+        assert double.bodies[-1] == b'{"code": "314159"}'
+
+
+@pytest.mark.parametrize("reponse_du_pair", ["inconnue", "disparue"])
+async def test_une_demande_disparue_est_lue_comme_un_refus_et_non_comme_une_panne(
+    blank_db: str, tmp_path: Path, reponse_du_pair: str
+) -> None:
+    """Le vrai module d'enrôlement REFUSE l'appel une fois la demande supprimée.
+
+    Il n'a plus aucune clé pour le vérifier, et répondre « inconnue » à un inconnu lui
+    dirait que cette origine n'est pas appariée. Ce 401-là n'est donc pas une panne : nous
+    AVIONS une demande, donc il veut dire qu'elle a disparu. Le prendre pour une panne
+    afficherait « injoignable » là où un humain vient de refuser — trouvé par la campagne
+    du 28/10/2026, après que la doublure, elle, répondait obligeamment « inconnue ».
+    """
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await stack.client.post(
+            "/api/identity/pairing", json={"base_url": PEER_ORIGIN, "name": NOM}
+        )
+        double.status_state = reponse_du_pair
+
+        etat = await stack.client.get("/api/identity/pairing/state")
+
+        assert etat.json()["state"] == "refusee"

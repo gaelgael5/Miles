@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -165,7 +166,9 @@ async def test_une_demande_signee_par_une_autre_cle_que_celle_deposee_est_refuse
     double = EnvironmentDouble()
     etrangere = generate_keypair()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
-        corps = b'{"public_key": "%s"}' % etrangere.public_key.encode("ascii")
+        # Le nom est présent et valide : ce qui est éprouvé ici est la SIGNATURE, et un
+        # corps incomplet ferait refuser avant qu'elle ne soit regardée.
+        corps = json.dumps({"public_key": etrangere.public_key, "name": "Recette"}).encode()
         reponse = await pair.post(
             PAIRING_REQUEST_PATH, content=corps, headers=double.headers(PAIRING_REQUEST_PATH, corps)
         )
@@ -644,9 +647,14 @@ async def test_l_environnement_peut_demander_ou_en_est_sa_demande(
         assert en_attente.json()["expires_at"] is not None
 
         await stack.client.delete("/api/pairing/requests", params={"base_url": double.origin})
-        inconnue = await double.status(pair)
+        refuse = await double.status(pair)
 
-        assert inconnue.json() == {"state": "inconnue", "expires_at": None}
+        # 401 et non « inconnue » : la demande supprimée, ce module ne détient plus aucune
+        # clé pour vérifier cet appel. Répondre quoi que ce soit confirmerait à un inconnu
+        # que cette origine n'est pas appariée. L'environnement, lui, sait qu'il AVAIT une
+        # demande : pour lui, ce 401 veut dire qu'elle a disparu, et son écran le traduit
+        # en « refusée » ou « expirée » selon l'échéance qu'il a reçue en frappant.
+        assert refuse.status_code == 401
 
 
 async def test_chacun_ne_lit_que_sa_propre_demande(blank_db: str, tmp_path: Path) -> None:

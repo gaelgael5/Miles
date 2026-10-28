@@ -67,9 +67,15 @@ class PairingRequestIn(BaseModel):
     public_key: str
     # Texte libre d'un tiers NON ENCORE AUTHENTIFIÉ : il sert à ce qu'un humain
     # reconnaisse la demande qu'il accepte, et n'identifie rien. Deux demandes peuvent
-    # porter le même. Borné ici, nettoyé par `validate_declared_name`, échappé à
-    # l'affichage.
-    name: str = Field(max_length=MAX_DECLARED_NAME_LENGTH)
+    # porter le même, et c'est l'URL qui les distingue. Échappé à l'affichage.
+    #
+    # La borne ici est GROSSIÈRE et volontairement plus large que la règle : elle interdit
+    # qu'une charge démesurée soit interprétée, rien de plus. La vraie règle — 80
+    # caractères, pas de caractère de contrôle — est appliquée par
+    # `validate_declared_name`, qui refuse en NOMMANT le champ. Borner au plus juste ici
+    # ferait refuser une saisie de 81 caractères sur « corps invalide », message qui
+    # n'apprend rien à qui doit corriger sa saisie.
+    name: str = Field(max_length=MAX_DECLARED_NAME_LENGTH * 4)
 
 
 class PairingRequestOut(BaseModel):

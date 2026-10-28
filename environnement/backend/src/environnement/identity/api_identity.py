@@ -71,7 +71,12 @@ class PairingIn(BaseModel):
     # Le nom sous lequel CE module se présentera. Il sert à ce qu'un humain, devant la
     # liste des demandes à l'autre bout, reconnaisse celle qu'il accepte — il n'identifie
     # rien, et deux environnements peuvent porter le même.
-    name: str = Field(max_length=MAX_DECLARED_NAME_LENGTH)
+    #
+    # Borne GROSSIÈRE, plus large que la règle : la vraie — 80 caractères, pas de
+    # caractère de contrôle — est appliquée par le service, qui refuse en NOMMANT le
+    # champ. Borner au plus juste ici ferait rendre le 422 générique de FastAPI, qui
+    # n'apprend rien à qui doit corriger sa saisie.
+    name: str = Field(max_length=MAX_DECLARED_NAME_LENGTH * 4)
 
 
 class PairingConfirmIn(BaseModel):

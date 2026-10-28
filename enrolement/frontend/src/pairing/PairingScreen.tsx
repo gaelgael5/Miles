@@ -39,8 +39,8 @@ function Duree({ secondes }: { secondes: number }) {
   return (
     <span className={secondes === 0 ? "badge badge-warning" : "badge"}>
       {minutes >= 1
-        ? t("pairing.requests.expiresInMinutes", { count: minutes })
-        : t("pairing.requests.expiresInSeconds", { count: secondes })}
+        ? t("pairing.requests.expiresInMinutes", { n: minutes })
+        : t("pairing.requests.expiresInSeconds", { n: secondes })}
     </span>
   );
 }
@@ -89,7 +89,7 @@ function CodeRevele({ baseUrl }: { baseUrl: string }) {
         </div>
         <CopyButton text={code.data.code} label={t("pairing.code.copy")} />
         <span className={reste <= 5 ? "badge badge-warning" : "badge"} role="timer">
-          {t("pairing.code.renewsIn", { count: reste })}
+          {t("pairing.code.renewsIn", { n: reste })}
         </span>
       </div>
       <p className="help">{t("pairing.code.perishable")}</p>
