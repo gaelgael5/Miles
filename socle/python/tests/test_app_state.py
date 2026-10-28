@@ -158,3 +158,22 @@ def test_l_horloge_injectee_est_celle_que_les_services_emploient(tmp_path: Path)
     assert app.state.secrets.now() == _now()
     assert app.state.cultures.now() == _now()
     assert app.state.preferences.now() == _now()
+
+
+def test_le_cablage_pose_exactement_ces_services_et_rien_de_plus(tmp_path: Path) -> None:
+    """La liste est le contrat : un service ajouté au socle la fait rougir ici, et là seulement.
+
+    C'est ce qui rend vrai l'énoncé « un service du socle ajouté arrive dans les trois
+    produits sans geste par produit » : il n'y a qu'un endroit à toucher, et ce test est le
+    rappel qu'on l'a touché volontairement. Les trois produits, eux, n'ont rien à faire.
+
+    Lu dans l'état de l'application, et non dans les sources : ici c'est le résultat du
+    câblage réel qui est comparé, pas ce que le fichier a l'air de poser.
+    """
+    app = _cable(tmp_path, _Runtime())
+
+    # `State` range ses valeurs dans un dictionnaire privé ; il n'existe pas d'API publique
+    # pour l'énumérer, et une liste écrite à la main ne prouverait rien.
+    poses = frozenset(vars(app.state)["_state"])
+
+    assert poses == frozenset(SERVICES_DU_SOCLE)
