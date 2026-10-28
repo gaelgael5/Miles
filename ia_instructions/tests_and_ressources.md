@@ -43,11 +43,14 @@ Notes sur `test1` (`host-test-37`), relevées le 2026-10-23 :
   28/10 : même clé, même `created_at`, même chiffré en base, même empreinte de `.env`. Ne jamais
   supprimer le volume `miles-environnement_environnement-db` ni régénérer `MILES_SECRETS_KEY` :
   l'appariement serait à refaire et les devices à réaffecter.
-- **Contrepartie de test du pair** : `/root/Miles/environnement/.deploy/essai-pair/` porte un
-  `double.py` et une clé privée jetable (600, uid 10001), lancés en conteneur
-  `env-peer-double` sur le réseau `miles-environnement_default`. Sert à mesurer les deux sens de
-  l'échange signé tant que le module d'enrôlement n'a pas sa route de pair (ticket `6a0daab6`).
-  À retirer dès que ce côté-là existe.
+- **Contrepartie de test du pair** : `/root/Miles/environnement/.deploy/essai-pair/double.py`
+  tient le côté « module d'enrôlement » de l'échange signé, tant que ce côté-là n'existe pas
+  (ticket `6a0daab6`). Il n'implémente aucune cryptographie : il appelle le vérificateur du
+  socle. Sa clé jetable a été **détruite après mesure** — la refaire prend une commande :
+  engendrer une paire avec `generate_keypair` dans l'image du backend, écrire le PEM sur l'hôte
+  en `chown 10001:10001` + 600, puis lancer `double.py` sous `uvicorn` dans un conteneur sur le
+  réseau `miles-environnement_default` (variables `DOUBLE_EXPECTS_PUBLIC_KEY`, `DOUBLE_PUBLIC_KEY`,
+  `DOUBLE_ORIGIN`). La clé privée ne quitte jamais la machine, dans un sens comme dans l'autre.
 - **Base neuve** : les 22 migrations ont été jouées au premier déploiement. Aucun workspace
   ni contrat n'y est encore déclaré — les contrats de `host-test-36` ne sont pas repris.
 - **Relancer** : obtenir `PORTAL_TOKEN` (outil MCP `totp_code`, valable ~30 s), le passer sur
