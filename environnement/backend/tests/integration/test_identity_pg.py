@@ -16,7 +16,7 @@ from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, sign_call
 from miles_socle.signing.keys import fingerprint, generate_keypair, load_private_key
 
 from environnement.config import DEFAULT_MIGRATIONS_DIR
-from environnement.identity.model import SIGNING_KEY_SLUG, SIGNING_KEY_TYPE, IdentityError
+from environnement.identity.model import SIGNING_KEY_SLUG, SIGNING_KEY_TYPE
 from environnement.identity.service import IDENTITY_CREATED_EVENT, PEER_PING_PATH
 from tests.integration.environnement_stack import EnvironnementStack, open_stack, utc_now
 from tests.integration.peer_double import PEER_ORIGIN, EnrolmentDouble
@@ -70,6 +70,9 @@ async def test_la_cle_privee_est_rangee_chiffree_dans_la_table_des_secrets(
     blank_db: str, tmp_path: Path
 ) -> None:
     async with open_stack(blank_db, tmp_path) as stack:
+        # L'identité naît au premier usage : sans cette lecture, la base est vide et le
+        # test passerait à côté de ce qu'il croit vérifier.
+        assert (await stack.client.get("/api/identity")).status_code == 200
         ligne = await stack.pool.fetchrow(
             "SELECT secret_type, key_version, nonce, ciphertext FROM secrets WHERE slug = $1",
             SIGNING_KEY_SLUG,
@@ -93,6 +96,8 @@ async def test_la_suppression_de_la_cle_de_signature_est_refusee(
     # L'usage déclaré du secret fait refuser la suppression PROPREMENT, en nommant le
     # consommateur, au lieu de laisser l'écran buter sur la clé étrangère.
     async with open_stack(blank_db, tmp_path) as stack:
+        assert (await stack.client.get("/api/identity")).status_code == 200
+
         reponse = await stack.client.delete(f"/api/secrets/{SIGNING_KEY_SLUG}")
         toujours_la = await stack.pool.fetchval(
             "SELECT count(*) FROM secrets WHERE slug = $1", SIGNING_KEY_SLUG
@@ -338,7 +343,7 @@ async def test_une_cle_privee_remplacee_fait_refuser_de_signer(
     ]
 
 
-async def test_un_secret_deja_pose_sur_le_slug_de_l_identite_fait_echouer_le_demarrage(
+async def test_un_secret_deja_pose_sur_le_slug_de_l_identite_est_refuse_en_nommant_la_cause(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Refus qui NOMME la cause, au lieu d'une violation d'unicité en erreur de serveur.
@@ -361,9 +366,13 @@ async def test_un_secret_deja_pose_sur_le_slug_de_l_identite_fait_echouer_le_dem
     finally:
         await conn.close()
 
-    with pytest.raises(IdentityError, match=SIGNING_KEY_SLUG):
-        async with open_stack(blank_db, tmp_path):
-            pass
+    # Le refus se produit au PREMIER USAGE, puisque c'est là que l'identité naît : le
+    # démarrage, lui, n'exige rien de ce schéma.
+    async with open_stack(blank_db, tmp_path) as stack:
+        reponse = await stack.client.get("/api/identity")
+
+    assert reponse.status_code == 503
+    assert reponse.json() == {"detail": "slug_de_l_identite_pris"}
 
 
 async def test_un_pair_qui_repond_autre_chose_n_est_pas_dit_injoignable(

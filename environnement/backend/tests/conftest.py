@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,13 @@ from environnement.config import Settings
 DSN = "postgresql://miles:x@db:5432/miles"
 # Clé de 32 octets en base64url, comme celle que dev-deploy.sh engendre. Valeur d'essai
 # sans portée hors des tests : aucun secret du dépôt ne passe par là.
-SECRETS_KEY = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaQ"
+#
+# ENGENDRÉE depuis des octets, et non écrite à la main. La valeur en dur qui tenait cette
+# place faisait 43 caractères, sans rembourrage : `parse_secrets_key` la REFUSAIT, ce qui
+# n'apparaissait nulle part parce qu'aucun test ne montait l'application entière — la
+# configuration ne lit pas cette clé, elle la transporte. Mesuré le 28/10/2026 sur machine
+# de test, au premier test qui a démarré la vraie durée de vie de l'application.
+SECRETS_KEY = base64.urlsafe_b64encode(bytes(range(32))).decode("ascii")
 
 
 @pytest.fixture

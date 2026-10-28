@@ -16,24 +16,38 @@ Notes sur `test1` (`host-test-37`), relevées le 2026-10-23 :
 - **Machine dédiée** : seuls les services standard y tournent (`devpod-alloy-agent`,
   `devpod-alloy-metrics`, `browserless-chromium` sur 3000, `buildx_buildkit`).
 - **Ports** : le portail est publié sur **8080** et son broker MQTT sur **1883** ; le module
-  d'enrôlement sur **8081**. Figés au premier déploiement dans le `.env` DU PRODUIT.
-  **Deux stacks cohabitent** sur cette machine : projets compose `miles` et
-  `miles-enrolement`, chacun avec sa base.
+  d'enrôlement sur **8081** ; le module d'environnement sur **8082**. Figés au premier
+  déploiement dans le `.env` DU PRODUIT. **Trois stacks cohabitent** sur cette machine :
+  projets compose `miles`, `miles-enrolement` et `miles-environnement`, chacune avec sa base.
 - **Copie de déploiement** : `/root/Miles`, branche `dev`, clonée en HTTPS anonyme
   (le dépôt est lisible sans clé : mesuré 10/10, pas besoin de `--bootstrap-deploy-key`).
-- **Annuaire du portail** : `miles-miles`, `https://svc-miles-miles.yoops.org` →
-  `100.74.9.236:8080`, et `miles-miles-enrolement`, `https://svc-miles-miles-enrolement.yoops.org`
-  → `100.74.9.236:8081`. Les deux rendent **`joignable: true`** (vérifié au second passage de
-  chacun — au premier, la stack n'écoute pas encore et l'avertissement est normal).
-  Valeurs du premier passage : `EXPOSE_PORTAL_URL=https://dev.yoops.org`, `EXPOSE_WORKSPACE=miles`.
+- **Annuaire du portail** : `miles-miles` → `100.74.9.236:8080`, `miles-miles-enrolement` →
+  `:8081`, `miles-miles-environnement` → `:8082`, aux adresses
+  `https://svc-<nom>.yoops.org`. Les trois rendent **`joignable: true`** (vérifié au second
+  passage de chacune — au premier, la stack n'écoute pas encore et l'avertissement est normal).
+  `EXPOSE_PORTAL_URL=https://dev.yoops.org` et `EXPOSE_WORKSPACE=miles` se donnent **dans
+  l'environnement au premier passage**, sinon l'étape 4 annonce « annuaire non configuré » et
+  `MILES_PUBLIC_URL` reste vide — donc pas de connexion OIDC et aucune origine à signer.
 - **Comptes d'amorçage, un par produit et étanches** : utilisateur `admin` des deux côtés,
   mais deux comptes distincts. Mots de passe dans `/root/Miles/portail/.deploy/admin-password`
   et `/root/Miles/enrolement/.deploy/admin-password` (600), à lire sur la machine, jamais à
   recopier ailleurs. **Le chemin a changé le 27/10** : l'état est passé de la racine au
   répertoire du produit. Pour rouvrir l'amorçage d'un produit : retirer ses trois entrées
   `MILES_ADMIN_*` de SON `.env`, puis redémarrer son backend.
-  Vérifié le 27/10 sur les stacks réelles : un jeton de session du portail est refusé par
-  l'enrôlement (401) et réciproquement, et le mot de passe de l'un ne connecte pas à l'autre.
+  Vérifié le 28/10 sur les **trois** stacks réelles, avec des jetons de 43 caractères validés
+  d'abord chez eux : chaque jeton rend 200 sur son port et 401 sur les deux autres, et le mot de
+  passe d'un produit ne connecte à aucun autre.
+- **Identité du module d'environnement** : engendrée au premier usage (`GET /api/identity`),
+  clé publique `lwUVBmPNH…`, empreinte `4da291e81e6f8868f2b47bbed46d6925`, rangée comme secret
+  `identite-du-module` (type `MODULE_SIGNING_KEY`). **Vérifiée identique après redéploiement** le
+  28/10 : même clé, même `created_at`, même chiffré en base, même empreinte de `.env`. Ne jamais
+  supprimer le volume `miles-environnement_environnement-db` ni régénérer `MILES_SECRETS_KEY` :
+  l'appariement serait à refaire et les devices à réaffecter.
+- **Contrepartie de test du pair** : `/root/Miles/environnement/.deploy/essai-pair/` porte un
+  `double.py` et une clé privée jetable (600, uid 10001), lancés en conteneur
+  `env-peer-double` sur le réseau `miles-environnement_default`. Sert à mesurer les deux sens de
+  l'échange signé tant que le module d'enrôlement n'a pas sa route de pair (ticket `6a0daab6`).
+  À retirer dès que ce côté-là existe.
 - **Base neuve** : les 22 migrations ont été jouées au premier déploiement. Aucun workspace
   ni contrat n'y est encore déclaré — les contrats de `host-test-36` ne sont pas repris.
 - **Relancer** : obtenir `PORTAL_TOKEN` (outil MCP `totp_code`, valable ~30 s), le passer sur

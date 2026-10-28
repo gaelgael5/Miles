@@ -53,6 +53,16 @@ class IdentityInconsistentError(IdentityError):
     """
 
 
+class IdentitySlugTakenError(IdentityError):
+    """Un secret porte déjà le slug de l'identité, alors que le module n'en a pas.
+
+    L'écran générique des secrets admet n'importe quel slug. Adopter en silence un secret
+    dont on ne sait rien reviendrait à signer avec une valeur posée par quelqu'un d'autre ;
+    tomber sur une violation d'unicité donnerait une erreur de serveur illisible. On refuse
+    donc en nommant la cause et le geste qui la répare.
+    """
+
+
 class PeerMissingError(IdentityError):
     """Aucun module d'enrôlement apparié : il n'y a ni appel à émettre ni clé pour vérifier."""
 

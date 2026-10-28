@@ -20,6 +20,7 @@ from environnement.identity.model import (
     IdentityInconsistentError,
     IdentityInputError,
     IdentityMissingError,
+    IdentitySlugTakenError,
     ModuleIdentity,
     OriginMissingError,
     PeerMissingError,
@@ -120,6 +121,13 @@ def _error(exc: IdentityError) -> JSONResponse:
     if isinstance(exc, OriginMissingError):
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"detail": "origine_absente"}
+        )
+    if isinstance(exc, IdentitySlugTakenError):
+        # 503, comme l'incohérence : le module marche, c'est l'état de ses données qui
+        # l'empêche d'avoir une identité, et le remède est une intervention, pas un correctif.
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "slug_de_l_identite_pris"},
         )
     if isinstance(exc, IdentityInconsistentError):
         # 503 et non 500 : le module fonctionne, c'est son identité qui est inutilisable,

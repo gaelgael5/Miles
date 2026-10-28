@@ -46,9 +46,9 @@ from environnement.identity.model import (
     SIGNING_KEY_TYPE,
     SINGLETON,
     EnrolmentPeer,
-    IdentityError,
     IdentityInconsistentError,
     IdentityMissingError,
+    IdentitySlugTakenError,
     ModuleIdentity,
     OriginMissingError,
     PeerMissingError,
@@ -168,9 +168,10 @@ class IdentityService:
             if await db_secret_exists(conn, SIGNING_KEY_SLUG):
                 # Refus qui NOMME la cause, au lieu d'une violation d'unicité qui
                 # avorterait la transaction et sortirait en erreur de serveur.
-                raise IdentityError(
+                log.error("slug_de_l_identite_deja_pris", slug=SIGNING_KEY_SLUG)
+                raise IdentitySlugTakenError(
                     f"un secret porte déjà le slug « {SIGNING_KEY_SLUG} » alors que le module"
-                    " n'a pas d'identité : le supprimer ou le renommer avant de redémarrer"
+                    " n'a pas d'identité : le supprimer ou le renommer"
                 )
             paire = generate_keypair()
             # La clé privée n'existe en clair que dans cette variable et le temps de ce
@@ -274,6 +275,14 @@ class IdentityService:
         pair = await db_get_peer(self.pool)
         if pair is None:
             self._refuse("aucun_pair", origine_journal)
+        if not signature:
+            # Avant l'origine, et l'ordre compte pour le JOURNAL : un appel sans aucune
+            # signature n'est pas un appel signé mal présenté, c'est quelqu'un qui frappe
+            # une route de pair sans savoir ce qu'elle attend. Mesuré le 28/10/2026 : en
+            # validant l'origine d'abord, un appel entièrement nu était journalisé
+            # « origine_invalide », ce qui envoie le diagnostic vers une origine mal
+            # configurée alors qu'il n'y a rien du tout.
+            self._refuse("absente", origine_journal)
         try:
             origine = validate_origin(declared_origin or "")
         except CallSignatureError:

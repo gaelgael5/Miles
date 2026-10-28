@@ -27,14 +27,16 @@ d'enrôlement 8081 sur la même machine de test.
 
 ## L'identité du module
 
-Le module engendre **au premier démarrage** une paire de clés Ed25519 qu'il garde :
+Le module engendre **au premier usage** — et non au démarrage, voir le service — une paire
+de clés Ed25519 qu'il garde :
 
 - la **clé privée** est rangée dans la table des secrets du produit, chiffrée par
   `MILES_SECRETS_KEY`, et son usage déclaré interdit à la base de la supprimer ;
 - elle **ne se régénère jamais** — ni au redéploiement, ni au redémarrage. La régénérer
   casserait l'appariement et imposerait de réaffecter les devices à la main ;
 - la **clé publique** du module d'enrôlement apparié se déclare par
-  `PUT /api/identity/peer`, en attendant le protocole d'appariement (ticket `6a0daab6`).
+  `PUT /api/identity/peer`, en attendant le protocole d'appariement (ticket `6a0daab6`) ;
+  un seul pair, garanti par le modèle, et le ré-appariement remplace sans doubler.
 
 `POST /api/peer/ping` est la seule route authentifiée **par signature** et non par
 session : c'est l'échange qui dit que l'appariement est vivant et que les clés concordent.
