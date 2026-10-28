@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -85,6 +86,22 @@ _IDENTITY_LOCK_KEY = 20261028
 SYSTEM_AUTHOR = EventAuthor(LOCAL_DIRECTORY, "systeme")
 # Un pair lent ne doit pas retenir une requête d'administration indéfiniment.
 PEER_HTTP_TIMEOUT_S = 5.0
+
+
+# Les codes de refus sont des mots courts en minuscules. Borner la FORME avant de
+# journaliser : ce qui arrive là est la réponse d'un autre service, pas la nôtre.
+_PEER_DETAIL_RE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+
+
+def _peer_detail(reponse: httpx.Response) -> str:
+    """Le code de refus que le pair donne, si c'en est un. Sinon une marque, jamais son corps."""
+    try:
+        detail = reponse.json().get("detail")
+    except ValueError:
+        return "(corps illisible)"
+    if isinstance(detail, str) and _PEER_DETAIL_RE.match(detail):
+        return detail
+    return "(sans code)"
 
 
 @dataclass(frozen=True)
@@ -301,10 +318,16 @@ class IdentityService:
             },
         )
         if reponse.status_code == 401:
-            # Distingué d'une panne de réseau : le pair nous a répondu, et il nous a
-            # refusés. C'est un désaccord de clés, donc un appariement à refaire.
-            log.warning("ping_refuse_par_le_pair", base_url=pair.base_url)
-            raise PeerRefusedError("le pair a refusé notre appel signé")
+            # Distingué d'une panne de réseau : le pair a répondu, et il nous refuse. Le
+            # statut seul ne dit pas POURQUOI — son portillon d'authentification et son
+            # vérificateur de signature rendent le même 401 —, d'où son code de refus dans
+            # le journal. Jamais son corps entier : c'est la réponse d'un autre service.
+            log.warning(
+                "ping_refuse_par_le_pair",
+                base_url=pair.base_url,
+                peer_detail=_peer_detail(reponse),
+            )
+            raise PeerRefusedError("le pair n'a pas accepté notre appel signé")
         if reponse.status_code != 200:
             # Il a répondu : ce n'est donc ni un problème de réseau ni un refus. Le plus
             # probable au 28/10/2026 est que son côté du protocole n'est pas encore

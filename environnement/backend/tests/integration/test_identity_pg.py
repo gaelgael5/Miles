@@ -6,6 +6,7 @@ import asyncpg
 import pytest
 import structlog
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.migrations import resolve_apply_migrations
 from miles_socle.secrets.crypto import SecretCipher
@@ -382,3 +383,52 @@ async def test_un_pair_qui_repond_autre_chose_n_est_pas_dit_injoignable(
 
     assert reponse.status_code == 502
     assert reponse.json() == {"detail": "reponse_inattendue_du_pair", "peer_status": 404}
+
+
+async def test_le_code_de_refus_du_pair_est_journalise_car_le_statut_ne_suffit_pas(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Un 401 du pair peut venir de son portillon comme de son vérificateur de signature.
+
+    Mesuré le 28/10/2026 : pointé vers le vrai module d'enrôlement, qui n'a pas encore sa
+    route de pair, le ping reçoit 401 « session_requise » — pas un désaccord de clés. Le
+    statut ne distingue pas les deux, son code de refus le fait, et c'est pour ça qu'il va
+    au journal.
+    """
+    portillon = FastAPI()
+
+    @portillon.post("/api/peer/ping")
+    async def refuse() -> JSONResponse:
+        return JSONResponse(status_code=401, content={"detail": "session_requise"})
+
+    async with open_stack(blank_db, tmp_path, peer_app=portillon) as stack:
+        await _declare_peer(stack, generate_keypair().public_key)
+
+        with structlog.testing.capture_logs() as journal:
+            reponse = await stack.client.post("/api/identity/peer/ping")
+
+    assert reponse.status_code == 409
+    refus = [ligne for ligne in journal if ligne["event"] == "ping_refuse_par_le_pair"]
+    assert len(refus) == 1
+    assert refus[0]["peer_detail"] == "session_requise"
+
+
+async def test_un_corps_de_refus_hors_forme_ne_passe_pas_dans_le_journal(
+    blank_db: str, tmp_path: Path
+) -> None:
+    # La réponse d'un autre service n'entre pas telle quelle dans nos journaux : seule une
+    # forme de code de refus est recopiée, le reste devient une marque.
+    bavard = FastAPI()
+
+    @bavard.post("/api/peer/ping")
+    async def refuse() -> JSONResponse:
+        return JSONResponse(status_code=401, content={"detail": "Trace complète : " + "x" * 400})
+
+    async with open_stack(blank_db, tmp_path, peer_app=bavard) as stack:
+        await _declare_peer(stack, generate_keypair().public_key)
+
+        with structlog.testing.capture_logs() as journal:
+            await stack.client.post("/api/identity/peer/ping")
+
+    refus = [ligne for ligne in journal if ligne["event"] == "ping_refuse_par_le_pair"]
+    assert refus[0]["peer_detail"] == "(sans code)"

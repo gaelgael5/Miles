@@ -58,12 +58,17 @@ class PeerMissingError(IdentityError):
 
 
 class PeerRefusedError(IdentityError):
-    """Le pair a REFUSÉ notre appel signé. À ne pas confondre avec « pair injoignable ».
+    """Le pair a répondu 401 : il n'a pas accepté notre appel signé.
 
-    Les deux pannes se soignent autrement : un pair injoignable est un problème de réseau
-    ou de déploiement, un pair qui refuse veut dire que la clé publique qu'il détient pour
-    nous n'est pas celle que nous employons — un appariement à refaire. Les confondre
-    enverrait le diagnostic du mauvais côté.
+    À ne pas confondre avec « pair injoignable », qui est un problème de réseau ou de
+    déploiement. Mais à ne pas surinterpréter non plus : un 401 ne prouve PAS que la clé
+    publique qu'il détient pour nous diffère de la nôtre. Mesuré le 28/10/2026 en pointant
+    le pair vers le vrai module d'enrôlement — il a rendu 401 depuis son PORTILLON
+    d'authentification, parce que sa route de pair n'existe pas encore (ticket 6a0daab6),
+    et non depuis un vérificateur de signature. Les deux 401 ont la même forme.
+
+    C'est pourquoi le code de refus que le pair donne dans son corps est journalisé : lui
+    distingue les deux cas, quand le statut ne le fait pas.
     """
 
 
