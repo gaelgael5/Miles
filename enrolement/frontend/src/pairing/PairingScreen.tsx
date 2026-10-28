@@ -36,13 +36,15 @@ function useTicTac(): number {
 function Duree({ secondes }: { secondes: number }) {
   const { t } = useTranslation();
   const minutes = Math.floor(secondes / 60);
-  return (
-    <span className={secondes === 0 ? "badge badge-warning" : "badge"}>
-      {minutes >= 1
+  // Trois échelles, parce que la durée de vie d'une demande est PARAMÉTRABLE : une heure
+  // par défaut, sept jours au plus. « dans 10080 min » est exact et illisible.
+  const libelle =
+    minutes >= 60
+      ? t("pairing.requests.expiresInHours", { n: Math.round(minutes / 60) })
+      : minutes >= 1
         ? t("pairing.requests.expiresInMinutes", { n: minutes })
-        : t("pairing.requests.expiresInSeconds", { n: secondes })}
-    </span>
-  );
+        : t("pairing.requests.expiresInSeconds", { n: secondes });
+  return <span className={secondes === 0 ? "badge badge-warning" : "badge"}>{libelle}</span>;
 }
 
 /**
@@ -76,9 +78,12 @@ function CodeRevele({ baseUrl }: { baseUrl: string }) {
       </p>
     );
   }
-  const reste = Math.max(
-    0,
-    code.data.seconds_remaining - Math.floor((maintenant - lu) / 1000),
+  // Borné par ce que le SERVEUR a dit : l'effet qui pose `lu` s'exécute après le rendu,
+  // donc l'écart peut être très légèrement négatif et faire afficher une seconde de plus
+  // que ce qu'il reste. Mieux vaut annoncer un peu moins qu'un peu trop.
+  const reste = Math.min(
+    code.data.seconds_remaining,
+    Math.max(0, code.data.seconds_remaining - Math.floor((maintenant - lu) / 1000)),
   );
   return (
     <div className="row-detail">

@@ -29,7 +29,8 @@
       "hideCode": "Hide code",
       "reject": "Reject",
       "expiresInMinutes": "in {{n}} min",
-      "expiresInSeconds": "in {{n}} s"
+      "expiresInSeconds": "in {{n}} s",
+      "expiresInHours": "in {{n}} h"
     },
     "code": {
       "loading": "Reading the code…",

@@ -29,7 +29,8 @@
       "hideCode": "Masquer le code",
       "reject": "Refuser",
       "expiresInMinutes": "dans {{n}} min",
-      "expiresInSeconds": "dans {{n}} s"
+      "expiresInSeconds": "dans {{n}} s",
+      "expiresInHours": "dans {{n}} h"
     },
     "code": {
       "loading": "Lecture du code…",

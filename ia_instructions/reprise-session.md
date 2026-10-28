@@ -50,9 +50,37 @@ détient sa clé privée et la clé publique de l'autre**. Le contrat est publi�
   vérification, et trois refus (clé inconnue, aucune signature, origine jamais appariée)
   tous identiques côté réponse et distingués au journal.
 
-**Piège de la machine de test** : le nom court de l'hôte ne se résout pas dans un
-conteneur, et le domaine public des modules rend **403** aux appels de machine. Pour un
-essai entre stacks, passer par la passerelle Docker (`http://172.24.0.1:<port>`).
+**Pièges de la machine de test, mesurés** :
+
+- le **nom court de l'hôte ne se résout pas** dans un conteneur, et le domaine public des
+  modules est derrière le **SSO du portail** (403 pour une machine, écran de connexion
+  pour un navigateur). Pour un essai entre stacks, passer par la passerelle Docker
+  (`http://172.24.0.1:<port>` depuis un conteneur, `172.17.0.1` depuis browserless) ;
+- le **cookie de session est `Secure`** en production : un navigateur refuse de le garder
+  en clair, donc on ne peut pas ouvrir une session Miles en HTTP depuis browserless. Pour
+  éprouver un écran dans un VRAI navigateur, monter le bundle servi et **intercepter
+  `fetch`** avant le démarrage (`page.evaluateOnNewDocument`). C'est ce qui a trouvé un
+  gabarit i18n non interpolé que jsdom laissait passer.
+
+## Et les deux écrans de l'appariement (28/10, tickets `ce66f5bb` et `29d05f91`)
+
+- Côté **enrôlement** : les demandes en attente, le code qui se renouvelle, le refus. Le
+  geste d'acceptation EST la transmission du code — seul un administrateur voit cet écran,
+  et le protocole n'a pas d'autre porte. Le code n'a qu'une sortie : le presse-papiers.
+- Côté **environnement** : les quatre états du ticket, plus un cinquième — **pair
+  injoignable** —, parce que confondre « ne répond pas » avec « a refusé » ferait
+  recommencer une demande que quelqu'un est en train d'accepter.
+- Le **nom déclaré** arrive avec eux. Il n'identifie RIEN : deux demandes peuvent porter
+  le même, seule l'URL les distingue. Nettoyé de ses caractères de contrôle, jamais
+  dépouillé de ce qui ressemble à du balisage — l'échappement appartient à l'affichage.
+- Le **nombre de devices** est rendu `null` et affiché « — » : le référentiel n'existe pas
+  encore, et zéro se lirait « aucun device ».
+
+**Trois défauts trouvés par la campagne, qu'aucun test local ne pouvait voir** : le code
+collé n'était nettoyé que par le navigateur ; un nom trop long était refusé sur « corps
+invalide » au lieu de nommer le champ ; et un `401` de la route d'état — le pair ne
+détient plus ni demande ni appariement — était lu comme une panne de réseau, si bien que
+l'écran aurait dit « injoignable » là où un humain venait de refuser.
 
 Livré dans `portail/` les 24-27/10, tout vert sur test1 :
 

@@ -180,6 +180,19 @@ describe("écran d'appariement du module d'enrôlement", () => {
     expect(screen.queryByText(/\{\{/)).toBeNull();
   });
 
+  it("switches to hours when the deadline is far, rather than printing huge minutes", async () => {
+    // La durée de vie d'une demande est PARAMÉTRABLE, jusqu'à sept jours : « in 10080 min »
+    // serait exact et illisible. Vu dans un vrai navigateur avant d'être corrigé.
+    monte(
+      routes(
+        [{ ...DEMANDE, expires_at: new Date(Date.now() + 3 * 3_600_000).toISOString() }],
+        [],
+      ),
+    );
+
+    expect(await screen.findByText("in 3 h")).toBeInTheDocument();
+  });
+
   it("says plainly when a revealed request has vanished", async () => {
     const appels = monte(
       routes([DEMANDE], [], {
