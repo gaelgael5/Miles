@@ -82,6 +82,36 @@ invalide » au lieu de nommer le champ ; et un `401` de la route d'état — le 
 détient plus ni demande ni appariement — était lu comme une panne de réseau, si bien que
 l'écran aurait dit « injoignable » là où un humain venait de refuser.
 
+## Et le référentiel des environnements (28/10, ticket `2ea50d40`)
+
+Le module d'enrôlement ne savait pas **nommer** un environnement : il connaissait des
+appariements, repérés par une URL et portant un nom déclaré qu'un tiers non authentifié
+avait écrit. « Affecter un device à un environnement » n'avait donc pas de sujet. Deux
+tickets déjà écrits — `a4f05302` et `44ea3db7` — supposaient cette liste sans que rien ne
+la crée.
+
+- Un environnement porte un **libellé** (ce qui se lit) et un **slug** (ce qui s'écrit),
+  tous deux **renommables** : rien de durable ne le désigne par son slug, l'adresse
+  d'enrôlement devant le désigner par un identifiant opaque et régénérable. L'unicité se
+  revérifie donc à chaque renommage.
+- Le slug **suit le libellé tant que personne n'y a touché**, et cesse de le suivre dès
+  qu'il est édité. Sans cette règle, corriger le libellé après avoir choisi son slug
+  efface le choix sans rien dire. La dérivation vit au FRONT : ce qui arrive au serveur
+  est un choix, qu'il valide sans jamais le réécrire.
+- Une dérivation qui ne donne rien laisse le champ **vide** — aucun `environnement-1`
+  inventé : un slug que personne n'a choisi est un slug que personne ne reconnaît.
+- L'unicité est tenue par la **base** : pas de `SELECT` avant l'`INSERT`, la violation est
+  traduite en 409. Éprouvé par trois créations concurrentes du même slug.
+- La colonne `environment_peer.environment_id` est **créée sans être remplie** : c'est le
+  geste de désignation (`bf2115cd`) qui la remplira. Elle est là parce que, sans elle, le
+  référentiel ne peut pas répondre à « puis-je supprimer ? ». `ON DELETE RESTRICT`, et
+  `UNIQUE` : un environnement porte AU PLUS un appariement.
+- **Mesuré** : retirer la vérification applicative de suppression ne fait rougir aucun
+  test — c'est la clé étrangère qui tient. Le code le dit, pour qu'on ne la croie pas
+  porteuse de la garde.
+- La suppression ne regarde PAS les devices : le référentiel des devices n'existe pas, et
+  compter zéro serait mentir. Le refus se dédoublera le jour où il existera.
+
 Livré dans `portail/` les 24-27/10, tout vert sur test1 :
 
 - **Storages** — notion distincte de la source (Gael, 24/10). Déclaration dans git
@@ -256,6 +286,12 @@ Les campagnes repartent.
   dépôt mutuel des clés publiques — plus le côté enrôlement de la route de pair.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
+- `bf2115cd` — **désigner l'environnement d'une demande d'appariement** avant d'en
+  révéler le code. Son prérequis (`2ea50d40`) est livré. Il ferme l'état « apparié sans
+  environnement », que l'appariement vivant de test1 porte aujourd'hui.
+- `d5ffeb33` — **révoquer l'appariement d'un environnement**. Éligible. Ses critères 2, 3
+  et 5 portent sur des devices et ne pourront être éprouvés qu'au ticket du parc : son
+  corps le dit, et il faudra le redire en livrant.
 - Le **métier** de l'enrôlement : la coquille ne porte rien de lui. Référentiel des
   devices, enrôlement d'une installation, dispatch, parc, tags, groupes — autant de
   tickets de l'epic *Module d'enrôlement*.
