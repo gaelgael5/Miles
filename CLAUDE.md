@@ -55,12 +55,14 @@ son propre `dev-deploy.sh`.** Rien ne se déploie depuis la racine.
 |---|---|---|
 | `portail/` | Portail de configuration : workspaces, paramétrage, storages, sources | livré |
 | `enrolement/` | Service d'enrôlement : référentiel des devices, appariement des environnements | coquille livrée, métier à venir |
-| `environnement/` | Back-office d'environnement : une stack et une base par environnement | à venir |
+| `environnement/` | Back-office d'environnement : une stack et une base par environnement | coquille livrée, **réduite à l'identité signée** ; métier à venir |
 
 Ce qui se partage entre produits est **extrait au fur et à mesure**, quand un deuxième
 produit en a besoin : on n'invente pas un socle commun avant d'avoir deux usages à servir.
 C'est fait depuis le 27/10/2026 pour l'amorçage, l'OIDC, les sessions, les cultures, les
-secrets, le journal d'events, les migrations, la journalisation et le contrôle de santé.
+secrets, le journal d'events, les migrations, la journalisation et le contrôle de santé ;
+depuis le 28/10/2026 pour les **clés et les appels signés** entre modules (`miles_socle.signing`),
+dont les deux côtés doivent vérifier la même chaîne canonique au caractère près.
 
 | Répertoire | Socle partagé | Consommé par |
 |---|---|---|
@@ -75,8 +77,8 @@ les racines.
 ## Commandes essentielles
 Layout d'un produit : `backend/` (paquet Python, `migrations/NNNN_*.sql` immuables),
 `frontend/` (Vite), `scripts/`, `docker-compose.yml`, `dev-deploy.sh`. Remplacer `<produit>`
-par `portail` ou `enrolement` : les commandes sont les mêmes, les environnements sont
-**indépendants** — un verrou et un `node_modules` par racine.
+par `portail`, `enrolement` ou `environnement` : les commandes sont les mêmes, les
+environnements sont **indépendants** — un verrou et un `node_modules` par racine.
 ```bash
 cd <produit>/backend && uv sync                         # installer
 cd <produit>/backend && uv run ruff check src tests && uv run ruff format --check src tests && uv run mypy src
@@ -91,8 +93,8 @@ cd socle/python && uv run ruff check src tests && uv run mypy src && uv run pyte
 cd socle/web    && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
 cd tests        && uv run pytest -q                     # frontière socle / produits
 ```
-Le portail est publié sur **8080**, le module d'enrôlement sur **8081** : les deux stacks
-cohabitent sur la même machine de test.
+Le portail est publié sur **8080**, le module d'enrôlement sur **8081**, le module
+d'environnement sur **8082** : les trois stacks cohabitent sur la même machine de test.
 
 ## Backlog
 Le backlog des tâches est dans le workspace docflow `terminal-pr`, bloc `backlog`. C'est la

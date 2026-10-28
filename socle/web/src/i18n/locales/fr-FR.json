@@ -126,7 +126,8 @@
     "types": {
       "OIDC_CLIENT_SECRET": "Secret client d'un connecteur OIDC",
       "SECURITY_SERVICE_CLIENT_SECRET": "Secret client du service de sécurité racine",
-      "GIT_TOKEN": "Jeton du compte de service git"
+      "GIT_TOKEN": "Jeton du compte de service git",
+      "MODULE_SIGNING_KEY": "Clé privée de signature du module"
     },
     "deleteConfirm": {
       "title": "Supprimer ce secret ?",

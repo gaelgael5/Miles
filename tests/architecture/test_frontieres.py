@@ -23,6 +23,8 @@ def test_les_racines_lues_sont_bien_celles_du_depot() -> None:
     # ensemble vide — le vert le plus trompeur qui soit.
     assert "miles_socle" in file_paquets_de(DEPOT / "socle" / "python" / "src")
     assert "miles" in file_paquets_de(DEPOT / "portail" / "backend" / "src")
+    assert "enrolement" in file_paquets_de(DEPOT / "enrolement" / "backend" / "src")
+    assert "environnement" in file_paquets_de(DEPOT / "environnement" / "backend" / "src")
 
 
 def _depot_factice(racine: Path) -> None:
@@ -119,7 +121,9 @@ def test_un_produit_qui_atteint_le_socle_par_un_chemin_relatif_est_detecte(
 
 
 def test_un_produit_qui_atteint_le_front_d_un_autre_produit_est_detecte(tmp_path: Path) -> None:
-    _, produit = _front_factice(tmp_path)
+    # La faute est posée dans l'AUTRE produit : le front du portail rendu par la fabrique
+    # ne sert ici qu'à ce qu'il existe deux racines entre lesquelles franchir.
+    _front_factice(tmp_path)
     autre = tmp_path / "enrolement" / "frontend" / "src"
     autre.mkdir(parents=True)
     (autre / "Menu.tsx").write_text(

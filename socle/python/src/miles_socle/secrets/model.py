@@ -14,6 +14,11 @@ SECRET_TYPES = (
     "OIDC_CLIENT_SECRET",  # secret client d'un connecteur OIDC
     "SECURITY_SERVICE_CLIENT_SECRET",  # accès au service de sécurité racine (Keycloak)
     "GIT_TOKEN",  # jeton ou mot de passe du compte de service git
+    # Clé privée de signature d'un module : c'est par elle qu'un module prouve
+    # l'origine de ses appels à son pair apparié. Le type est NEUTRE quant au produit —
+    # l'environnement et le module d'enrôlement rangent chacun la sienne (ticket
+    # 8c95ecc7) — et son usage déclaré interdit à la base de la supprimer.
+    "MODULE_SIGNING_KEY",
 )
 CONSUMER_KIND_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,99}$")
 MAX_LABEL_LENGTH = 200

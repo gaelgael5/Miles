@@ -85,6 +85,18 @@ async def auth_gate(request: Request, call_next: CallNext) -> Response:
     path = request.url.path
     if not path.startswith("/api/") or path in PUBLIC_API_PATHS:
         return await call_next(request)
+    # Routes authentifiées par SIGNATURE et non par session : appelées de machine à
+    # machine, elles n'ont ni cookie ni humain derrière, et la route elle-même refuse un
+    # appel non signé ou signé par une clé inconnue. Le portillon ne fait que lui laisser
+    # la main. Trois propriétés, et aucune n'est accessoire :
+    #   — le défaut est l'ensemble VIDE : un produit qui ne déclare rien n'ouvre rien ;
+    #   — le produit déclare ces chemins DEPUIS le routeur qui les porte, de sorte que le
+    #     chemin et sa vérification ne puissent pas se séparer — un chemin ouvert ici sans
+    #     sa signature serait ouvert à tous ;
+    #   — le passage précède le contrôle d'amorçage : un appel de pair ne dépend pas de
+    #     l'existence d'un administrateur humain, et sa clé n'est connue que par appariement.
+    if path in getattr(request.app.state, "signed_api_paths", frozenset()):
+        return await call_next(request)
     ctx: AuthContext = request.app.state.auth
     account = ctx.store.account
     if account is None:
