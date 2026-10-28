@@ -14,13 +14,45 @@ base — et son propre `dev-deploy.sh`. Rien ne se déploie depuis la racine.
 | Répertoire | Produit | État |
 |---|---|---|
 | `portail/` | Portail de configuration | livré, déployé sur test1, **port 8080** |
-| `enrolement/` | Service d'enrôlement | **coquille livrée** le 27/10, déployée sur test1, **port 8081** — ticket `1ea3f3de` ; le métier reste à faire |
-| `environnement/` | Back-office d'environnement | **coquille livrée** le 28/10, déployée sur test1, **port 8082** — ticket `8c95ecc7` ; réduite à l'identité signée, le métier reste à faire |
+| `enrolement/` | Service d'enrôlement | coquille le 27/10 ; **sert le protocole d'appariement** depuis le 28/10 (ticket `6a0daab6`), **port 8081**. Le parc des devices reste à faire |
+| `environnement/` | Back-office d'environnement | coquille le 28/10 ; **frappe, confirme et range la clé de son pair** depuis le 28/10, **port 8082**. Le métier reste à faire |
 
-**Deux socles partagés**, et c'est là que vit le code commun : `socle/python` (paquet
-`miles_socle`, **aucun SQL**) et `socle/web` (paquet `@miles/socle-web`). La frontière
-entre les **huit racines** est tenue par `tests/` — 12 tests, Python par `ast` et
-TypeScript par motif. À lancer après tout déplacement de code entre racines.
+**Trois socles partagés**, et c'est là que vit le code commun : `socle/python` (paquet
+`miles_socle`), `socle/web` (paquet `@miles/socle-web`) et `socle/deploy` (les gardes des
+scripts). Le socle porte les **requêtes** de ses propres tables mais **aucune migration** :
+le schéma reste à chaque produit, relu produit par produit. La frontière entre les racines
+est tenue par `tests/` — 22 tests, Python par `ast`, TypeScript par motif et shell par ses
+`source`. À lancer après tout déplacement de code entre racines.
+
+## Ce qui vient d'être livré — l'appariement (28/10, ticket `6a0daab6`)
+
+Un module d'environnement et le module d'enrôlement s'apparient, et à l'issue **chacun
+détient sa clé privée et la clé publique de l'autre**. Le contrat est publié dans docflow :
+*Appariement et appels signés entre modules Miles*, sous « Contrats d'interface de Miles ».
+
+- L'environnement **frappe** (`POST /api/peer/pairing/request`) et dépose sa clé publique ;
+  un administrateur voit la demande côté enrôlement, en lit le **code TOTP** et le recopie
+  dans l'environnement ; la **confirmation** (`POST /api/peer/pairing/confirm`) rend la clé
+  publique de l'enrôlement.
+- **Trois sources de confiance distinctes** : la demande est signée par la clé qu'elle
+  dépose (possession, pas identité) ; la confirmation par la clé déjà déposée **plus** le
+  code (un humain l'a voulu) ; les appels ordinaires par la clé d'un pair apparié.
+- Le secret du code **vit en base**, jamais en mémoire de processus : l'humain lit le code
+  sur une instance et le colle vers une autre.
+- **Tous les refus sont opaques et identiques**, sauf la dérive d'horloge, qui nomme sa
+  cause et n'offre aucun oracle. La raison précise est au journal.
+- Passés au socle, deuxième usage obligeant : l'**identité de module**
+  (`signing/identity.py`) et le **contrat d'appel** (`signing/protocol.py`). Les chemins
+  entrent dans la chaîne signée — deux constantes de même valeur auraient divergé.
+- Le **TOTP reste dans l'enrôlement** : un seul usage à ce jour, donc pas d'extraction.
+- Vérifié sur test1 entre les deux stacks vivantes : appariement réel, code faux refusé
+  sans détruire la demande, code rejoué refusé, appel signé accepté dans les deux sens de
+  vérification, et trois refus (clé inconnue, aucune signature, origine jamais appariée)
+  tous identiques côté réponse et distingués au journal.
+
+**Piège de la machine de test** : le nom court de l'hôte ne se résout pas dans un
+conteneur, et le domaine public des modules rend **403** aux appels de machine. Pour un
+essai entre stacks, passer par la passerelle Docker (`http://172.24.0.1:<port>`).
 
 Livré dans `portail/` les 24-27/10, tout vert sur test1 :
 

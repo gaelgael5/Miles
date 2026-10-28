@@ -212,11 +212,17 @@ def test_la_route_de_pair_est_declaree_au_portillon_depuis_son_propre_routeur() 
 
 
 def test_les_routes_de_l_identite_exigent_une_session(client_avec_admin: TestClient) -> None:
-    # Elles montrent la clé publique et déclarent le pair : rien de tout cela n'est public.
+    # Elles montrent la clé publique, déclarent le pair et DÉCLENCHENT l'appariement :
+    # rien de tout cela n'est public. Une route d'appariement ouverte laisserait un
+    # inconnu faire frapper ce module chez un enrôlement qu'il aurait choisi.
     assert client_avec_admin.get("/api/identity").status_code == 401
     assert client_avec_admin.get("/api/identity/peer").status_code == 401
     assert client_avec_admin.put("/api/identity/peer", json={}).status_code == 401
     assert client_avec_admin.post("/api/identity/peer/ping").status_code == 401
+    assert client_avec_admin.get("/api/identity/pairing").status_code == 401
+    assert client_avec_admin.post("/api/identity/pairing", json={}).status_code == 401
+    assert client_avec_admin.post("/api/identity/pairing/confirm", json={}).status_code == 401
+    assert client_avec_admin.delete("/api/identity/pairing").status_code == 401
 
 
 def test_un_appel_de_pair_non_signe_est_refuse(client_avec_admin: TestClient) -> None:
