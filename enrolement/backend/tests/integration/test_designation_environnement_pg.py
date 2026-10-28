@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import timedelta
 from pathlib import Path
@@ -280,6 +281,36 @@ async def test_un_appariement_rattache_ne_se_deplace_plus(blank_db: str, tmp_pat
         assert reponse.status_code == 409
         assert reponse.json()["detail"] == "appariement_conclu"
         assert (await _pair(stack, "http://herite.test"))["environment"]["id"] == premier
+
+
+async def test_deux_rattachements_concurrents_n_en_laissent_passer_qu_un(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """La course que la lecture préalable ne voit pas, et que seule la clause SQL ferme.
+
+    MESURÉ le 28/10/2026 : retirer `AND environment_id IS NULL` de l'écriture ne faisait
+    rougir aucun test, parce que la lecture du service refuse avant, dans le cas ordinaire.
+    Elle ne suffit pourtant pas : deux onglets qui rattachent en même temps la voient tous
+    deux vide, et sans la clause la seconde écriture ÉCRASE la première — un déplacement
+    silencieux, exactement ce que le ticket interdit. Aucune contrainte d'unicité ne le
+    rattraperait, les deux écritures portant sur la MÊME ligne.
+    """
+    async with open_stack(blank_db, tmp_path) as stack:
+        await _herite(stack, "http://herite.test")
+        premier = await _cree(stack, "recette")
+        second = await _cree(stack, "preprod")
+
+        reponses = await asyncio.gather(
+            _rattache(stack, "http://herite.test", premier),
+            _rattache(stack, "http://herite.test", second),
+        )
+
+        assert sorted(reponse.status_code for reponse in reponses) == [200, 409]
+        gagnant = next(r for r in reponses if r.status_code == 200).json()["environment"]["id"]
+        assert (await _pair(stack, "http://herite.test"))["environment"]["id"] == gagnant
+        assert next(r for r in reponses if r.status_code == 409).json()["detail"] == (
+            "appariement_conclu"
+        )
 
 
 async def test_le_reappariement_conserve_l_environnement_et_ne_le_deplace_pas(
