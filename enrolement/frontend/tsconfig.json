@@ -1,19 +1,5 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom"]
-  },
+  "//": "Les options viennent du socle web : `strict` et `noUncheckedIndexedAccess` sont des règles du dépôt. Seul `include` est à ce produit, puisqu'il nomme SES fichiers.",
+  "extends": "@miles/socle-web/tsconfig.base.json",
   "include": ["src", "vite.config.ts"]
 }

@@ -169,3 +169,50 @@ def resolve_violations_web(depot: Path) -> tuple[Violation, ...]:
                     Violation(fichier.relative_to(depot), ligne, specificateur, racine.nom)
                 )
     return tuple(violations)
+
+
+# --- Frontière côté shell ---------------------------------------------------------------
+# Les scripts de déploiement sourcent depuis le 28/10/2026 les gardes du socle
+# (`socle/deploy/gardes.sh`). C'est une référence inter-racines de plus, et elle
+# n'apparaît ni dans les imports Python ni dans ceux de TypeScript : sans la règle
+# ci-dessous, un produit pourrait sourcer le script d'un autre sans que rien ne le voie.
+#
+# Règle : un script shell d'un produit ne référence par chemin aucun AUTRE produit. Le
+# socle, lui, est la raison d'être du partage. Et le socle ne référence aucun produit.
+SOCLE_DEPLOY = "socle/deploy"
+_SOURCE_SHELL = re.compile(r"^[ \t]*(?:source|\.)[ \t]+(\S+)", re.MULTILINE)
+
+
+def file_sources_shell(fichier: Path) -> tuple[tuple[str, int], ...]:
+    """Les cibles de `source` (ou `.`) d'un script, avec leur ligne.
+
+    Lu par motif et non en exécutant le script : il arrête des stacks et déploie. Les
+    cibles portent des variables (`$DEPOT_DIR/...`) ; seuls leurs composants littéraux
+    sont jugés, ce qui suffit à voir un nom de produit dans un chemin.
+    """
+    texte = fichier.read_text(encoding="utf-8")
+    trouves: list[tuple[str, int]] = []
+    for correspondance in _SOURCE_SHELL.finditer(texte):
+        ligne = texte.count("\n", 0, correspondance.start()) + 1
+        trouves.append((correspondance.group(1), ligne))
+    return tuple(trouves)
+
+
+def resolve_violations_shell(depot: Path) -> tuple[Violation, ...]:
+    """Les franchissements de frontière entre scripts shell."""
+    violations: list[Violation] = []
+    racines: list[tuple[str, Path]] = [("socle", depot / "socle")]
+    racines += [(produit, depot / produit) for produit in PRODUITS]
+    for nom, repertoire in racines:
+        if not repertoire.is_dir():
+            continue
+        interdits = [autre for autre, _ in racines if autre != nom and autre != "socle"]
+        if nom == "socle":
+            # Le socle ne référence aucun produit : il serait sinon inconsommable par un autre.
+            interdits = [produit for produit in PRODUITS]
+        for fichier in sorted(repertoire.rglob("*.sh")):
+            for cible, ligne in file_sources_shell(fichier):
+                for interdit in interdits:
+                    if f"/{interdit}/" in cible or cible.startswith(f"{interdit}/"):
+                        violations.append(Violation(fichier.relative_to(depot), ligne, cible, nom))
+    return tuple(violations)

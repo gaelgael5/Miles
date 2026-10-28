@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./styles.css": "./src/styles/miles.css",
-    "./testing": "./src/test/mockApi.ts"
+    "./testing": "./src/test/mockApi.ts",
+    "./tsconfig.base.json": "./tsconfig.base.json"
   },
   "scripts": {
     "lint": "eslint src/",

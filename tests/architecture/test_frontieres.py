@@ -4,9 +4,12 @@ from pathlib import Path
 
 from architecture.frontieres import (
     PAQUET_SOCLE_WEB,
+    SOCLE_DEPLOY,
     file_paquets_de,
     file_racines_web,
+    file_sources_shell,
     resolve_violations,
+    resolve_violations_shell,
     resolve_violations_web,
 )
 
@@ -150,3 +153,52 @@ def test_un_produit_consomme_le_socle_web_par_le_nom_de_son_paquet(tmp_path: Pat
         encoding="utf-8",
     )
     assert resolve_violations_web(tmp_path) == ()
+
+
+def test_les_scripts_shell_ne_franchissent_aucune_frontiere() -> None:
+    violations = resolve_violations_shell(DEPOT)
+    assert not violations, "frontières franchies :\n" + "\n".join(str(v) for v in violations)
+
+
+def test_les_scripts_de_deploiement_sourcent_bien_les_gardes_du_socle() -> None:
+    # Sans cette garde, la règle précédente passerait au vert sur un ensemble vide — par
+    # exemple si les scripts cessaient de sourcer quoi que ce soit, ou si le motif de
+    # lecture devenait faux.
+    for produit in ("portail", "enrolement", "environnement"):
+        script = DEPOT / produit / "dev-deploy.sh"
+        cibles = [cible for cible, _ in file_sources_shell(script)]
+        assert any(SOCLE_DEPLOY in cible for cible in cibles), f"{produit} ne source pas le socle"
+
+
+def test_un_produit_qui_source_le_script_d_un_autre_est_detecte(tmp_path: Path) -> None:
+    # La faute pour de vrai : un test de frontière qui ne peut pas échouer ne tient rien.
+    (tmp_path / "portail").mkdir()
+    (tmp_path / "enrolement").mkdir()
+    fautif = tmp_path / "enrolement" / "dev-deploy.sh"
+    fautif.write_text('source "$DEPOT_DIR/portail/dev-deploy.sh"\n', encoding="utf-8")
+
+    violations = resolve_violations_shell(tmp_path)
+
+    assert [(v.racine, v.importe) for v in violations] == [
+        ("enrolement", '"$DEPOT_DIR/portail/dev-deploy.sh"')
+    ]
+
+
+def test_le_socle_qui_source_un_produit_est_detecte(tmp_path: Path) -> None:
+    (tmp_path / "socle" / "deploy").mkdir(parents=True)
+    fautif = tmp_path / "socle" / "deploy" / "gardes.sh"
+    fautif.write_text('source "$DEPOT_DIR/portail/mosquitto/acl.sh"\n', encoding="utf-8")
+
+    violations = resolve_violations_shell(tmp_path)
+
+    assert [v.racine for v in violations] == ["socle"]
+
+
+def test_sourcer_les_gardes_du_socle_est_licite(tmp_path: Path) -> None:
+    # La règle doit interdire le franchissement latéral sans interdire le partage, qui est
+    # sa raison d'être.
+    (tmp_path / "environnement").mkdir()
+    licite = tmp_path / "environnement" / "dev-deploy.sh"
+    licite.write_text('source "$DEPOT_DIR/socle/deploy/gardes.sh"\n', encoding="utf-8")
+
+    assert resolve_violations_shell(tmp_path) == ()

@@ -7,6 +7,12 @@
 # détruits à la sortie, pour que deux exécutions concurrentes ne se détruisent jamais.
 set -euo pipefail
 
+# Les GARDES de campagne viennent du socle, la SÉQUENCE reste ici (décision de Gael du
+# 28/10/2026) : les ressources jetables et les invocations de pytest sont propres à ce
+# produit, la disponibilité d'un PostgreSQL jetable ne l'est pas.
+# shellcheck source=../../socle/deploy/integration.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../socle/deploy" && pwd)/integration.sh"
+
 # Le répertoire du PRODUIT, pas du dépôt : le dépôt en porte trois.
 PRODUIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_ID="enrolement-it-$(date +%s)-$$"
@@ -18,7 +24,7 @@ OIDC_IMAGE="ghcr.io/navikt/mock-oauth2-server:2.1.10"
 OIDC_CONFIG='{"interactiveLogin":false,"tokenCallbacks":[{"issuerId":"miles","requestMappings":[{"requestParam":"code","match":"*","claims":{"sub":"alice-sub","name":"Alice","email":"alice@example.org","aud":["miles-client"]}}]}]}'
 MOUNT_DIR="$(mktemp -d)"
 
-command -v docker >/dev/null || { echo "docker introuvable : voir https://docs.docker.com/engine/install/" >&2; exit 1; }
+socle_it_docker_present
 
 cleanup() {
   docker rm -f "$RUN_ID-db" "$RUN_ID-oidc" >/dev/null 2>&1 || true
@@ -32,48 +38,7 @@ docker network create "$RUN_ID" >/dev/null
 docker run -d --name "$RUN_ID-db" --network "$RUN_ID" \
   -e POSTGRES_PASSWORD="$PG_PASSWORD" postgres:16 >/dev/null
 
-# CAUSE ÉTABLIE le 27/10/2026, reproduite 6 fois sur 6, de sept échecs « jamais prêt »
-# sur le portail — et elle était dans le script, pas dans la machine ni dans postgres.
-# L'entrypoint de `postgres:16` lance un serveur TEMPORAIRE pendant initdb, qui n'écoute
-# QUE la socket Unix. `pg_isready` y répond « accepting connections », puis REPASSE en
-# échec quand l'entrypoint arrête ce serveur pour démarrer le vrai. Une boucle qui sort
-# sur ce premier succès puis repose une SECONDE sonde indépendante annonce « jamais prêt
-# après 180 s » au bout de quelques secondes, quand cette sonde tombe dans la fenêtre
-# d'arrêt. Deux corrections, et les deux comptent :
-#   -h 127.0.0.1 force la sonde en TCP, que le serveur temporaire n'expose pas — il
-#   devient donc invisible, au lieu d'être pris pour le vrai ;
-#   la décision se prend DANS la boucle, sur trois succès consécutifs : re-poser après
-#   coup la question qu'on vient de trancher est un TOCTOU, pas une précaution.
-pret=0
-for _ in $(seq 1 180); do
-  if docker exec "$RUN_ID-db" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then
-    pret=$((pret + 1))
-    if [ "$pret" -ge 3 ]; then break; fi
-  else
-    pret=0
-  fi
-  sleep 1
-done
-if [ "$pret" -lt 3 ]; then
-  # Le trap de sortie DÉTRUIT le conteneur : sans ces lignes, « voir docker logs » renvoie
-  # vers quelque chose qui n'existe plus, et l'échec reste opaque.
-  {
-    echo "PostgreSQL jetable jamais prêt après 180 s."
-    echo "dernier essai, sortie complète (même sonde que la boucle, en TCP) :"
-    docker exec "$RUN_ID-db" pg_isready -h 127.0.0.1 -U postgres 2>&1 | sed 's/^/  /' || true
-    echo "connexion directe : $(docker exec "$RUN_ID-db" \
-      psql -U postgres -tAc 'select 1' 2>&1 | head -2 | tr '\n' ' ')"
-    echo "charge machine : $(cat /proc/loadavg)"
-    echo "conteneurs actifs : $(docker ps -q | wc -l)"
-    echo "disque : $(df -h / | tail -1)"
-    echo "état du conteneur : $(docker inspect -f \
-      '{{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} err={{.State.Error}}' \
-      "$RUN_ID-db" 2>&1)"
-    echo "dernières lignes du conteneur :"
-    docker logs --tail 20 "$RUN_ID-db" 2>&1 | sed 's/^/  /'
-  } >&2
-  exit 1
-fi
+socle_it_postgres_pret "$RUN_ID-db"
 
 docker run -d --name "$RUN_ID-oidc" --network "$RUN_ID" -e JSON_CONFIG="$OIDC_CONFIG" \
   "$OIDC_IMAGE" >/dev/null
