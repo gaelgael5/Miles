@@ -125,12 +125,22 @@ class IdentityService:
     # une origine qui n'est pas la nôtre.
     origin: str | None
 
-    async def resolve_ensure_identity(self) -> ModuleIdentity:
-        """L'identité du module, engendrée chez lui au premier appel et JAMAIS ensuite.
+    async def resolve_identity(self) -> ModuleIdentity:
+        """L'identité du module, engendrée chez lui au PREMIER USAGE et jamais ensuite.
 
-        Idempotent par construction : appelé à chaque démarrage, il ne régénère rien. Une
+        Idempotent par construction : tout appel ultérieur relit, et ne régénère rien. Une
         régénération casserait l'appariement et imposerait de réapparier à la main, puis
         de réaffecter les devices — c'est l'interdit central du ticket 8c95ecc7.
+
+        AU PREMIER USAGE, et non au démarrage de l'application. Divergence volontaire avec
+        la première version de ce code, et elle vient d'une panne mesurée sur machine de
+        test le 28/10/2026 : `dev-deploy.sh` lance la stack PUIS joue les migrations, donc
+        sur une base neuve le backend démarre quand aucune table n'existe. Écrire au
+        démarrage le faisait tomber en boucle de redémarrage, et son redémarrage tuait la
+        commande de migration lancée dans son conteneur — le schéma restait à 7 et le
+        déploiement échouait sans que la cause soit lisible. Aucun composant ne doit donc
+        exiger un objet de schéma pour démarrer. Ne pas « simplifier » en revenant à un
+        appel dans la durée de vie de l'application.
         """
         async with self.pool.acquire() as conn, conn.transaction():
             await db_lock_identity(conn, _IDENTITY_LOCK_KEY)
@@ -168,12 +178,6 @@ class IdentityService:
             "identite_du_module_engendree",
             public_key_fingerprint=fingerprint(identite.public_key),
         )
-        return identite
-
-    async def resolve_identity(self) -> ModuleIdentity:
-        identite = await db_get_identity(self.pool)
-        if identite is None:
-            raise IdentityMissingError("aucune identité en base")
         return identite
 
     async def resolve_peer(self) -> EnrolmentPeer:

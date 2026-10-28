@@ -32,7 +32,6 @@ from miles_socle.secrets.api_secrets import router as secrets_router
 from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
 from miles_socle.secrets.service import SecretsService
-from miles_socle.signing.keys import fingerprint
 
 from environnement.config import Settings
 from environnement.event_types import code_event_types
@@ -79,6 +78,11 @@ def create_app() -> FastAPI:
         # Pas de redirection suivie : un fournisseur qui redirige la découverte ou
         # l'échange de code ne doit pas nous emmener ailleurs sans qu'on le voie.
         http = httpx.AsyncClient(timeout=OIDC_HTTP_TIMEOUT_S, follow_redirects=False)
+        # Aucune écriture ici, et aucune lecture de ses tables : la paire de clés est
+        # engendrée au PREMIER USAGE. `dev-deploy.sh` lance la stack avant de jouer les
+        # migrations, donc sur une base neuve rien de ce schéma n'existe encore au
+        # démarrage — un composant qui l'exigerait tomberait en boucle de redémarrage et
+        # emporterait la migration avec lui (mesuré le 28/10/2026, voir le service).
         app.state.identity = IdentityService(
             pool,
             app.state.secrets,
@@ -88,12 +92,6 @@ def create_app() -> FastAPI:
             http,
             settings.public_url,
         )
-        # Au démarrage, et à chaque démarrage : la paire de clés est engendrée au premier
-        # passage et JAMAIS ensuite. Ici plutôt qu'à la première signature, pour que le
-        # module possède une identité publiable dès qu'il répond — l'appariement commence
-        # par la lire. Idempotent, et sérialisé en base : plusieurs instances qui
-        # démarrent ensemble n'en produisent qu'une.
-        identite = await app.state.identity.resolve_ensure_identity()
         app.state.oidc = OidcService(
             pool,
             http,
@@ -109,9 +107,6 @@ def create_app() -> FastAPI:
             "demarrage",
             expected_schema_version=expected_version,
             admin_declared=store.account is not None,
-            # L'empreinte, jamais la clé : elle suffit à voir dans les journaux que
-            # l'identité n'a pas changé d'un redéploiement à l'autre.
-            identity_fingerprint=fingerprint(identite.public_key),
         )
         try:
             yield

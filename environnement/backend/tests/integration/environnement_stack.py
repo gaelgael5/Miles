@@ -164,9 +164,9 @@ async def open_stack(
                     pool, app.state.secrets, cipher, catalog, utc_now, peer_http, public_url
                 )
                 app.state.identity = identity
-                # Comme au démarrage réel : la paire de clés est engendrée au premier
-                # passage sur cette base, et relue aux suivants.
-                await identity.resolve_ensure_identity()
+                # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité
+                # naît au premier USAGE. Un montage qui la créerait d'avance cacherait
+                # justement le cas que la machine de test a révélé.
                 yield EnvironnementStack(pool, app, client, env, http, identity)
     finally:
         await pool.close()
