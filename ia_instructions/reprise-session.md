@@ -1,4 +1,4 @@
-# Reprise de session — état au 27 octobre 2026
+# Reprise de session — état au 28 octobre 2026
 
 Point de reprise écrit à la demande de Gael, pour repartir d'un contexte propre.
 **Le backlog docflow `terminal-pr` et le cadrage font foi, jamais ce fichier** : il dit où
@@ -15,12 +15,12 @@ base — et son propre `dev-deploy.sh`. Rien ne se déploie depuis la racine.
 |---|---|---|
 | `portail/` | Portail de configuration | livré, déployé sur test1, **port 8080** |
 | `enrolement/` | Service d'enrôlement | **coquille livrée** le 27/10, déployée sur test1, **port 8081** — ticket `1ea3f3de` ; le métier reste à faire |
-| `environnement/` | Back-office d'environnement | réduit à l'appariement d'abord — ticket `8c95ecc7` |
+| `environnement/` | Back-office d'environnement | **coquille livrée** le 28/10, déployée sur test1, **port 8082** — ticket `8c95ecc7` ; réduite à l'identité signée, le métier reste à faire |
 
 **Deux socles partagés**, et c'est là que vit le code commun : `socle/python` (paquet
 `miles_socle`, **aucun SQL**) et `socle/web` (paquet `@miles/socle-web`). La frontière
-entre les cinq racines est tenue par `tests/` — 12 tests, Python par `ast` et TypeScript
-par motif. À lancer après tout déplacement de code entre racines.
+entre les **huit racines** est tenue par `tests/` — 12 tests, Python par `ast` et
+TypeScript par motif. À lancer après tout déplacement de code entre racines.
 
 Livré dans `portail/` les 24-27/10, tout vert sur test1 :
 
@@ -80,6 +80,40 @@ Gael : on factorise maintenant**, même règle que pour le socle Python — deux
   consomme le socle, son front, sa stack, son `dev-deploy.sh`. Il démarre, se déploie et
   se connecte — et rien de plus.
 
+### Puis le troisième produit — 28/10
+
+**Ticket `8c95ecc7`, en revue.** `environnement/` est monté, réduit à ce que l'appariement
+exige : sa base (8 migrations depuis `0001`), son back, son front, sa stack, son
+`dev-deploy.sh`, publié sur **8082**. Le métier d'environnement — objets, entrées, sorties,
+site, APIs, paramétrage servi — n'y est pas, et c'est voulu : plusieurs de ses questions
+sont **ouvertes au cadrage** (où vit la base d'un environnement, le mécanisme de vague, le
+registre des stacks déployées), et les trancher en codant est précisément ce que le projet
+s'interdit.
+
+Ce que le produit détient, et qui est nouveau dans le dépôt :
+
+- **une paire de clés Ed25519 engendrée chez lui**, sa clé privée rangée comme secret du
+  produit (chiffrée par `MILES_SECRETS_KEY`, usage déclaré pour que la base refuse de la
+  supprimer), et la clé publique du module d'enrôlement apparié ;
+- **`miles_socle.signing`**, troisième brique du socle : engendrer et relire une paire,
+  signer et vérifier un appel. Les deux côtés du protocole doivent vérifier la MÊME chaîne
+  canonique au caractère près — deux copies divergeraient, et le symptôme serait un 401 que
+  personne n'attribue ;
+- **une route authentifiée par signature et non par session**, `POST /api/peer/ping`. Le
+  portillon du socle laisse passer les chemins qu'un produit déclare comme tels, défaut
+  l'ensemble vide, et le produit **dérive cette liste du routeur** qui porte les routes :
+  un chemin ouvert à côté de sa vérification n'est pas exprimable.
+
+**La signature lie le contenu de l'appel, pas son instant.** C'est écrit dans le code et
+ce n'est pas un oubli : l'horodatage, le nonce et l'anti-rejeu sont l'objet du ticket
+*Enveloppe d'appel à usage unique*, et la version figure déjà dans la chaîne signée pour
+que rien d'ancien ne reste acceptable ce jour-là.
+
+Mesuré sur test1 le 28/10 : identité **identique après redéploiement** (même clé, même
+`created_at`, même chiffré en base), les **deux sens** de l'échange signé acceptés avant
+comme après, une clé inconnue refusée et journalisée avec son origine, les trois jetons de
+session étanches deux à deux, l'image sans aucune trace des autres produits.
+
 ## La panne des campagnes est résolue
 
 **Cause établie le 27/10, reproduite 6 fois sur 6** : elle était dans notre boucle
@@ -103,20 +137,21 @@ Les campagnes repartent.
 
 ## Ce qui est éligible, et par quoi commencer
 
-- `8c95ecc7` — **monter l'environnement réduit à l'appariement**. C'est la tête de file
-  maintenant que la coquille d'enrôlement est livrée, et le dernier prérequis de
-  `6a0daab6`. Le chemin est tracé : reprendre `enrolement/` à l'identique, en plus
-  réduit — stack, base, 7 migrations, back qui consomme le socle, front qui consomme
-  `@miles/socle-web`, `dev-deploy.sh`. Prévoir un troisième port (8082).
+- `6a0daab6` — **l'échange de clés à l'appariement**. C'est la tête de file : ses **trois
+  prérequis sont livrés** depuis le 28/10, et la section « Prérequis » de son corps est
+  désormais à jour. Les deux côtés existent, chacun avec sa stack et sa base ; le socle
+  porte déjà les clés et les appels signés, et l'environnement porte sa paire persistante.
+  Ce qui reste est le protocole lui-même — demande en attente, code TOTP brûlé à l'usage,
+  dépôt mutuel des clés publiques — plus le côté enrôlement de la route de pair.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
 - Le **métier** de l'enrôlement : la coquille ne porte rien de lui. Référentiel des
   devices, enrôlement d'une installation, dispatch, parc, tags, groupes — autant de
   tickets de l'epic *Module d'enrôlement*.
 
-**`6a0daab6` n'est PAS éligible**, contrairement à ce que montre son statut : il décrit un
-protocole entre deux produits qui n'existent pas encore. Son corps le dit désormais lui-même.
-Voir « Chaînage » ci-dessous.
+**`6a0daab6` est devenu éligible le 28/10** : ses trois prérequis sont en revue. Son corps
+porte toujours la section « Prérequis », mise à jour — la lire, elle dit ce qui existe et
+sous quelle forme, ce qui évite de reconstruire ce qui est déjà là.
 
 ## Cinq décisions prises par Gael le 27/10 — les questions sont closes
 
@@ -160,7 +195,8 @@ traverse pas les produits.
 ### Chaînage, et une limite de l'outil
 
 `5695664d` (socle) → `1ea3f3de` (coquille enrôlement) et `8c95ecc7` (environnement réduit),
-ces deux-là en parallèle → `6a0daab6` (échange de clés).
+ces deux-là en parallèle → `6a0daab6` (échange de clés). **Les trois premiers sont en revue
+depuis le 28/10**, et la chaîne est donc franchie.
 
 **Ce chaînage n'est pas déclaré en propriété sur `6a0daab6`** : `bloque_par` n'accepte qu'une
 `story`, et les trois prérequis sont des `enabler`. Le statut ne peut pas le porter non plus —
@@ -213,18 +249,20 @@ cd portail/backend     && uv run ruff check src tests && uv run mypy src && uv r
 cd portail/frontend    && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
 cd enrolement/backend  && uv run ruff check src tests && uv run mypy src && uv run pytest -q
 cd enrolement/frontend && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
+cd environnement/backend  && uv run ruff check src tests && uv run mypy src && uv run pytest -q
+cd environnement/frontend && npx tsc --noEmit -p tsconfig.json && npx eslint src/ && npx vitest run
 cd tests && uv run pytest -q                # frontière socle / produits — à lancer après
                                             # tout déplacement de code entre les racines
 <produit>/dev-deploy.sh                     # livrer, PORTAL_TOKEN sur stdin, jamais en argv
 <produit>/scripts/run-integration-tests.sh  # campagne, à lancer détachée
 ```
 
-**Six racines, six environnements.** `socle/python`, `portail/backend`,
-`enrolement/backend` et `tests` ont chacun leur `pyproject.toml` et leur verrou ;
-`socle/web`, `portail/frontend` et `enrolement/frontend` ont chacun leur `package.json`,
-leur verrou et leur `node_modules`. `uv sync` ou `npm ci` dans l'une ne fait rien pour les
-autres, et un vert dans une seule ne dit rien des cinq suivantes. **Toucher à un socle
-oblige à repasser sur ses deux consommateurs.**
+**Neuf racines, neuf environnements.** `socle/python`, les trois `<produit>/backend` et
+`tests` ont chacun leur `pyproject.toml` et leur verrou ; `socle/web` et les trois
+`<produit>/frontend` ont chacun leur `package.json`, leur verrou et leur `node_modules`.
+`uv sync` ou `npm ci` dans l'une ne fait rien pour les autres, et un vert dans une seule ne
+dit rien des huit suivantes. **Toucher à un socle oblige à repasser sur ses TROIS
+consommateurs** — et la campagne du portail, qui dure vingt-cinq minutes, en fait partie.
 
 Le reste — machine de test, annuaire, compte d'amorçage, pièges de déploiement — est dans
 `tests_and_ressources.md`, à côté.
