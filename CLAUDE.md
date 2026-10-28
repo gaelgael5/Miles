@@ -69,6 +69,13 @@ dont les deux côtés doivent vérifier la même chaîne canonique au caractère
 | `socle/python` | paquet `miles_socle` — **aucun SQL**, le schéma reste l'affaire de chaque produit | `<produit>/backend`, chemin relatif dans `pyproject.toml` |
 | `socle/web` | paquet `@miles/socle-web` — coquille front et écrans répliqués | `<produit>/frontend`, chemin relatif dans `package.json` |
 
+`miles_socle.testing` est livré **dans** le paquet : chaque produit a sa suite et aucun ne
+peut importer celle d'un autre. Il porte les doublures, la base jetable, la forme du `.env`
+et le montage des services du socle sur une base réelle — le produit y injecte son
+`build_app`, ses migrations et ses types d'events, jamais l'inverse. Et chaque produit porte
+`tests/test_cablage.py`, qui **rougit en nommant** un service posé par `app.py` et câblé
+dans aucun test d'intégration : c'est la garde qui remplace « penser à vérifier le harnais ».
+
 **La frontière est tenue par un test, pas par une intention** : `tests/` à la racine lit les
 imports (Python par `ast`, TypeScript par motif) et refuse qu'un produit en atteigne un
 autre, ou que le socle atteigne un produit. À lancer après tout déplacement de code entre

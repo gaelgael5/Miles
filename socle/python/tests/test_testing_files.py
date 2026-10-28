@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
 from _pytest.outcomes import Failed
 
+import miles_socle.testing
 from miles_socle.auth.admin_store import AdminAccountStore
 from miles_socle.auth.env_file import file_read_env
 from miles_socle.auth.passwords import verify_password
@@ -146,3 +148,44 @@ def test_la_fabrique_rend_bien_une_fixture_nommee_blank_db() -> None:
     fixture = blank_db_fixture("environnement_test")
 
     assert "blank_db" in repr(fixture) or getattr(fixture, "name", None) == "blank_db"
+
+
+def test_le_reexport_du_paquet_de_test_n_exige_ni_pytest_ni_httpx() -> None:
+    """La promesse du `__init__` de `miles_socle.testing`, prouvée au lieu d'être crue.
+
+    Ce sous-paquet est livré DANS le paquet, donc présent dans l'image de production, où
+    pytest et httpx ne sont pas installés. Si `__init__` venait à les tirer — directement
+    ou par un module qu'il réexporte — un `from miles_socle.testing import …` glissé dans
+    du code de production casserait à l'exécution, et seulement là. Le test de frontière ne
+    voit pas cette dépendance : elle ne traverse aucune racine.
+
+    Lu par `ast`, sans importer : dans cet environnement pytest EST installé, donc un
+    import réel ne prouverait rien.
+    """
+    paquet = Path(miles_socle.testing.__file__).parent
+    interdits = {"pytest", "httpx", "_pytest"}
+    a_lire = [paquet / "__init__.py"]
+    lus: set[Path] = set()
+    fautes: list[str] = []
+    while a_lire:
+        fichier = a_lire.pop()
+        if fichier in lus:
+            continue
+        lus.add(fichier)
+        arbre = ast.parse(fichier.read_text(encoding="utf-8"), filename=str(fichier))
+        for noeud in ast.walk(arbre):
+            modules = []
+            if isinstance(noeud, ast.Import):
+                modules = [alias.name for alias in noeud.names]
+            elif isinstance(noeud, ast.ImportFrom) and noeud.module:
+                modules = [noeud.module]
+            for module in modules:
+                if module.split(".")[0] in interdits:
+                    fautes.append(f"{fichier.name} importe {module}")
+                # Suivre les modules du sous-paquet : la dépendance peut être indirecte.
+                if module.startswith("miles_socle.testing."):
+                    a_lire.append(paquet / f"{module.rsplit('.', 1)[1]}.py")
+
+    assert not fautes, "\n".join(fautes)
+    # Garde de la garde : si plus rien n'était lu, le test passerait sans rien vérifier.
+    assert len(lus) >= 4
