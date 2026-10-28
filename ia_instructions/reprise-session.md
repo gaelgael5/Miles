@@ -124,7 +124,7 @@ divergentes, 530 lignes d'infra quasi identiques, 200 lignes à **zéro divergen
 |---|---|---|
 | `cadc9f40` | l'échafaudage de **test** | **livré le 28/10**, en revue |
 | `710ab8a2` | le **câblage** de `app.py` et la **configuration** | à faire |
-| `ef9a32ca` | l'**infra** : image, stack, déploiement, configs du front | à faire — sa première ligne est une question à trancher avec Gael |
+| `ef9a32ca` | l'**infra** : les gardes du déploiement et des campagnes | **livré le 28/10**, en revue |
 
 **Tranche 1, livrée.** `miles_socle.testing` est devenu un paquet : doublures, base jetable,
 forme du `.env`, fixtures unitaires, et le montage des sept services du socle sur une base
@@ -141,6 +141,29 @@ sonde de santé.
 
 Le portail garde son montage minimal et son câblage par test : pré-câbler les sept services
 changerait ce que quinze fichiers observent, et **un refactoring ne réécrit pas les tests**.
+
+**Tranche 2, livrée.** `wire_socle_services` câble les sept services du socle, et c'est la
+MÊME fonction qu'appellent la production et le harnais de test : les oublier n'est plus
+exprimable. `miles_socle.settings` porte la base de configuration ; le produit n'ajoute que
+ses champs propres et le répertoire de ses migrations, le seul que le socle ne peut pas
+connaître. `config.py` tombe de 84 à 28 lignes dans les coquilles, de 93 à 49 au portail.
+
+**Tranche 3, livrée.** Gael a tranché : **on partage les gardes, pas la séquence.**
+`socle/deploy/gardes.sh` porte les douze gardes du déploiement et
+`socle/deploy/integration.sh` celle du PostgreSQL jetable ; les trois `dev-deploy.sh`
+passent de 1022 lignes à 455, et les onze étapes du portail sont identiques mot pour mot.
+Une erreur dans une séquence ne casse donc qu'un produit — le déploiement est la seule voie
+de livraison du projet.
+
+Deux gardes neuves sont nées de cette tranche : `tests/architecture` lit maintenant les
+`source` des scripts shell (un produit ne peut pas sourcer un autre), et
+`tests/architecture/test_gardes.py` refuse qu'un produit CESSE d'appeler une garde — avec,
+dans son message, la panne qu'on s'apprête à retrouver. 12 tests de frontière deviennent 22.
+
+**Ce qui n'est PAS partagé est écrit dans `CLAUDE.md`, avec la raison de chaque ligne.** Le
+lire avant de « finir le travail » : partager la configuration de construction du front
+ferait résoudre vite et ses greffons depuis le `node_modules` du socle, et une image de base
+commune devient un prérequis de chaque déploiement.
 
 ## La panne des campagnes est résolue
 
@@ -171,10 +194,6 @@ Les campagnes repartent.
   porte déjà les clés et les appels signés, et l'environnement porte sa paire persistante.
   Ce qui reste est le protocole lui-même — demande en attente, code TOTP brûlé à l'usage,
   dépôt mutuel des clés publiques — plus le côté enrôlement de la route de pair.
-- `710ab8a2` puis `ef9a32ca` — les deux tranches restantes de la construction des socles.
-  La seconde commence par une question d'architecture : jusqu'où un `dev-deploy.sh` partagé
-  est-il compatible avec « chaque produit a son `dev-deploy.sh` » ? À trancher avec Gael,
-  pas en codant.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
 - Le **métier** de l'enrôlement : la coquille ne porte rien de lui. Référentiel des
