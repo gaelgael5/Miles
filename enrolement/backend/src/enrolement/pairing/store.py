@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Protocol
+from uuid import UUID
 
 from miles_socle.secrets.crypto import Sealed
 from miles_socle.signing.keys import ALGORITHM
 
-from enrolement.pairing.model import EnvironmentPeer, PairingRequest
+from enrolement.pairing.model import EnvironmentPeer, EnvironmentRef, PairingRequest
+
+# L'environnement désigné est relu par sous-requêtes corrélées, et ses colonnes sont
+# écrites LITTÉRALEMENT dans chaque requête : les écritures rendent leur ligne par
+# `RETURNING`, qui ne joint pas, et une constante partagée qu'on interpole dans du SQL est
+# une faute, pas un raccourci.
 
 # `module_identity` est lue et écrite par le socle (`miles_socle.signing.identity_store`) :
 # la table est déclarée par la migration de CE produit, les requêtes sont au socle, qui
@@ -19,6 +25,18 @@ class PairingDb(Protocol):
     async def fetchrow(self, query: str, *args: Any) -> Any: ...
 
 
+def _environment(row: Any) -> EnvironmentRef | None:
+    """L'environnement désigné, ou rien. Construit depuis l'identifiant, jamais du slug.
+
+    Le slug est renommable : un environnement dont le libellé et le slug seraient vides
+    n'existe pas, mais c'est l'identifiant qui dit s'il y a une désignation.
+    """
+    environment_id = row["environment_id"]
+    if environment_id is None:
+        return None
+    return EnvironmentRef(environment_id, row["environment_slug"], row["environment_label"])
+
+
 def _request(row: Any) -> PairingRequest:
     return PairingRequest(
         row["base_url"],
@@ -27,6 +45,7 @@ def _request(row: Any) -> PairingRequest:
         row["created_at"],
         row["expires_at"],
         row["name"],
+        _environment(row),
     )
 
 
@@ -38,6 +57,7 @@ def _peer(row: Any) -> EnvironmentPeer:
         row["created_at"],
         row["updated_at"],
         row["name"],
+        _environment(row),
     )
 
 
@@ -69,17 +89,31 @@ async def db_upsert_request(
     Jamais deux demandes pour une même origine : l'humain ne saurait laquelle accepter, et
     le second code rendrait le premier ambigu. Le renouvellement remplace aussi le secret
     et la clé publique déposée — frapper à nouveau, c'est repartir de zéro.
+
+    SAUF l'environnement désigné, qui SURVIT au renouvellement et, à la première demande,
+    est HÉRITÉ de l'appariement déjà conclu sous cette origine. C'est ce qui fait tenir
+    deux règles à la fois sans cas particulier ailleurs : une stack qui refrappe pendant
+    qu'on la désignait ne fait pas perdre le choix à l'humain — qui ne saurait pas
+    pourquoi son code a cessé d'être révélable —, et une stack qui tourne ses clés
+    réapparie le MÊME environnement, jamais un autre. Déplacer un appariement conclu
+    emporterait ses devices sans le dire ; ce geste s'appelle révoquer puis réapparier.
     """
     row = await db.fetchrow(
         "INSERT INTO pairing_request (base_url, public_key, algorithm, key_version, nonce,"
-        " ciphertext, created_at, expires_at, name)"
-        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
+        " ciphertext, created_at, expires_at, name, environment_id)"
+        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,"
+        " (SELECT p.environment_id FROM environment_peer p WHERE p.base_url = $1))"
         " ON CONFLICT (base_url) DO UPDATE SET public_key = excluded.public_key,"
         " algorithm = excluded.algorithm, key_version = excluded.key_version,"
         " nonce = excluded.nonce, ciphertext = excluded.ciphertext,"
         " created_at = excluded.created_at, expires_at = excluded.expires_at,"
         " name = excluded.name"
-        " RETURNING base_url, public_key, algorithm, created_at, expires_at, name",
+        " RETURNING base_url, public_key, algorithm, created_at, expires_at, name,"
+        " environment_id,"
+        " (SELECT e.slug FROM environment e WHERE e.id = pairing_request.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = pairing_request.environment_id)"
+        " AS environment_label",
         base_url,
         public_key,
         ALGORITHM,
@@ -97,7 +131,12 @@ async def db_get_request(db: PairingDb, base_url: str) -> tuple[PairingRequest, 
     """La demande et son secret scellé. Le secret ne sort d'ici que scellé."""
     row = await db.fetchrow(
         "SELECT base_url, public_key, algorithm, created_at, expires_at, name,"
-        " key_version, nonce, ciphertext FROM pairing_request WHERE base_url = $1",
+        " key_version, nonce, ciphertext, environment_id,"
+        " (SELECT e.slug FROM environment e WHERE e.id = pairing_request.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = pairing_request.environment_id)"
+        " AS environment_label"
+        " FROM pairing_request WHERE base_url = $1",
         base_url,
     )
     if row is None:
@@ -107,7 +146,12 @@ async def db_get_request(db: PairingDb, base_url: str) -> tuple[PairingRequest, 
 
 async def db_list_requests(db: PairingDb, /) -> list[PairingRequest]:
     rows = await db.fetch(
-        "SELECT base_url, public_key, algorithm, created_at, expires_at, name"
+        "SELECT base_url, public_key, algorithm, created_at, expires_at, name,"
+        " environment_id,"
+        " (SELECT e.slug FROM environment e WHERE e.id = pairing_request.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = pairing_request.environment_id)"
+        " AS environment_label"
         " FROM pairing_request ORDER BY created_at"
     )
     return [_request(row) for row in rows]
@@ -136,32 +180,54 @@ async def db_lock_request(db: PairingDb, base_url: str) -> None:
 
 
 async def db_upsert_peer(
-    db: PairingDb, base_url: str, public_key: str, now: datetime, name: str | None
+    db: PairingDb,
+    base_url: str,
+    public_key: str,
+    now: datetime,
+    name: str | None,
+    environment_id: UUID,
 ) -> EnvironmentPeer:
     """Enregistre l'environnement apparié, ou REMPLACE sa clé — jamais un doublon.
 
     Le remplacement est le ré-appariement. `created_at` est conservé : il date
     l'appariement initial, qui reste un fait même après rotation des clés.
+
+    L'environnement, lui, est posé à l'insertion et JAMAIS réécrit au conflit : il vient
+    de la demande, qui l'a elle-même hérité de cet appariement s'il en portait un. Le
+    rattachement d'un appariement hérité passe par `db_attach_peer_environment`, et c'est
+    la seule autre voie — déplacer un appariement conclu d'un environnement vers un autre
+    reste inexprimable ici, ce qui vaut mieux qu'une garde qu'on peut oublier d'appeler.
     """
     row = await db.fetchrow(
         "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
-        " updated_at, name) VALUES ($1, $2, $3, $4, $4, $5)"
+        " updated_at, name, environment_id) VALUES ($1, $2, $3, $4, $4, $5, $6)"
         " ON CONFLICT (base_url) DO UPDATE SET public_key = excluded.public_key,"
         " algorithm = excluded.algorithm, updated_at = excluded.updated_at,"
         " name = excluded.name"
-        " RETURNING base_url, public_key, algorithm, created_at, updated_at, name",
+        " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
+        " environment_id,"
+        " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_label",
         base_url,
         public_key,
         ALGORITHM,
         now,
         name,
+        environment_id,
     )
     return _peer(row)
 
 
 async def db_get_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None:
     row = await db.fetchrow(
-        "SELECT base_url, public_key, algorithm, created_at, updated_at, name"
+        "SELECT base_url, public_key, algorithm, created_at, updated_at, name,"
+        " environment_id,"
+        " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_label"
         " FROM environment_peer WHERE base_url = $1",
         base_url,
     )
@@ -170,7 +236,82 @@ async def db_get_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None:
 
 async def db_list_peers(db: PairingDb, /) -> list[EnvironmentPeer]:
     rows = await db.fetch(
-        "SELECT base_url, public_key, algorithm, created_at, updated_at, name"
+        "SELECT base_url, public_key, algorithm, created_at, updated_at, name,"
+        " environment_id,"
+        " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_label"
         " FROM environment_peer ORDER BY base_url"
     )
     return [_peer(row) for row in rows]
+
+
+async def db_designate_request_environment(
+    db: PairingDb, base_url: str, environment_id: UUID
+) -> PairingRequest | None:
+    """Pose l'environnement désigné sur une demande en attente. Nul si elle n'existe plus.
+
+    Écrase sans condition : tant que l'appariement n'est pas conclu, changer d'avis est
+    libre, et une désignation qui se verrouillerait au premier clic obligerait à refuser
+    la demande pour corriger une erreur de liste déroulante.
+
+    Si l'environnement n'existe pas, la clé étrangère refuse — c'est elle qui tient la
+    garde, et non une lecture préalable entre laquelle et l'écriture une suppression
+    concurrente passerait.
+    """
+    row = await db.fetchrow(
+        "UPDATE pairing_request SET environment_id = $2 WHERE base_url = $1"
+        " RETURNING base_url, public_key, algorithm, created_at, expires_at, name,"
+        " environment_id,"
+        " (SELECT e.slug FROM environment e WHERE e.id = pairing_request.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = pairing_request.environment_id)"
+        " AS environment_label",
+        base_url,
+        environment_id,
+    )
+    return None if row is None else _request(row)
+
+
+async def db_attach_peer_environment(
+    db: PairingDb, base_url: str, environment_id: UUID, now: datetime
+) -> EnvironmentPeer | None:
+    """Rattache un appariement HÉRITÉ, conclu avant que la désignation n'existe.
+
+    `environment_id IS NULL` n'est pas une précaution : c'est ce qui rend le DÉPLACEMENT
+    inexprimable. Un appariement qui porte déjà un environnement n'est pas rattachable, il
+    est à révoquer puis à réapparier — le déplacer emporterait ses devices sans le dire.
+    La condition est dans la clause `WHERE` plutôt que dans une lecture qui la précéderait,
+    pour que deux rattachements concurrents n'en voient pas tous deux le champ vide.
+
+    Rend nul quand rien n'a bougé, sans dire lequel des deux cas : l'appelant a lu
+    l'appariement juste avant et sait le distinguer.
+    """
+    row = await db.fetchrow(
+        "UPDATE environment_peer SET environment_id = $2, updated_at = $3"
+        " WHERE base_url = $1 AND environment_id IS NULL"
+        " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
+        " environment_id,"
+        " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_label",
+        base_url,
+        environment_id,
+        now,
+    )
+    return None if row is None else _peer(row)
+
+
+async def db_get_peer_base_url_by_environment(db: PairingDb, environment_id: UUID) -> str | None:
+    """L'origine de l'appariement qui porte cet environnement, s'il y en a un.
+
+    Rend l'origine et non l'appariement entier : l'appelant n'a besoin que de savoir si
+    c'est LUI qui le porte déjà — un ré-appariement de la même stack — ou quelqu'un
+    d'autre, auquel cas il refuse.
+    """
+    row = await db.fetchrow(
+        "SELECT base_url FROM environment_peer WHERE environment_id = $1", environment_id
+    )
+    return None if row is None else str(row["base_url"])

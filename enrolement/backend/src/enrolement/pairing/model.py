@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from uuid import UUID
 
 from miles_socle.signing.peers import IdentityError
 
@@ -16,12 +17,20 @@ REQUEST_OPENED_EVENT = "pairing.request_opened"
 REQUEST_REJECTED_EVENT = "pairing.request_rejected"
 REQUEST_EXPIRED_EVENT = "pairing.request_expired"
 PAIRING_CONFIRMED_EVENT = "pairing.confirmed"
+# Deux types et non un seul, parce que ce sont deux gestes : désigner l'environnement
+# d'une demande encore ouverte — révocable en changeant d'avis —, et rattacher un
+# appariement DÉJÀ conclu qui n'en avait pas. Les fondre rendrait impossible de retrouver
+# combien d'appariements hérités restaient à rattacher.
+ENVIRONMENT_DESIGNATED_EVENT = "pairing.environment_designated"
+ENVIRONMENT_ATTACHED_EVENT = "pairing.environment_attached"
 EVENT_TYPES = frozenset(
     {
         REQUEST_OPENED_EVENT,
         REQUEST_REJECTED_EVENT,
         REQUEST_EXPIRED_EVENT,
         PAIRING_CONFIRMED_EVENT,
+        ENVIRONMENT_DESIGNATED_EVENT,
+        ENVIRONMENT_ATTACHED_EVENT,
     }
 )
 
@@ -79,6 +88,58 @@ class PeerNotFoundError(IdentityError):
     """Aucun environnement apparié sous cette origine."""
 
 
+class EnvironmentUnknownError(IdentityError):
+    """L'environnement désigné n'est pas — ou n'est plus — dans le référentiel.
+
+    Destiné à l'ADMINISTRATEUR : il regarde son propre écran, et le seul cas réel est
+    qu'un autre onglet vient de supprimer l'environnement qu'il avait sous les yeux.
+    """
+
+
+class EnvironmentNotDesignatedError(IdentityError):
+    """La demande n'a pas d'environnement désigné : son code n'est pas révélable.
+
+    Le refus NOMME la cause, et c'est tout l'objet du ticket bf2115cd : un bouton grisé
+    muet fait chercher la panne ailleurs. Il vaut aussi à la confirmation, où il ne
+    devrait jamais se produire — on n'atteint un code qu'après l'avoir fait révéler.
+    C'est le fail closed : la garde est à l'écriture, pas seulement à l'écran.
+    """
+
+
+class EnvironmentAlreadyPairedError(IdentityError):
+    """Un AUTRE appariement porte déjà cet environnement.
+
+    Un environnement ne porte qu'un appariement, sans quoi « à quelle stack appartient ce
+    device » n'a plus de réponse unique. Deux demandes peuvent viser le même environnement
+    tant qu'aucune n'est conclue : c'est ici que la course se tranche, et la seconde
+    confirmation est refusée AVANT que son code ne soit brûlé — sinon l'environnement
+    devrait refrapper pour obtenir un code qu'il ne pourrait plus faire accepter.
+    """
+
+
+class PairingSettledError(IdentityError):
+    """L'appariement est conclu : son environnement ne se change plus.
+
+    Le déplacer emporterait les devices sans le dire. Ce geste existe, et il s'appelle
+    révoquer puis réapparier (ticket d5ffeb33). Distinct du rattachement d'un appariement
+    HÉRITÉ, qui part d'un appariement sans environnement et n'en déplace donc aucun.
+    """
+
+
+@dataclass(frozen=True)
+class EnvironmentRef:
+    """L'environnement du référentiel, vu depuis l'appariement : juste de quoi le nommer.
+
+    Projection volontairement plus étroite que `environments.model.Environment`, qui porte
+    en plus l'origine de la stack appariée — ici, ce serait l'appariement qui la porte :
+    la même information, lue dans l'autre sens, et deux copies qui finiraient par diverger.
+    """
+
+    id: UUID
+    slug: str
+    label: str
+
+
 @dataclass(frozen=True)
 class PairingRequest:
     """Une demande en attente, telle qu'un écran peut la montrer. Jamais son secret."""
@@ -92,6 +153,11 @@ class PairingRequest:
     # porter le même, et c'est l'URL qui les distingue. Nul pour un appariement antérieur
     # au nom déclaré — ce qu'aucune chaîne vide ne saurait dire sans mentir.
     name: str | None
+    # L'environnement DÉSIGNÉ par un humain authentifié, celui auquel l'appariement sera
+    # rattaché. Nul tant que personne n'a choisi, et c'est alors le code qui n'est pas
+    # révélable. À ne pas confondre avec `name` juste au-dessus : l'un vient d'un inconnu
+    # et aide à reconnaître, l'autre vient de nous et désigne.
+    environment: EnvironmentRef | None
 
 
 @dataclass(frozen=True)
@@ -118,3 +184,7 @@ class EnvironmentPeer:
     created_at: datetime
     updated_at: datetime
     name: str | None
+    # Nul UNIQUEMENT pour les appariements hérités, conclus avant que la désignation
+    # n'existe. L'écran les signale « à rattacher » : c'est un état transitoire hérité,
+    # pas un état admis — aucun appariement neuf ne peut plus se conclure sans.
+    environment: EnvironmentRef | None

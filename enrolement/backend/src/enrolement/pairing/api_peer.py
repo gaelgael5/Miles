@@ -24,7 +24,12 @@ from miles_socle.signing.protocol import (
 )
 from pydantic import BaseModel, ValidationError
 
-from enrolement.pairing.model import PairingClockSkewError, PairingRefusedError
+from enrolement.pairing.model import (
+    EnvironmentAlreadyPairedError,
+    EnvironmentNotDesignatedError,
+    PairingClockSkewError,
+    PairingRefusedError,
+)
 from enrolement.pairing.service import PairingService
 
 log = structlog.get_logger(__name__)
@@ -57,6 +62,25 @@ def _refus(exc: IdentityError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
             content={"detail": "horloges_desynchronisees", "drift_s": exc.drift_s},
+        )
+    if isinstance(exc, EnvironmentAlreadyPairedError):
+        # Même exception à la règle, et pour la même raison que l'horloge : on ne
+        # l'atteint qu'après avoir passé la vérification de signature ET présenté un code
+        # dérivé du bon secret. Rien n'est révélé de plus que ce que l'appelant détient
+        # déjà — et sans ce mot, l'exploitant retaperait des codes pendant que la cause
+        # est chez nous : un autre appariement a pris l'environnement qu'on lui destinait.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "environnement_indisponible"},
+        )
+    if isinstance(exc, EnvironmentNotDesignatedError):
+        # Ne devrait jamais se produire : le code n'est pas révélable sans environnement
+        # désigné, et l'appelant n'a pu l'obtenir qu'une fois celui-ci choisi. Si cela
+        # arrive, répondre « refusé » enverrait le diagnostic vers les clés ou l'horloge
+        # alors que l'état est chez nous.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "environnement_non_designe"},
         )
     if isinstance(exc, IdentityInputError):
         # La clé mal formée est celle de l'APPELANT : lui en cacher la cause ne protège

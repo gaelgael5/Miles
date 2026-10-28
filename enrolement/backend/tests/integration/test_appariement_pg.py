@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -60,10 +61,54 @@ def _fige(instant: datetime, decalage_s: int = 0) -> Callable[[], datetime]:
     return lambda: instant + timedelta(seconds=decalage_s)
 
 
+def _slug(origine: str) -> str:
+    """Un slug stable tiré de l'origine : deux doublures d'un même test n'en partagent pas."""
+    return re.sub(r"[^a-z0-9]+", "-", origine.lower()).strip("-")[:48]
+
+
+async def _designe(stack: EnrolementStack, double: EnvironmentDouble) -> str:
+    """Déclare un environnement et le désigne pour cette demande. Rend son identifiant.
+
+    PRÉCONDITION de toute révélation de code depuis le ticket bf2115cd : sans
+    environnement désigné, la route refuse. Les tests de l'appariement y passent par les
+    ROUTES, et non par du SQL, pour que la précondition éprouvée soit exactement celle que
+    l'écran applique — un montage à la main prouverait seulement que le SQL fonctionne.
+    """
+    slug = _slug(double.origin)
+    cree = await stack.client.post(
+        "/api/environments", json={"label": f"Environnement {slug}", "slug": slug}
+    )
+    assert cree.status_code == 201, cree.text
+    environment_id = str(cree.json()["id"])
+    designe = await stack.client.put(
+        "/api/pairing/requests/environment",
+        params={"base_url": double.origin},
+        json={"environment_id": environment_id},
+    )
+    assert designe.status_code == 200, designe.text
+    return environment_id
+
+
 async def _code(stack: EnrolementStack, double: EnvironmentDouble) -> str:
+    """Le code révélé — précédé de la désignation, sans laquelle il n'est pas révélable.
+
+    La désignation est faite ici plutôt que dans chaque test : elle est devenue une
+    condition d'EXISTENCE du code, pas un sujet de ces tests-là. Ceux qui l'éprouvent pour
+    elle-même ne passent pas par cette fonction.
+    """
+    if not await _est_designee(stack, double):
+        await _designe(stack, double)
     reponse = await stack.client.get("/api/pairing/code", params={"base_url": double.origin})
     assert reponse.status_code == 200, reponse.text
     return str(reponse.json()["code"])
+
+
+async def _est_designee(stack: EnrolementStack, double: EnvironmentDouble) -> bool:
+    """Vrai si la demande porte déjà un environnement — une relecture de code n'en pose pas deux."""
+    attendues = await stack.client.get("/api/pairing/requests")
+    return any(
+        d["base_url"] == double.origin and d["environment"] is not None for d in attendues.json()
+    )
 
 
 async def _confirme_par(service: PairingService, double: EnvironmentDouble, code: str) -> None:

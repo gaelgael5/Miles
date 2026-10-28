@@ -25,6 +25,7 @@ def _environment(row: Any) -> Environment:
         row["created_at"],
         row["updated_at"],
         row["paired_base_url"],
+        row["designated_base_url"],
     )
 
 
@@ -39,7 +40,8 @@ async def db_insert_environment(
     row = await db.fetchrow(
         "INSERT INTO environment (id, slug, label, created_at, updated_at)"
         " VALUES ($1, $2, $3, $4, $4)"
-        " RETURNING id, slug, label, created_at, updated_at, NULL::text AS paired_base_url",
+        " RETURNING id, slug, label, created_at, updated_at,"
+        " NULL::text AS paired_base_url, NULL::text AS designated_base_url",
         environment_id,
         slug,
         label,
@@ -56,7 +58,9 @@ async def db_update_environment(
         "UPDATE environment e SET slug = $2, label = $3, updated_at = $4 WHERE e.id = $1"
         " RETURNING e.id, e.slug, e.label, e.created_at, e.updated_at,"
         " (SELECT p.base_url FROM environment_peer p WHERE p.environment_id = e.id)"
-        " AS paired_base_url",
+        " AS paired_base_url,"
+        " (SELECT r.base_url FROM pairing_request r WHERE r.environment_id = e.id LIMIT 1)"
+        " AS designated_base_url",
         environment_id,
         slug,
         label,
@@ -69,7 +73,9 @@ async def db_get_environment(db: EnvironmentDb, environment_id: UUID) -> Environ
     row = await db.fetchrow(
         "SELECT e.id, e.slug, e.label, e.created_at, e.updated_at,"
         " (SELECT p.base_url FROM environment_peer p WHERE p.environment_id = e.id)"
-        " AS paired_base_url"
+        " AS paired_base_url,"
+        " (SELECT r.base_url FROM pairing_request r WHERE r.environment_id = e.id LIMIT 1)"
+        " AS designated_base_url"
         " FROM environment e WHERE e.id = $1",
         environment_id,
     )
@@ -82,7 +88,9 @@ async def db_list_environments(db: EnvironmentDb, /) -> list[Environment]:
     rows = await db.fetch(
         "SELECT e.id, e.slug, e.label, e.created_at, e.updated_at,"
         " (SELECT p.base_url FROM environment_peer p WHERE p.environment_id = e.id)"
-        " AS paired_base_url"
+        " AS paired_base_url,"
+        " (SELECT r.base_url FROM pairing_request r WHERE r.environment_id = e.id LIMIT 1)"
+        " AS designated_base_url"
         " FROM environment e ORDER BY e.label, e.slug"
     )
     return [_environment(row) for row in rows]

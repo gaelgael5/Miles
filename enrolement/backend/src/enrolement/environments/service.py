@@ -17,6 +17,7 @@ from enrolement.environments.model import (
     ENVIRONMENT_OBJECT_KIND,
     ENVIRONMENT_RENAMED_EVENT,
     Environment,
+    EnvironmentDesignatedError,
     EnvironmentNotFoundError,
     EnvironmentPairedError,
     EnvironmentSlugTakenError,
@@ -139,6 +140,16 @@ class EnvironmentService:
                         f"{environnement.slug} porte l'appariement de"
                         f" {environnement.paired_base_url}"
                     )
+                # Une demande EN ATTENTE le désigne (ticket bf2115cd). Elle ne le consomme
+                # pas — refusée ou expirée, elle le libère — mais l'effacer sous le pied
+                # de l'humain qui vient de le choisir ferait cesser son code d'être
+                # révélable sans qu'aucun écran ne dise pourquoi. Plusieurs demandes
+                # peuvent le viser ; en nommer une suffit à désigner le geste à faire.
+                if environnement.designated_base_url is not None:
+                    raise EnvironmentDesignatedError(
+                        f"{environnement.slug} est désigné par la demande de"
+                        f" {environnement.designated_base_url}"
+                    )
                 if not await db_delete_environment(conn, environment_id):
                     raise EnvironmentNotFoundError(f"aucun environnement sous {environment_id}")
                 await self._write_event(
@@ -149,11 +160,13 @@ class EnvironmentService:
                     author,
                 )
         except asyncpg.ForeignKeyViolationError as exc:
-            # La lecture ci-dessus a vu l'environnement libre, et un appariement s'y est
-            # rattaché avant la suppression. C'est la base qui a le dernier mot, et elle
-            # rend ici le MÊME refus que la lecture : une course ne doit pas produire un
-            # message différent de celui du cas ordinaire.
-            raise EnvironmentPairedError(f"{environment_id} porte un appariement") from exc
+            # La lecture ci-dessus a vu l'environnement libre, et un appariement ou une
+            # demande s'y est rattaché avant la suppression. C'est la base qui a le
+            # dernier mot. Elle ne dit PAS lequel des deux : les deux clés étrangères
+            # portent des noms engendrés, sur lesquels on ne s'appuie pas. Dans cette
+            # course — et elle seule — le refus est donc le plus général des deux ; le cas
+            # ordinaire passe par les lectures ci-dessus, qui le nomment précisément.
+            raise EnvironmentPairedError(f"{environment_id} est encore référencé") from exc
         log.info("environnement_supprime", environment_id=str(environment_id))
 
     async def _write_event(

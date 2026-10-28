@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, NoReturn
+from uuid import UUID
 
 import asyncpg
 import structlog
@@ -23,6 +24,8 @@ from miles_socle.signing.keys import fingerprint, parse_public_key
 from miles_socle.signing.peers import validate_declared_name, validate_public_key
 
 from enrolement.pairing.model import (
+    ENVIRONMENT_ATTACHED_EVENT,
+    ENVIRONMENT_DESIGNATED_EVENT,
     PAIRING_CONFIRMED_EVENT,
     PEER_OBJECT_KIND,
     REQUEST_EXPIRED_EVENT,
@@ -30,18 +33,26 @@ from enrolement.pairing.model import (
     REQUEST_OPENED_EVENT,
     REQUEST_REJECTED_EVENT,
     SIGNING_KEY_LABEL,
+    EnvironmentAlreadyPairedError,
+    EnvironmentNotDesignatedError,
     EnvironmentPeer,
+    EnvironmentRef,
+    EnvironmentUnknownError,
     PairingClockSkewError,
     PairingCode,
     PairingRefusedError,
     PairingRequest,
+    PairingSettledError,
     PeerNotFoundError,
     RequestNotFoundError,
 )
 from enrolement.pairing.store import (
+    db_attach_peer_environment,
     db_delete_expired_requests,
     db_delete_request,
+    db_designate_request_environment,
     db_get_peer,
+    db_get_peer_base_url_by_environment,
     db_get_request,
     db_list_peers,
     db_list_requests,
@@ -198,51 +209,80 @@ class PairingService:
         # l'imbriquer prendrait une seconde connexion du pool en tenant la première.
         identite = await self.resolve_identity()
         maintenant = self.now()
-        async with self.pool.acquire() as conn, conn.transaction():
-            # Verrou d'abord : deux confirmations simultanées ne doivent pas lire la même
-            # demande avant que l'une l'ait brûlée.
-            await db_lock_request(conn, origine)
-            await self._purge_expired(conn, maintenant)
-            rangee = await db_get_request(conn, origine)
-            if rangee is None:
-                self._refuse("aucune_demande", origine)
-            demande, scelle = rangee
-            self._verify_or_refuse(demande.public_key, signature, origine, method, target, body)
-            try:
-                secret = self.cipher.open(origine, scelle).reveal()
-            except SecretUndecipherableError:
-                # MILES_SECRETS_KEY a changé, ou la ligne a été touchée. La demande ne vaut
-                # plus rien : la brûler évite de laisser un code qu'aucun humain ne pourra
-                # plus faire accepter, et dont le refus resterait inexplicable.
-                await db_delete_request(conn, origine)
-                self._refuse("secret_illisible", origine)
-            decalage = resolve_code_offset(secret, code, maintenant)
-            if decalage is None:
-                # La demande RESTE en attente : un code faux est une faute de frappe bien
-                # plus souvent qu'une attaque, et détruire la demande punirait la première.
-                self._refuse("code_invalide", origine)
-            if decalage not in ACCEPTED_OFFSETS:
-                log.warning(
-                    "code_d_appariement_hors_fenetre", base_url=origine, offset_windows=decalage
+        try:
+            async with self.pool.acquire() as conn, conn.transaction():
+                # Verrou d'abord : deux confirmations simultanées ne doivent pas lire la même
+                # demande avant que l'une l'ait brûlée.
+                await db_lock_request(conn, origine)
+                await self._purge_expired(conn, maintenant)
+                rangee = await db_get_request(conn, origine)
+                if rangee is None:
+                    self._refuse("aucune_demande", origine)
+                demande, scelle = rangee
+                self._verify_or_refuse(demande.public_key, signature, origine, method, target, body)
+                try:
+                    secret = self.cipher.open(origine, scelle).reveal()
+                except SecretUndecipherableError:
+                    # MILES_SECRETS_KEY a changé, ou la ligne a été touchée. La demande ne vaut
+                    # plus rien : la brûler évite de laisser un code qu'aucun humain ne pourra
+                    # plus faire accepter, et dont le refus resterait inexplicable.
+                    await db_delete_request(conn, origine)
+                    self._refuse("secret_illisible", origine)
+                decalage = resolve_code_offset(secret, code, maintenant)
+                if decalage is None:
+                    # La demande RESTE en attente : un code faux est une faute de frappe bien
+                    # plus souvent qu'une attaque, et détruire la demande punirait la première.
+                    self._refuse("code_invalide", origine)
+                if decalage not in ACCEPTED_OFFSETS:
+                    log.warning(
+                        "code_d_appariement_hors_fenetre", base_url=origine, offset_windows=decalage
+                    )
+                    raise PairingClockSkewError(decalage, STEP_S)
+                # AVANT de brûler le code, et c'est tout l'enjeu de l'ordre : un refus qui
+                # suivrait la suppression laisserait l'environnement sans demande ET sans
+                # appariement, obligé de refrapper pour obtenir un code qu'un humain devrait
+                # à nouveau révéler, sans rien qui dise pourquoi.
+                environnement = self._designated_or_refuse(demande)
+                porteur = await db_get_peer_base_url_by_environment(conn, environnement.id)
+                if porteur is not None and porteur != origine:
+                    # Deux demandes visaient le même environnement et l'autre a conclu la
+                    # première. On refuse en le DISANT plutôt que d'écraser : l'appariement
+                    # écrasé continuerait de servir des devices que plus personne ne lui
+                    # enverrait. L'unicité pour de bon est tenue par la contrainte de la base,
+                    # rattrapée plus bas — celle-ci nomme le refus pendant qu'il est encore
+                    # rattrapable.
+                    raise EnvironmentAlreadyPairedError(
+                        f"{environnement.slug} porte déjà l'appariement de {porteur}"
+                    )
+                if not await db_delete_request(conn, origine):  # pragma: no cover - verrou tenu
+                    # Le code est BRÛLÉ par cette suppression, et c'est elle qui rend l'usage
+                    # unique : sans ligne retirée, un autre appel est passé avant nous.
+                    self._refuse("deja_brule", origine)
+                pair = await db_upsert_peer(
+                    conn, origine, demande.public_key, maintenant, demande.name, environnement.id
                 )
-                raise PairingClockSkewError(decalage, STEP_S)
-            if not await db_delete_request(conn, origine):  # pragma: no cover - verrou tenu
-                # Le code est BRÛLÉ par cette suppression, et c'est elle qui rend l'usage
-                # unique : sans ligne retirée, un autre appel est passé avant nous.
-                self._refuse("deja_brule", origine)
-            pair = await db_upsert_peer(conn, origine, demande.public_key, maintenant, demande.name)
-            await self.module.write_event(
-                conn,
-                PAIRING_CONFIRMED_EVENT,
-                PEER_OBJECT_KIND,
-                origine,
-                {"public_key_fingerprint": fingerprint(pair.public_key)},
-            )
+                await self.module.write_event(
+                    conn,
+                    PAIRING_CONFIRMED_EVENT,
+                    PEER_OBJECT_KIND,
+                    origine,
+                    {"public_key_fingerprint": fingerprint(pair.public_key)},
+                )
+        except asyncpg.UniqueViolationError as exc:
+            # `environment_peer_environment_unique`. Deux confirmations d'origines
+            # DIFFÉRENTES visant le même environnement ne se croisent pas sur le verrou
+            # consultatif, qui porte sur l'origine : la lecture ci-dessus les a vues libres
+            # toutes les deux, et c'est la base qui tranche. Le refus est le MÊME que
+            # celui de la lecture — une course ne doit pas produire un autre message.
+            raise EnvironmentAlreadyPairedError(
+                f"{origine} vise un environnement qu'un autre appariement vient de prendre"
+            ) from exc
         log.info(
             "appariement_confirme",
             base_url=origine,
             peer_key_fingerprint=fingerprint(pair.public_key),
             own_key_fingerprint=fingerprint(identite.public_key),
+            environment_slug=pair.environment.slug if pair.environment else None,
         )
         return ConfirmedPairing(propre_origine, identite.public_key, identite.algorithm)
 
@@ -323,7 +363,13 @@ class PairingService:
             rangee = await db_get_request(conn, base_url)
         if rangee is None:
             raise RequestNotFoundError(f"aucune demande en attente pour {base_url}")
-        _, scelle = rangee
+        demande, scelle = rangee
+        # Révéler le code EST le geste d'acceptation (ticket ce66f5bb) : la garde est donc
+        # ICI, et pas seulement sur le bouton. Un écran qui cacherait le bouton tout en
+        # laissant la route répondre livrerait l'appariement à qui connaît l'URL, et
+        # l'appariement se conclurait sans que personne ait dit à quel environnement il
+        # appartient. C'est le seul endroit où la règle du ticket bf2115cd est tenue.
+        self._designated_or_refuse(demande)
         secret = self.cipher.open(base_url, scelle).reveal()
         return PairingCode(base_url, totp_code(secret, maintenant), seconds_remaining(maintenant))
 
@@ -351,6 +397,145 @@ class PairingService:
         if pair is None:
             raise PeerNotFoundError(f"aucun environnement apparié sous {base_url}")
         return pair
+
+    async def resolve_designate_environment(
+        self, author: EventAuthor, base_url: str, environment_id: UUID
+    ) -> PairingRequest:
+        """Désigne l'environnement d'une demande en attente. Libre tant qu'elle l'est.
+
+        Changer d'avis est permis : une désignation qui se verrouillerait au premier clic
+        obligerait à refuser la demande pour corriger une erreur de liste déroulante. Ce
+        qui ne se change plus, c'est l'environnement d'un appariement CONCLU — le
+        déplacer emporterait ses devices sans le dire.
+        """
+        async with self.pool.acquire() as conn:
+            pair = await db_get_peer(conn, base_url)
+            if pair is not None and pair.environment is not None:
+                # La stack est déjà appariée et rattachée : sa nouvelle demande ne sert
+                # qu'à tourner ses clés, et elle a hérité de l'environnement à l'ouverture.
+                raise PairingSettledError(
+                    f"{base_url} est apparié à {pair.environment.slug} ; révoquer d'abord"
+                )
+            await self._refuse_if_taken(conn, base_url, environment_id)
+            try:
+                async with conn.transaction():
+                    demande = await db_designate_request_environment(conn, base_url, environment_id)
+                    if demande is None or demande.environment is None:
+                        raise RequestNotFoundError(f"aucune demande en attente pour {base_url}")
+                    await self._write_environment_event(
+                        conn,
+                        ENVIRONMENT_DESIGNATED_EVENT,
+                        REQUEST_OBJECT_KIND,
+                        demande.environment,
+                        base_url,
+                        author,
+                    )
+            except asyncpg.ForeignKeyViolationError as exc:
+                # L'environnement a disparu du référentiel entre l'affichage de la liste
+                # et le clic. La clé étrangère tient la garde : une lecture préalable
+                # laisserait passer la suppression survenue entre elle et l'écriture.
+                raise EnvironmentUnknownError(f"aucun environnement sous {environment_id}") from exc
+        log.info(
+            "environnement_designe",
+            base_url=base_url,
+            environment_id=str(environment_id),
+            environment_slug=demande.environment.slug,
+        )
+        return demande
+
+    async def resolve_attach_environment(
+        self, author: EventAuthor, base_url: str, environment_id: UUID
+    ) -> EnvironmentPeer:
+        """Rattache un appariement HÉRITÉ, conclu avant que la désignation n'existe.
+
+        Sans toucher aux clés ni refaire l'appariement : c'est le rattrapage d'un état
+        transitoire, pas un nouvel appariement. Un appariement qui porte DÉJÀ un
+        environnement n'est pas concerné — l'en changer est une révocation suivie d'un
+        réappariement, et ce service ne sait pas le faire autrement.
+        """
+        async with self.pool.acquire() as conn:
+            pair = await db_get_peer(conn, base_url)
+            if pair is None:
+                raise PeerNotFoundError(f"aucun environnement apparié sous {base_url}")
+            if pair.environment is not None:
+                raise PairingSettledError(f"{base_url} est déjà rattaché à {pair.environment.slug}")
+            await self._refuse_if_taken(conn, base_url, environment_id)
+            try:
+                async with conn.transaction():
+                    rattache = await db_attach_peer_environment(
+                        conn, base_url, environment_id, self.now()
+                    )
+                    if rattache is None or rattache.environment is None:
+                        # La lecture l'a vu libre, un autre onglet l'a rattaché entre-temps.
+                        raise PairingSettledError(f"{base_url} vient d'être rattaché ailleurs")
+                    await self._write_environment_event(
+                        conn,
+                        ENVIRONMENT_ATTACHED_EVENT,
+                        PEER_OBJECT_KIND,
+                        rattache.environment,
+                        base_url,
+                        author,
+                    )
+            except asyncpg.ForeignKeyViolationError as exc:
+                raise EnvironmentUnknownError(f"aucun environnement sous {environment_id}") from exc
+            except asyncpg.UniqueViolationError as exc:
+                raise EnvironmentAlreadyPairedError(
+                    f"{environment_id} vient d'être pris par un autre appariement"
+                ) from exc
+        log.info(
+            "appariement_rattache",
+            base_url=base_url,
+            environment_id=str(environment_id),
+            environment_slug=rattache.environment.slug,
+        )
+        return rattache
+
+    async def _refuse_if_taken(self, conn: Any, base_url: str, environment_id: UUID) -> None:
+        """Refuse un environnement que porte DÉJÀ un autre appariement.
+
+        « Un autre » et non « un » : la même origine qui se redésigne son propre
+        environnement n'est pas une collision, c'est un clic sans effet. Cette lecture ne
+        tient pas la garde pour de bon — la contrainte d'unicité de la base la tient —,
+        elle la nomme pendant que l'humain est encore devant son écran.
+        """
+        porteur = await db_get_peer_base_url_by_environment(conn, environment_id)
+        if porteur is not None and porteur != base_url:
+            raise EnvironmentAlreadyPairedError(f"{environment_id} est apparié à {porteur}")
+
+    def _designated_or_refuse(self, demande: PairingRequest) -> EnvironmentRef:
+        if demande.environment is None:
+            raise EnvironmentNotDesignatedError(
+                f"aucun environnement désigné pour {demande.base_url}"
+            )
+        return demande.environment
+
+    async def _write_environment_event(
+        self,
+        conn: Any,
+        event_type: str,
+        object_kind: str,
+        environnement: EnvironmentRef,
+        base_url: str,
+        author: EventAuthor,
+    ) -> None:
+        """Le slug et le libellé entrent dans l'event EN PLUS de l'identifiant.
+
+        L'identifiant seul suffirait à retrouver l'environnement aujourd'hui ; il ne
+        suffirait pas à relire le journal dans un an, où l'on cherche sous le nom qu'on
+        employait à l'époque. Les deux sont renommables, c'est l'identifiant qui fait foi.
+        """
+        await self.module.write_event(
+            conn,
+            event_type,
+            object_kind,
+            base_url,
+            {
+                "environment_id": str(environnement.id),
+                "environment_slug": environnement.slug,
+                "environment_label": environnement.label,
+            },
+            author=author,
+        )
 
     def _own_origin(self) -> str:
         if self.origin is None:

@@ -64,6 +64,18 @@ class EnvironmentPairedError(EnvironmentError):
     """
 
 
+class EnvironmentDesignatedError(EnvironmentError):
+    """Une demande d'appariement EN ATTENTE le désigne : il ne se supprime pas encore.
+
+    Distinct de l'appariement conclu, et les deux gestes n'ont rien de commun : ici il
+    suffit de refuser la demande, ou d'en désigner un autre — là il faut révoquer. Fondre
+    les deux refus ferait chercher une révocation qui n'existe pas.
+
+    Pourquoi refuser plutôt que d'effacer la désignation : l'humain qui l'a posée verrait
+    son code cesser d'être révélable sans qu'aucun écran ne dise pourquoi.
+    """
+
+
 @dataclass(frozen=True)
 class Environment:
     """Un environnement du référentiel : ce qui se lit, ce qui s'écrit, et son état."""
@@ -77,6 +89,10 @@ class Environment:
     # Un environnement déclaré et pas encore apparié est l'état normal du premier jour,
     # pas une anomalie : c'est pour cela que ce champ ne porte pas de booléen « en erreur ».
     paired_base_url: str | None
+    # L'origine d'une demande EN ATTENTE qui l'a désigné, s'il y en a une. Elle ne
+    # consomme pas l'environnement — une demande refusée ou expirée le laisse libre —
+    # mais elle retient sa suppression, et l'écran doit pouvoir dire laquelle.
+    designated_base_url: str | None
 
 
 def validate_label(raw: str) -> str:

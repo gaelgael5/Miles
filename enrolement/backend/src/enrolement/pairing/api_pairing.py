@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -17,9 +18,14 @@ from miles_socle.signing.peers import validate_base_url as _validate_base_url
 from pydantic import BaseModel, ConfigDict
 
 from enrolement.pairing.model import (
+    EnvironmentAlreadyPairedError,
+    EnvironmentNotDesignatedError,
     EnvironmentPeer,
+    EnvironmentRef,
+    EnvironmentUnknownError,
     PairingCode,
     PairingRequest,
+    PairingSettledError,
     PeerNotFoundError,
     RequestNotFoundError,
 )
@@ -42,6 +48,27 @@ class IdentityOut(BaseModel):
     created_at: datetime
 
 
+class EnvironmentRefOut(BaseModel):
+    """L'environnement du référentiel, juste de quoi le nommer à l'écran.
+
+    L'identifiant est STABLE, le slug et le libellé sont renommables : l'écran affiche les
+    seconds et renvoie le premier. Volontairement plus étroit que la forme du référentiel,
+    qui porte en plus l'origine appariée — ici, ce serait l'appariement qui la porte.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    slug: str
+    label: str
+
+
+class EnvironmentDesignationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    environment_id: UUID
+
+
 class RequestOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -57,6 +84,10 @@ class RequestOut(BaseModel):
     algorithm: str
     created_at: datetime
     expires_at: datetime
+    # L'environnement DÉSIGNÉ par un humain authentifié. Nul tant que personne n'a choisi,
+    # et c'est alors le code qui n'est pas révélable. Ne pas le confondre avec `name`
+    # ci-dessus : l'un vient d'un inconnu et aide à reconnaître, l'autre désigne.
+    environment: EnvironmentRefOut | None
 
 
 class CodeOut(BaseModel):
@@ -89,11 +120,23 @@ class PeerOut(BaseModel):
     algorithm: str
     created_at: datetime
     updated_at: datetime
+    # Nul UNIQUEMENT pour les appariements hérités, conclus avant que la désignation
+    # n'existe : l'écran les signale « à rattacher ». Aucun appariement neuf ne peut plus
+    # se conclure sans — c'est un état transitoire hérité, pas un état admis.
+    environment: EnvironmentRefOut | None
 
 
 def _service(request: Request) -> PairingService:
     service: PairingService = request.app.state.pairing
     return service
+
+
+def _environment_out(environnement: EnvironmentRef | None) -> EnvironmentRefOut | None:
+    if environnement is None:
+        return None
+    return EnvironmentRefOut(
+        id=environnement.id, slug=environnement.slug, label=environnement.label
+    )
 
 
 def _request_out(demande: PairingRequest) -> RequestOut:
@@ -104,6 +147,7 @@ def _request_out(demande: PairingRequest) -> RequestOut:
         algorithm=demande.algorithm,
         created_at=demande.created_at,
         expires_at=demande.expires_at,
+        environment=_environment_out(demande.environment),
     )
 
 
@@ -117,6 +161,7 @@ def _peer_out(pair: EnvironmentPeer) -> PeerOut:
         algorithm=pair.algorithm,
         created_at=pair.created_at,
         updated_at=pair.updated_at,
+        environment=_environment_out(pair.environment),
     )
 
 
@@ -137,6 +182,30 @@ def _error(exc: IdentityError) -> JSONResponse:
     if isinstance(exc, IdentityInputError):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": exc.field}
+        )
+    if isinstance(exc, EnvironmentNotDesignatedError):
+        # 409 et non 403 : rien ne manque au droit de la personne, c'est l'état de la
+        # demande qui l'empêche. Le détail NOMME la cause — un bouton grisé muet fait
+        # chercher la panne du côté des clés ou du réseau (ticket bf2115cd, critère 1).
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT, content={"detail": "environnement_non_designe"}
+        )
+    if isinstance(exc, EnvironmentAlreadyPairedError):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT, content={"detail": "environnement_apparie"}
+        )
+    if isinstance(exc, PairingSettledError):
+        # Distinct du précédent, parce que les deux appellent des gestes différents :
+        # choisir un autre environnement, ou révoquer puis réapparier. Les fondre ferait
+        # chercher du côté de la liste déroulante.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT, content={"detail": "appariement_conclu"}
+        )
+    if isinstance(exc, EnvironmentUnknownError):
+        # 404 sur l'ENVIRONNEMENT, et le détail le dit : un « absent » générique se lirait
+        # « la demande a disparu », qui appelle un tout autre geste.
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND, content={"detail": "environnement_absent"}
         )
     if isinstance(exc, RequestNotFoundError | PeerNotFoundError):
         # 404 et non refus opaque : la personne est authentifiée et regarde son propre
@@ -208,6 +277,44 @@ async def delete_request(request: Request, base_url: str = BaseUrlQuery) -> Resp
     except IdentityError as exc:
         return _error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/requests/environment", response_model=RequestOut)
+async def put_request_environment(
+    request: Request, body: EnvironmentDesignationIn, base_url: str = BaseUrlQuery
+) -> RequestOut | JSONResponse:
+    """Désigne l'environnement auquel l'appariement sera rattaché.
+
+    Condition de l'acceptation, et non formalité qui la suit : révéler le code EST le
+    geste d'acceptation, et sans environnement désigné le code n'est pas révélable. Libre
+    de changer tant que l'appariement n'est pas conclu.
+    """
+    try:
+        demande = await _service(request).resolve_designate_environment(
+            request_author(request), _base_url(base_url), body.environment_id
+        )
+    except IdentityError as exc:
+        return _error(exc)
+    return _request_out(demande)
+
+
+@router.put("/peers/environment", response_model=PeerOut)
+async def put_peer_environment(
+    request: Request, body: EnvironmentDesignationIn, base_url: str = BaseUrlQuery
+) -> PeerOut | JSONResponse:
+    """Rattache un appariement HÉRITÉ, conclu avant que la désignation n'existe.
+
+    Sans toucher aux clés ni refaire l'appariement. Un appariement qui porte déjà un
+    environnement n'est pas concerné : en changer se fait par une révocation suivie d'un
+    réappariement, parce que le déplacer emporterait ses devices sans le dire.
+    """
+    try:
+        pair = await _service(request).resolve_attach_environment(
+            request_author(request), _base_url(base_url), body.environment_id
+        )
+    except IdentityError as exc:
+        return _error(exc)
+    return _peer_out(pair)
 
 
 @router.get("/peers", response_model=list[PeerOut])

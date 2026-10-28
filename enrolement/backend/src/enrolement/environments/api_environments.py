@@ -12,6 +12,7 @@ from enrolement.environments.model import (
     MAX_LABEL_LENGTH,
     MAX_SLUG_LENGTH,
     Environment,
+    EnvironmentDesignatedError,
     EnvironmentError,
     EnvironmentInputError,
     EnvironmentNotFoundError,
@@ -50,6 +51,10 @@ class EnvironmentOut(BaseModel):
     # L'origine de la stack appariée, nulle tant qu'aucune ne l'est. Nul n'est pas une
     # anomalie : un environnement déclaré et pas encore apparié est l'état du premier jour.
     paired_base_url: str | None
+    # L'origine d'une demande en attente qui l'a désigné. Elle ne le consomme pas, mais
+    # elle retient sa suppression : l'écran doit pouvoir dire laquelle, sans quoi « il est
+    # encore référencé » envoie chercher un appariement qui n'existe pas.
+    designated_base_url: str | None
 
 
 def _service(request: Request) -> EnvironmentService:
@@ -65,6 +70,7 @@ def _out(environnement: Environment) -> EnvironmentOut:
         created_at=environnement.created_at,
         updated_at=environnement.updated_at,
         paired_base_url=environnement.paired_base_url,
+        designated_base_url=environnement.designated_base_url,
     )
 
 
@@ -81,6 +87,13 @@ def _error(exc: EnvironmentError) -> JSONResponse:
     if isinstance(exc, EnvironmentPairedError):
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT, content={"detail": "environnement_apparie"}
+        )
+    if isinstance(exc, EnvironmentDesignatedError):
+        # Même code que l'appariement, détail différent : refuser la demande ou en
+        # désigner un autre n'est pas révoquer, et un message unique ferait chercher une
+        # révocation qui n'a pas lieu d'être.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT, content={"detail": "environnement_designe"}
         )
     if isinstance(exc, EnvironmentNotFoundError):
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "absent"})
