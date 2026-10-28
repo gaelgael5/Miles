@@ -238,22 +238,17 @@ class PairingService:
                         "code_d_appariement_hors_fenetre", base_url=origine, offset_windows=decalage
                     )
                     raise PairingClockSkewError(decalage, STEP_S)
-                # AVANT de brûler le code, et c'est tout l'enjeu de l'ordre : un refus qui
-                # suivrait la suppression laisserait l'environnement sans demande ET sans
-                # appariement, obligé de refrapper pour obtenir un code qu'un humain devrait
-                # à nouveau révéler, sans rien qui dise pourquoi.
+                # Fail closed, et c'est l'interdit central du ticket bf2115cd : aucun
+                # appariement neuf ne se conclut sans environnement. Ne devrait jamais
+                # mordre ici — le code n'est pas révélable sans désignation — mais la
+                # garde est à l'ÉCRITURE, pas seulement à l'écran.
                 environnement = self._designated_or_refuse(demande)
-                porteur = await db_get_peer_base_url_by_environment(conn, environnement.id)
-                if porteur is not None and porteur != origine:
-                    # Deux demandes visaient le même environnement et l'autre a conclu la
-                    # première. On refuse en le DISANT plutôt que d'écraser : l'appariement
-                    # écrasé continuerait de servir des devices que plus personne ne lui
-                    # enverrait. L'unicité pour de bon est tenue par la contrainte de la base,
-                    # rattrapée plus bas — celle-ci nomme le refus pendant qu'il est encore
-                    # rattrapable.
-                    raise EnvironmentAlreadyPairedError(
-                        f"{environnement.slug} porte déjà l'appariement de {porteur}"
-                    )
+                # Pas de lecture de « qui porte déjà cet environnement » avant d'écrire.
+                # MESURÉ le 28/10/2026 : elle ne change RIEN. Une violation de contrainte
+                # avorte la transaction entière, donc la suppression de la demande est
+                # défaite avec le reste — le code n'est pas brûlé, que le refus vienne
+                # d'une lecture préalable ou de la base. La garde est la contrainte
+                # `environment_peer_environment_unique`, et elle seule.
                 if not await db_delete_request(conn, origine):  # pragma: no cover - verrou tenu
                     # Le code est BRÛLÉ par cette suppression, et c'est elle qui rend l'usage
                     # unique : sans ligne retirée, un autre appel est passé avant nous.
