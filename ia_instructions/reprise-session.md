@@ -127,6 +127,40 @@ Livré dans `portail/` les 24-27/10, tout vert sur test1 :
 - **Bouton de version grisé** quand il n'y a rien à figer, sur la réponse du serveur
   (`versions/freezable`) et non sur une règle recopiée.
 
+## Et la désignation de l'environnement (28/10, ticket `bf2115cd`)
+
+Ce qui relie les deux moitiés : une stack qui frappe, et un environnement du référentiel.
+
+- **Révéler le code EST le geste d'acceptation** (décidé au ticket `ce66f5bb`). Désigner
+  l'environnement en devient donc une CONDITION de l'acceptation, pas une formalité qui
+  la suit. Sans désignation, la route du code rend 409 `environnement_non_designe`, et
+  l'écran écrit pourquoi — un bouton grisé muet fait chercher la panne ailleurs.
+- La désignation vit sur la **demande** (`pairing_request.environment_id`), pas seulement
+  sur l'appariement : elle doit exister avant que l'appariement ne soit conclu.
+- Elle est **héritée** de l'appariement déjà conclu sous la même origine, au moment où la
+  demande s'ouvre. Une seule ligne de SQL, et elle fait tenir deux règles sans cas
+  particulier ailleurs : une stack qui refrappe ne fait pas perdre le choix à l'humain, et
+  une stack qui tourne ses clés réapparie le MÊME environnement. Déplacer un appariement
+  conclu reste inexprimable — ce geste s'appelle révoquer puis réapparier.
+- **Pas d'UNIQUE sur la demande**, à la différence de l'appariement : deux demandes
+  peuvent viser le même environnement, parce qu'aucune ne le CONSOMME tant qu'elle n'est
+  pas conclue (refusée ou expirée, elle le libère). La course se tranche à la
+  confirmation, et le refus arrive AVANT que le code ne soit brûlé — un code brûlé sur un
+  refus obligerait l'environnement à refrapper pour un code qu'il ne pourrait plus faire
+  accepter.
+- Ce refus-là est **dit** à l'environnement (409 `environnement_indisponible`), par
+  exception à l'opacité des refus d'appariement — même raison que la dérive d'horloge :
+  on ne l'atteint qu'après avoir passé la signature ET présenté un code valide.
+- Le **raccourci de création** depuis l'écran d'appariement emploie le MÊME formulaire que
+  le référentiel, et rattache la demande aussitôt. Un environnement créé puis laissé non
+  désigné ferait croire le geste terminé.
+- Les **appariements hérités** (sans environnement) sont signalés « à rattacher » et se
+  rattachent sans toucher aux clés. Le rattachement n'est possible qu'une fois :
+  `WHERE environment_id IS NULL` rend le déplacement inexprimable en SQL.
+- Le référentiel refuse désormais de **supprimer un environnement désigné** par une
+  demande en attente (409 `environnement_designe`, distinct de `environnement_apparie` :
+  les deux appellent des gestes différents).
+
 ## Ce qui vient d'être livré — le socle partagé
 
 **Ticket `5695664d`, en revue.** Le socle technique est sorti du portail et vit dans
@@ -286,9 +320,6 @@ Les campagnes repartent.
   dépôt mutuel des clés publiques — plus le côté enrôlement de la route de pair.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
-- `bf2115cd` — **désigner l'environnement d'une demande d'appariement** avant d'en
-  révéler le code. Son prérequis (`2ea50d40`) est livré. Il ferme l'état « apparié sans
-  environnement », que l'appariement vivant de test1 porte aujourd'hui.
 - `d5ffeb33` — **révoquer l'appariement d'un environnement**. Éligible. Ses critères 2, 3
   et 5 portent sur des devices et ne pourront être éprouvés qu'au ticket du parc : son
   corps le dit, et il faudra le redire en livrant.
