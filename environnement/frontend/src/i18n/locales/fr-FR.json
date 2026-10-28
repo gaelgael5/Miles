@@ -1,0 +1,14 @@
+{
+  "app": {
+    "sub": "Module d'environnement",
+    "nav": {
+      "cultures": "Cultures",
+      "secrets": "Secrets",
+      "oidc": "Connecteurs OIDC",
+      "health": "État du service"
+    },
+    "sections": {
+      "global": "Global"
+    }
+  }
+}
