@@ -4,7 +4,27 @@ import json
 import re
 
 import structlog
+
 from miles_socle.events.model import EventAuthor
+from miles_socle.pairing.events import (
+    ATTEMPT_OBJECT_KIND,
+    PAIRING_CANCELLED_EVENT,
+    PAIRING_REQUESTED_EVENT,
+    PEER_OBJECT_KIND,
+    PEER_REGISTERED_EVENT,
+)
+from miles_socle.pairing.model import (
+    EnrolmentPeer,
+    PairingAttempt,
+    PairingAttemptMissingError,
+)
+from miles_socle.pairing.peer_calls import RequesterPeerCalls, peer_expires_at
+from miles_socle.pairing.store import (
+    db_delete_attempt,
+    db_get_attempt,
+    db_upsert_attempt,
+    db_upsert_peer,
+)
 from miles_socle.signing.identity_model import SINGLETON
 from miles_socle.signing.keys import fingerprint
 from miles_socle.signing.peers import (
@@ -15,26 +35,6 @@ from miles_socle.signing.peers import (
 )
 from miles_socle.signing.protocol import PAIRING_CONFIRM_PATH, PAIRING_REQUEST_PATH
 
-from environnement.identity.events import (
-    ATTEMPT_OBJECT_KIND,
-    PAIRING_CANCELLED_EVENT,
-    PAIRING_REQUESTED_EVENT,
-    PEER_OBJECT_KIND,
-    PEER_REGISTERED_EVENT,
-)
-from environnement.identity.model import (
-    EnrolmentPeer,
-    PairingAttempt,
-    PairingAttemptMissingError,
-)
-from environnement.identity.peer_calls import IdentityPeerCalls, peer_expires_at
-from environnement.identity.store import (
-    db_delete_attempt,
-    db_get_attempt,
-    db_upsert_attempt,
-    db_upsert_peer,
-)
-
 log = structlog.get_logger(__name__)
 
 # Le code recopié par l'humain : six chiffres, et rien d'autre. Validé AVANT de partir sur
@@ -43,13 +43,13 @@ log = structlog.get_logger(__name__)
 _CODE_RE = re.compile(r"^[0-9]{6}$")
 
 
-class IdentityPairingFlow(IdentityPeerCalls):
+class RequesterPairingFlow(RequesterPeerCalls):
     """Les GESTES de l'appariement vus de ce module : frapper, coller le code, annuler.
 
     Séparé des appels sortants ordinaires parce qu'ici chaque geste écrit — une tentative,
     un pair, un event — et qu'un appel sortant qui échoue à mi-chemin doit laisser la base
     dans un état qu'un humain puisse reprendre. Le CONSTAT de l'état, lui, est dans
-    `pairing_status.py` : on agit d'un côté, on observe de l'autre.
+    `status.py` : on agit d'un côté, on observe de l'autre.
     """
 
     async def resolve_attempt(self) -> PairingAttempt:
@@ -70,6 +70,11 @@ class IdentityPairingFlow(IdentityPeerCalls):
         la privée de la publique déposée. Sans quoi n'importe qui déposerait la clé d'un
         autre sous une origine qu'il ne contrôle pas.
 
+        L'ESPÈCE part avec, et elle ne vient pas de la saisie : elle est ce que ce module
+        EST, pas ce qu'un administrateur en dit. Elle permet à l'humain de l'autre bout de
+        lire ce qu'il accepte — un environnement et un module de paramétrage n'ont pas les
+        mêmes conséquences — et elle n'autorise rien par elle-même.
+
         Aucune clé privée ne figure dans ce corps, et il n'en existe aucun champ.
         """
         base_url = validate_base_url(enrolment_base_url)
@@ -77,7 +82,9 @@ class IdentityPairingFlow(IdentityPeerCalls):
         # ferait porter au pair la validation d'une entrée qui est la nôtre.
         name = validate_declared_name(name)
         identite = await self.resolve_identity()
-        corps = json.dumps({"public_key": identite.public_key, "name": name}).encode("utf-8")
+        corps = json.dumps(
+            {"public_key": identite.public_key, "name": name, "species": self.species}
+        ).encode("utf-8")
         reponse = await self.post_signed(base_url, PAIRING_REQUEST_PATH, corps)
         if reponse.status_code != 202:
             self._refuse_peer(reponse, base_url)
@@ -93,6 +100,10 @@ class IdentityPairingFlow(IdentityPeerCalls):
                 {
                     "base_url": base_url,
                     "declared_name": name,
+                    # Au journal parce que c'est ce qu'on a DÉCLARÉ être : le jour où un
+                    # appariement n'a pas les droits attendus, la première question est
+                    # « sous quelle espèce avions-nous frappé ? ».
+                    "species": self.species,
                     "public_key_fingerprint": fingerprint(identite.public_key),
                 },
                 author=author,

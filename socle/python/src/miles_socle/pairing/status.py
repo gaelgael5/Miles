@@ -4,26 +4,26 @@ from dataclasses import replace
 
 import httpx
 import structlog
-from miles_socle.signing.identity_model import OriginMissingError
-from miles_socle.signing.protocol import PAIRING_STATUS_PATH, PING_BODY
 
-from environnement.identity.model import PairingState
-from environnement.identity.peer_calls import (
-    IdentityPeerCalls,
+from miles_socle.pairing.model import PairingState
+from miles_socle.pairing.peer_calls import (
+    RequesterPeerCalls,
     demande_disparue,
     peer_detail,
 )
-from environnement.identity.store import (
+from miles_socle.pairing.store import (
     db_clear_peer_revoked,
     db_get_attempt,
     db_get_peer,
     db_mark_peer_revoked,
 )
+from miles_socle.signing.identity_model import OriginMissingError
+from miles_socle.signing.protocol import PAIRING_STATUS_PATH, PING_BODY
 
 log = structlog.get_logger(__name__)
 
 
-class IdentityPairingStatus(IdentityPeerCalls):
+class RequesterPairingStatus(RequesterPeerCalls):
     """OÙ EN EST l'appariement, et ce qu'on retient de ce que le pair nous pousse.
 
     Séparé des gestes de l'appariement — frapper, coller le code, annuler — parce que ce

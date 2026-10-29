@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 import structlog
+from miles_socle.pairing.peer_calls import RequesterPeerCalls, peer_detail
 from miles_socle.signing.identity_model import OriginMissingError
 from miles_socle.signing.protocol import (
     ENVIRONMENT_BODY,
@@ -11,7 +12,6 @@ from miles_socle.signing.protocol import (
 from pydantic import ValidationError
 
 from environnement.identity.model import AssignedEnvironmentView
-from environnement.identity.peer_calls import IdentityPeerCalls, peer_detail
 from environnement.identity.store import (
     db_clear_assigned_environment,
     db_get_assigned_environment,
@@ -21,7 +21,7 @@ from environnement.identity.store import (
 log = structlog.get_logger(__name__)
 
 
-class IdentityAssignedEnvironment(IdentityPeerCalls):
+class IdentityAssignedEnvironment(RequesterPeerCalls):
     """À quel environnement du référentiel l'enrôlement nous a rattachés.
 
     Ce module ne CHOISIT pas son environnement et ne doit jamais pouvoir le faire : la

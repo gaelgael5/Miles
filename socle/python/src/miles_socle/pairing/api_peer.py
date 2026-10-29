@@ -2,14 +2,18 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
+
+from miles_socle.pairing.service import PairingRequesterService
 from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, CallSignatureError
 from miles_socle.signing.keys import fingerprint
 from miles_socle.signing.peers import IdentityError
 from miles_socle.signing.protocol import PAIRING_REVOKED_PATH, PEER_PING_PATH, PongOut
 
-from environnement.identity.service import IdentityService
-
-MODULE = "environnement"
+# Le service du demandeur est posé par le produit sous `app.state.identity`, et les deux
+# le posent sous ce nom-là. C'est la convention de ce socle, et elle est écrite ici parce
+# que c'est le seul endroit où elle est LUE : un produit qui la changerait verrait ses
+# routes de pair tomber au premier appel, sans que rien d'autre ne bouge.
+#
 # Routeur à part, et c'est tout l'intérêt : `app.py` lit SES chemins pour les déclarer au
 # portillon d'authentification. Le chemin ouvert et la route qui vérifie la signature
 # viennent ainsi de la même déclaration — un chemin ouvert sans sa vérification n'est plus
@@ -30,7 +34,7 @@ async def post_peer_ping(request: Request) -> PongOut | JSONResponse:
     par n'importe quel intermédiaire, et une réponse servie d'un cache dirait que
     l'appariement est vivant alors qu'il ne l'est plus.
     """
-    service: IdentityService = request.app.state.identity
+    service: PairingRequesterService = request.app.state.identity
     # Le corps est lu AVANT la vérification parce qu'il entre dans ce qui est signé.
     # Il n'est pas interprété pour autant : seule son empreinte est employée ici.
     body = await request.body()
@@ -51,7 +55,10 @@ async def post_peer_ping(request: Request) -> PongOut | JSONResponse:
             status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "signature_refusee"}
         )
     return PongOut(
-        module=MODULE,
+        # Le nom que CE produit se donne. Porté par le service plutôt que figé ici : ce
+        # fichier sert les deux demandeurs, et un nom en dur y ferait répondre
+        # « environnement » au module de paramétrage.
+        module=service.module_name,
         origin=service.origin,
         verified_key_fingerprint=fingerprint(peer.public_key),
         own_key_fingerprint=fingerprint(identity.public_key),
@@ -75,7 +82,7 @@ async def post_pairing_revoked(request: Request) -> Response:
     204 : rien à rendre. Ce que l'avis change est chez nous, et l'appelant n'en attend
     aucune donnée — il ne doit surtout pas attendre non plus que nous soyons debout.
     """
-    service: IdentityService = request.app.state.identity
+    service: PairingRequesterService = request.app.state.identity
     # Lu AVANT la vérification parce qu'il entre dans ce qui est signé ; jamais interprété.
     body = await request.body()
     try:

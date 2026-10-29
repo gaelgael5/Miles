@@ -51,6 +51,26 @@ class PongOut(BaseModel):
     own_key_fingerprint: str
 
 
+# L'ESPÈCE du demandeur, déclarée en frappant (ticket ba44914b). Deux espèces aujourd'hui,
+# et accepter l'une ou l'autre n'a pas les mêmes conséquences : un environnement reçoit des
+# devices, le module de paramétrage se fait confier des connexions git. C'est pour cela
+# qu'elle VOYAGE, au lieu d'être devinée du nom déclaré ou de l'URL.
+#
+# ELLE EST DÉCLARÉE, DONC ELLE N'AUTORISE RIEN. Comme le nom déclaré, elle vient d'un tiers
+# que personne n'a encore authentifié : ce qu'elle fait, c'est permettre à l'humain de
+# l'enrôlement de lire ce qu'il s'apprête à accepter. L'autorisation, c'est son geste à
+# lui — révéler le code —, et la conséquence de l'espèce (recevoir des devices, se voir
+# confier des secrets git) est appliquée APRÈS, à partir de l'espèce enregistrée. Un
+# demandeur qui mentirait sur son espèce obtiendrait donc exactement ce qu'un humain aura
+# accepté de donner à cette URL-là, sous ce nom-là, après l'avoir lu.
+PeerSpecies = Literal["environnement", "parametrage"]
+# Ce que signifie l'ABSENCE du champ : un demandeur d'avant l'espèce, donc un
+# environnement — c'était la seule espèce qui existât. Ce n'est pas un repli de confort,
+# c'est la lecture exacte d'une demande ouverte avant le 29/10/2026, et c'est ce qui
+# évite de rompre le contrat pour un champ ajouté.
+DEFAULT_PEER_SPECIES: PeerSpecies = "environnement"
+
+
 class PairingRequestIn(BaseModel):
     """Ce que l'environnement dépose en frappant : sa clé publique et son nom déclaré.
 
@@ -76,6 +96,10 @@ class PairingRequestIn(BaseModel):
     # ferait refuser une saisie de 81 caractères sur « corps invalide », message qui
     # n'apprend rien à qui doit corriger sa saisie.
     name: str = Field(max_length=MAX_DECLARED_NAME_LENGTH * 4)
+    # Absente, elle vaut « environnement » : voir `DEFAULT_PEER_SPECIES`. Facultative
+    # plutôt qu'obligatoire parce qu'un champ ajouté ne doit pas faire refuser en 422 une
+    # demande que le module d'enrôlement sait parfaitement lire.
+    species: PeerSpecies = DEFAULT_PEER_SPECIES
 
 
 class PairingRequestOut(BaseModel):

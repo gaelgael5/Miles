@@ -22,14 +22,15 @@ from miles_socle.health.api_health import router as health_router
 from miles_socle.log_config import configure_logging
 from miles_socle.oidc.api_connectors import router as oidc_connectors_router
 from miles_socle.oidc.api_login import router as oidc_login_router
+from miles_socle.pairing.api_admin import router as pairing_router
+from miles_socle.pairing.api_peer import router as peer_router
 from miles_socle.secrets.api_secrets import router as secrets_router
 from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
 
 from environnement.config import Settings
 from environnement.event_types import code_event_types
-from environnement.identity.api_identity import router as identity_router
-from environnement.identity.api_peer import router as peer_router
+from environnement.identity.api_identity import router as environment_router
 from environnement.identity.service import IdentityService
 
 log = structlog.get_logger(__name__)
@@ -124,7 +125,11 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(oidc_connectors_router)
     app.include_router(oidc_login_router)
     app.include_router(preferences_router)
-    app.include_router(identity_router)
+    # L'appariement vu du demandeur vient du socle ; ce produit n'ajoute que la lecture de
+    # l'environnement que l'enrôlement lui assigne. Les deux routeurs portent le même
+    # préfixe, et c'est voulu : il nomme ce que les routes servent, pas qui les porte.
+    app.include_router(pairing_router)
+    app.include_router(environment_router)
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée :
     # un chemin ouvert à côté de sa vérification serait ouvert à tous, et c'est

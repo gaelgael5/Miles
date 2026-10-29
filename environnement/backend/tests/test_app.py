@@ -15,12 +15,12 @@ from miles_socle.auth.sessions import SESSION_COOKIE
 from miles_socle.auth.throttle import LoginThrottle
 from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.probe import HealthReport
+from miles_socle.pairing.api_peer import router as peer_router
 from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER
 from miles_socle.signing.protocol import PAIRING_REVOKED_PATH
 
 from environnement.app import build_app
 from environnement.event_types import code_event_types
-from environnement.identity.api_peer import router as peer_router
 from environnement.identity.service import PEER_PING_PATH, IdentityService
 
 

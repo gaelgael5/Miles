@@ -7,12 +7,9 @@ from typing import NoReturn
 
 import httpx
 import structlog
-from miles_socle.signing.calls import post_signed
-from miles_socle.signing.identity_model import OriginMissingError
-from miles_socle.signing.protocol import PEER_PING_PATH, PING_BODY
 
-from environnement.identity.base import IdentityBase
-from environnement.identity.model import (
+from miles_socle.pairing.base import RequesterBase
+from miles_socle.pairing.model import (
     EnrolmentPeer,
     PairingRefusedByPeerError,
     PairingStateName,
@@ -20,6 +17,9 @@ from environnement.identity.model import (
     PeerRefusedError,
     PeerUnexpectedResponseError,
 )
+from miles_socle.signing.calls import post_signed
+from miles_socle.signing.identity_model import OriginMissingError
+from miles_socle.signing.protocol import PEER_PING_PATH, PING_BODY
 
 log = structlog.get_logger(__name__)
 
@@ -59,7 +59,7 @@ class PeerPong:
     own_key_fingerprint: str
 
 
-class IdentityPeerCalls(IdentityBase):
+class RequesterPeerCalls(RequesterBase):
     """Ce que ce module ENVOIE au pair, et comment il lit ce qui revient.
 
     Rassemblé ici parce que lire la réponse d'un autre service est un exercice à part : on
