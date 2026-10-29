@@ -240,5 +240,69 @@
     "done": "Copié",
     "failed": "Copie impossible",
     "failedHelp": "Le navigateur a refusé la copie : sélectionnez le texte et copiez-le à la main."
+  },
+  "peering": {
+    "title": "Appariement au module d'enrôlement",
+    "lead": "Cet environnement n'est apparié qu'à un seul module d'enrôlement, qui est l'autorité unique sur l'affectation de ses devices.",
+    "loading": "Chargement…",
+    "current": "État de l'appariement",
+    "unreachable": "Le module d'enrôlement ne répond pas pour l'instant. La demande n'est ni refusée ni perdue : elle reste en attente, et cet écran se remettra à jour tout seul.",
+    "states": {
+      "non_apparie": "Non apparié",
+      "en_attente": "Demande envoyée, en attente d'acceptation",
+      "apparie": "Apparié",
+      "refusee": "Demande refusée",
+      "expiree": "Demande expirée",
+      "pair_injoignable": "Module d'enrôlement injoignable",
+      "refuse_par_le_pair": "Appariement refusé par le module d'enrôlement",
+      "revoque": "Accès révoqué par le module d'enrôlement"
+    },
+    "refusedByPeer": "Le module d'enrôlement n'accepte plus nos appels signés. Les informations ci-dessus sont celles du dernier appariement connu : demandez un nouvel appariement pour en établir un autre.",
+    "revoked": "L'administrateur du module d'enrôlement a révoqué cet accès, et nous l'a notifié le {{date}}. Cet appariement ne sert plus. Les informations ci-dessus sont celles du dernier appariement connu : demandez un nouvel appariement pour en établir un autre.",
+    "outcome": {
+      "refusee": "Un administrateur du module d'enrôlement a refusé la demande. Il est possible d'en envoyer une nouvelle.",
+      "expiree": "La demande a expiré sans réponse. Il est possible d'en envoyer une nouvelle."
+    },
+    "form": {
+      "title": "Demander l'appariement",
+      "titleAgain": "Changer de module d'enrôlement",
+      "baseUrl": "URL du module d'enrôlement",
+      "baseUrlHelp": "Adresse http(s) sans chemin, par exemple https://enrolement.exemple.org",
+      "name": "Nom de cet environnement",
+      "nameHelp": "Il servira à ce qu'un administrateur, à l'autre bout, reconnaisse la demande qu'il accepte. Il n'identifie rien : c'est l'URL qui fait foi.",
+      "submit": "Envoyer la demande",
+      "submitAgain": "Remplacer l'appariement"
+    },
+    "pending": {
+      "title": "Coller le code d'appariement",
+      "where": "Le code s'affiche sur l'écran « Appariement » de {{url}}, auprès de la demande portant l'URL de cet environnement. Il se renouvelle toutes les trente secondes.",
+      "codeLabel": "Code à six chiffres",
+      "codeHelp": "Les espaces et les retours à la ligne sont retirés automatiquement.",
+      "submit": "Valider le code",
+      "cancel": "Abandonner la demande"
+    },
+    "paired": {
+      "captionContact": "Joint à l'adresse",
+      "contactHelp": "Le module d'enrôlement se nomme sous l'adresse ci-dessus, mais nous le joignons ici. L'adresse composée n'entre dans aucune signature : seule l'origine qu'il déclare est vérifiée.",
+      "captionUrl": "Module d'enrôlement",
+      "captionName": "Nom déclaré",
+      "noName": "Aucun",
+      "captionSince": "Apparié le",
+      "captionFingerprint": "Empreinte de sa clé"
+    },
+    "repair": {
+      "title": "Remplacer l'appariement courant ?",
+      "confirm": "Remplacer",
+      "cancel": "Annuler",
+      "body": "L'appariement actuel sera remplacé. Les devices que le module d'enrôlement précédent avait affectés à cet environnement ne le seront plus par lui."
+    },
+    "errors": {
+      "baseUrl": "Cette URL n'a pas la forme attendue : http(s), un hôte, éventuellement un port, et aucun chemin.",
+      "name": "Ce nom est vide, trop long, ou contient des caractères interdits.",
+      "unreachable": "Cette URL ne répond pas. Vérifier qu'elle est joignable depuis ce serveur avant de réessayer.",
+      "refused": "Le code a été refusé : il est faux, déjà utilisé, ou la demande n'existe plus. La demande reste en attente, un nouveau code peut être saisi.",
+      "clockSkew": "Le code était le bon, mais les horloges des deux serveurs diffèrent d'environ {{seconds}} secondes. Remettre les machines à l'heure, puis réessayer.",
+      "unexpected": "L'opération n'a pas abouti."
+    }
   }
 }

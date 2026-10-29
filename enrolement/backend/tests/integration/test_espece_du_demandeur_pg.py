@@ -3,10 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from miles_socle.signing.keys import generate_keypair
 
 from enrolement.pairing.events import PAIRING_CONFIRMED_EVENT, REQUEST_OPENED_EVENT
+from enrolement.pairing.store_peers import db_upsert_peer
 from tests.integration.demandeur_double import RequesterDouble
-from tests.integration.enrolement_stack import EnrolementStack, open_stack
+from tests.integration.enrolement_stack import EnrolementStack, open_stack, utc_now
 
 pytestmark = pytest.mark.integration
 
@@ -259,10 +261,11 @@ async def test_une_origine_appariee_ne_change_pas_d_espece_en_se_reappariant(
         # La MÊME origine refrappe en se déclarant environnement.
         double.species = "environnement"
         await _demande(stack, double)
-        code = await stack.client.get("/api/pairing/code", params={"base_url": double.origin})
-        assert code.status_code == 200, code.text
-        refus = await double.confirm(stack.anonymous(), str(code.json()["code"]))
+        refus = await stack.client.get("/api/pairing/code", params={"base_url": double.origin})
 
+        # Le refus tombe DEVANT L'HUMAIN, au geste qui accepte. Sans cela il aurait
+        # désigné un environnement pour rien, et c'est la stack qui aurait lu le refus
+        # trois appels plus tard.
         assert refus.status_code == 409, refus.text
         assert refus.json()["detail"] == "espece_deja_appariee_autrement"
         # L'appariement d'origine est INTACT : ni son espèce ni sa clé n'ont bougé.
@@ -270,6 +273,44 @@ async def test_une_origine_appariee_ne_change_pas_d_espece_en_se_reappariant(
         assert [(p["base_url"], p["species"]) for p in apparies.json()] == [
             (double.origin, "parametrage")
         ]
+
+
+async def test_l_ecriture_du_pair_refuse_elle_aussi_de_changer_d_espece(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """La garde de l'ÉCRITURE, éprouvée pour elle-même, et il faut le faire ici.
+
+    Le refus visible par l'humain est posé plus tôt — au geste qui révèle le code — et il
+    rend ce chemin-ci inatteignable par les routes. La clause de conflit reste pourtant la
+    seule garde ATOMIQUE : une lecture préalable ne ferme pas la course. Sans ce test, la
+    retirer ne ferait rougir personne, et la régression serait verte.
+
+    Éprouvée sur la requête parce que c'est elle qui porte la garde ; la traduction du
+    refus en mot lisible, elle, est éprouvée par les tests qui passent par les routes.
+    """
+    async with open_stack(blank_db, tmp_path) as stack:
+        double = RequesterDouble(origin="http://glissante.test", species="parametrage")
+        await _demande(stack, double)
+        await _apparie(stack, double)
+
+        refuse = await db_upsert_peer(
+            stack.pool,
+            double.origin,
+            generate_keypair().public_key,
+            utc_now(),
+            "Stack",
+            None,
+            double.origin,
+            "environnement",
+        )
+
+        assert refuse is None
+        # Et rien n'a bougé : ni l'espèce, ni la clé.
+        garde = await stack.pool.fetchrow(
+            "SELECT species, public_key FROM environment_peer WHERE base_url = $1", double.origin
+        )
+        assert garde["species"] == "parametrage"
+        assert garde["public_key"] == double.keypair.public_key
 
 
 async def test_l_espece_est_rendue_dans_la_liste_des_apparies(

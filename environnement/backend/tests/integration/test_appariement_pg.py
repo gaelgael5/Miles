@@ -13,10 +13,10 @@ from miles_socle.pairing.model import (
 from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, sign_call
 from miles_socle.signing.keys import fingerprint, generate_keypair, load_private_key
 from miles_socle.signing.protocol import PAIRING_REVOKED_PATH, PEER_PING_PATH, REVOKED_BODY
+from miles_socle.testing.enrolment_double import EXPECTED_CODE, PEER_ORIGIN, EnrolmentDouble
 
 from environnement.identity.service import PAIRING_REQUESTED_EVENT, PEER_REGISTERED_EVENT
 from tests.integration.environnement_stack import PUBLIC_URL, open_stack
-from tests.integration.peer_double import EXPECTED_CODE, PEER_ORIGIN, EnrolmentDouble
 
 pytestmark = pytest.mark.integration
 

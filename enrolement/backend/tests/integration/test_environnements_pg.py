@@ -34,8 +34,8 @@ async def _apparie_a_la_main(stack: EnrolementStack, environment_id: str, base_u
     """
     await stack.pool.execute(
         "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
-        " updated_at, environment_id, contact_url)"
-        " VALUES ($1, $2, 'ed25519', now(), now(), $3, $1)",
+        " updated_at, environment_id, contact_url, species)"
+        " VALUES ($1, $2, 'ed25519', now(), now(), $3, $1, 'environnement')",
         base_url,
         generate_keypair().public_key,
         environment_id,
@@ -248,8 +248,8 @@ async def test_les_appariements_sans_environnement_restent_possibles(
         for origine in ("https://une.exemple.org", "https://autre.exemple.org"):
             await stack.pool.execute(
                 "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
-                " updated_at, contact_url)"
-                " VALUES ($1, $2, 'ed25519', now(), now(), $1)",
+                " updated_at, contact_url, species)"
+                " VALUES ($1, $2, 'ed25519', now(), now(), $1, 'environnement')",
                 origine,
                 generate_keypair().public_key,
             )

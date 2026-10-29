@@ -10,6 +10,7 @@ import httpx
 import structlog
 import urban_json_editor
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 from miles_socle.app_state import wire_socle_services
 from miles_socle.auth.admin_store import AdminAccountStore
 from miles_socle.auth.api_auth import router as auth_router
@@ -25,6 +26,8 @@ from miles_socle.health.api_health import router as health_router
 from miles_socle.log_config import configure_logging
 from miles_socle.oidc.api_connectors import router as oidc_connectors_router
 from miles_socle.oidc.api_login import router as oidc_login_router
+from miles_socle.pairing.api_admin import router as pairing_router
+from miles_socle.pairing.api_peer import router as peer_router
 from miles_socle.secrets.api_secrets import router as secrets_router
 from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
@@ -61,6 +64,7 @@ from miles.oauth.clients import OAuthClientsService
 from miles.oauth.flow import OAuthFlow
 from miles.obo.api_identity import router as identity_router
 from miles.obo.service import ActorIdentitiesService
+from miles.pairing.service import PairingService
 from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
 from miles.sources.api_sources import router as sources_router
@@ -184,6 +188,13 @@ def create_app() -> FastAPI:
         app.state.oauth_flow = OAuthFlow(pool, app.state.oauth_clients, catalog, utc_now, resource)
         app.state.oauth_access = OAuthAccess(pool, store, catalog, utc_now)
         app.state.actor_identities = ActorIdentitiesService(pool, utc_now)
+        # L'appariement au module d'enrôlement, vu du DEMANDEUR : tout vient du socle,
+        # qui sert aussi le module d'environnement. Aucune écriture ici et aucune
+        # lecture de ses tables — la paire de clés est engendrée au PREMIER USAGE,
+        # parce que `dev-deploy.sh` lance la stack avant de jouer les migrations.
+        app.state.identity = PairingService(
+            pool, app.state.secrets, cipher, catalog, utc_now, http, settings.public_url
+        )
         responder = asyncio.create_task(
             run_responder(
                 MqttSettings(
@@ -260,6 +271,8 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(storages_router)
     app.include_router(api_keys_router)
     app.include_router(identity_router)
+    # L'appariement au module d'enrôlement, servi par le socle sous `/api/identity`.
+    app.include_router(pairing_router)
     app.include_router(oauth_clients_router)
     app.include_router(oauth_authorize_router)
     app.include_router(oauth_public_router)
@@ -269,6 +282,15 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     # /api parce que c'est le seul préfixe que le nginx du front relaie déjà : ailleurs,
     # les assets tomberaient sur l'index de l'IHM.
     urban_json_editor.mount(app, JSLT_EDITOR_PATH)
+
+    # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
+    # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée : un
+    # chemin ouvert à côté de sa vérification serait ouvert à tous, et c'est exactement
+    # l'erreur que cette dérivation rend inexprimable.
+    app.include_router(peer_router)
+    app.state.signed_api_paths = frozenset(
+        route.path for route in peer_router.routes if isinstance(route, APIRoute)
+    )
 
     # Surface MCP (story 0d4e4f75) : hors /api, donc hors de la passerelle des sessions ;
     # gardée par sa propre clé. Adresse publiée : /mcp/.

@@ -22,6 +22,7 @@ from enrolement.pairing.model import (
     EnvironmentPeer,
     PairingCode,
     PairingRequest,
+    PairingSpeciesMismatchError,
     PeerNotFoundError,
     RequestNotFoundError,
 )
@@ -104,9 +105,20 @@ class PairingService(PairingPeerProtocol, PairingEnvironmentLink, PairingRevocat
         async with self.pool.acquire() as conn, conn.transaction():
             await self._purge_expired(conn, maintenant)
             rangee = await db_get_request(conn, base_url)
+            apparie = await db_get_peer(conn, base_url)
         if rangee is None:
             raise RequestNotFoundError(f"aucune demande en attente pour {base_url}")
         demande, scelle = rangee
+        # Cette origine est déjà appariée sous une AUTRE espèce. Le refus est ici, devant
+        # l'humain, et pas seulement à la conclusion : sans lui il désignerait un
+        # environnement, consommerait son geste, et c'est la stack qui lirait le refus
+        # trois appels plus tard. La conclusion garde SA garde — atomique, portée par la
+        # clause de conflit — parce qu'une lecture préalable ne ferme pas la course.
+        if apparie is not None and apparie.species != demande.species:
+            raise PairingSpeciesMismatchError(
+                f"{base_url} est apparié comme « {apparie.species} » :"
+                " révoquer cet appariement avant de l'apparier autrement"
+            )
         # Révéler le code EST le geste d'acceptation (ticket ce66f5bb) : la garde est donc
         # ICI, et pas seulement sur le bouton. Un écran qui cacherait le bouton tout en
         # laissant la route répondre livrerait l'appariement à qui connaît l'URL, et

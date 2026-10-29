@@ -1,5 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, request } from "@miles/socle-web";
+
+import { ApiError } from "./http";
+import { request } from "./http";
+
+/**
+ * Ce que fait CELUI QUI S'APPARIE : frapper chez le module d'enrôlement, coller le code,
+ * constater où en est la demande.
+ *
+ * Au socle depuis le 29/10/2026, parce qu'un DEUXIÈME produit s'apparie — le module de
+ * paramétrage après le module d'environnement (ticket ba44914b, qui interdit nommément
+ * d'en dupliquer un second mécanisme). Les routes sont les mêmes, servies par le même
+ * code au socle du backend : deux clients d'API de même forme auraient divergé au premier
+ * champ ajouté d'un seul côté, et l'écran de l'autre l'aurait ignoré en silence.
+ *
+ * Ce que le produit garde : ce qu'il tient EN PLUS d'un pair. Le module d'environnement
+ * lit l'environnement que l'enrôlement lui assigne, et cette requête est chez lui.
+ */
 
 /**
  * Les états que l'administrateur peut rencontrer.
@@ -58,43 +74,15 @@ export interface PairingState {
   peer: EnrolmentPeer | null;
 }
 
-/**
- * L'environnement du référentiel auquel le module d'enrôlement nous a rattachés.
- *
- * Le seul nom qui fasse AUTORITÉ sur cet environnement : il est posé par un humain chez
- * l'enrôlement, alors que `declared_name` est ce que cette stack dit d'elle-même. Les deux
- * peuvent différer, et c'est celui-ci qui compte.
- *
- * `fetched_at` voyage AVEC la valeur, parce qu'une valeur venue d'un autre module ne
- * s'affiche jamais sans la date à laquelle on l'a obtenue : sans elle, un repli serait
- * indiscernable d'une lecture fraîche.
- */
-export interface AssignedEnvironment {
-  slug: string;
-  label: string;
-  fetched_at: string;
-}
-
-export interface AssignedEnvironmentView {
-  environment: AssignedEnvironment | null;
-  /**
-   * Vrai quand la valeur vient d'être relue chez le pair. Ne se déduit PAS de
-   * `environment` : « le pair est injoignable et on n'a jamais rien su » et « le pair dit
-   * qu'aucun environnement ne nous est rattaché » rendent tous deux `environment: null`,
-   * et les confondre annoncerait « aucun environnement » à un administrateur dont le
-   * réseau est coupé.
-   */
-  fresh: boolean;
-}
-
-const PAIRING_KEY = ["pairing"] as const;
+// Clef partagée par les deux produits : c'est le même état, lu aux mêmes routes.
+export const PEERING_KEY = ["peering"] as const;
 // Pendant l'attente, l'état vit chez le pair : c'est un humain, là-bas, qui va répondre.
 // Sans relecture, l'écran dirait « en attente » longtemps après le refus.
 const PENDING_REFRESH_MS = 5000;
 
 export function usePairingState() {
   return useQuery({
-    queryKey: [...PAIRING_KEY, "state"],
+    queryKey: [...PEERING_KEY, "state"],
     queryFn: ({ signal }) => request<PairingState>("/api/identity/pairing/state", { signal }),
     refetchInterval: (query) =>
       // Seuls les états qui PEUVENT changer tout seuls sont relus. Appariée ou non
@@ -110,7 +98,7 @@ function usePairingMutation<I, O>(mutationFn: (input: I) => Promise<O>) {
   return useMutation({
     mutationFn,
     // L'état se relit au serveur : l'attente vit là-bas, jamais dans cet onglet.
-    onSettled: () => client.invalidateQueries({ queryKey: PAIRING_KEY }),
+    onSettled: () => client.invalidateQueries({ queryKey: PEERING_KEY }),
   });
 }
 
@@ -153,22 +141,4 @@ export function clockDrift(error: unknown): number | null {
   }
   const derive = error.payload.drift_s;
   return typeof derive === "number" && Number.isFinite(derive) ? Math.round(derive) : null;
-}
-
-/**
- * L'environnement assigné, relu CHEZ LE PAIR à chaque affichage.
- *
- * Sa propre requête, et non un champ de l'état d'appariement : les deux émettent chacune
- * un appel signé vers le pair, et les fondre ferait échouer l'une avec l'autre. L'écran
- * veut au contraire pouvoir dire « apparié, mais l'environnement n'a pas pu être rafraîchi ».
- *
- * Aucune relecture périodique : ce nom ne change que par un geste humain à l'autre bout,
- * et le serveur paie un appel sortant à chaque lecture.
- */
-export function useAssignedEnvironment() {
-  return useQuery({
-    queryKey: [...PAIRING_KEY, "environment"],
-    queryFn: ({ signal }) =>
-      request<AssignedEnvironmentView>("/api/identity/environment", { signal }),
-  });
 }

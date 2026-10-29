@@ -8,6 +8,7 @@ import {
   CulturesScreen,
   HealthStatus,
   type Me,
+  PairingScreen,
   ProfileShell,
   readStoredCulture,
   SecretsScreen,
@@ -16,7 +17,18 @@ import {
   usePreferences,
 } from "@miles/socle-web";
 
-import { PairingScreen } from "./pairing/PairingScreen";
+import { EnvironnementAssigne } from "./pairing/EnvironnementAssigne";
+
+/**
+ * L'écran d'appariement du socle, et ce que CE module tient en plus d'un pair.
+ *
+ * Une fonction nommée et non une expression dans la table : la table déclare des
+ * composants, et un composant anonyme y perdrait son nom dans les traces React — celles
+ * mêmes qu'on lit quand un écran ne s'affiche pas.
+ */
+function EcranAppariement() {
+  return <PairingScreen peerExtra={<EnvironnementAssigne />} />;
+}
 
 /**
  * Les écrans du menu, en UNE seule déclaration.
@@ -28,7 +40,7 @@ import { PairingScreen } from "./pairing/PairingScreen";
  * (ticket 29d05f91) et les écrans du métier de l'environnement s'ajouteront ici.
  */
 const ECRANS = [
-  { nom: "pairing", Ecran: PairingScreen },
+  { nom: "pairing", Ecran: EcranAppariement },
   { nom: "cultures", Ecran: CulturesScreen },
   { nom: "secrets", Ecran: SecretsScreen },
   { nom: "oidc", Ecran: ConnectorsScreen },

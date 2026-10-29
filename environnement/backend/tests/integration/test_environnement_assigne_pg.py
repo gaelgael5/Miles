@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 from miles_socle.signing.keys import generate_keypair
+from miles_socle.testing.enrolment_double import EXPECTED_CODE, PEER_ORIGIN, EnrolmentDouble
 
 from tests.integration.environnement_stack import open_stack
-from tests.integration.peer_double import EXPECTED_CODE, PEER_ORIGIN, EnrolmentDouble
 
 pytestmark = pytest.mark.integration
 

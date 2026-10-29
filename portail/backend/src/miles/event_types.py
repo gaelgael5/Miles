@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from miles_socle.cultures import service as cultures_events
 from miles_socle.oidc import service as oidc_events
+from miles_socle.pairing import events as pairing_events
 from miles_socle.secrets import service as secrets_events
 
 from miles.apikeys import service as apikeys_events
@@ -40,6 +41,7 @@ def code_event_types() -> frozenset[str]:
         | identities_events.EVENT_TYPES
         | oauth_events.EVENT_TYPES
         | oidc_events.EVENT_TYPES
+        | pairing_events.EVENT_TYPES
         | secrets_events.EVENT_TYPES
         | security_events.EVENT_TYPES
         | sources_events.EVENT_TYPES

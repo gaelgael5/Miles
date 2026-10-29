@@ -240,5 +240,69 @@
     "done": "Copied",
     "failed": "Copy failed",
     "failedHelp": "The browser refused to copy: select the text and copy it by hand."
+  },
+  "peering": {
+    "title": "Pairing with the enrolment module",
+    "lead": "This environment pairs with a single enrolment module, which is the sole authority over its device assignment.",
+    "loading": "Loading…",
+    "current": "Pairing status",
+    "unreachable": "The enrolment module is not answering right now. The request is neither rejected nor lost: it is still pending, and this screen will refresh on its own.",
+    "states": {
+      "non_apparie": "Not paired",
+      "en_attente": "Request sent, awaiting acceptance",
+      "apparie": "Paired",
+      "refusee": "Request rejected",
+      "expiree": "Request expired",
+      "pair_injoignable": "Enrolment module unreachable",
+      "refuse_par_le_pair": "Pairing refused by the enrolment module",
+      "revoque": "Access revoked by the enrolment module"
+    },
+    "refusedByPeer": "The enrolment module no longer accepts our signed calls. The details above are those of the last known pairing: request a new pairing to establish another one.",
+    "revoked": "The enrolment module's administrator revoked this access, and notified us on {{date}}. This pairing is no longer of any use. The details above are those of the last known pairing: request a new pairing to establish another one.",
+    "outcome": {
+      "refusee": "An administrator of the enrolment module rejected the request. A new one can be sent.",
+      "expiree": "The request expired without an answer. A new one can be sent."
+    },
+    "form": {
+      "title": "Request pairing",
+      "titleAgain": "Change enrolment module",
+      "baseUrl": "Enrolment module URL",
+      "baseUrlHelp": "An http(s) address without a path, for example https://enrolment.example.org",
+      "name": "Name of this environment",
+      "nameHelp": "It helps an administrator on the other side recognise the request they accept. It identifies nothing: the URL is what counts.",
+      "submit": "Send the request",
+      "submitAgain": "Replace the pairing"
+    },
+    "pending": {
+      "title": "Paste the pairing code",
+      "where": "The code is shown on the « Pairing » screen of {{url}}, next to the request carrying this environment's URL. It renews every thirty seconds.",
+      "codeLabel": "Six-digit code",
+      "codeHelp": "Spaces and line breaks are stripped automatically.",
+      "submit": "Submit the code",
+      "cancel": "Abandon the request"
+    },
+    "paired": {
+      "captionContact": "Reached at",
+      "contactHelp": "The enrolment module names itself under the address above, but we reach it here. The address dialled is part of no signature: only the origin it declares is verified.",
+      "captionUrl": "Enrolment module",
+      "captionName": "Declared name",
+      "noName": "None",
+      "captionSince": "Paired on",
+      "captionFingerprint": "Its key fingerprint"
+    },
+    "repair": {
+      "title": "Replace the current pairing?",
+      "confirm": "Replace",
+      "cancel": "Cancel",
+      "body": "The current pairing will be replaced. Devices the previous enrolment module assigned to this environment will no longer be assigned by it."
+    },
+    "errors": {
+      "baseUrl": "This URL is not in the expected shape: http(s), a host, optionally a port, and no path.",
+      "name": "This name is empty, too long, or contains forbidden characters.",
+      "unreachable": "This URL does not answer. Check that it is reachable from this server before trying again.",
+      "refused": "The code was refused: it is wrong, already used, or the request no longer exists. The request is still pending, another code can be entered.",
+      "clockSkew": "The code was right, but the two servers' clocks differ by about {{seconds}} seconds. Set the machines to the right time, then try again.",
+      "unexpected": "The operation did not succeed."
+    }
   }
 }

@@ -224,7 +224,15 @@ class PairingPeerProtocol(PairingPeerReads):
                     PAIRING_CONFIRMED_EVENT,
                     PEER_OBJECT_KIND,
                     origine,
-                    {"public_key_fingerprint": fingerprint(pair.public_key)},
+                    {
+                        "public_key_fingerprint": fingerprint(pair.public_key),
+                        # L'espèce est au journal des DEUX faits — la demande et la
+                        # conclusion — parce que ce sont deux faits. Celle de la demande
+                        # ne suffirait pas : la demande disparaît en se concluant, et
+                        # « sous quelle espèce cette stack est-elle appariée ? » doit
+                        # rester lisible après.
+                        "species": pair.species,
+                    },
                 )
         except asyncpg.UniqueViolationError as exc:
             # Deux unicités peuvent trancher ici, et elles n'appellent pas le même geste.

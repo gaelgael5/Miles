@@ -19,11 +19,11 @@ from miles_socle.signing.identity_model import (
     SIGNING_KEY_TYPE,
 )
 from miles_socle.signing.keys import fingerprint, generate_keypair, load_private_key
+from miles_socle.testing.enrolment_double import PEER_ORIGIN, EnrolmentDouble
 
 from environnement.config import DEFAULT_MIGRATIONS_DIR
 from environnement.identity.service import PEER_PING_PATH
 from tests.integration.environnement_stack import EnvironnementStack, open_stack, utc_now
-from tests.integration.peer_double import PEER_ORIGIN, EnrolmentDouble
 
 pytestmark = pytest.mark.integration
 

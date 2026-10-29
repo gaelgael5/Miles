@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 
-import { ApiError } from "@miles/socle-web";
+import { ApiError } from "../api/http";
 
-import { clockDrift } from "../api/pairing";
+import { clockDrift } from "../api/peering";
 
 /**
  * La clef de libellé d'un refus, choisie sur ce que le serveur a RÉELLEMENT dit.
@@ -14,18 +14,18 @@ import { clockDrift } from "../api/pairing";
  */
 export function refusKey(error: unknown): string {
   if (!(error instanceof ApiError)) {
-    return "pairing.errors.unexpected";
+    return "peering.errors.unexpected";
   }
   if (error.status === 422) {
-    return error.detail === "name" ? "pairing.errors.name" : "pairing.errors.baseUrl";
+    return error.detail === "name" ? "peering.errors.name" : "peering.errors.baseUrl";
   }
   if (error.status === 502) {
-    return "pairing.errors.unreachable";
+    return "peering.errors.unreachable";
   }
   if (error.status === 409) {
-    return "pairing.errors.refused";
+    return "peering.errors.refused";
   }
-  return "pairing.errors.unexpected";
+  return "peering.errors.unexpected";
 }
 
 export function Refus({ error }: { error: unknown }) {
@@ -38,7 +38,7 @@ export function Refus({ error }: { error: unknown }) {
           on cherche du côté du code pendant que la cause est une machine à l'heure près. */}
       {derive === null
         ? t(refusKey(error))
-        : t("pairing.errors.clockSkew", { seconds: Math.abs(derive) })}
+        : t("peering.errors.clockSkew", { seconds: Math.abs(derive) })}
     </p>
   );
 }

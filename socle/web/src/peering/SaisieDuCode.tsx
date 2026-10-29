@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useCancelPairing, useConfirmPairing } from "../api/pairing";
+import { useCancelPairing, useConfirmPairing } from "../api/peering";
 import { Refus } from "./Refus";
 
 export function SaisieDuCode({ enrolmentUrl }: { enrolmentUrl: string }) {
@@ -12,7 +12,7 @@ export function SaisieDuCode({ enrolmentUrl }: { enrolmentUrl: string }) {
 
   return (
     <div className="panel">
-      <p className="help">{t("pairing.pending.where", { url: enrolmentUrl })}</p>
+      <p className="help">{t("peering.pending.where", { url: enrolmentUrl })}</p>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -20,7 +20,7 @@ export function SaisieDuCode({ enrolmentUrl }: { enrolmentUrl: string }) {
         }}
       >
         <div className="field">
-          <label htmlFor="pairing-code">{t("pairing.pending.codeLabel")}</label>
+          <label htmlFor="pairing-code">{t("peering.pending.codeLabel")}</label>
           <input
             id="pairing-code"
             type="text"
@@ -31,19 +31,19 @@ export function SaisieDuCode({ enrolmentUrl }: { enrolmentUrl: string }) {
           />
           {/* Le code arrive par copier-coller : espaces et retours à la ligne sont
               nettoyés avant l'envoi, pas refusés. */}
-          <p className="help">{t("pairing.pending.codeHelp")}</p>
+          <p className="help">{t("peering.pending.codeHelp")}</p>
         </div>
         {confirmation.isError && <Refus error={confirmation.error} />}
         <div className="actions">
           <button type="submit" className="btn btn-primary" disabled={confirmation.isPending}>
-            {t("pairing.pending.submit")}
+            {t("peering.pending.submit")}
           </button>
           <button
             type="button"
             className="btn btn-secondary"
             onClick={() => annulation.mutate()}
           >
-            {t("pairing.pending.cancel")}
+            {t("peering.pending.cancel")}
           </button>
         </div>
       </form>

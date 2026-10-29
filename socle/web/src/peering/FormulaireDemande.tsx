@@ -1,9 +1,9 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ConfirmDialog } from "@miles/socle-web";
+import { ConfirmDialog } from "../layout/ConfirmDialog";
 
-import { useRequestPairing } from "../api/pairing";
+import { useRequestPairing } from "../api/peering";
 import { Refus } from "./Refus";
 
 export function FormulaireDemande({ reappariement }: { reappariement: boolean }) {
@@ -31,7 +31,7 @@ export function FormulaireDemande({ reappariement }: { reappariement: boolean })
   return (
     <form className="panel" onSubmit={soumettre}>
       <div className="field">
-        <label htmlFor="pairing-url">{t("pairing.form.baseUrl")}</label>
+        <label htmlFor="pairing-url">{t("peering.form.baseUrl")}</label>
         <input
           id="pairing-url"
           type="text"
@@ -39,10 +39,10 @@ export function FormulaireDemande({ reappariement }: { reappariement: boolean })
           autoComplete="off"
           onChange={(event) => setBaseUrl(event.target.value)}
         />
-        <p className="help">{t("pairing.form.baseUrlHelp")}</p>
+        <p className="help">{t("peering.form.baseUrlHelp")}</p>
       </div>
       <div className="field">
-        <label htmlFor="pairing-name">{t("pairing.form.name")}</label>
+        <label htmlFor="pairing-name">{t("peering.form.name")}</label>
         <input
           id="pairing-name"
           type="text"
@@ -51,26 +51,26 @@ export function FormulaireDemande({ reappariement }: { reappariement: boolean })
           autoComplete="off"
           onChange={(event) => setNom(event.target.value)}
         />
-        <p className="help">{t("pairing.form.nameHelp")}</p>
+        <p className="help">{t("peering.form.nameHelp")}</p>
       </div>
       {demande.isError && <Refus error={demande.error} />}
       <div className="actions">
         <button type="submit" className="btn btn-primary" disabled={demande.isPending}>
-          {reappariement ? t("pairing.form.submitAgain") : t("pairing.form.submit")}
+          {reappariement ? t("peering.form.submitAgain") : t("peering.form.submit")}
         </button>
       </div>
       {confirme && (
         <ConfirmDialog
-          title={t("pairing.repair.title")}
-          confirmLabel={t("pairing.repair.confirm")}
-          cancelLabel={t("pairing.repair.cancel")}
+          title={t("peering.repair.title")}
+          confirmLabel={t("peering.repair.confirm")}
+          cancelLabel={t("peering.repair.cancel")}
           onCancel={() => setConfirme(false)}
           onConfirm={() => {
             setConfirme(false);
             envoyer();
           }}
         >
-          <p>{t("pairing.repair.body")}</p>
+          <p>{t("peering.repair.body")}</p>
         </ConfirmDialog>
       )}
     </form>

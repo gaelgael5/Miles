@@ -31,6 +31,7 @@ from enrolement.pairing.model import (
     PairingCarriesDevicesError,
     PairingChangedElsewhereError,
     PairingSettledError,
+    PairingSpeciesMismatchError,
     ParametrageAlreadyPairedError,
     PeerNotFoundError,
     RequestNotFoundError,
@@ -67,6 +68,14 @@ def _error(exc: IdentityError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
             content={"detail": "espece_sans_environnement"},
+        )
+    if isinstance(exc, PairingSpeciesMismatchError):
+        # 409 : le geste à faire est de révoquer l'appariement existant, pas de corriger
+        # une saisie ni de réessayer. Nommé, parce qu'un refus générique sur le bouton
+        # « afficher le code » ferait chercher du côté des clés ou de l'horloge.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "espece_deja_appariee_autrement"},
         )
     if isinstance(exc, ParametrageAlreadyPairedError):
         # Distinct d'« environnement pris » : là il suffit d'en choisir un autre, ici il

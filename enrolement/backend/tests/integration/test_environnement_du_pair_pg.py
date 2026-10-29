@@ -100,8 +100,8 @@ async def test_un_appariement_herite_repond_rien_et_non_un_refus(
     async with open_stack(blank_db, tmp_path) as stack:
         await stack.pool.execute(
             "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
-            " updated_at, name, contact_url)"
-            " VALUES ($1, $2, 'ed25519', now(), now(), 'Hérité', $1)",
+            " updated_at, name, contact_url, species)"
+            " VALUES ($1, $2, 'ed25519', now(), now(), 'Hérité', $1, 'environnement')",
             double.origin,
             double.keypair.public_key,
         )

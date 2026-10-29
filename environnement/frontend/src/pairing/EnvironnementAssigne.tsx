@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { useAssignedEnvironment } from "../api/pairing";
+import { useAssignedEnvironment } from "../api/environment";
 
 /**
  * L'environnement du référentiel auquel le module d'enrôlement nous a rattachés.
@@ -24,12 +24,12 @@ export function EnvironnementAssigne() {
   const assigne = useAssignedEnvironment();
 
   if (assigne.isPending) {
-    return <p role="status">{t("pairing.environment.loading")}</p>;
+    return <p role="status">{t("assignedEnvironment.loading")}</p>;
   }
   if (assigne.data === undefined) {
     return (
       <p className="alert" role="status">
-        {t("pairing.environment.unavailable")}
+        {t("assignedEnvironment.unavailable")}
       </p>
     );
   }
@@ -38,7 +38,7 @@ export function EnvironnementAssigne() {
   if (environment === null) {
     return (
       <p className="alert" role="status">
-        {fresh ? t("pairing.environment.none") : t("pairing.environment.neverKnown")}
+        {fresh ? t("assignedEnvironment.none") : t("assignedEnvironment.neverKnown")}
       </p>
     );
   }
@@ -47,7 +47,7 @@ export function EnvironnementAssigne() {
     <div className="panel">
       <dl className="facts">
         <div>
-          <dt className="caption">{t("pairing.environment.caption")}</dt>
+          <dt className="caption">{t("assignedEnvironment.caption")}</dt>
           <dd className="value">
             {environment.label}
             {/* Le slug sous le libellé : c'est lui qui s'écrit dans une procédure, et le
@@ -56,10 +56,10 @@ export function EnvironnementAssigne() {
           </dd>
         </div>
       </dl>
-      <p className="help">{t("pairing.environment.help")}</p>
+      <p className="help">{t("assignedEnvironment.help")}</p>
       {!fresh && (
         <p className="alert alert-warning" role="status">
-          {t("pairing.environment.stale", {
+          {t("assignedEnvironment.stale", {
             date: new Date(environment.fetched_at).toLocaleString(),
           })}
         </p>

@@ -31,8 +31,8 @@ pytestmark = pytest.mark.integration
 async def _pose_apparie(stack: EnrolementStack, origine: str, environment_id: str | None) -> None:
     await stack.pool.execute(
         "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
-        " updated_at, name, environment_id, contact_url)"
-        " VALUES ($1, $2, 'ed25519', now(), now(), 'Stack', $3::uuid, $1)",
+        " updated_at, name, environment_id, contact_url, species)"
+        " VALUES ($1, $2, 'ed25519', now(), now(), 'Stack', $3::uuid, $1, 'environnement')",
         origine,
         generate_keypair().public_key,
         environment_id,

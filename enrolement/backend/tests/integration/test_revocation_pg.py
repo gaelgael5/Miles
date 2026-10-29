@@ -60,8 +60,8 @@ async def _herite(stack: EnrolementStack, origine: str) -> None:
     """Un appariement SANS environnement : l'état hérité d'avant la désignation."""
     await stack.pool.execute(
         "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
-        " updated_at, name, contact_url)"
-        " VALUES ($1, $2, 'ed25519', now(), now(), 'Hérité', $1)",
+        " updated_at, name, contact_url, species)"
+        " VALUES ($1, $2, 'ed25519', now(), now(), 'Hérité', $1, 'environnement')",
         origine,
         generate_keypair().public_key,
     )

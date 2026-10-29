@@ -1,9 +1,9 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { PageHead } from "@miles/socle-web";
+import { PageHead } from "../layout/PageHead";
 
-import { type EnrolmentPeer, type PairingState, usePairingState } from "../api/pairing";
-import { EnvironnementAssigne } from "./EnvironnementAssigne";
+import { type EnrolmentPeer, type PairingState, usePairingState } from "../api/peering";
 import { FormulaireDemande } from "./FormulaireDemande";
 import { SaisieDuCode } from "./SaisieDuCode";
 
@@ -13,7 +13,7 @@ function Apparie({ peer }: { peer: EnrolmentPeer }) {
     <div className="panel">
       <dl className="facts">
         <div>
-          <dt className="caption">{t("pairing.paired.captionUrl")}</dt>
+          <dt className="caption">{t("peering.paired.captionUrl")}</dt>
           <dd className="value">{peer.base_url}</dd>
         </div>
         {/* L'adresse de contact n'apparaît QUE si elle diffère de l'identité : identiques,
@@ -21,25 +21,25 @@ function Apparie({ peer }: { peer: EnrolmentPeer }) {
             faut dire pourquoi — sinon l'écran a l'air de se contredire. */}
         {peer.contact_url !== peer.base_url && (
           <div>
-            <dt className="caption">{t("pairing.paired.captionContact")}</dt>
+            <dt className="caption">{t("peering.paired.captionContact")}</dt>
             <dd className="value">
               {peer.contact_url}
-              <div className="row-sub">{t("pairing.paired.contactHelp")}</div>
+              <div className="row-sub">{t("peering.paired.contactHelp")}</div>
             </dd>
           </div>
         )}
         <div>
-          <dt className="caption">{t("pairing.paired.captionName")}</dt>
+          <dt className="caption">{t("peering.paired.captionName")}</dt>
           <dd className="value">
-            {peer.declared_name ?? <span className="muted">{t("pairing.paired.noName")}</span>}
+            {peer.declared_name ?? <span className="muted">{t("peering.paired.noName")}</span>}
           </dd>
         </div>
         <div>
-          <dt className="caption">{t("pairing.paired.captionSince")}</dt>
+          <dt className="caption">{t("peering.paired.captionSince")}</dt>
           <dd className="value">{new Date(peer.created_at).toLocaleString()}</dd>
         </div>
         <div>
-          <dt className="caption">{t("pairing.paired.captionFingerprint")}</dt>
+          <dt className="caption">{t("peering.paired.captionFingerprint")}</dt>
           <dd className="value">
             <span className="badge">{peer.public_key_fingerprint}</span>
           </dd>
@@ -62,22 +62,35 @@ function Etat({ etat }: { etat: PairingState }) {
           : "badge badge-warning";
   return (
     <p role="status">
-      <span className={classe}>{t(`pairing.states.${etat.state}`)}</span>
+      <span className={classe}>{t(`peering.states.${etat.state}`)}</span>
     </p>
   );
 }
 
-export function PairingScreen() {
+/**
+ * L'écran d'appariement vu du DEMANDEUR : frapper, coller le code, voir où l'on en est.
+ *
+ * `peerExtra` est le seul endroit où un produit ajoute QUELQUE CHOSE À LUI, et il est
+ * rendu sous la ligne du pair parce que ce qu'on y met découle de l'appariement : le
+ * module d'environnement y lit l'environnement que l'enrôlement lui assigne. Le module de
+ * paramétrage ne passe rien, et c'est l'état normal — ce qu'il recevra, ce sont des
+ * connexions git, et cela viendra avec son ticket.
+ *
+ * Un emplacement et non une liste d'options : un écran qui saurait ce que chaque produit
+ * veut afficher porterait la connaissance de ses deux consommateurs, et c'est précisément
+ * ce que l'extraction au socle supprime.
+ */
+export function PairingScreen({ peerExtra }: { peerExtra?: ReactNode } = {}) {
   const { t } = useTranslation();
   const etat = usePairingState();
 
   if (etat.isPending) {
-    return <p role="status">{t("pairing.loading")}</p>;
+    return <p role="status">{t("peering.loading")}</p>;
   }
   if (etat.data === undefined) {
     return (
       <p className="alert alert-danger" role="alert">
-        {t("pairing.errors.unexpected")}
+        {t("peering.errors.unexpected")}
       </p>
     );
   }
@@ -98,56 +111,56 @@ export function PairingScreen() {
 
   return (
     <section className="section" aria-labelledby="pairing-title">
-      <PageHead id="pairing-title" title={t("pairing.title")} lead={t("pairing.lead")} />
+      <PageHead id="pairing-title" title={t("peering.title")} lead={t("peering.lead")} />
       <div className="card">
         <div className="card-head">
-          <h2>{t("pairing.current")}</h2>
+          <h2>{t("peering.current")}</h2>
           <Etat etat={etat.data} />
         </div>
         {peer !== null && <Apparie peer={peer} />}
-        {/* Lu CHEZ L'ENRÔLEMENT à l'affichage, dans sa propre requête : c'est le seul nom
-            qui fasse autorité sur cet environnement — il est posé par un humain là-bas,
-            alors que le nom déclaré juste au-dessus est ce que cette stack dit d'elle-même.
-            Une requête à part de l'état d'appariement, pour que l'une puisse échouer sans
-            l'autre : « apparié, mais l'environnement n'a pas pu être rafraîchi » est
+        {/* Ce que le produit tient EN PLUS du pair, sous la ligne du pair parce que cela
+            en découle — et seulement quand il y a un pair : sans appariement, il n'y a rien
+            à en tirer. Chez le module d'environnement, c'est l'environnement que
+            l'enrôlement lui assigne, dans SA propre requête, pour que l'une puisse échouer
+            sans l'autre : « apparié, mais l'environnement n'a pas pu être rafraîchi » est
             précisément ce que l'écran doit pouvoir dire. */}
-        {peer !== null && <EnvironnementAssigne />}
+        {peer !== null && peerExtra}
         {state === "pair_injoignable" && (
           // Distinct d'un refus : faire recommencer pour une panne de réseau détruirait
           // un appariement que quelqu'un est peut-être en train d'accepter.
           <p className="alert" role="status">
-            {t("pairing.unreachable")}
+            {t("peering.unreachable")}
           </p>
         )}
         {revoque && peer !== null && (
           <p className="alert alert-warning" role="status">
-            {t("pairing.revoked", {
+            {t("peering.revoked", {
               date: peer.revoked_at === null ? "" : new Date(peer.revoked_at).toLocaleString(),
             })}
           </p>
         )}
         {refuseParLePair && (
           <p className="alert alert-warning" role="status">
-            {t("pairing.refusedByPeer")}
+            {t("peering.refusedByPeer")}
           </p>
         )}
         {aRecommencer && (
           <p className="alert" role="status">
-            {t(`pairing.outcome.${state}`)}
+            {t(`peering.outcome.${state}`)}
           </p>
         )}
       </div>
       {enAttente && etat.data.attempt !== null ? (
         <div className="card">
           <div className="card-head">
-            <h2>{t("pairing.pending.title")}</h2>
+            <h2>{t("peering.pending.title")}</h2>
           </div>
           <SaisieDuCode enrolmentUrl={etat.data.attempt.base_url} />
         </div>
       ) : (
         <div className="card">
           <div className="card-head">
-            <h2>{peer === null ? t("pairing.form.title") : t("pairing.form.titleAgain")}</h2>
+            <h2>{peer === null ? t("peering.form.title") : t("peering.form.titleAgain")}</h2>
           </div>
           <FormulaireDemande reappariement={peer !== null} />
         </div>

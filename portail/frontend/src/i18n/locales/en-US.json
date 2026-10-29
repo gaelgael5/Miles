@@ -11,7 +11,8 @@
       "allWorkspaces": "All workspaces",
       "workspaceOnBranch": "{{name}} ({{branch}})",
       "apiKeys": "API keys",
-      "oauthClients": "OAuth clients"
+      "oauthClients": "OAuth clients",
+      "pairing": "Pairing"
     },
     "sub": "Back-office",
     "sections": {

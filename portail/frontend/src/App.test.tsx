@@ -86,6 +86,7 @@ describe("App", () => {
       "Cultures",
       "Secrets",
       "Git connections",
+      "Pairing",
       "Security services",
       "OIDC connectors",
       "API keys",

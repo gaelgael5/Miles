@@ -7,6 +7,7 @@ import {
   CulturesScreen,
   HealthStatus,
   type Me,
+  PairingScreen,
   readStoredCulture,
   SecretsScreen,
   Topbar,
@@ -29,6 +30,7 @@ type Page =
   | "security"
   | "gitConnections"
   | "oidc"
+  | "pairing"
   | "cultures"
   | "secrets"
   | "apiKeys"
@@ -42,13 +44,20 @@ type Section = { title: string; pages: Page[] };
 const SECTIONS: Section[] = [
   {
     title: "global",
-    pages: ["cultures", "secrets", "gitConnections", "security", "oidc", "apiKeys", "oauthClients", "health"],
+    // L'appariement est placé après les connexions git, et c'est voulu : c'est à lui
+    // qu'elles seront bientôt confiées (ticket edcf78bc), et les lire dans cet ordre dit
+    // ce qui dépend de quoi.
+    pages: ["cultures", "secrets", "gitConnections", "pairing", "security", "oidc", "apiKeys", "oauthClients", "health"],
   },
   { title: "workspaces", pages: ["workspaces"] },
 ];
 const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
   security: SecurityServiceScreen,
   gitConnections: GitConnectionsScreen,
+  // L'écran du socle, sans rien en plus : ce module ne reçoit pas de devices, donc aucun
+  // environnement assigné à lire. Ce qu'il recevra — les connexions git — viendra avec
+  // son ticket, et c'est alors que `peerExtra` servira ici aussi.
+  pairing: PairingScreen,
   oidc: ConnectorsScreen,
   cultures: CulturesScreen,
   secrets: SecretsScreen,

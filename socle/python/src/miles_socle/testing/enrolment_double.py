@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
+
 from miles_socle.signing.calls import (
     ORIGIN_HEADER,
     SIGNATURE_HEADER,
@@ -31,12 +32,20 @@ EXPECTED_CODE = "314159"
 class EnrolmentDouble:
     """Contrepartie de test : le côté « module d'enrôlement » de l'échange signé.
 
-    C'est une doublure de l'AUTRE PRODUIT, pas de notre code. Son côté du protocole
-    s'écrira avec le ticket 6a0daab6 ; ce qui existe aujourd'hui, c'est le vérificateur du
-    socle — celui-là même qu'il emploiera. La doublure ne réimplémente donc aucune
-    cryptographie : elle se contente d'appeler `verify_call`, et c'est ce qui donne sa
-    valeur au test. Une doublure qui dirait « oui » sans vérifier prouverait seulement
-    qu'on sait écrire une doublure complaisante.
+    AU SOCLE depuis le 29/10/2026, avec le côté demandeur qu'elle sert à éprouver (ticket
+    ba44914b) : deux demandeurs l'emploient — le module d'environnement et le module de
+    paramétrage —, et un produit ne peut pas importer les tests d'un autre. Elle est ici
+    plutôt que recopiée parce qu'elle double le PROTOCOLE, dont les chemins et les formes
+    sont définis ici même ; une seconde copie aurait divergé au premier chemin ajouté.
+
+    Elle sert TOUTES les routes du protocole, y compris celle de l'environnement assigné,
+    dont le module de paramétrage n'a que faire : la doublure suit le contrat, pas
+    l'usage qu'un produit en fait. Un demandeur qui n'appelle pas une route ne la voit
+    jamais, et retirer la route rendrait impossible d'éprouver celui qui l'appelle.
+
+    Elle ne réimplémente aucune cryptographie : elle se contente d'appeler `verify_call`,
+    et c'est ce qui donne sa valeur au test. Une doublure qui dirait « oui » sans vérifier
+    prouverait seulement qu'on sait écrire une doublure complaisante.
     """
 
     keypair: KeyPair = field(default_factory=generate_keypair)
