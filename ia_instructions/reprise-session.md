@@ -297,6 +297,44 @@ aucun device**. Il renverse la règle « révoquer puis réapparier » du ticket
   référentiel a libéré `recette`, reposer `dev` n'a rien écrit, puis retour sur `recette`.
   Le journal porte deux `pairing.environment_moved` et rien pour le no-op.
 
+## L'environnement assigné, lu chez l'enrôlement (29/10, ticket `2edf1f3c`)
+
+Le module d'environnement affiche enfin **l'environnement du référentiel** auquel
+l'enrôlement l'a rattaché — le seul nom qui fasse autorité, posé par un humain là-bas,
+alors que le nom déclaré est ce que la stack dit d'elle-même.
+
+- **Une route de pair de plus** : `POST /api/peer/environment`, servie par l'ENRÔLEMENT,
+  appelée par l'ENVIRONNEMENT. Vérifiée contre la clé du pair apparié, donc chacun ne lit
+  que son propre rattachement. Contrat en **révision 9**, septième amendement.
+- **Pourquoi pas un champ de plus dans le `pong`** : il est servi par les DEUX modules avec
+  la même forme de réponse, et c'est ce qui permet à `PongOut` d'être défini une seule fois
+  au socle. Un champ qui n'existe que d'un côté ferait porter au `pong` un nul permanent
+  chez l'autre. Une route de plus ne change rien à l'existant.
+- **Le slug et le libellé, jamais l'identifiant** : c'est la clé du référentiel de
+  l'enrôlement, et la faire voyager inviterait à écrire une relation entre deux bases que
+  personne ne réconcilie. Un test vérifie qu'elle ne sort pas.
+- **`null` et non 404** quand rien n'est rattaché (appariement hérité) : un 404 se lirait
+  « cette route n'existe pas chez lui », ce que rend son portillon d'authentification.
+- **Le repli est assumé et se dit.** La valeur est mémorisée avec sa date (migration 13 de
+  l'environnement) et réaffichée datée quand le pair est injoignable. Quatre cas que
+  l'écran distingue, et `fresh` est PORTÉ par la réponse au lieu d'être déduit de la
+  présence d'une valeur : « injoignable et jamais rien su » et « le pair dit qu'il n'y a
+  rien » rendent tous deux `null`, et les confondre annoncerait « aucun environnement » à
+  un administrateur dont le réseau est coupé.
+- **Un refus n'efface rien.** Révocation, clés qui ne se correspondent plus, portillon qui
+  parle avant lui : rien de tout cela ne dit qu'on n'est rattaché à rien. Seule une
+  réponse FRAÎCHE qui dit `null` efface la valeur mémorisée.
+- **La réponse est relue par le modèle du contrat** avant d'être écrite : un 200 ne
+  garantit pas la forme, et ranger ce qu'un inconnu renvoie l'afficherait comme l'autorité.
+- **La mémoire survit à un ré-appariement du MÊME pair** et s'efface si l'identité du pair
+  change — l'inverse de `revoked_at`, effacée dans tous les cas : une date de révocation
+  sur un appariement vivant se contredit, un rattachement périmé est seulement vieux, et il
+  le dit.
+- **Éprouvé en vrai sur test1** : lecture fraîche de `recette` à travers le maillage, puis
+  adresse de contact repointée sur un port mort → `fresh: false` avec la date de la
+  lecture précédente et `environnement_assigne_injoignable` au journal, puis retour sur le
+  maillage → date neuve. L'appariement est resté `apparie` tout du long.
+
 ## L'assainissement des modules d'appariement (29/10, ticket `f85d248e`)
 
 `PairingService` et `IdentityService` restent **une classe chacune**, découpées en
@@ -471,10 +509,6 @@ Les campagnes repartent.
   28/10 : le protocole complet tourne des deux côtés.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
-- `2edf1f3c` — **le module d'environnement affiche l'environnement qui lui est assigné**,
-  lu chez l'enrôlement et mémorisé, avec repli daté sur la dernière valeur connue. Était
-  bloqué par le portillon du portail ; **ne l'est plus** depuis `1ce685e9`. Il demandera
-  d'enrichir la réponse du ping ou d'ajouter une route de pair — donc d'amender le contrat.
 - `c51a732c` — **déplacer en bloc les devices d'un environnement**. Bloqué par le parc.
 - Le **métier** de l'enrôlement : la coquille ne porte rien de lui. Référentiel des
   devices, enrôlement d'une installation, dispatch, parc, tags, groupes — autant de
@@ -482,9 +516,10 @@ Les campagnes repartent.
 
 **En revue au 29/10 au soir** : `d5ffeb33` (révocation), `f85d248e` (assainissement),
 `1ce685e9` (adresse de contact), `4ce141d3` (avis de révocation), `8474baf4` (le
-référentiel n'affiche plus l'appariement) et `8803f092` (changer l'environnement d'un
-appariement conclu), plus les tickets des jours précédents. Des quatre tickets neufs de
-Gael du 29/10, il reste `2edf1f3c` — éligible — et `c51a732c`, bloqué par le parc.
+référentiel n'affiche plus l'appariement), `8803f092` (changer l'environnement d'un
+appariement conclu) et `2edf1f3c` (l'environnement assigné), plus les tickets des jours
+précédents. Des quatre tickets neufs de Gael du 29/10, il ne reste que `c51a732c`, bloqué
+par le parc.
 
 ## Cinq décisions prises par Gael le 27/10 — les questions sont closes
 
