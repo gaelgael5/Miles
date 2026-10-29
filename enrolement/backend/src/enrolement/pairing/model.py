@@ -132,6 +132,20 @@ class PairingSettledError(IdentityError):
 
 
 @dataclass(frozen=True)
+class ConfirmedPairing:
+    """Ce que l'environnement reçoit quand son code est accepté : NOTRE moitié de l'échange.
+
+    C'est le second dépôt de clé. Le premier a eu lieu à la demande, où l'environnement a
+    déposé la sienne ; celui-ci rend la nôtre, et à partir de là chacun détient sa clé
+    privée et la clé publique de l'autre. Aucune clé privée ne figure ici, dans aucun sens.
+    """
+
+    base_url: str
+    public_key: str
+    algorithm: str
+
+
+@dataclass(frozen=True)
 class EnvironmentRef:
     """L'environnement du référentiel, vu depuis l'appariement : juste de quoi le nommer.
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 from miles_socle.signing.peers import IdentityError
 
@@ -107,3 +108,37 @@ class EnrolmentPeer:
     # aucun. Il permet à l'administrateur de retrouver son environnement dans la liste de
     # l'autre bout.
     declared_name: str | None
+
+
+# Les états que l'écran d'appariement doit distinguer. « En attente » et « échoué » ne
+# peuvent pas être confondus : un écran qui les mélange fait recommencer la demande
+# indéfiniment, ou fait attendre une acceptation qui ne viendra jamais.
+PairingStateName = Literal[
+    "non_apparie",
+    "en_attente",
+    "apparie",
+    "refusee",
+    "expiree",
+    "pair_injoignable",
+    # Le pair REFUSE nos appels signés alors que nous le croyons apparié. Son appariement
+    # a pu être révoqué chez lui (ticket d5ffeb33, critère 6), ou nos clés ne se
+    # correspondent plus. L'état ne tranche pas entre les deux, et c'est voulu : le pair
+    # ne le dit pas, et nommer une cause plausible enverrait chercher au mauvais endroit.
+    # Ce qu'il dit de sûr, c'est que cet appariement ne sert plus à rien, et qu'il faut
+    # refrapper.
+    "refuse_par_le_pair",
+]
+
+
+@dataclass(frozen=True)
+class PairingState:
+    """Où en est l'appariement, vu de ce module. Les deux moitiés, pas seulement l'état.
+
+    `attempt` et `peer` sont rendus ENSEMBLE parce qu'un ré-appariement les fait coexister :
+    l'appariement courant tient encore pendant qu'une nouvelle demande attend. Un écran qui
+    ne verrait que l'état remplacerait l'un par l'autre avant que l'humain n'ait tranché.
+    """
+
+    state: PairingStateName
+    attempt: PairingAttempt | None
+    peer: EnrolmentPeer | None

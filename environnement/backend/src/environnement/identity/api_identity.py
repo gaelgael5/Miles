@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 import httpx
 import structlog
 from fastapi import APIRouter, Request, Response, status
@@ -11,13 +9,9 @@ from miles_socle.signing.identity_model import (
     IdentityInconsistentError,
     IdentityMissingError,
     IdentitySlugTakenError,
-    ModuleIdentity,
     OriginMissingError,
 )
-from miles_socle.signing.keys import fingerprint
 from miles_socle.signing.peers import (
-    MAX_BASE_URL_LENGTH,
-    MAX_DECLARED_NAME_LENGTH,
     IdentityError,
     IdentityInputError,
 )
@@ -26,11 +20,21 @@ from miles_socle.signing.peers import (
 # l'ATTEND de son pair quand c'est lui qui appelle. Deux définitions de même forme
 # auraient divergé au premier champ ajouté d'un seul côté.
 from miles_socle.signing.protocol import PongOut
-from pydantic import BaseModel, ConfigDict, Field
 
+from environnement.identity.api_schemas import (
+    AttemptOut,
+    IdentityOut,
+    PairingConfirmIn,
+    PairingIn,
+    PairingStateOut,
+    PeerIn,
+    PeerOut,
+    attempt_out,
+    identity_out,
+    peer_out,
+    pong_out,
+)
 from environnement.identity.model import (
-    EnrolmentPeer,
-    PairingAttempt,
     PairingAttemptMissingError,
     PairingRefusedByPeerError,
     PeerClockSkewError,
@@ -38,136 +42,15 @@ from environnement.identity.model import (
     PeerRefusedError,
     PeerUnexpectedResponseError,
 )
-from environnement.identity.service import IdentityService, PeerPong
+from environnement.identity.service import IdentityService
 
 log = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/identity")
 
 
-class IdentityOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    # La clé PUBLIQUE sort, et c'est sa raison d'être : le module d'enrôlement en a besoin
-    # pour vérifier nos appels. La clé privée n'a aucun champ ici, dans aucun sens.
-    public_key: str
-    public_key_fingerprint: str
-    algorithm: str
-    created_at: datetime
-
-
-class PeerIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    base_url: str = Field(max_length=MAX_BASE_URL_LENGTH)
-    public_key: str = Field(max_length=64)
-
-
-class PairingIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    # L'origine du module d'enrôlement chez qui frapper. Saisie par un administrateur :
-    # validée par le service avant tout usage en URL d'appel sortant.
-    base_url: str = Field(max_length=MAX_BASE_URL_LENGTH)
-    # Le nom sous lequel CE module se présentera. Il sert à ce qu'un humain, devant la
-    # liste des demandes à l'autre bout, reconnaisse celle qu'il accepte — il n'identifie
-    # rien, et deux environnements peuvent porter le même.
-    #
-    # Borne GROSSIÈRE, plus large que la règle : la vraie — 80 caractères, pas de
-    # caractère de contrôle — est appliquée par le service, qui refuse en NOMMANT le
-    # champ. Borner au plus juste ici ferait rendre le 422 générique de FastAPI, qui
-    # n'apprend rien à qui doit corriger sa saisie.
-    name: str = Field(max_length=MAX_DECLARED_NAME_LENGTH * 4)
-
-
-class PairingConfirmIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    # Le code recopié depuis l'écran du module d'enrôlement. Borné ici, validé au chiffre
-    # près par le service : six caractères suffisent à refuser une saisie démesurée avant
-    # qu'elle n'atteigne quoi que ce soit.
-    code: str = Field(max_length=16)
-
-
-class AttemptOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    base_url: str
-    created_at: datetime
-    name: str | None
-    expires_at: datetime | None
-
-
-class PairingStateOut(BaseModel):
-    """L'état que l'écran rend lisible, et les deux moitiés qui le composent.
-
-    La tentative et le pair voyagent ENSEMBLE : un ré-appariement les fait coexister, et
-    un écran qui ne verrait que l'état remplacerait l'un par l'autre avant que l'humain
-    n'ait tranché.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    state: str
-    attempt: AttemptOut | None
-    peer: PeerOut | None
-
-
-class PeerOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    base_url: str
-    # Le nom que CE module a déclaré en s'appariant — pas celui du pair, qui n'en déclare
-    # aucun. Il permet de retrouver son environnement dans la liste de l'autre bout.
-    declared_name: str | None
-    public_key: str
-    public_key_fingerprint: str
-    algorithm: str
-    created_at: datetime
-    updated_at: datetime
-
-
 def _service(request: Request) -> IdentityService:
     service: IdentityService = request.app.state.identity
     return service
-
-
-def _identity_out(identity: ModuleIdentity) -> IdentityOut:
-    return IdentityOut(
-        public_key=identity.public_key,
-        public_key_fingerprint=fingerprint(identity.public_key),
-        algorithm=identity.algorithm,
-        created_at=identity.created_at,
-    )
-
-
-def _peer_out(peer: EnrolmentPeer) -> PeerOut:
-    return PeerOut(
-        base_url=peer.base_url,
-        declared_name=peer.declared_name,
-        public_key=peer.public_key,
-        public_key_fingerprint=fingerprint(peer.public_key),
-        algorithm=peer.algorithm,
-        created_at=peer.created_at,
-        updated_at=peer.updated_at,
-    )
-
-
-def _pong_out(pong: PeerPong) -> PongOut:
-    return PongOut(
-        module=pong.module,
-        origin=pong.origin,
-        verified_key_fingerprint=pong.verified_key_fingerprint,
-        own_key_fingerprint=pong.own_key_fingerprint,
-    )
-
-
-def _attempt_out(attempt: PairingAttempt) -> AttemptOut:
-    return AttemptOut(
-        base_url=attempt.base_url,
-        created_at=attempt.created_at,
-        name=attempt.name,
-        expires_at=attempt.expires_at,
-    )
 
 
 def _error(exc: IdentityError) -> JSONResponse:
@@ -233,7 +116,7 @@ def _error(exc: IdentityError) -> JSONResponse:
 @router.get("", response_model=IdentityOut)
 async def get_identity(request: Request) -> IdentityOut | JSONResponse:
     try:
-        return _identity_out(await _service(request).resolve_identity())
+        return identity_out(await _service(request).resolve_identity())
     except IdentityError as exc:
         return _error(exc)
 
@@ -241,7 +124,7 @@ async def get_identity(request: Request) -> IdentityOut | JSONResponse:
 @router.get("/peer", response_model=PeerOut)
 async def get_peer(request: Request) -> PeerOut | JSONResponse:
     try:
-        return _peer_out(await _service(request).resolve_peer())
+        return peer_out(await _service(request).resolve_peer())
     except IdentityError as exc:
         return _error(exc)
 
@@ -260,7 +143,7 @@ async def put_peer(request: Request, body: PeerIn) -> PeerOut | JSONResponse:
         )
     except IdentityError as exc:
         return _error(exc)
-    return _peer_out(peer)
+    return peer_out(peer)
 
 
 @router.post("/peer/ping", response_model=PongOut)
@@ -283,7 +166,7 @@ async def post_peer_ping(request: Request) -> PongOut | JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_502_BAD_GATEWAY, content={"detail": "pair_injoignable"}
         )
-    return _pong_out(pong)
+    return pong_out(pong)
 
 
 def _injoignable(exc: httpx.HTTPError) -> JSONResponse:
@@ -302,7 +185,7 @@ def _injoignable(exc: httpx.HTTPError) -> JSONResponse:
 async def get_pairing(request: Request) -> AttemptOut | JSONResponse:
     """La demande d'appariement en cours : chez qui on a frappé, et quand."""
     try:
-        return _attempt_out(await _service(request).resolve_attempt())
+        return attempt_out(await _service(request).resolve_attempt())
     except IdentityError as exc:
         return _error(exc)
 
@@ -321,8 +204,8 @@ async def get_pairing_state(request: Request) -> PairingStateOut | JSONResponse:
         return _error(exc)
     return PairingStateOut(
         state=etat.state,
-        attempt=None if etat.attempt is None else _attempt_out(etat.attempt),
-        peer=None if etat.peer is None else _peer_out(etat.peer),
+        attempt=None if etat.attempt is None else attempt_out(etat.attempt),
+        peer=None if etat.peer is None else peer_out(etat.peer),
     )
 
 
@@ -341,7 +224,7 @@ async def post_pairing(request: Request, body: PairingIn) -> AttemptOut | JSONRe
         return _error(exc)
     except httpx.HTTPError as exc:
         return _injoignable(exc)
-    return _attempt_out(attempt)
+    return attempt_out(attempt)
 
 
 @router.post("/pairing/confirm", response_model=PeerOut)
@@ -353,7 +236,7 @@ async def post_pairing_confirm(request: Request, body: PairingConfirmIn) -> Peer
         return _error(exc)
     except httpx.HTTPError as exc:
         return _injoignable(exc)
-    return _peer_out(peer)
+    return peer_out(peer)
 
 
 @router.delete("/pairing", status_code=status.HTTP_204_NO_CONTENT)
