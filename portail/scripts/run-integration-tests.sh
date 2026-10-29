@@ -34,7 +34,14 @@ MOUNT_DIR="$(mktemp -d)"
 socle_it_docker_present
 
 cleanup() {
-  docker rm -f "$RUN_ID-db" "$RUN_ID-mqtt" "$RUN_ID-oidc" "$RUN_ID-kc" "$RUN_ID-gitea" >/dev/null 2>&1 || true
+  # `-v` et pas seulement `-f` : les images de ces services déclarent des volumes
+  # ANONYMES (le `VOLUME` de `postgres`, de `gitea`), que Docker crée à la volée et que
+  # `docker rm` sans `-v` laisse derrière. Mesuré sur test1 le 29/10/2026 : 249 volumes
+  # orphelins, 7,9 Go dont 97 % récupérables, pour un disque à 82 %. La purge de
+  # `dev-deploy.sh` ne les couvre pas, et c'est délibéré — elle ne touche jamais aux
+  # volumes, qui portent des données de travail. Donc c'est à celui qui les crée de les
+  # reprendre, à la sortie, quel qu'ait été le verdict.
+  docker rm -f -v "$RUN_ID-db" "$RUN_ID-mqtt" "$RUN_ID-oidc" "$RUN_ID-kc" "$RUN_ID-gitea" >/dev/null 2>&1 || true
   docker network rm "$RUN_ID" >/dev/null 2>&1 || true
   docker image rm "$RUN_ID-backend" >/dev/null 2>&1 || true
   rm -rf "$MOUNT_DIR"
