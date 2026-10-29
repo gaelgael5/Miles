@@ -68,6 +68,12 @@ class EnrolmentDouble:
     # Les corps reçus, en OCTETS : c'est là-dedans qu'un test va chercher qu'aucune clé
     # privée n'est partie, plutôt que de s'en remettre à l'intention.
     bodies: list[bytes] = field(default_factory=list)
+    # Un refus servi PAR AVANCE sur l'échange de vivacité, à la place du traitement
+    # normal : (statut, code de refus). Il sert à séparer les deux 401 que ce module doit
+    # lire différemment — celui d'un vérificateur de signature, qui dit que l'appariement
+    # ne tient plus, et celui d'un portillon d'authentification quand la route n'existe
+    # pas chez le pair (mesuré le 28/10/2026), qui ne dit rien de l'appariement.
+    ping_refusal: tuple[int, str] | None = None
 
     def app(self) -> FastAPI:
         app = FastAPI()
@@ -128,6 +134,9 @@ class EnrolmentDouble:
         async def ping(request: Request) -> JSONResponse:
             body = await request.body()
             origine = request.headers.get(ORIGIN_HEADER) or ""
+            if self.ping_refusal is not None:
+                statut, detail = self.ping_refusal
+                return JSONResponse(status_code=statut, content={"detail": detail})
             if not self._verifie(request, body, self.expects_public_key):
                 return JSONResponse(
                     status_code=status.HTTP_401_UNAUTHORIZED,

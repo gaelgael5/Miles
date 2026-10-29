@@ -15,7 +15,12 @@ export type PairingStateName =
   | "apparie"
   | "refusee"
   | "expiree"
-  | "pair_injoignable";
+  | "pair_injoignable"
+  // Le pair refuse nos appels signés alors qu'on le croit apparié : il a pu révoquer
+  // l'appariement de son côté. Distinct de `pair_injoignable`, qui est une panne de
+  // réseau et ne remet rien en cause — et distinct de `non_apparie`, parce qu'un
+  // appariement a bien existé et que ses informations restent utiles à comparer.
+  | "refuse_par_le_pair";
 
 export interface PairingAttempt {
   base_url: string;

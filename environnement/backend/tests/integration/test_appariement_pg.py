@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from miles_socle.events.model import LOCAL_DIRECTORY, EventAuthor
-from miles_socle.signing.keys import fingerprint
+from miles_socle.signing.keys import fingerprint, generate_keypair
 
 from environnement.identity.model import (
     PairingAttemptMissingError,
@@ -610,3 +611,89 @@ async def test_repointer_le_pair_a_la_main_n_efface_pas_le_nom_declare(
         assert repointe.status_code == 200
         assert repointe.json()["base_url"] == "http://autre-adresse.test"
         assert repointe.json()["declared_name"] == NOM
+
+
+async def _apparie(stack: Any, double: EnrolmentDouble) -> None:
+    """Appariement complet par les routes : demande, puis code recopié."""
+    await stack.client.post("/api/identity/pairing", json={"base_url": PEER_ORIGIN, "name": NOM})
+    confirme = await stack.client.post(
+        "/api/identity/pairing/confirm", json={"code": EXPECTED_CODE}
+    )
+    assert confirme.status_code == 200, confirme.text
+
+
+async def test_un_appariement_vivant_est_confirme_par_le_pair(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """L'état « apparié » n'est plus lu localement : il est DEMANDÉ au pair à l'affichage."""
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double)
+
+        etat = await stack.client.get("/api/identity/pairing/state")
+
+        assert etat.json()["state"] == "apparie"
+        assert etat.json()["peer"] is not None
+
+
+async def test_un_appariement_que_le_pair_ne_reconnait_plus_se_voit_a_l_ecran(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 6 du ticket d5ffeb33 : la stack révoquée le CONSTATE, et peut refrapper.
+
+    Le pair ne nous appelle jamais : il n'a aucun moyen de nous dire qu'il a révoqué. On
+    s'en aperçoit parce qu'il refuse nos appels signés — et c'est le seul signal qui
+    existe, le refus étant volontairement opaque de son côté.
+    """
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double)
+        # Le pair a détruit la clé qu'il détenait pour nous : il ne vérifie plus rien de
+        # ce que nous signons. C'est exactement ce que fait une révocation chez lui.
+        double.expects_public_key = generate_keypair().public_key
+
+        etat = await stack.client.get("/api/identity/pairing/state")
+
+        assert etat.json()["state"] == "refuse_par_le_pair"
+        # L'appariement reste AFFICHÉ : c'est le dernier connu, et son empreinte est ce
+        # qu'on voudra comparer après avoir refrappé. On ne le détruit pas sur la foi
+        # d'une réponse distante.
+        assert etat.json()["peer"] is not None
+        # Et refrapper est possible, ce qui est la seconde moitié du critère.
+        double.expects_public_key = ""
+        neuve = await stack.client.post(
+            "/api/identity/pairing", json={"base_url": PEER_ORIGIN, "name": NOM}
+        )
+        assert neuve.status_code == 200, neuve.text
+
+
+async def test_un_401_du_portillon_du_pair_n_est_pas_un_appariement_rompu(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Les deux 401 ont la même forme, et seul le code de refus les sépare.
+
+    Mesuré le 28/10/2026 : le portillon d'authentification du pair rend 401 quand la
+    route de pair n'existe pas chez lui. Le prendre pour une révocation ferait réapparier
+    une stack dont l'appariement est intact.
+    """
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double)
+        double.ping_refusal = (401, "session_requise")
+
+        etat = await stack.client.get("/api/identity/pairing/state")
+
+        assert etat.json()["state"] == "pair_injoignable"
+
+
+async def test_un_pair_en_panne_ne_rompt_pas_l_appariement(blank_db: str, tmp_path: Path) -> None:
+    """Un 500 est une panne, pas une décision : rien ne doit être remis en cause."""
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double)
+        double.ping_refusal = (500, "panne")
+
+        etat = await stack.client.get("/api/identity/pairing/state")
+
+        assert etat.json()["state"] == "pair_injoignable"
+        assert etat.json()["peer"] is not None

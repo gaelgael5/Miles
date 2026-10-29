@@ -80,6 +80,10 @@ _CODE_RE = re.compile(r"^[0-9]{6}$")
 _MAX_DRIFT_S = 7 * 24 * 3600
 # Un pair lent ne doit pas retenir une requête d'administration indéfiniment.
 PEER_HTTP_TIMEOUT_S = 5.0
+# Les codes de refus que seule une ROUTE DE PAIR produit. Un 401 nu ne prouve rien — le
+# portillon d'authentification du pair en rend un aussi (mesuré le 28/10/2026) —, et c'est
+# ce code dans le corps qui dit que la réponse vient d'un vérificateur de signature.
+_REFUS_DE_SIGNATURE = frozenset({"signature_refusee", "appariement_refuse"})
 
 
 # Les codes de refus sont des mots courts en minuscules. Borner la FORME avant de
@@ -102,7 +106,19 @@ def _peer_detail(reponse: httpx.Response) -> str:
 # peuvent pas être confondus : un écran qui les mélange fait recommencer la demande
 # indéfiniment, ou fait attendre une acceptation qui ne viendra jamais.
 PairingStateName = Literal[
-    "non_apparie", "en_attente", "apparie", "refusee", "expiree", "pair_injoignable"
+    "non_apparie",
+    "en_attente",
+    "apparie",
+    "refusee",
+    "expiree",
+    "pair_injoignable",
+    # Le pair REFUSE nos appels signés alors que nous le croyons apparié. Son appariement
+    # a pu être révoqué chez lui (ticket d5ffeb33, critère 6), ou nos clés ne se
+    # correspondent plus. L'état ne tranche pas entre les deux, et c'est voulu : le pair
+    # ne le dit pas, et nommer une cause plausible enverrait chercher au mauvais endroit.
+    # Ce qu'il dit de sûr, c'est que cet appariement ne sert plus à rien, et qu'il faut
+    # refrapper.
+    "refuse_par_le_pair",
 ]
 
 
@@ -404,7 +420,14 @@ class IdentityService:
         pair = await db_get_peer(self.pool)
         tentative = await db_get_attempt(self.pool)
         if tentative is None:
-            return PairingState("apparie" if pair else "non_apparie", None, pair)
+            if pair is None:
+                return PairingState("non_apparie", None, None)
+            # Un appariement enregistré ici ne prouve pas qu'il tient encore EN FACE : le
+            # pair a pu le révoquer, et il n'a aucun moyen de nous le dire — il ne nous
+            # appelle jamais. On le lui demande donc à l'affichage, au prix d'un appel
+            # borné par `PEER_HTTP_TIMEOUT_S`. Sans cela, l'écran afficherait « apparié »
+            # pour toujours à un module que plus personne ne sert.
+            return PairingState(await self._peer_still_accepts_us(pair), None, pair)
         try:
             reponse = await self.post_signed(tentative.base_url, PAIRING_STATUS_PATH, PING_BODY)
         except (httpx.HTTPError, OriginMissingError):
@@ -430,6 +453,40 @@ class IdentityService:
         return PairingState(
             "expiree" if self.now() >= tentative.expires_at else "refusee", tentative, pair
         )
+
+    async def _peer_still_accepts_us(self, pair: EnrolmentPeer) -> PairingStateName:
+        """Le pair accepte-t-il encore nos appels signés ? Trois issues, jamais deux.
+
+        Un 401 NE SUFFIT PAS à conclure « révoqué » : mesuré le 28/10/2026, le portillon
+        d'authentification du pair rend lui aussi 401 quand sa route de pair n'existe
+        pas, et les deux ont la même forme. Ce qui distingue, c'est le code de refus que
+        sa route de pair met dans son corps — lui seul vient d'un vérificateur de
+        signature. Sans ce code, on retombe sur « injoignable », qui ne fait rien perdre.
+
+        Et même avec lui, on ne nomme pas la cause : révocation chez lui ou clés qui ne se
+        correspondent plus produisent le même refus, et il ne dit pas lequel. L'état dit
+        ce qui est sûr — ses appels nous sont refusés — et l'écran propose de refrapper.
+        """
+        try:
+            reponse = await self.post_signed(pair.base_url, PEER_PING_PATH, PING_BODY)
+        except (httpx.HTTPError, OriginMissingError):
+            log.warning("appariement_pair_injoignable", base_url=pair.base_url)
+            return "pair_injoignable"
+        if reponse.status_code == 200:
+            return "apparie"
+        detail = _peer_detail(reponse)
+        if reponse.status_code == 401 and detail in _REFUS_DE_SIGNATURE:
+            log.warning(
+                "appariement_refuse_par_le_pair", base_url=pair.base_url, peer_detail=detail
+            )
+            return "refuse_par_le_pair"
+        log.warning(
+            "appariement_etat_indisponible",
+            base_url=pair.base_url,
+            status_code=reponse.status_code,
+            peer_detail=detail,
+        )
+        return "pair_injoignable"
 
     async def resolve_cancel_attempt(self, author: EventAuthor) -> None:
         """Abandonne la demande en cours. Le pair, lui, laissera la sienne expirer."""

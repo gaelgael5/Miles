@@ -179,6 +179,19 @@ describe("écran d'appariement du module d'environnement", () => {
     expect(screen.queryByLabelText("Enrolment module URL")).toBeNull();
   });
 
+  it("says the enrolment module refuses us, keeps the pairing shown, and offers to knock again", async () => {
+    // Critère 6 du ticket d5ffeb33 : une stack révoquée doit le CONSTATER. Le pair ne
+    // l'appelle jamais ; le seul signal est qu'il refuse ses appels signés.
+    monte(etatRoute({ state: "refuse_par_le_pair", attempt: null, peer: PAIR }));
+
+    expect(await screen.findByText(/no longer accepts our signed calls/i)).toBeInTheDocument();
+    // L'appariement reste affiché : son empreinte est ce qu'on voudra comparer après
+    // avoir refrappé. On ne l'efface pas sur la foi d'une réponse distante.
+    expect(screen.getByText(PAIR.public_key_fingerprint)).toBeInTheDocument();
+    // Et refrapper est possible : c'est la seconde moitié du critère.
+    expect(screen.getByLabelText("Enrolment module URL")).toBeInTheDocument();
+  });
+
   it("shows the pairing and warns before replacing it", async () => {
     const appels = monte({
       ...etatRoute({ state: "apparie", attempt: null, peer: PAIR }),

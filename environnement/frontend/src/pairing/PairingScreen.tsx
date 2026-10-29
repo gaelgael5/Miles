@@ -238,6 +238,11 @@ export function PairingScreen() {
   // ferait croire que le premier est déjà perdu.
   const enAttente = state === "en_attente" || state === "pair_injoignable";
   const aRecommencer = state === "refusee" || state === "expiree";
+  // Le pair refuse nos appels signés alors que nous le croyons apparié : son
+  // administrateur a pu révoquer l'appariement. La ligne du pair RESTE affichée, sous un
+  // avertissement qui dit que c'est le dernier appariement connu — l'effacer priverait
+  // l'humain de l'empreinte qu'il voudra comparer après avoir refrappé.
+  const refuseParLePair = state === "refuse_par_le_pair";
 
   return (
     <section className="section" aria-labelledby="pairing-title">
@@ -253,6 +258,11 @@ export function PairingScreen() {
           // un appariement que quelqu'un est peut-être en train d'accepter.
           <p className="alert" role="status">
             {t("pairing.unreachable")}
+          </p>
+        )}
+        {refuseParLePair && (
+          <p className="alert alert-warning" role="status">
+            {t("pairing.refusedByPeer")}
           </p>
         )}
         {aRecommencer && (
