@@ -4,6 +4,7 @@ from miles_socle.cultures import service as cultures_events
 from miles_socle.oidc import service as oidc_events
 from miles_socle.pairing import events as pairing_events
 from miles_socle.secrets import service as secrets_events
+from miles_socle.signing import identity_model as module_identity_events
 
 from miles.apikeys import service as apikeys_events
 from miles.chains import service as chains_events
@@ -40,6 +41,7 @@ def code_event_types() -> frozenset[str]:
         | gitaccess_events.EVENT_TYPES
         | identities_events.EVENT_TYPES
         | oauth_events.EVENT_TYPES
+        | module_identity_events.EVENT_TYPES
         | oidc_events.EVENT_TYPES
         | pairing_events.EVENT_TYPES
         | secrets_events.EVENT_TYPES

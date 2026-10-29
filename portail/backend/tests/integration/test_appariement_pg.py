@@ -9,15 +9,13 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from miles_socle.events.model import EventTypeCatalog
-from miles_socle.pairing.events import EVENT_TYPES as PAIRING_EVENTS
 from miles_socle.pairing.events import PAIRING_REQUESTED_EVENT, PEER_REGISTERED_EVENT
 from miles_socle.secrets.crypto import SecretCipher
-from miles_socle.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles_socle.secrets.service import SecretsService
-from miles_socle.signing.identity_model import EVENT_TYPES as IDENTITY_EVENTS
 from miles_socle.signing.keys import fingerprint
 from miles_socle.testing.enrolment_double import EXPECTED_CODE, PEER_ORIGIN, EnrolmentDouble
 
+from miles.event_types import code_event_types
 from miles.pairing.service import MODULE_NAME, PairingService
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
 
@@ -54,7 +52,12 @@ async def _stack(
     double, et elle appelle son vérificateur plutôt que de réimplémenter la signature.
     """
     async with open_portal_stack(dsn, tmp_path) as portal:
-        catalog = EventTypeCatalog(SECRET_EVENTS | IDENTITY_EVENTS | PAIRING_EVENTS)
+        # LE catalogue du produit, et non une union assemblée ici. Mesuré le 29/10/2026 :
+        # assemblé à la main, il contenait les types de l'identité du module que
+        # `code_event_types()` avait OUBLIÉS — la suite était verte et la stack déployée
+        # rendait 500 au premier `GET /api/identity`. Une doublure plus généreuse que la
+        # production rend le test complaisant exactement là où il devait mordre.
+        catalog = EventTypeCatalog(code_event_types())
         cipher = SecretCipher(os.urandom(32))
         portal.app.state.secrets = SecretsService(portal.pool, cipher, catalog, utc_now)
         transport = (
