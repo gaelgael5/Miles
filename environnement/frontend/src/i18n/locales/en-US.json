@@ -51,6 +51,8 @@
       "cancel": "Abandon the request"
     },
     "paired": {
+      "captionContact": "Reached at",
+      "contactHelp": "The enrolment module names itself under the address above, but we reach it here. The address dialled is part of no signature: only the origin it declares is verified.",
       "captionUrl": "Enrolment module",
       "captionName": "Declared name",
       "noName": "None",

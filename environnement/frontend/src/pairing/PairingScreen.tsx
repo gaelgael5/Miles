@@ -179,6 +179,18 @@ function Apparie({ peer }: { peer: EnrolmentPeer }) {
           <dt className="caption">{t("pairing.paired.captionUrl")}</dt>
           <dd className="value">{peer.base_url}</dd>
         </div>
+        {/* L'adresse de contact n'apparaît QUE si elle diffère de l'identité : identiques,
+            deux lignes feraient chercher une différence qui n'existe pas. Différentes, il
+            faut dire pourquoi — sinon l'écran a l'air de se contredire. */}
+        {peer.contact_url !== peer.base_url && (
+          <div>
+            <dt className="caption">{t("pairing.paired.captionContact")}</dt>
+            <dd className="value">
+              {peer.contact_url}
+              <div className="row-sub">{t("pairing.paired.contactHelp")}</div>
+            </dd>
+          </div>
+        )}
         <div>
           <dt className="caption">{t("pairing.paired.captionName")}</dt>
           <dd className="value">

@@ -33,6 +33,12 @@ export interface EnrolmentPeer {
   base_url: string;
   /** Le nom que CE module a déclaré — pas celui du pair, qui n'en déclare aucun. */
   declared_name: string | null;
+  /**
+   * L'adresse où on le JOINT, qui n'est pas son identité. Elle n'entre dans aucune chaîne
+   * signée. Égale à `base_url` tant qu'aucun intermédiaire ne s'interpose : l'écran ne la
+   * montre alors pas, deux lignes identiques faisant chercher une différence qui n'existe pas.
+   */
+  contact_url: string;
   public_key: string;
   public_key_fingerprint: string;
   algorithm: string;

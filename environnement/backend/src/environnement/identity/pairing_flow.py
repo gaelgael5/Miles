@@ -118,6 +118,7 @@ class IdentityPairingFlow(IdentityPeerCalls):
         author: EventAuthor,
         base_url: str,
         public_key: str,
+        contact_url: str,
         declared_name: str | None = None,
     ) -> EnrolmentPeer:
         """Enregistre le module d'enrôlement apparié, ou REMPLACE celui qui existe.
@@ -126,20 +127,42 @@ class IdentityPairingFlow(IdentityPeerCalls):
         l'autorité unique sur l'affectation des devices. C'est aussi par ici que passe le
         dépôt de clé à l'issue de l'appariement, et c'est voulu — un seul endroit écrit le
         pair, qu'un humain l'ait saisi ou que le protocole l'ait rapporté.
+
+        `base_url` et `contact_url` sont deux choses, et les confondre est l'erreur que ce
+        ticket corrige : la première est l'IDENTITÉ du pair — ce qu'il déclare être, et la
+        seule chose contre quoi on vérifie l'origine d'un appel entrant —, la seconde est
+        l'ADRESSE où on le joint. `contact_url` est EXIGÉE des deux appelants plutôt que
+        déduite : un défaut calculé ici ferait composer l'identité par mégarde le jour où
+        un appelant l'oublierait, et le symptôme — des appels qui n'arrivent pas —
+        apparaîtrait loin de sa cause.
         """
         base_url, public_key = validate_base_url(base_url), validate_public_key(public_key)
+        # Validée comme l'identité : elle vient d'une saisie, et sert ensuite à composer
+        # une URL. Une entrée qui devient une adresse se valide avant tout usage.
+        contact_url = validate_base_url(contact_url)
         async with self.pool.acquire() as conn, conn.transaction():
-            pair = await db_upsert_peer(conn, base_url, public_key, self.now(), declared_name)
+            pair = await db_upsert_peer(
+                conn, base_url, public_key, self.now(), declared_name, contact_url
+            )
             await self.module.write_event(
                 conn,
                 PEER_REGISTERED_EVENT,
                 PEER_OBJECT_KIND,
                 SINGLETON,
-                {"base_url": base_url, "public_key_fingerprint": fingerprint(public_key)},
+                {
+                    "base_url": base_url,
+                    "public_key_fingerprint": fingerprint(public_key),
+                    # Au journal parce qu'une stack qu'on ne joint plus se diagnostique
+                    # d'abord par « où croyait-on l'appeler ? ».
+                    "contact_url": contact_url,
+                },
                 author=author,
             )
         log.info(
-            "pair_enregistre", base_url=base_url, public_key_fingerprint=fingerprint(public_key)
+            "pair_enregistre",
+            base_url=base_url,
+            contact_url=contact_url,
+            public_key_fingerprint=fingerprint(public_key),
         )
         return pair
 
@@ -160,7 +183,13 @@ class IdentityPairingFlow(IdentityPeerCalls):
         # écrite, et avant tout usage comme vérificateur de ses appels.
         public_key = validate_public_key(str(charge["public_key"]))
         base_url = validate_base_url(str(charge["base_url"]))
-        pair = await self.resolve_register_peer(author, base_url, public_key, tentative.name)
+        # L'adresse de contact est celle que l'administrateur a TAPÉE et qu'on vient de
+        # composer avec succès ; l'identité est celle que le pair déclare être la sienne.
+        # Jusqu'ici la première était jetée, et c'est tout le défaut : dès qu'un
+        # intermédiaire s'interpose, on recomposait une adresse qui n'aboutit plus.
+        pair = await self.resolve_register_peer(
+            author, base_url, public_key, tentative.base_url, tentative.name
+        )
         async with self.pool.acquire() as conn, conn.transaction():
             # La tentative disparaît APRÈS que le pair est écrit : l'ordre inverse
             # laisserait, sur une panne entre les deux, ni pair ni demande — donc un

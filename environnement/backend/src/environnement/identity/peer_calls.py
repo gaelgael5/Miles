@@ -68,10 +68,15 @@ class IdentityPeerCalls(IdentityBase):
     jamais, et chacune appelle un geste différent.
     """
 
-    async def post_signed(self, base_url: str, path: str, body: bytes) -> httpx.Response:
+    async def post_signed(self, contact_url: str, path: str, body: bytes) -> httpx.Response:
         """POST signé par la clé privée du module. Seul endroit qui compose l'appel sortant.
 
-        `base_url` est une origine SANS chemin : la cible signée et le chemin de la requête
+        `contact_url` est l'adresse où l'on COMPOSE, et elle n'entre dans AUCUNE signature :
+        la chaîne canonique porte notre propre origine, la méthode, le chemin et
+        l'empreinte du corps — jamais l'hôte appelé. C'est ce qui permet de joindre un pair
+        ailleurs qu'à l'origine qu'il déclare, sans que rien de ce qu'il vérifie ne change.
+
+        Elle est une origine SANS chemin : la cible signée et le chemin de la requête
         coïncident donc, ce qui est la condition pour que le pair vérifie exactement la
         chaîne qu'on a signée.
         """
@@ -81,7 +86,7 @@ class IdentityPeerCalls(IdentityBase):
         privee = await self.resolve_private_key()
         entete = sign_call(privee, origin=origine, method="POST", target=path, body=body)
         return await self.http.post(
-            f"{base_url}{path}",
+            f"{contact_url}{path}",
             content=body,
             headers={
                 ORIGIN_HEADER: origine,
@@ -93,7 +98,10 @@ class IdentityPeerCalls(IdentityBase):
     async def resolve_ping_peer(self) -> PeerPong:
         """Émet un appel signé vers le pair : l'autre sens du même échange."""
         pair = await self.resolve_peer()
-        reponse = await self.post_signed(pair.base_url, PEER_PING_PATH, PING_BODY)
+        # L'adresse de CONTACT, pas l'identité : le pair peut se nommer ailleurs qu'où on
+        # le joint, et composer son identité est exactement ce qui ne marchait plus dès
+        # qu'un intermédiaire s'interposait.
+        reponse = await self.post_signed(pair.contact_url, PEER_PING_PATH, PING_BODY)
         if reponse.status_code == 401:
             # Distingué d'une panne de réseau : le pair a répondu, et il nous refuse. Le
             # statut seul ne dit pas POURQUOI — son portillon d'authentification et son
@@ -136,9 +144,15 @@ class IdentityPeerCalls(IdentityBase):
         ce qui est sûr — ses appels nous sont refusés — et l'écran propose de refrapper.
         """
         try:
-            reponse = await self.post_signed(pair.base_url, PEER_PING_PATH, PING_BODY)
+            reponse = await self.post_signed(pair.contact_url, PEER_PING_PATH, PING_BODY)
         except (httpx.HTTPError, OriginMissingError):
-            log.warning("appariement_pair_injoignable", base_url=pair.base_url)
+            # Les DEUX au journal : « où croyait-on l'appeler ? » est la première
+            # question d'un pair qu'on ne joint plus, et l'identité seule n'y répond pas.
+            log.warning(
+                "appariement_pair_injoignable",
+                base_url=pair.base_url,
+                contact_url=pair.contact_url,
+            )
             return "pair_injoignable"
         if reponse.status_code == 200:
             return "apparie"

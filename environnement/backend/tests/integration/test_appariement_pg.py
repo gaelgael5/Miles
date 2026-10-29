@@ -5,7 +5,9 @@ from typing import Any
 
 import pytest
 from miles_socle.events.model import LOCAL_DIRECTORY, EventAuthor
-from miles_socle.signing.keys import fingerprint, generate_keypair
+from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, sign_call
+from miles_socle.signing.keys import fingerprint, generate_keypair, load_private_key
+from miles_socle.signing.protocol import PEER_PING_PATH
 
 from environnement.identity.model import (
     PairingAttemptMissingError,
@@ -698,3 +700,137 @@ async def test_un_pair_en_panne_ne_rompt_pas_l_appariement(blank_db: str, tmp_pa
 
         assert etat.json()["state"] == "pair_injoignable"
         assert etat.json()["peer"] is not None
+
+
+# L'adresse où l'administrateur joint le pair, DIFFÉRENTE de l'origine que celui-ci
+# déclare : c'est le cas que le portillon du portail a rendu nécessaire le 29/10/2026.
+CONTACT = "http://100.74.9.236:8081"
+
+
+async def _apparie_par(stack: Any, double: EnrolmentDouble, contact: str) -> dict[str, Any]:
+    """Appariement complet en COMPOSANT `contact`, quelle que soit l'origine du pair."""
+    ouverte = await stack.client.post(
+        "/api/identity/pairing", json={"base_url": contact, "name": NOM}
+    )
+    assert ouverte.status_code == 202, ouverte.text
+    conclu = await stack.client.post("/api/identity/pairing/confirm", json={"code": EXPECTED_CODE})
+    assert conclu.status_code == 200, conclu.text
+    pair: dict[str, Any] = conclu.json()
+    return pair
+
+
+async def test_l_adresse_tapee_est_gardee_et_l_identite_reste_celle_que_le_pair_declare(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 1 : deux champs, deux rôles. Jusqu'ici le premier était jeté."""
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        pair = await _apparie_par(stack, double, CONTACT)
+
+        # L'IDENTITÉ est ce que le pair déclare être, pas ce qu'on a tapé.
+        assert pair["base_url"] == PEER_ORIGIN
+        # L'ADRESSE DE CONTACT est ce qu'on a tapé et composé avec succès.
+        assert pair["contact_url"] == CONTACT
+
+
+async def test_les_appels_sortants_composent_l_adresse_de_contact(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 2, et c'est tout l'objet du ticket : on compose où l'on joint."""
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie_par(stack, double, CONTACT)
+        double.dialled.clear()
+
+        etat = await stack.client.get("/api/identity/pairing/state")
+
+        assert etat.json()["state"] == "apparie"
+        # L'hôte réellement composé, pas l'origine déclarée : composer l'identité est
+        # exactement ce qui n'aboutissait plus dès qu'un intermédiaire s'interposait.
+        assert double.dialled == ["100.74.9.236:8081"]
+
+
+async def test_un_appel_entrant_declarant_l_adresse_de_contact_est_refuse(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 3 : l'origine déclarée se compare à l'IDENTITÉ, et à elle seule.
+
+    Les confondre rendrait acceptable un appel déclarant une origine que le pair n'a
+    jamais revendiquée — et l'adresse de contact, elle, est choisie chez nous.
+    """
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie_par(stack, double, CONTACT)
+        entete = sign_call(
+            load_private_key(double.keypair.private_pem),
+            origin=CONTACT,
+            method="POST",
+            target=PEER_PING_PATH,
+            body=b"{}",
+        )
+
+        refus = await stack.anonymous().post(
+            PEER_PING_PATH,
+            content=b"{}",
+            headers={ORIGIN_HEADER: CONTACT, SIGNATURE_HEADER: entete},
+        )
+
+        assert refus.status_code == 401
+        journal = await stack.pool.fetch(
+            "SELECT properties FROM events WHERE type = $1", PEER_REGISTERED_EVENT
+        )
+        assert journal  # l'appariement a bien eu lieu : le refus n'est pas « aucun pair »
+
+
+async def test_un_appel_entrant_declarant_l_identite_reste_accepte(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 4 : l'adresse de contact différente ne change rien à ce qu'on vérifie."""
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie_par(stack, double, CONTACT)
+        entete = sign_call(
+            load_private_key(double.keypair.private_pem),
+            origin=PEER_ORIGIN,
+            method="POST",
+            target=PEER_PING_PATH,
+            body=b"{}",
+        )
+
+        accepte = await stack.anonymous().post(
+            PEER_PING_PATH,
+            content=b"{}",
+            headers={ORIGIN_HEADER: PEER_ORIGIN, SIGNATURE_HEADER: entete},
+        )
+
+        assert accepte.status_code == 200, accepte.text
+
+
+async def test_le_reappariement_remplace_l_adresse_de_contact(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 5 : c'est par le ré-appariement qu'on change l'adresse, pas autrement."""
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie_par(stack, double, CONTACT)
+
+        autre = "http://100.74.9.236:9999"
+        pair = await _apparie_par(stack, double, autre)
+
+        assert pair["contact_url"] == autre
+        assert pair["base_url"] == PEER_ORIGIN
+
+
+async def test_sans_adresse_de_contact_le_pair_est_joint_la_ou_il_se_nomme(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 6 : la déclaration manuelle n'en exige pas une seconde."""
+    pair_cle = generate_keypair()
+    async with open_stack(blank_db, tmp_path) as stack:
+        depose = await stack.client.put(
+            "/api/identity/peer",
+            json={"base_url": PEER_ORIGIN, "public_key": pair_cle.public_key},
+        )
+
+        assert depose.status_code == 200, depose.text
+        assert depose.json()["contact_url"] == PEER_ORIGIN

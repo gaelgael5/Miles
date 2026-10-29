@@ -139,7 +139,13 @@ async def put_peer(request: Request, body: PeerIn) -> PeerOut | JSONResponse:
     """
     try:
         peer = await _service(request).resolve_register_peer(
-            request_author(request), body.base_url, body.public_key
+            request_author(request),
+            body.base_url,
+            body.public_key,
+            # Sans adresse de contact, le pair est joignable là où il se nomme : c'est le
+            # cas ordinaire, et le dire ici une fois vaut mieux qu'un défaut calculé plus
+            # bas, où l'oubli d'un appelant deviendrait invisible.
+            body.contact_url or body.base_url,
         )
     except IdentityError as exc:
         return _error(exc)

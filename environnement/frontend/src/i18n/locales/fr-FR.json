@@ -51,6 +51,8 @@
       "cancel": "Abandonner la demande"
     },
     "paired": {
+      "captionContact": "Joint à l'adresse",
+      "contactHelp": "Le module d'enrôlement se nomme sous l'adresse ci-dessus, mais nous le joignons ici. L'adresse composée n'entre dans aucune signature : seule l'origine qu'il déclare est vérifiée.",
       "captionUrl": "Module d'enrôlement",
       "captionName": "Nom déclaré",
       "noName": "Aucun",

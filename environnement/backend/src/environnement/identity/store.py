@@ -20,8 +20,8 @@ class PeerDb(Protocol):
 
 async def db_get_peer(db: PeerDb, /) -> EnrolmentPeer | None:
     row = await db.fetchrow(
-        "SELECT base_url, public_key, algorithm, created_at, updated_at, declared_name"
-        " FROM enrolment_peer WHERE id = $1",
+        "SELECT base_url, public_key, algorithm, created_at, updated_at,"
+        " declared_name, contact_url FROM enrolment_peer WHERE id = $1",
         SINGLETON,
     )
     if row is None:
@@ -33,17 +33,27 @@ async def db_get_peer(db: PeerDb, /) -> EnrolmentPeer | None:
         row["created_at"],
         row["updated_at"],
         row["declared_name"],
+        row["contact_url"],
     )
 
 
 async def db_upsert_peer(
-    db: PeerDb, base_url: str, public_key: str, now: datetime, declared_name: str | None
+    db: PeerDb,
+    base_url: str,
+    public_key: str,
+    now: datetime,
+    declared_name: str | None,
+    contact_url: str,
 ) -> EnrolmentPeer:
     """Enregistre le pair, ou REMPLACE celui qui existe — jamais un second.
 
     Le remplacement est le ré-appariement : il ne doit pas laisser deux identités pour une
     stack. `created_at` est conservé, parce qu'il date l'appariement initial, qui reste un
     fait même après rotation des clés.
+
+    `contact_url` est TOUJOURS réécrite, à la différence du nom déclaré : c'est l'adresse
+    qu'on vient de composer avec succès, et c'est par le ré-appariement qu'on la change.
+    La conserver au conflit rendrait un repointage inexprimable.
 
     `declared_name` nul CONSERVE celui qui est en place, au lieu de l'effacer. Ce champ dit
     sous quel nom NOTRE module est connu à l'autre bout : repointer l'adresse du pair à la
@@ -53,18 +63,21 @@ async def db_upsert_peer(
     """
     row = await db.fetchrow(
         "INSERT INTO enrolment_peer (id, base_url, public_key, algorithm, created_at,"
-        " updated_at, declared_name) VALUES ($1, $2, $3, $4, $5, $5, $6)"
+        " updated_at, declared_name, contact_url) VALUES ($1, $2, $3, $4, $5, $5, $6, $7)"
         " ON CONFLICT (id) DO UPDATE SET base_url = excluded.base_url,"
         " public_key = excluded.public_key, algorithm = excluded.algorithm,"
         " updated_at = excluded.updated_at,"
-        " declared_name = coalesce(excluded.declared_name, enrolment_peer.declared_name)"
-        " RETURNING base_url, public_key, algorithm, created_at, updated_at, declared_name",
+        " declared_name = coalesce(excluded.declared_name, enrolment_peer.declared_name),"
+        " contact_url = excluded.contact_url"
+        " RETURNING base_url, public_key, algorithm, created_at, updated_at,"
+        " declared_name, contact_url",
         SINGLETON,
         base_url,
         public_key,
         ALGORITHM,
         now,
         declared_name,
+        contact_url,
     )
     return EnrolmentPeer(
         row["base_url"],
@@ -73,6 +86,7 @@ async def db_upsert_peer(
         row["created_at"],
         row["updated_at"],
         row["declared_name"],
+        row["contact_url"],
     )
 
 

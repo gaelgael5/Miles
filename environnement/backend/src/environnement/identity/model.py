@@ -97,8 +97,11 @@ class PairingAttempt:
 
 @dataclass(frozen=True)
 class EnrolmentPeer:
-    """Le module d'enrôlement apparié : son origine et sa clé publique."""
+    """Le module d'enrôlement apparié : qui il est, où on le joint, et sa clé publique."""
 
+    # Son IDENTITÉ : l'origine qu'il déclare. C'est elle qui entre dans la chaîne signée
+    # de ses appels vers nous, et c'est contre elle — et contre elle seule — qu'on vérifie
+    # l'origine déclarée d'un appel entrant.
     base_url: str
     public_key: str
     algorithm: str
@@ -108,6 +111,11 @@ class EnrolmentPeer:
     # aucun. Il permet à l'administrateur de retrouver son environnement dans la liste de
     # l'autre bout.
     declared_name: str | None
+    # L'adresse où on le JOINT, qui n'est pas son identité. Elle ne figure dans aucune
+    # chaîne signée — la chaîne porte l'origine de l'ÉMETTEUR, jamais l'hôte appelé —, donc
+    # composer ailleurs ne change rien à ce que le pair vérifie. Égale à `base_url` tant
+    # qu'aucun intermédiaire ne s'interpose entre les deux modules.
+    contact_url: str
 
 
 # Les états que l'écran d'appariement doit distinguer. « En attente » et « échoué » ne

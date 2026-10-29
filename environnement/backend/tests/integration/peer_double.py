@@ -74,6 +74,9 @@ class EnrolmentDouble:
     # ne tient plus, et celui d'un portillon d'authentification quand la route n'existe
     # pas chez le pair (mesuré le 28/10/2026), qui ne dit rien de l'appariement.
     ping_refusal: tuple[int, str] | None = None
+    # Les hôtes réellement COMPOSÉS, dans l'ordre. L'origine déclarée dit qui appelle ;
+    # celui-ci dit où l'appel a été envoyé, et les deux n'ont plus à coïncider.
+    dialled: list[str] = field(default_factory=list)
 
     def app(self) -> FastAPI:
         app = FastAPI()
@@ -134,6 +137,7 @@ class EnrolmentDouble:
         async def ping(request: Request) -> JSONResponse:
             body = await request.body()
             origine = request.headers.get(ORIGIN_HEADER) or ""
+            self.dialled.append(request.url.netloc)
             if self.ping_refusal is not None:
                 statut, detail = self.ping_refusal
                 return JSONResponse(status_code=statut, content={"detail": detail})

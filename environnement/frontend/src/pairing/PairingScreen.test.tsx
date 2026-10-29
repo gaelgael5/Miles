@@ -17,6 +17,8 @@ const TENTATIVE = {
 const PAIR = {
   base_url: ENROLEMENT,
   declared_name: "Environnement de recette",
+  // Le cas ordinaire : on joint le pair là où il se nomme.
+  contact_url: ENROLEMENT,
   public_key: "A".repeat(43),
   public_key_fingerprint: "82876eb0c19c35fdf589d74b1d96ca65",
   algorithm: "ed25519",
@@ -177,6 +179,25 @@ describe("écran d'appariement du module d'environnement", () => {
     // Toujours en attente : on ne propose pas de recommencer pour une panne de réseau.
     expect(screen.getByLabelText("Six-digit code")).toBeInTheDocument();
     expect(screen.queryByLabelText("Enrolment module URL")).toBeNull();
+  });
+
+  it("shows only one address when the peer is reached where it names itself", async () => {
+    // Deux lignes identiques feraient chercher une différence qui n'existe pas.
+    monte(etatRoute({ state: "apparie", attempt: null, peer: PAIR }));
+
+    expect(await screen.findByText(ENROLEMENT)).toBeInTheDocument();
+    expect(screen.queryByText("Reached at")).toBeNull();
+  });
+
+  it("shows the contact address, and why it differs, when it is not the peer's identity", async () => {
+    // Un intermédiaire s'est interposé : l'écran aurait l'air de se contredire s'il
+    // montrait deux adresses sans dire laquelle sert à quoi.
+    const CONTACT = "http://100.74.9.236:8081";
+    monte(etatRoute({ state: "apparie", attempt: null, peer: { ...PAIR, contact_url: CONTACT } }));
+
+    expect(await screen.findByText(CONTACT)).toBeInTheDocument();
+    expect(screen.getByText(ENROLEMENT)).toBeInTheDocument();
+    expect(screen.getByText(/part of no signature/i)).toBeInTheDocument();
   });
 
   it("says the enrolment module refuses us, keeps the pairing shown, and offers to knock again", async () => {

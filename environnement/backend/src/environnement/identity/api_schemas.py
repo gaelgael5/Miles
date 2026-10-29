@@ -33,6 +33,10 @@ class PeerIn(BaseModel):
 
     base_url: str = Field(max_length=MAX_BASE_URL_LENGTH)
     public_key: str = Field(max_length=64)
+    # L'adresse où JOINDRE le pair, quand elle diffère de l'origine qu'il déclare. Absente,
+    # les deux valent `base_url` : celui qui n'en donne qu'une dit que son pair est
+    # joignable là où il se nomme, et c'est le cas ordinaire.
+    contact_url: str | None = Field(default=None, max_length=MAX_BASE_URL_LENGTH)
 
 
 class PairingIn(BaseModel):
@@ -92,6 +96,10 @@ class PeerOut(BaseModel):
     # Le nom que CE module a déclaré en s'appariant — pas celui du pair, qui n'en déclare
     # aucun. Il permet de retrouver son environnement dans la liste de l'autre bout.
     declared_name: str | None
+    # L'adresse où on le joint. Égale à `base_url` tant qu'aucun intermédiaire ne
+    # s'interpose : l'écran ne la montre alors pas, deux lignes identiques faisant
+    # chercher une différence qui n'existe pas.
+    contact_url: str
     public_key: str
     public_key_fingerprint: str
     algorithm: str
@@ -112,6 +120,7 @@ def peer_out(peer: EnrolmentPeer) -> PeerOut:
     return PeerOut(
         base_url=peer.base_url,
         declared_name=peer.declared_name,
+        contact_url=peer.contact_url,
         public_key=peer.public_key,
         public_key_fingerprint=fingerprint(peer.public_key),
         algorithm=peer.algorithm,
