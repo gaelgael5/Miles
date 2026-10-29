@@ -58,8 +58,8 @@ son propre `dev-deploy.sh`.** Rien ne se déploie depuis la racine.
 
 | Répertoire | Produit | État |
 |---|---|---|
-| `portail/` | Portail de configuration : workspaces, paramétrage, storages, sources | livré |
-| `enrolement/` | Service d'enrôlement : référentiel des devices, appariement des environnements | coquille livrée, métier à venir |
+| `portail/` | Portail de configuration (le **module de paramétrage**) : workspaces, paramétrage, storages, sources | livré |
+| `enrolement/` | Service d'enrôlement : référentiel des devices, appariement des environnements **et du module de paramétrage** | coquille livrée, métier à venir |
 | `environnement/` | Back-office d'environnement : une stack et une base par environnement | coquille livrée, **réduite à l'identité signée** ; métier à venir |
 
 Ce qui se partage entre produits est **extrait au fur et à mesure**, quand un deuxième
@@ -73,6 +73,14 @@ module d'enrôlement) et le **contrat d'appel** (`signing/protocol.py`), qui por
 chemins et les formes des routes de pair. Les chemins entrent dans la chaîne signée : deux
 constantes de même valeur dans deux produits auraient divergé au premier renommage fait
 d'un seul côté, et la signature serait refusée sans que rien ne soit faux de part ni d'autre.
+
+Depuis le 29/10/2026, le **côté DEMANDEUR de l'appariement** (`miles_socle.pairing`, et
+son écran dans `socle/web/src/peering/`), deuxième usage avec le **module de paramétrage**
+— qui s'apparie au module d'enrôlement comme un environnement, pour se faire confier les
+connexions git. Un pair unique, les gestes, l'état, les deux sens de l'échange : tout y
+est, et chaque produit ne déclare plus que ce qu'il EST — son nom de module, son ESPÈCE
+(`environnement` ou `parametrage`), le libellé de son secret. Ses TABLES restent à lui,
+comme `module_identity` : le socle ne porte aucune migration.
 
 | Répertoire | Socle partagé | Consommé par |
 |---|---|---|
@@ -103,7 +111,7 @@ déploiement est la seule voie de livraison du projet.
 | `frontend/nginx.conf` | celui du portail diverge déjà de 34 lignes (surface MCP, éditeur JSLT) : un « commun » qui ne vaut que pour deux produits sur trois n'est pas une référence |
 | `frontend/src/main.tsx`, `setupTests.ts` | le point d'entrée nomme l'`App` du produit, et les doublures de test sont celles de ses écrans |
 | les **migrations** | le socle ne porte aucune migration (décision du 27/10/2026) ; l'écart entre les trois schémas est tenu par la revue humaine. Les tables que le socle interroge — dont `module_identity` — sont donc déclarées par CHAQUE produit, et un test du produit vérifie qu'aucune ne manque |
-| le **protocole d'appariement** | l'enrôlement SERT les routes, l'environnement les APPELLE : deux rôles, pas deux copies. Seuls leurs chemins et leurs formes sont au socle, parce qu'ils entrent dans la signature. Le code TOTP reste à l'enrôlement, seul à en dériver un — un usage, donc pas d'extraction |
+| le **côté SERVEUR de l'appariement** | l'enrôlement SERT les routes, les autres les APPELLENT : deux rôles, pas deux copies. Le côté demandeur est au socle depuis le 29/10/2026 — deux produits frappent —, le côté serveur n'a qu'un seul hôte et y reste. Le code TOTP aussi : il est seul à en dériver un. L'ESPÈCE du demandeur, en revanche, est au contrat (`signing/protocol.py`) : elle voyage |
 
 Est partagé côté front, et c'est tout : `socle/web/tsconfig.base.json`, parce qu'`extends`
 ne traverse aucune résolution de greffon — `strict` et `noUncheckedIndexedAccess` sont des

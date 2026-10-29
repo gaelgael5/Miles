@@ -13,8 +13,8 @@ base — et son propre `dev-deploy.sh`. Rien ne se déploie depuis la racine.
 
 | Répertoire | Produit | État |
 |---|---|---|
-| `portail/` | Portail de configuration | livré, déployé sur test1, **port 8080** |
-| `enrolement/` | Service d'enrôlement | coquille le 27/10 ; **sert le protocole d'appariement** depuis le 28/10 (ticket `6a0daab6`), **port 8081**. Le parc des devices reste à faire |
+| `portail/` | Portail de configuration — le **module de paramétrage** | livré, déployé sur test1, **port 8080**. **S'apparie au module d'enrôlement** depuis le 29/10 (ticket `ba44914b`) |
+| `enrolement/` | Service d'enrôlement | coquille le 27/10 ; **sert le protocole d'appariement** depuis le 28/10 (ticket `6a0daab6`), **port 8081**, pour **deux espèces de demandeur** depuis le 29/10. Le parc des devices reste à faire |
 | `environnement/` | Back-office d'environnement | coquille le 28/10 ; **frappe, confirme et range la clé de son pair** depuis le 28/10, **port 8082**. Le métier reste à faire |
 
 **Trois socles partagés**, et c'est là que vit le code commun : `socle/python` (paquet
@@ -335,6 +335,72 @@ alors que le nom déclaré est ce que la stack dit d'elle-même.
   lecture précédente et `environnement_assigne_injoignable` au journal, puis retour sur le
   maillage → date neuve. L'appariement est resté `apparie` tout du long.
 
+## Le module de paramétrage s'apparie, et le côté demandeur passe au socle (29/10, ticket `ba44914b`)
+
+**Le plus gros déplacement de code depuis le découpage en trois produits.** Le ticket
+demandait d'apparier le module de paramétrage au module d'enrôlement et interdisait
+nommément d'en dupliquer le mécanisme : « si celui de l'environnement ne se réemploie pas
+tel quel, c'est qu'il est à généraliser, pas à dupliquer ». Il s'est donc généralisé.
+
+**Ce qui est parti au socle** — tout le côté DEMANDEUR :
+
+- `socle/python/src/miles_socle/pairing/` : le pair unique, ses refus, les gestes
+  (frapper, coller le code, annuler), le constat de l'état, les deux sens de l'échange,
+  la réception de l'avis de révocation, les routes d'administration sous `/api/identity`
+  et les routes de pair. Le service s'appelle `PairingRequesterService`.
+- `socle/web/src/peering/` et `socle/web/src/api/peering.ts` : l'écran et son client
+  d'API. Espace de noms i18n **`peering`**, volontairement distinct du `pairing` de
+  l'enrôlement — celui-là nomme ce qu'on SERT, celui-ci ce qu'on DEMANDE, et les fondre
+  ferait que les clés de l'un masqueraient celles de l'autre à la fusion.
+- `miles_socle.testing.enrolment_double` : la doublure du module d'enrôlement, employée
+  par les deux demandeurs. Elle double le PROTOCOLE, défini au socle.
+
+**Ce que chaque produit déclare encore, et c'est tout** : `module_name`, `species`,
+`key_label`, portés par sa sous-classe du service (jamais par ses sites de câblage, qui
+divergeraient), et **ses tables** — le socle ne porte aucune migration.
+
+**L'espèce du demandeur** (`environnement` | `parametrage`) est au contrat
+(`signing/protocol.py`), **facultative** dans la demande d'appariement : absente, elle vaut
+`environnement`, qui était la seule espèce possible avant ce jour. Rien n'est rompu.
+
+- Elle est **déclarée**, donc elle n'autorise rien : c'est le geste humain — révéler le
+  code — qui autorise, et l'écran affiche l'espèce AVEC sa conséquence (« reçoit des
+  devices » / « se verra confier les connexions git »), parce que le libellé seul ne dit
+  pas à un humain ce qu'il donne.
+- **Un seul module de paramétrage apparié**, par index unique PARTIEL sur `species` :
+  l'unicité ne vaut que pour cette espèce, les environnements restant N par construction.
+  Un test mesure les deux, parce qu'un index posé sur toute la colonne serait vert dans
+  une suite qui n'apparie qu'un environnement à la fois.
+- La **désignation d'un environnement** est exigée de l'espèce `environnement` et REFUSÉE
+  à l'autre (`espece_sans_environnement`). Le code du module de paramétrage est donc
+  révélable sans désignation : c'est la seule différence de parcours.
+- Une origine appariée **ne change pas d'espèce** en se réappariant. Le refus est posé à
+  DEUX endroits : devant l'humain, au geste qui révèle le code (sinon il désignerait un
+  environnement pour rien), et dans la clause `ON CONFLICT … WHERE species = excluded.species`
+  de l'écriture, qui est la seule garde atomique. Le second a son propre test, sinon le
+  retirer ne ferait rougir personne.
+
+**Ce que la migration 14 de l'environnement défait, un jour après l'avoir posé.** La
+mémoire de l'environnement assigné vivait en trois colonnes de `enrolment_peer`, et
+l'invariant « elle meurt quand l'identité du pair change » était tenu par trois clauses
+`CASE WHEN` dans l'upsert du pair. Cet upsert est parti au socle : une requête partagée ne
+peut pas porter le nom de colonnes qui n'existent que dans un produit. La mémoire a donc
+sa **table**, `assigned_environment`, rangée sous l'ORIGINE du pair qui l'a dite — la
+lecture joint sur le pair courant, et l'invariant est devenu une jointure au lieu d'être
+une clause à ne pas oublier. Conséquence meilleure que l'ancienne : revenir chez un
+enrôlement qu'on avait quitté retrouve ce que CELUI-LÀ avait dit, non frais et daté.
+
+**Ce qui reste à faire, et le ticket le dit** : son critère 4 demande que la révocation
+« emporte les connexions git confiées ». **Rien n'est confié** — la transmission est le
+ticket voisin `edcf78bc`, qui dépend de celui-ci et décidera de sa forme. Inventer ici une
+couture vide aurait figé un design qui n'est pas le nôtre à décider.
+
+**Le nom de la table `environment_peer` n'a PAS changé**, alors qu'elle porte désormais les
+deux espèces. Renommer coûterait la rupture du genre d'objet `environment_peer` des events
+déjà écrits — l'historique de chaque appariement se couperait en deux — pour le seul gain
+d'un nom plus juste. C'est dit en commentaire à la table et au modèle, pour que personne ne
+le lise comme un oubli.
+
 ## L'assainissement des modules d'appariement (29/10, ticket `f85d248e`)
 
 `PairingService` et `IdentityService` restent **une classe chacune**, découpées en
@@ -517,9 +583,14 @@ Les campagnes repartent.
 **En revue au 29/10 au soir** : `d5ffeb33` (révocation), `f85d248e` (assainissement),
 `1ce685e9` (adresse de contact), `4ce141d3` (avis de révocation), `8474baf4` (le
 référentiel n'affiche plus l'appariement), `8803f092` (changer l'environnement d'un
-appariement conclu) et `2edf1f3c` (l'environnement assigné), plus les tickets des jours
-précédents. Des quatre tickets neufs de Gael du 29/10, il ne reste que `c51a732c`, bloqué
-par le parc.
+appariement conclu), `2edf1f3c` (l'environnement assigné) et `ba44914b` (le module de
+paramétrage s'apparie), plus les tickets des jours précédents. Des quatre tickets neufs de
+Gael du 29/10, il ne reste que `c51a732c`, bloqué par le parc.
+
+**Éligible juste après `ba44914b`** : `edcf78bc` — confier les connexions git au module
+d'enrôlement, saisies une seule fois et renouvelables d'un seul geste. Il était bloqué par
+`ba44914b`, qui est fait. C'est lui qui donnera un contenu à l'appariement du module de
+paramétrage, et qui dira ce qu'une révocation emporte.
 
 ## Cinq décisions prises par Gael le 27/10 — les questions sont closes
 
