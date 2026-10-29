@@ -161,6 +161,35 @@ Ce qui relie les deux moitiés : une stack qui frappe, et un environnement du r�
   demande en attente (409 `environnement_designe`, distinct de `environnement_apparie` :
   les deux appellent des gestes différents).
 
+## Et la révocation (29/10, ticket `d5ffeb33`)
+
+Le geste inverse de l'appariement, et il n'en est pas le symétrique.
+
+- **Révoquer SUPPRIME la ligne** de `environment_peer`, clé publique du pair comprise. Pas
+  de colonne `revoked`, pas de drapeau : le critère 8 demande des clés détruites, et un
+  drapeau laisse la clé à portée du premier filtre oublié — un oubli invisible en test.
+- Une **pierre tombale** (`revoked_pairing`) est posée dans la même transaction. Elle ne
+  change AUCUNE réponse : un appel signé d'une origine révoquée reçoit le même 401 opaque
+  qu'une origine inconnue, mot pour mot, et c'est ce qui l'empêche d'être un oracle. Elle
+  ne change que le mot au JOURNAL — `origine_revoquee` au lieu d'`origine_inconnue`. Sans
+  lui, le diagnostic cherche une clé perdue alors qu'un humain a décidé.
+- Elle **part au ré-appariement** : la garder ferait dater une révocation ultérieure de la
+  précédente. L'historique reste entier dans les events, qui ne s'écrasent pas.
+- L'**environnement reste au référentiel** et redevient libre immédiatement : révoquer
+  porte sur l'appariement, pas sur l'environnement.
+- L'event `pairing.revoked` porte son auteur, l'environnement quitté avec ses deux noms du
+  moment, et `devices_released` à **NUL — jamais 0** : le référentiel des devices n'existe
+  pas, et un zéro serait indiscernable dans un an d'un vrai « aucun device libéré ».
+- Côté **module d'environnement**, l'état « apparié » ne se lit plus localement : il est
+  DEMANDÉ au pair à l'affichage, par l'échange de vivacité déjà en place (aucune route
+  nouvelle). Un 401 portant un code de refus de route de pair donne l'état
+  `refuse_par_le_pair` ; un 401 nu — celui du portillon — ne dit rien et donne
+  `pair_injoignable`. L'appariement reste AFFICHÉ sous l'avertissement : on ne détruit
+  rien sur la foi d'une réponse distante.
+- **Ce qui n'est pas éprouvé, et qui doit être redit** : les critères 2, 3 et 5 portent sur
+  des devices remis en attente d'affectation. Le référentiel des devices n'existe pas, donc
+  rien de ces trois-là n'est vérifiable aujourd'hui. C'est écrit dans le ticket.
+
 ## Ce qui vient d'être livré — le socle partagé
 
 **Ticket `5695664d`, en revue.** Le socle technique est sorti du portail et vit dans
@@ -320,9 +349,15 @@ Les campagnes repartent.
   dépôt mutuel des clés publiques — plus le côté enrôlement de la route de pair.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
-- `d5ffeb33` — **révoquer l'appariement d'un environnement**. Éligible. Ses critères 2, 3
-  et 5 portent sur des devices et ne pourront être éprouvés qu'au ticket du parc : son
-  corps le dit, et il faudra le redire en livrant.
+- `8474baf4` — **le référentiel n'affiche plus l'appariement**. Décidé par Gael le 29/10 :
+  c'est une liste d'environnements à assigner, pas un second écran d'appariement. Attention,
+  l'API garde `paired_base_url` — le sélecteur s'en sert pour écarter les déjà appariés.
+- `8803f092` — **changer l'environnement d'un appariement conclu**, tant qu'il ne porte
+  aucun device. Renverse en partie la règle de `bf2115cd` : les commentaires qui disent
+  « révoquer puis réapparier » sont à corriger avec.
+- `2edf1f3c` — **le module d'environnement affiche l'environnement qui lui est assigné**,
+  lu chez l'enrôlement et mémorisé, avec repli daté sur la dernière valeur connue.
+- `c51a732c` — **déplacer en bloc les devices d'un environnement**. Bloqué par le parc.
 - Le **métier** de l'enrôlement : la coquille ne porte rien de lui. Référentiel des
   devices, enrôlement d'une installation, dispatch, parc, tags, groupes — autant de
   tickets de l'epic *Module d'enrôlement*.
