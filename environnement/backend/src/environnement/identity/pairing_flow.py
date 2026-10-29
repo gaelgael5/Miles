@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 
 import httpx
 import structlog
@@ -235,6 +236,10 @@ class IdentityPairingFlow(IdentityPeerCalls):
             if etat == "apparie" and pair.revoked_at is not None:
                 await db_clear_peer_revoked(self.pool)
                 log.info("avis_de_revocation_dementi", base_url=pair.base_url)
+                # La ligne RENDUE porte l'oubli, elle aussi. Sans ce remplacement, la même
+                # réponse dirait « apparié » tout en datant une révocation : une charge qui
+                # se contredit elle-même fait chercher la panne des deux côtés à la fois.
+                pair = replace(pair, revoked_at=None)
             if etat == "refuse_par_le_pair" and pair.revoked_at is not None:
                 etat = "revoque"
             return PairingState(etat, None, pair)
