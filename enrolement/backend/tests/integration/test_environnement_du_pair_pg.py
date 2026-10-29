@@ -47,6 +47,11 @@ async def _apparie(stack: EnrolementStack, double: EnvironmentDouble, slug: str)
         assert designe.status_code == 200, designe.text
         conclu = await double.confirm(pair, await _code(stack, double.origin))
         assert conclu.status_code == 200, conclu.text
+    # La contrepartie range la clé publique que l'enrôlement lui rend, comme le vrai
+    # module d'environnement : c'est contre elle qu'elle vérifiera un avis de révocation.
+    # Sans ce geste, la révocation d'un test échoue chez la DOUBLURE — et le test rougit
+    # pour une raison qui n'a rien à voir avec ce qu'il vérifie.
+    double.expects_public_key = str(conclu.json()["public_key"])
     return environment_id
 
 
