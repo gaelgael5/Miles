@@ -218,6 +218,36 @@ de temps à diagnostiquer, et il n'était ni dans les clés ni dans le protocole
   d'une fenêtre de 30 s.
 - **Ne pas « simplifier » les deux champs en un.** C'est ce qui fait marcher les appels.
 
+## L'avis de révocation (29/10, ticket `4ce141d3`)
+
+Premier et seul appel dans le sens **enrôlement → environnement**. Il renverse une phrase
+du contrat, et la crainte qu'elle portait reste vraie.
+
+- **Pourquoi il existe** : l'écran de l'environnement disait « son administrateur a PU
+  révoquer, OU les clés ne se correspondent plus ». Il énumérait parce qu'on refusait de
+  le lui dire — révoquer DÉTRUIT la clé publique du pair, donc répondre « tu es révoqué »
+  à qui déclare cette origine l'apprendrait à n'importe quel inconnu. L'avis POUSSÉ lève
+  la contradiction : signé de notre clé, qu'il détient déjà.
+- **Il est AU MIEUX.** Stack éteinte, en panne ou qui refuse l'avis : révoquée quand même.
+  Ne jamais faire dépendre la révocation d'une réponse réseau — ce serait donner à la
+  stack révoquée le pouvoir de refuser sa propre révocation.
+- **L'avis DÉSAMBIGUÏSE, il ne remplace pas.** L'écran ping toujours le pair ; l'avis
+  nomme la cause du refus constaté. Un avis seul ne dit rien, et **un avis que les faits
+  démentent est oublié** — c'est ce qui rend inoffensif un avis arrivé juste avant un
+  ré-appariement, cas qu'aucune corrélation ne pourrait trancher puisque l'avis ne porte
+  aucun identifiant d'appariement.
+- **L'enrôlement porte à son tour une adresse de contact** (`environment_peer.contact_url`,
+  migration 13), mais avec la règle INVERSE : saisie par son administrateur, et **jamais
+  réécrite au ré-appariement**. Côté environnement elle vaut l'adresse qu'on vient de
+  composer ; ici elle vaut ce qu'un humain a décidé. Les deux sont justes.
+- **Pourquoi elle n'est pas déclarée par la stack** (arbitrage de Gael) : l'enrôlement
+  émettrait sinon des appels signés vers une adresse choisie par un tiers que personne
+  n'a authentifié au moment où il frappe. Celui qui compose reste maître de ce qu'il compose.
+- `post_signed` est passé **au socle** : deuxième usage, c'est la règle du dépôt.
+- **Éprouvé en vrai sur test1**, cycle complet : appariement par le maillage, adresse de
+  contact saisie, révocation → `avis_de_revocation_remis` / `avis_de_revocation_recu`,
+  état `revoque` daté. L'appariement vivant a été rétabli après.
+
 ## L'assainissement des modules d'appariement (29/10, ticket `f85d248e`)
 
 `PairingService` et `IdentityService` restent **une classe chacune**, découpées en
