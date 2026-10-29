@@ -16,11 +16,19 @@ export interface Environment {
    * L'origine de la stack appariée à cet environnement, nulle tant qu'aucune ne l'est.
    * Nul n'est pas une anomalie : un environnement déclaré et pas encore apparié est
    * l'état normal du premier jour.
+   *
+   * AUCUN ÉCRAN NE L'AFFICHE depuis le 29/10/2026 — le référentiel est une liste, pas un
+   * écran d'appariement. Il reste lu par le sélecteur de l'écran d'appariement, qui ne
+   * propose pas un environnement déjà apparié : le retirer au nom de la cohérence
+   * casserait cette garde en silence.
    */
   paired_base_url: string | null;
   /**
    * L'origine d'une demande d'appariement EN ATTENTE qui l'a désigné. Elle ne le consomme
    * pas — refusée ou expirée, elle le libère — mais elle retient sa suppression.
+   *
+   * Plus affiché non plus, et plus lu par aucun écran : il décrit la forme que l'API rend,
+   * et c'est à ce titre qu'il reste ici. Le refus de supprimer, lui, le nomme.
    */
   designated_base_url: string | null;
 }

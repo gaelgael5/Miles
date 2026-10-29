@@ -118,13 +118,7 @@
     },
     "list": {
       "title": "Declared environments",
-      "empty": "No environment declared yet.",
-      "captionPairing": "Pairing",
-      "captionStack": "Paired stack",
-      "paired": "Paired",
-      "notPaired": "Not paired",
-      "designated": "Chosen",
-      "captionDesignated": "Pending request"
+      "empty": "No environment declared yet."
     },
     "actions": {
       "rename": "Rename",

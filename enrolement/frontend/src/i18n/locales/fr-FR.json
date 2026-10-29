@@ -118,13 +118,7 @@
     },
     "list": {
       "title": "Environnements déclarés",
-      "empty": "Aucun environnement déclaré.",
-      "captionPairing": "Appariement",
-      "captionStack": "Stack appariée",
-      "paired": "Apparié",
-      "notPaired": "Non apparié",
-      "designated": "Désigné",
-      "captionDesignated": "Demande en attente"
+      "empty": "Aucun environnement déclaré."
     },
     "actions": {
       "rename": "Renommer",

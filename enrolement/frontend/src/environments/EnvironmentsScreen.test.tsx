@@ -12,14 +12,19 @@ const RECETTE = {
   created_at: "2026-10-28T09:00:00+00:00",
   updated_at: "2026-10-28T09:00:00+00:00",
   paired_base_url: null,
+  designated_base_url: null,
 };
 
+// Appariée ET désignée par une demande en attente : les deux champs sont renseignés
+// exprès, pour que le test qui vérifie qu'ILS NE S'AFFICHENT PAS porte sur des valeurs
+// qui existent. Un jeu d'essai qui les laisserait nuls rendrait l'absence triviale.
 const PRODUCTION = {
   ...RECETTE,
   id: "22222222-2222-4222-8222-222222222222",
   slug: "production",
   label: "Production",
   paired_base_url: "https://prod.exemple.org",
+  designated_base_url: "https://demande.exemple.org",
 };
 
 function liste(body: unknown): Routes {
@@ -46,14 +51,22 @@ function champs() {
 }
 
 describe("référentiel des environnements", () => {
-  it("shows the label, the slug and which stack is paired", async () => {
+  it("shows the label and the slug, and nothing about pairing", async () => {
+    // Le référentiel déclare les environnements ; l'écran d'appariement les assigne.
+    // Deux écrans qui montrent le même état finissent par se contredire.
     monte(liste([RECETTE, PRODUCTION]));
 
     expect(await screen.findByText("Recette nord")).toBeInTheDocument();
     expect(screen.getByText("recette-nord")).toBeInTheDocument();
-    expect(screen.getByText("Not paired")).toBeInTheDocument();
-    expect(screen.getByText("Paired")).toBeInTheDocument();
-    expect(screen.getByText("https://prod.exemple.org")).toBeInTheDocument();
+    expect(screen.getByText("Production")).toBeInTheDocument();
+
+    // Ni l'état, ni l'URL de la stack appariée, ni la demande qui le désigne — alors que
+    // PRODUCTION porte bien les deux dans la réponse de l'API.
+    expect(screen.queryByText("Paired")).toBeNull();
+    expect(screen.queryByText("Not paired")).toBeNull();
+    expect(screen.queryByText("https://prod.exemple.org")).toBeNull();
+    expect(screen.queryByText("https://demande.exemple.org")).toBeNull();
+    expect(screen.queryByText("Chosen")).toBeNull();
   });
 
   it("says the list is empty rather than showing nothing at all", async () => {

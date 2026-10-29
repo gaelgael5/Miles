@@ -23,42 +23,17 @@ function EnvironmentRow({
   const { t } = useTranslation();
   const [confirme, setConfirme] = useState(false);
   const suppression = useDeleteEnvironment();
-  const apparie = environnement.paired_base_url !== null;
 
+  // AUCUN état d'appariement ici, et c'est volontaire (arbitrage de Gael du 29/10/2026) :
+  // cet écran déclare les environnements, l'écran d'appariement les assigne. Deux écrans
+  // qui montrent le même état finissent par se contredire, et le lecteur ne sait plus
+  // lequel croire. Ce que la colonne « Appariement » prétendait rendre service — prévenir
+  // d'un refus de suppression — est dit par le refus lui-même, qui le nomme.
   return (
     <li className="row">
       <div className="row-main">
         <div className="row-title">{environnement.label}</div>
         <div className="row-sub">{environnement.slug}</div>
-      </div>
-      <div className="cell">
-        <div className="caption">{t("environments.list.captionPairing")}</div>
-        <div className="value">
-          {apparie ? (
-            <span className="badge badge-success">{t("environments.list.paired")}</span>
-          ) : (
-            // Pas de pastille d'alerte : un environnement déclaré et pas encore apparié
-            // est l'état du premier jour, pas un défaut à corriger.
-            <span className="muted">{t("environments.list.notPaired")}</span>
-          )}
-        </div>
-      </div>
-      <div className="cell">
-        <div className="caption">{t("environments.list.captionStack")}</div>
-        <div className="value">{environnement.paired_base_url ?? "—"}</div>
-      </div>
-      <div className="cell">
-        <div className="caption">{t("environments.list.captionDesignated")}</div>
-        {/* Une demande en attente qui le désigne ne le consomme pas — refusée ou
-            expirée, elle le libère — mais elle retient sa suppression. L'afficher
-            évite de découvrir le refus au moment de supprimer. */}
-        <div className="value">
-          {environnement.designated_base_url === null ? (
-            <span className="muted">—</span>
-          ) : (
-            <span className="badge">{t("environments.list.designated")}</span>
-          )}
-        </div>
       </div>
       <div className="actions row-actions">
         <button type="button" className="btn btn-secondary" onClick={onRename}>
