@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 from miles_socle.signing.protocol import ENVIRONMENT_BODY, PEER_ENVIRONMENT_PATH
 
+from tests.integration.demandeur_double import RequesterDouble
 from tests.integration.enrolement_stack import EnrolementStack, open_stack
-from tests.integration.environnement_double import EnvironmentDouble
 
 pytestmark = pytest.mark.integration
 
@@ -34,7 +34,7 @@ async def _code(stack: EnrolementStack, origine: str) -> str:
     return str(reponse.json()["code"])
 
 
-async def _apparie(stack: EnrolementStack, double: EnvironmentDouble, slug: str) -> str:
+async def _apparie(stack: EnrolementStack, double: RequesterDouble, slug: str) -> str:
     """Appariement complet par le protocole, rattaché à un environnement déclaré."""
     environment_id = await _cree(stack, slug)
     async with stack.anonymous() as pair:
@@ -55,14 +55,14 @@ async def _apparie(stack: EnrolementStack, double: EnvironmentDouble, slug: str)
     return environment_id
 
 
-async def _demande(stack: EnrolementStack, double: EnvironmentDouble) -> Any:
+async def _demande(stack: EnrolementStack, double: RequesterDouble) -> Any:
     async with stack.anonymous() as pair:
         return await double.environment(pair)
 
 
 async def test_un_environnement_apparie_lit_le_sien(blank_db: str, tmp_path: Path) -> None:
     """Le slug et le libellé, les deux noms qui s'affichent à l'autre bout."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
 
@@ -77,7 +77,7 @@ async def test_un_environnement_apparie_lit_le_sien(blank_db: str, tmp_path: Pat
 async def test_l_identifiant_du_referentiel_ne_sort_pas(blank_db: str, tmp_path: Path) -> None:
     """Interdit délibéré : c'est la clé de NOTRE base, et la faire voyager inviterait
     l'autre bout à écrire une relation que personne ne réconcilie."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         environment_id = await _apparie(stack, double, "recette")
 
@@ -96,7 +96,7 @@ async def test_un_appariement_herite_repond_rien_et_non_un_refus(
     ce qui est exactement ce que son portillon d'authentification rend par ailleurs — et
     l'autre bout replierait sur sa dernière valeur connue au lieu de l'effacer.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await stack.pool.execute(
             "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
@@ -114,7 +114,7 @@ async def test_un_appariement_herite_repond_rien_et_non_un_refus(
 
 async def test_un_appel_non_signe_est_refuse(blank_db: str, tmp_path: Path) -> None:
     """Fail closed : la route est ouverte au portillon PARCE QU'elle vérifie la signature."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
 
@@ -131,10 +131,10 @@ async def test_une_cle_inconnue_sur_la_bonne_origine_est_refusee(
     """Le cas qui compte : il ressemble à un appariement valide de tous les côtés sauf
     celui qui décide. Sans cette garde, la route dirait à n'importe qui comment nous
     nommons nos environnements."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
-        imposteur = EnvironmentDouble(origin=double.origin)
+        imposteur = RequesterDouble(origin=double.origin)
 
         refuse = await _demande(stack, imposteur)
 
@@ -143,9 +143,9 @@ async def test_une_cle_inconnue_sur_la_bonne_origine_est_refusee(
 
 
 async def test_une_origine_jamais_appariee_est_refusee(blank_db: str, tmp_path: Path) -> None:
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
-        inconnu = EnvironmentDouble(origin="http://jamais-vu.test")
+        inconnu = RequesterDouble(origin="http://jamais-vu.test")
         await _apparie(stack, double, "recette")
 
         refuse = await _demande(stack, inconnu)
@@ -160,8 +160,8 @@ async def test_chacun_ne_lit_que_son_propre_rattachement(blank_db: str, tmp_path
     C'est la garde qui donne son sens à la vérification : sans elle, un appariement
     apprendrait le rattachement d'un autre.
     """
-    une = EnvironmentDouble(origin="http://une.test")
-    deux = EnvironmentDouble(origin="http://deux.test")
+    une = RequesterDouble(origin="http://une.test")
+    deux = RequesterDouble(origin="http://deux.test")
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, une, "recette")
         await _apparie(stack, deux, "preprod")
@@ -178,7 +178,7 @@ async def test_un_appariement_revoque_ne_lit_plus_rien(blank_db: str, tmp_path: 
     Et le refus est le MÊME que celui d'une origine jamais appariée, au caractère près :
     les séparer dirait à qui frappe au hasard qu'une origine a été appariée puis révoquée.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _apparie(stack, double, "recette")
         revoque = await stack.client.delete(
@@ -194,7 +194,7 @@ async def test_un_appariement_revoque_ne_lit_plus_rien(blank_db: str, tmp_path: 
 
 async def test_le_rattachement_change_et_la_route_suit(blank_db: str, tmp_path: Path) -> None:
     """Déplacer l'appariement chez nous change ce que l'autre bout lit, sans réappariement."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
         preprod = await _cree(stack, "preprod")
@@ -218,7 +218,7 @@ async def test_renommer_l_environnement_change_ce_que_le_pair_lit(
     Rien n'est figé au moment de l'appariement : si ce l'était, l'autre bout afficherait
     pour toujours un nom que plus personne n'emploie ici.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         environment_id = await _apparie(stack, double, "recette")
         renomme = await stack.client.put(

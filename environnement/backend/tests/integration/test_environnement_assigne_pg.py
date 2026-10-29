@@ -34,6 +34,19 @@ async def _lu(stack: Any) -> dict[str, Any]:
     return charge
 
 
+async def _memorise(stack: Any) -> Any:
+    """Ce que la base garde POUR LE PAIR COURANT. La jointure fait partie de l'assertion.
+
+    Lire la table seule laisserait passer une valeur rangée sous une autre origine, qui est
+    exactement ce que ce modèle doit rendre inapplicable : la mémoire est celle du pair qui
+    l'a dite, et c'est la jointure qui le dit.
+    """
+    return await stack.pool.fetchrow(
+        "SELECT a.slug, a.label, a.fetched_at FROM assigned_environment a"
+        " JOIN enrolment_peer p ON p.base_url = a.base_url WHERE p.id = 'self'"
+    )
+
+
 async def test_l_environnement_assigne_est_lu_chez_le_pair_et_affiche(
     blank_db: str, tmp_path: Path
 ) -> None:
@@ -61,13 +74,11 @@ async def test_la_valeur_lue_est_memorisee_et_relue_au_prochain_affichage(
         await _apparie(stack, double)
         await _lu(stack)
 
-        rangee = await stack.pool.fetchrow(
-            "SELECT environment_slug, environment_label, environment_fetched_at FROM enrolment_peer"
-        )
+        rangee = await _memorise(stack)
 
-        assert rangee["environment_slug"] == "recette"
-        assert rangee["environment_label"] == "Environnement de recette"
-        assert rangee["environment_fetched_at"] is not None
+        assert rangee["slug"] == "recette"
+        assert rangee["label"] == "Environnement de recette"
+        assert rangee["fetched_at"] is not None
 
 
 async def test_un_pair_injoignable_reaffiche_la_derniere_valeur_connue_datee(
@@ -130,7 +141,7 @@ async def test_une_reponse_fraiche_qui_dit_rien_efface_la_valeur_memorisee(
         assert vue["fresh"] is True
         # Effacée EN BASE, et pas seulement dans la réponse : sinon le prochain pair
         # injoignable ressortirait un repli que son autorité a désavoué.
-        assert await stack.pool.fetchval("SELECT environment_slug FROM enrolment_peer") is None
+        assert await _memorise(stack) is None
 
 
 async def test_un_refus_du_pair_n_efface_pas_la_valeur_memorisee(
@@ -154,7 +165,7 @@ async def test_un_refus_du_pair_n_efface_pas_la_valeur_memorisee(
 
         assert vue["fresh"] is False
         assert vue["environment"]["slug"] == "recette"
-        assert await stack.pool.fetchval("SELECT environment_slug FROM enrolment_peer") is not None
+        assert await _memorise(stack) is not None
 
 
 async def test_un_200_hors_contrat_ne_s_ecrit_pas_dans_notre_base(
@@ -175,7 +186,7 @@ async def test_un_200_hors_contrat_ne_s_ecrit_pas_dans_notre_base(
 
         assert vue["fresh"] is False
         assert vue["environment"] is None
-        assert await stack.pool.fetchval("SELECT environment_slug FROM enrolment_peer") is None
+        assert await _memorise(stack) is None
 
 
 async def test_un_slug_demesure_est_refuse_avant_d_etre_ecrit(
@@ -191,7 +202,7 @@ async def test_un_slug_demesure_est_refuse_avant_d_etre_ecrit(
 
         assert vue["environment"] is None
         assert vue["fresh"] is False
-        assert await stack.pool.fetchval("SELECT environment_slug FROM enrolment_peer") is None
+        assert await _memorise(stack) is None
 
 
 async def test_sans_appariement_il_n_y_a_personne_a_qui_demander(
@@ -214,14 +225,20 @@ async def test_la_route_exige_une_session(blank_db: str, tmp_path: Path) -> None
         assert reponse.json()["detail"] == "session_requise"
 
 
-async def test_reapparier_le_meme_pair_garde_le_repli_et_en_changer_l_efface(
+async def test_le_repli_appartient_au_pair_qui_l_a_dit_et_a_lui_seul(
     blank_db: str, tmp_path: Path
 ) -> None:
-    """Deux règles opposées sur la même écriture, et les deux sont justes.
+    """Deux règles opposées sur la même mémoire, et les deux sont justes.
 
     Une stack qui tourne ses clés chez le MÊME enrôlement garde son repli daté, qui reste
     vrai. Un pair DIFFÉRENT n'a jamais rien dit de nous : montrer comme repli ce qu'un
     autre module avait décidé serait un mensonge que la date ne rattraperait pas.
+
+    La mémoire n'est donc pas EFFACÉE quand le pair change — elle CESSE DE S'APPLIQUER,
+    parce qu'elle est rangée sous l'origine de celui qui l'a dite (migration 14). La
+    nuance se mesure : revenir chez le premier enrôlement retrouve ce que celui-là avait
+    dit. C'est vrai, et la date le dit — là où un effacement aurait prétendu qu'on n'avait
+    jamais rien su.
     """
     double = EnrolmentDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
@@ -231,7 +248,7 @@ async def test_reapparier_le_meme_pair_garde_le_repli_et_en_changer_l_efface(
         # Même identité, clés neuves : le repli survit.
         double.expects_public_key = ""
         await _apparie(stack, double)
-        assert await stack.pool.fetchval("SELECT environment_slug FROM enrolment_peer") == "recette"
+        assert (await _memorise(stack))["slug"] == "recette"
 
         # Un autre enrôlement : le repli de l'ancien n'a plus rien à dire de nous.
         autre = await stack.client.put(
@@ -242,4 +259,14 @@ async def test_reapparier_le_meme_pair_garde_le_repli_et_en_changer_l_efface(
             },
         )
         assert autre.status_code == 200, autre.text
-        assert await stack.pool.fetchval("SELECT environment_slug FROM enrolment_peer") is None
+        assert await _memorise(stack) is None
+
+        # Et de retour chez le premier, ce qu'il avait dit est de nouveau le nôtre. Sans
+        # cette assertion, le modèle « rangé sous l'origine » serait indiscernable d'un
+        # effacement, et personne ne verrait la différence avant de la perdre.
+        retour = await stack.client.put(
+            "/api/identity/peer",
+            json={"base_url": PEER_ORIGIN, "public_key": generate_keypair().public_key},
+        )
+        assert retour.status_code == 200, retour.text
+        assert (await _memorise(stack))["slug"] == "recette"

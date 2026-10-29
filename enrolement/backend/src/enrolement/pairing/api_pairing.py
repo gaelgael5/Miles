@@ -25,11 +25,13 @@ from enrolement.pairing.api_schemas import (
 )
 from enrolement.pairing.model import (
     EnvironmentAlreadyPairedError,
+    EnvironmentNotApplicableError,
     EnvironmentNotDesignatedError,
     EnvironmentUnknownError,
     PairingCarriesDevicesError,
     PairingChangedElsewhereError,
     PairingSettledError,
+    ParametrageAlreadyPairedError,
     PeerNotFoundError,
     RequestNotFoundError,
 )
@@ -57,6 +59,21 @@ def _error(exc: IdentityError) -> JSONResponse:
         # chercher la panne du côté des clés ou du réseau (ticket bf2115cd, critère 1).
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT, content={"detail": "environnement_non_designe"}
+        )
+    if isinstance(exc, EnvironmentNotApplicableError):
+        # 409 : le geste n'a pas de sens pour cette espèce, et rien ne manque au droit de
+        # la personne. Le détail NOMME l'espèce en cause — un refus générique ferait
+        # chercher du côté des droits une liste déroulante qui n'aurait pas dû s'afficher.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "espece_sans_environnement"},
+        )
+    if isinstance(exc, ParametrageAlreadyPairedError):
+        # Distinct d'« environnement pris » : là il suffit d'en choisir un autre, ici il
+        # n'y a pas de second choix — il faut révoquer celui qui est apparié.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "module_de_parametrage_deja_apparie"},
         )
     if isinstance(exc, EnvironmentAlreadyPairedError):
         return JSONResponse(

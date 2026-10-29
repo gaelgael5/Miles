@@ -8,9 +8,14 @@ import pytest
 from miles_socle.signing.calls import SIGNATURE_HEADER
 from miles_socle.signing.keys import generate_keypair
 
-from enrolement.pairing.model import PAIRING_REVOKED_EVENT, PairingRefusedError
+from enrolement.pairing.events import (
+    PAIRING_REVOKED_EVENT,
+)
+from enrolement.pairing.model import (
+    PairingRefusedError,
+)
+from tests.integration.demandeur_double import RequesterDouble
 from tests.integration.enrolement_stack import EnrolementStack, open_stack
-from tests.integration.environnement_double import EnvironmentDouble
 
 pytestmark = pytest.mark.integration
 
@@ -23,7 +28,7 @@ async def _cree(stack: EnrolementStack, slug: str) -> str:
     return str(reponse.json()["id"])
 
 
-async def _apparie(stack: EnrolementStack, double: EnvironmentDouble, slug: str) -> str:
+async def _apparie(stack: EnrolementStack, double: RequesterDouble, slug: str) -> str:
     """Appariement complet par les ROUTES, désignation comprise. Rend l'environnement.
 
     Par les routes et non par une écriture directe : ce qu'on révoque ensuite doit être
@@ -74,7 +79,7 @@ async def _environnement(stack: EnrolementStack, environment_id: str) -> dict[st
 
 async def test_revoquer_detruit_l_appariement_et_sa_cle(blank_db: str, tmp_path: Path) -> None:
     """Critère 8 : clés DÉTRUITES, pas marquées inactives. La ligne entière disparaît."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
 
@@ -92,7 +97,7 @@ async def test_revoquer_detruit_l_appariement_et_sa_cle(blank_db: str, tmp_path:
 
 async def test_un_appel_signe_apres_revocation_est_refuse(blank_db: str, tmp_path: Path) -> None:
     """Critère 4, premier volet : la stack révoquée n'est plus servie."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
         async with stack.anonymous() as pair:
@@ -113,7 +118,7 @@ async def test_le_refus_d_une_origine_revoquee_le_dit_au_journal_et_pas_a_l_appe
     alors qu'un humain a décidé. Avec lui dans la réponse, n'importe qui apprendrait
     qu'une origine a été appariée puis révoquée — l'oracle que tout le protocole refuse.
     """
-    revoquee, jamais_appariee = EnvironmentDouble(), EnvironmentDouble(origin="http://autre.test")
+    revoquee, jamais_appariee = RequesterDouble(), RequesterDouble(origin="http://autre.test")
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, revoquee, "recette")
         await _revoque(stack, revoquee.origin)
@@ -145,7 +150,7 @@ async def test_l_environnement_reste_au_referentiel_et_redevient_libre(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 12 : révoquer porte sur l'appariement, jamais sur l'environnement."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         environment_id = await _apparie(stack, double, "recette")
         assert (await _environnement(stack, environment_id))["paired_base_url"] == double.origin
@@ -163,7 +168,7 @@ async def test_une_origine_revoquee_peut_se_reapparier_et_perd_sa_pierre_tombale
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 7 : une révocation ne se défait pas, elle se recommence — code neuf compris."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
         await _revoque(stack, double.origin)
@@ -200,7 +205,7 @@ async def test_revoquer_deux_fois_rend_une_disparition_et_non_une_erreur(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Le second clic porte sur une ligne qui n'existe plus : 404, et la liste le dira."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
         assert (await _revoque(stack, double.origin)).status_code == 204
@@ -213,7 +218,7 @@ async def test_revoquer_deux_fois_rend_une_disparition_et_non_une_erreur(
 
 async def test_revoquer_le_dernier_appariement_est_permis(blank_db: str, tmp_path: Path) -> None:
     """Critère 11 : un module d'enrôlement sans environnement est son état du premier jour."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
 
@@ -222,7 +227,7 @@ async def test_revoquer_le_dernier_appariement_est_permis(blank_db: str, tmp_pat
         assert (await stack.client.get("/api/pairing/peers")).json() == []
         # Et le module continue de servir : une nouvelle stack peut frapper.
         async with stack.anonymous() as pair:
-            neuve = EnvironmentDouble(origin="http://neuve.test")
+            neuve = RequesterDouble(origin="http://neuve.test")
             assert (await neuve.knock(pair)).status_code == 202
 
 
@@ -230,7 +235,7 @@ async def test_l_event_de_revocation_porte_l_auteur_l_environnement_et_les_devic
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 10 : c'est la trace qu'on cherchera si des devices ne démarrent plus."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         environment_id = await _apparie(stack, double, "recette")
 
@@ -283,7 +288,7 @@ async def test_la_revocation_previent_la_stack_par_un_appel_signe(
     Et il est VÉRIFIÉ chez elle : la contrepartie appelle `verify_call` du socle contre
     notre clé publique, comme le fera le vrai module d'environnement.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _apparie(stack, double, "recette")
         double.expects_public_key = await _identite(stack)
@@ -304,7 +309,7 @@ async def test_une_stack_injoignable_n_empeche_pas_sa_revocation(
     vraie : faire dépendre la révocation d'une réponse réseau donnerait à la stack qu'on
     révoque le pouvoir de refuser sa propre révocation.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     # AUCUNE contrepartie : le client sortant tente une vraie connexion, qui échoue.
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double, "recette")
@@ -321,7 +326,7 @@ async def test_une_stack_qui_refuse_l_avis_est_revoquee_quand_meme(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Même règle : un avis refusé est un avis, pas une permission."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _apparie(stack, double, "recette")
         # Elle détient une AUTRE clé pour nous : elle refusera l'avis.
@@ -338,7 +343,7 @@ async def test_l_avis_part_vers_l_adresse_de_contact_et_non_vers_l_identite(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critères 6 et 7 : l'URL publique d'une stack passe souvent par un intermédiaire."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _apparie(stack, double, "recette")
         double.expects_public_key = await _identite(stack)
@@ -359,7 +364,7 @@ async def test_l_adresse_de_contact_vaut_l_identite_tant_qu_on_n_y_touche_pas(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 6 : le cas ordinaire ne demande aucune saisie."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _apparie(stack, double, "recette")
 

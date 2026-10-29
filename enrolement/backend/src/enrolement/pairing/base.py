@@ -13,9 +13,11 @@ from miles_socle.secrets.service import SecretsService
 from miles_socle.signing.identity import ModuleIdentityService
 from miles_socle.signing.identity_model import ModuleIdentity
 
-from enrolement.pairing.model import (
+from enrolement.pairing.events import (
     REQUEST_EXPIRED_EVENT,
     REQUEST_OBJECT_KIND,
+)
+from enrolement.pairing.model import (
     EnvironmentNotDesignatedError,
     EnvironmentRef,
     PairingRequest,
@@ -57,7 +59,22 @@ class PairingBase:
     async def resolve_identity(self) -> ModuleIdentity:
         return await self.module.resolve_identity()
 
-    def _designated_or_refuse(self, demande: PairingRequest) -> EnvironmentRef:
+    def _designated_or_refuse(self, demande: PairingRequest) -> EnvironmentRef | None:
+        """L'environnement de la demande, EXIGÉ des environnements et d'eux seuls.
+
+        Révéler le code EST le geste d'acceptation, et pour un environnement le code n'est
+        pas révélable sans désignation : sinon l'appariement se concluerait sans que
+        personne ait dit à quel environnement il appartient, le device n'arriverait pas, et
+        l'écran dirait « apparié » (ticket bf2115cd).
+
+        Le module de paramétrage, lui, ne reçoit AUCUN device : il n'y a rien à désigner, et
+        exiger une désignation rendrait son appariement impossible. Rend donc nul pour lui,
+        et c'est la seule différence de parcours entre les deux espèces. Nul n'est pas ici
+        un repli : la base refuse qu'il porte un environnement
+        (`pairing_request_environnement_seul_designe`), donc nul est la seule valeur vraie.
+        """
+        if demande.species != "environnement":
+            return None
         if demande.environment is None:
             raise EnvironmentNotDesignatedError(
                 f"aucun environnement désigné pour {demande.base_url}"

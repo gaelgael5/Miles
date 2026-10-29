@@ -8,13 +8,16 @@ import structlog
 from miles_socle.events.model import EventAuthor
 
 from enrolement.pairing.base import PairingBase
-from enrolement.pairing.model import (
+from enrolement.pairing.events import (
     ENVIRONMENT_ATTACHED_EVENT,
     ENVIRONMENT_DESIGNATED_EVENT,
     ENVIRONMENT_MOVED_EVENT,
     PEER_OBJECT_KIND,
     REQUEST_OBJECT_KIND,
+)
+from enrolement.pairing.model import (
     EnvironmentAlreadyPairedError,
+    EnvironmentNotApplicableError,
     EnvironmentPeer,
     EnvironmentRef,
     EnvironmentUnknownError,
@@ -27,6 +30,7 @@ from enrolement.pairing.model import (
 )
 from enrolement.pairing.store import (
     db_designate_request_environment,
+    db_get_request,
 )
 from enrolement.pairing.store_peers import (
     db_count_peer_devices,
@@ -59,6 +63,7 @@ class PairingEnvironmentLink(PairingBase):
         déplacer emporterait ses devices sans le dire.
         """
         async with self.pool.acquire() as conn:
+            await self._refuse_if_not_environnement(conn, base_url)
             pair = await db_get_peer(conn, base_url)
             if pair is not None and pair.environment is not None:
                 # La stack est déjà appariée et rattachée : sa nouvelle demande ne sert
@@ -118,6 +123,16 @@ class PairingEnvironmentLink(PairingBase):
             pair = await db_get_peer(conn, base_url)
             if pair is None:
                 raise PeerNotFoundError(f"aucun environnement apparié sous {base_url}")
+            if pair.species != "environnement":
+                # Le module de paramétrage ne reçoit pas de devices : lui rattacher un
+                # environnement n'a pas de sens, et le laisser possible CONSOMMERAIT —
+                # par l'unicité de `environment_id` — un environnement qu'aucune stack
+                # ne servirait jamais. Refusé en le nommant plutôt que par la contrainte
+                # `environment_peer_environnement_seul_rattache`, qui n'explique rien.
+                raise EnvironmentNotApplicableError(
+                    f"{base_url} est apparié comme module de paramétrage :"
+                    " il ne reçoit pas de devices"
+                )
             quitte = pair.environment
             if quitte is not None and quitte.id == environment_id:
                 # Reposer le même environnement ne change rien et ne casse pas : c'est un
@@ -169,6 +184,21 @@ class PairingEnvironmentLink(PairingBase):
             previous_environment_slug=None if quitte is None else quitte.slug,
         )
         return pose
+
+    async def _refuse_if_not_environnement(self, conn: Any, base_url: str) -> None:
+        """Refuse de désigner un environnement à une demande qui n'en est pas une.
+
+        Lue sur la DEMANDE et non sur l'appariement : c'est elle qui porte l'espèce avant
+        la conclusion, et c'est elle qui serait écrite. Une demande absente n'est pas
+        refusée ici — le refus « aucune demande en attente » est celui de l'écriture, et
+        l'anticiper ferait deux messages pour un seul état.
+        """
+        rangee = await db_get_request(conn, base_url)
+        if rangee is not None and rangee[0].species != "environnement":
+            raise EnvironmentNotApplicableError(
+                f"{base_url} demande à s'apparier comme module de paramétrage :"
+                " il ne reçoit pas de devices"
+            )
 
     async def _refuse_if_devices(self, conn: Any, base_url: str) -> None:
         """LE SEUL endroit où le compte de devices d'un appariement décide de quelque chose.

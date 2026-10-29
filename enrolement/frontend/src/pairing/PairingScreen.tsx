@@ -13,6 +13,7 @@ import {
 import { ApparieRow } from "./ApparieRow";
 import { CodeRevele, Duree, resteJusqua, useTicTac } from "./CodeRevele";
 import { EnvironmentCell } from "./EnvironmentCell";
+import { EspeceBadge } from "./EspeceBadge";
 import { EnvironmentPicker } from "./EnvironmentPicker";
 
 function DemandeRow({ demande }: { demande: PairingRequest }) {
@@ -23,10 +24,15 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
   const refus = useRejectRequest();
   const designation = useDesignateRequestEnvironment();
   const maintenant = useTicTac();
+  // Un environnement se rattache à un environnement du référentiel ; le module de
+  // paramétrage ne reçoit pas de devices, et il n'y a rien à lui désigner. L'écran suit
+  // l'espèce plutôt que l'absence de valeur : lue seule, une désignation nulle ferait
+  // réclamer un rattachement à qui n'en a pas besoin, et son code resterait caché.
+  const rattachable = demande.species === "environnement";
   // Révéler le code EST le geste d'acceptation : sans environnement désigné, il n'y a
   // personne à qui rattacher l'appariement, et le serveur refuse. Le bouton suit la même
   // règle — mais il la DIT, au lieu d'être grisé en silence.
-  const revelable = demande.environment !== null;
+  const revelable = !rattachable || demande.environment !== null;
 
   return (
     <li className="row">
@@ -35,6 +41,14 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
             JAMAIS traité comme un identifiant — c'est l'URL qui en tient lieu. */}
         <div className="row-title">{demande.name ?? t("pairing.requests.unnamed")}</div>
         <div className="row-sub">{demande.base_url}</div>
+      </div>
+      {/* AVANT la date et l'empreinte, et c'est volontaire : c'est la première chose à
+          lire pour décider, pas un détail de la ligne. */}
+      <div className="cell">
+        <div className="caption">{t("pairing.species.caption")}</div>
+        <div className="value">
+          <EspeceBadge species={demande.species} />
+        </div>
       </div>
       <div className="cell">
         <div className="caption">{t("pairing.requests.captionReceived")}</div>
@@ -46,12 +60,14 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
           <Duree secondes={resteJusqua(demande.expires_at, maintenant)} />
         </div>
       </div>
-      <div className="cell">
-        <div className="caption">{t("pairing.designation.caption")}</div>
-        <div className="value">
-          <EnvironmentCell environnement={demande.environment} />
+      {rattachable && (
+        <div className="cell">
+          <div className="caption">{t("pairing.designation.caption")}</div>
+          <div className="value">
+            <EnvironmentCell environnement={demande.environment} />
+          </div>
         </div>
-      </div>
+      )}
       <div className="cell">
         <div className="caption">{t("pairing.requests.captionFingerprint")}</div>
         <div className="value">
@@ -68,16 +84,18 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
         >
           {revele ? t("pairing.requests.hideCode") : t("pairing.requests.showCode")}
         </button>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          aria-expanded={ouvreChoix}
-          onClick={() => setOuvreChoix((ouvert) => !ouvert)}
-        >
-          {revelable
-            ? t("pairing.designation.change")
-            : t("pairing.designation.designate")}
-        </button>
+        {rattachable && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            aria-expanded={ouvreChoix}
+            onClick={() => setOuvreChoix((ouvert) => !ouvert)}
+          >
+            {demande.environment !== null
+              ? t("pairing.designation.change")
+              : t("pairing.designation.designate")}
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-danger"
@@ -93,7 +111,7 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
           {t("pairing.designation.required")}
         </p>
       )}
-      {ouvreChoix && (
+      {ouvreChoix && rattachable && (
         <EnvironmentPicker
           choisi={demande.environment?.id ?? null}
           pending={designation.isPending}

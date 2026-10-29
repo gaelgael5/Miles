@@ -9,7 +9,7 @@ import pytest
 from miles_socle.signing.keys import generate_keypair
 
 from enrolement.pairing import environment_link
-from enrolement.pairing.model import (
+from enrolement.pairing.events import (
     ENVIRONMENT_ATTACHED_EVENT,
     ENVIRONMENT_MOVED_EVENT,
 )

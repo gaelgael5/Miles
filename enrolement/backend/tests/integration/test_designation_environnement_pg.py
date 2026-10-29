@@ -9,12 +9,12 @@ from typing import Any
 import pytest
 from miles_socle.signing.keys import generate_keypair
 
-from enrolement.pairing.model import (
+from enrolement.pairing.events import (
     ENVIRONMENT_ATTACHED_EVENT,
     ENVIRONMENT_DESIGNATED_EVENT,
 )
+from tests.integration.demandeur_double import RequesterDouble
 from tests.integration.enrolement_stack import EnrolementStack, open_stack
-from tests.integration.environnement_double import EnvironmentDouble
 
 pytestmark = pytest.mark.integration
 
@@ -77,7 +77,7 @@ async def test_le_code_n_est_pas_revelable_sans_environnement_designe(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 1, et c'est l'interdit central du ticket : révéler le code EST accepter."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
 
@@ -94,7 +94,7 @@ async def test_l_appariement_conclu_porte_l_environnement_designe(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 2 : ce que l'humain désigne est ce à quoi l'appariement se rattache."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         environment_id = await _cree(stack, "recette")
@@ -118,7 +118,7 @@ async def test_la_designation_se_change_tant_que_l_appariement_n_est_pas_conclu(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 5 : se verrouiller au premier clic obligerait à refuser pour corriger."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         premier = await _cree(stack, "recette")
@@ -138,8 +138,8 @@ async def test_un_environnement_deja_apparie_n_est_plus_designable(
 ) -> None:
     """Critère 4 : deux stacks pour un même environnement, et « à quelle stack appartient
     ce device » n'a plus de réponse unique."""
-    premier = EnvironmentDouble()
-    second = EnvironmentDouble(origin="http://autre.test")
+    premier = RequesterDouble()
+    second = RequesterDouble(origin="http://autre.test")
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await premier.knock(pair)
         environment_id = await _cree(stack, "recette")
@@ -164,8 +164,8 @@ async def test_la_confirmation_echoue_en_le_disant_sans_ecraser_l_appariement_ex
     doit survivre : un code brûlé sur un refus obligerait l'environnement à refrapper
     pour obtenir un code qu'un humain devrait à nouveau révéler.
     """
-    premier = EnvironmentDouble()
-    second = EnvironmentDouble(origin="http://autre.test")
+    premier = RequesterDouble()
+    second = RequesterDouble(origin="http://autre.test")
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await premier.knock(pair)
         await second.knock(pair)
@@ -194,8 +194,8 @@ async def test_une_demande_refusee_laisse_l_environnement_libre(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 7 : une désignation ne CONSOMME pas, seule la conclusion le fait."""
-    premier = EnvironmentDouble()
-    second = EnvironmentDouble(origin="http://autre.test")
+    premier = RequesterDouble()
+    second = RequesterDouble(origin="http://autre.test")
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await premier.knock(pair)
         environment_id = await _cree(stack, "recette")
@@ -214,7 +214,7 @@ async def test_une_demande_expiree_laisse_l_environnement_libre(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 7, par l'autre voie : l'échéance rend l'environnement sans que personne n'agisse."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path, request_ttl_s=1) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         environment_id = await _cree(stack, "recette")
@@ -235,7 +235,7 @@ async def test_le_referentiel_refuse_de_supprimer_un_environnement_designe(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Effacer la désignation sous le pied de l'humain ferait cesser son code d'être révélable."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         environment_id = await _cree(stack, "recette")
@@ -306,7 +306,7 @@ async def test_le_reappariement_conserve_l_environnement_et_ne_le_deplace_pas(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Une stack qui tourne ses clés réapparie le MÊME environnement, jamais un autre."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         environment_id = await _cree(stack, "recette")
@@ -315,7 +315,7 @@ async def test_le_reappariement_conserve_l_environnement_et_ne_le_deplace_pas(
 
         # La stack refrappe avec une clé neuve : la demande HÉRITE de l'environnement,
         # sans quoi son code ne serait plus révélable et personne ne saurait pourquoi.
-        tourne = EnvironmentDouble(origin=double.origin)
+        tourne = RequesterDouble(origin=double.origin)
         await tourne.knock(pair)
         assert (await _demande(stack, double.origin))["environment"]["id"] == environment_id
 
@@ -334,7 +334,7 @@ async def test_designer_un_environnement_absent_du_referentiel_est_refuse(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Un autre onglet vient de le supprimer : la clé étrangère tient, pas une lecture préalable."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         environment_id = await _cree(stack, "recette")
@@ -364,7 +364,7 @@ async def test_la_designation_et_le_rattachement_sont_des_events_signes_de_leur_
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 9 : qui a décidé, quelle demande, quel environnement."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         environment_id = await _cree(stack, "recette")
@@ -416,7 +416,7 @@ async def test_les_routes_de_designation_exigent_une_session(blank_db: str, tmp_
 
 async def test_le_nom_declare_ne_cree_aucun_environnement(blank_db: str, tmp_path: Path) -> None:
     """Interdit explicite : ce texte vient d'un inconnu, il ne nomme pas le référentiel."""
-    double = EnvironmentDouble(name="Production")
+    double = RequesterDouble(name="Production")
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
 

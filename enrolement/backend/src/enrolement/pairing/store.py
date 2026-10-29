@@ -6,6 +6,7 @@ from uuid import UUID
 
 from miles_socle.secrets.crypto import Sealed
 from miles_socle.signing.keys import ALGORITHM
+from miles_socle.signing.protocol import PeerSpecies
 
 from enrolement.pairing.model import EnvironmentRef, PairingRequest
 
@@ -51,6 +52,7 @@ def _request(row: Any) -> PairingRequest:
         row["expires_at"],
         row["name"],
         environment_ref_from_row(row),
+        row["species"],
     )
 
 
@@ -76,6 +78,7 @@ async def db_upsert_request(
     now: datetime,
     expires_at: datetime,
     name: str,
+    species: PeerSpecies,
 ) -> PairingRequest:
     """Ouvre la demande, ou RENOUVELLE celle qui existe pour la même origine.
 
@@ -92,19 +95,29 @@ async def db_upsert_request(
     l'occasion d'en changer. En changer est un geste à part, qui porte sur l'appariement et
     non sur la demande, et qui n'est ouvert que tant qu'aucun device n'est en jeu
     (`resolve_set_peer_environment`).
+
+    SAUF, à son tour, si l'espèce déclarée n'est plus « environnement ». Une stack qui
+    refrappe en se déclarant module de paramétrage ne reçoit pas de devices : l'héritage
+    comme la survie de la désignation sont alors éteints, et la colonne retombe à nul. Sans
+    cela, la contrainte `pairing_request_environnement_seul_designe` refuserait l'écriture
+    — ce qui serait juste, mais le demandeur lirait « refusé » pour un état hérité dont il
+    n'est pas l'auteur.
     """
     row = await db.fetchrow(
         "INSERT INTO pairing_request (base_url, public_key, algorithm, key_version, nonce,"
-        " ciphertext, created_at, expires_at, name, environment_id)"
-        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,"
-        " (SELECT p.environment_id FROM environment_peer p WHERE p.base_url = $1))"
+        " ciphertext, created_at, expires_at, name, species, environment_id)"
+        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,"
+        " (SELECT p.environment_id FROM environment_peer p WHERE p.base_url = $1"
+        "  AND $10 = 'environnement'))"
         " ON CONFLICT (base_url) DO UPDATE SET public_key = excluded.public_key,"
         " algorithm = excluded.algorithm, key_version = excluded.key_version,"
         " nonce = excluded.nonce, ciphertext = excluded.ciphertext,"
         " created_at = excluded.created_at, expires_at = excluded.expires_at,"
-        " name = excluded.name"
+        " name = excluded.name, species = excluded.species,"
+        " environment_id = CASE WHEN excluded.species = 'environnement'"
+        "  THEN pairing_request.environment_id END"
         " RETURNING base_url, public_key, algorithm, created_at, expires_at, name,"
-        " environment_id,"
+        " environment_id, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = pairing_request.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = pairing_request.environment_id)"
@@ -118,6 +131,7 @@ async def db_upsert_request(
         now,
         expires_at,
         name,
+        species,
     )
     return _request(row)
 
@@ -126,7 +140,7 @@ async def db_get_request(db: PairingDb, base_url: str) -> tuple[PairingRequest, 
     """La demande et son secret scellé. Le secret ne sort d'ici que scellé."""
     row = await db.fetchrow(
         "SELECT base_url, public_key, algorithm, created_at, expires_at, name,"
-        " key_version, nonce, ciphertext, environment_id,"
+        " key_version, nonce, ciphertext, environment_id, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = pairing_request.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = pairing_request.environment_id)"
@@ -142,7 +156,7 @@ async def db_get_request(db: PairingDb, base_url: str) -> tuple[PairingRequest, 
 async def db_list_requests(db: PairingDb, /) -> list[PairingRequest]:
     rows = await db.fetch(
         "SELECT base_url, public_key, algorithm, created_at, expires_at, name,"
-        " environment_id,"
+        " environment_id, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = pairing_request.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = pairing_request.environment_id)"
@@ -190,7 +204,7 @@ async def db_designate_request_environment(
     row = await db.fetchrow(
         "UPDATE pairing_request SET environment_id = $2 WHERE base_url = $1"
         " RETURNING base_url, public_key, algorithm, created_at, expires_at, name,"
-        " environment_id,"
+        " environment_id, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = pairing_request.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = pairing_request.environment_id)"

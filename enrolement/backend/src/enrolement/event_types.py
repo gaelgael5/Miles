@@ -6,7 +6,7 @@ from miles_socle.secrets import service as secrets_events
 from miles_socle.signing import identity_model as module_identity_events
 
 from enrolement.environments import model as environment_events
-from enrolement.pairing import model as pairing_events
+from enrolement.pairing import events as pairing_events
 
 
 def code_event_types() -> frozenset[str]:

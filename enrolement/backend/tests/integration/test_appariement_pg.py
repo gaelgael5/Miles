@@ -17,17 +17,19 @@ from miles_socle.signing.protocol import (
     PING_BODY,
 )
 
-from enrolement.pairing.model import (
+from enrolement.pairing.events import (
     PAIRING_CONFIRMED_EVENT,
     REQUEST_EXPIRED_EVENT,
     REQUEST_OPENED_EVENT,
+)
+from enrolement.pairing.model import (
     PairingClockSkewError,
     PairingRefusedError,
 )
 from enrolement.pairing.service import PairingService
 from enrolement.pairing.totp import STEP_S
+from tests.integration.demandeur_double import RequesterDouble, confirm_body
 from tests.integration.enrolement_stack import PUBLIC_URL, EnrolementStack, open_stack
-from tests.integration.environnement_double import EnvironmentDouble, confirm_body
 
 pytestmark = pytest.mark.integration
 
@@ -67,7 +69,7 @@ def _slug(origine: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", origine.lower()).strip("-")[:48]
 
 
-async def _designe(stack: EnrolementStack, double: EnvironmentDouble) -> str:
+async def _designe(stack: EnrolementStack, double: RequesterDouble) -> str:
     """Déclare un environnement et le désigne pour cette demande. Rend son identifiant.
 
     PRÉCONDITION de toute révélation de code depuis le ticket bf2115cd : sans
@@ -90,7 +92,7 @@ async def _designe(stack: EnrolementStack, double: EnvironmentDouble) -> str:
     return environment_id
 
 
-async def _code(stack: EnrolementStack, double: EnvironmentDouble) -> str:
+async def _code(stack: EnrolementStack, double: RequesterDouble) -> str:
     """Le code révélé — précédé de la désignation, sans laquelle il n'est pas révélable.
 
     La désignation est faite ici plutôt que dans chaque test : elle est devenue une
@@ -104,7 +106,7 @@ async def _code(stack: EnrolementStack, double: EnvironmentDouble) -> str:
     return str(reponse.json()["code"])
 
 
-async def _est_designee(stack: EnrolementStack, double: EnvironmentDouble) -> bool:
+async def _est_designee(stack: EnrolementStack, double: RequesterDouble) -> bool:
     """Vrai si la demande porte déjà un environnement — une relecture de code n'en pose pas deux."""
     attendues = await stack.client.get("/api/pairing/requests")
     return any(
@@ -112,7 +114,7 @@ async def _est_designee(stack: EnrolementStack, double: EnvironmentDouble) -> bo
     )
 
 
-async def _confirme_par(service: PairingService, double: EnvironmentDouble, code: str) -> None:
+async def _confirme_par(service: PairingService, double: RequesterDouble, code: str) -> None:
     """Confirme en passant par le SERVICE, pour pouvoir lui donner une autre horloge.
 
     La signature est produite exactement comme sur le réseau : même méthode, même cible,
@@ -130,7 +132,7 @@ async def _confirme_par(service: PairingService, double: EnvironmentDouble, code
     )
 
 
-async def _apparie(stack: EnrolementStack, double: EnvironmentDouble) -> None:
+async def _apparie(stack: EnrolementStack, double: RequesterDouble) -> None:
     async with stack.anonymous() as pair:
         assert (await double.knock(pair)).status_code == 202
         reponse = await double.confirm(pair, await _code(stack, double))
@@ -140,7 +142,7 @@ async def _apparie(stack: EnrolementStack, double: EnvironmentDouble) -> None:
 async def test_un_environnement_qui_frappe_ouvre_une_demande_en_attente(
     blank_db: str, tmp_path: Path
 ) -> None:
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         async with stack.anonymous() as pair:
             reponse = await double.knock(pair)
@@ -170,7 +172,7 @@ async def test_aucune_cle_privee_ne_traverse_le_reseau_dans_aucun_sens(
     Pas sur l'intention : on relit le corps qui part et celui qui revient, et on y cherche
     la marque d'une clé privée PEM. Un champ ajouté par mégarde ferait rougir ce test.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         montant = double.knock_body()
         async with stack.anonymous() as pair:
@@ -189,7 +191,7 @@ async def test_aucune_cle_privee_ne_traverse_le_reseau_dans_aucun_sens(
 async def test_une_demande_non_signee_est_refusee_sans_rien_ecrire(
     blank_db: str, tmp_path: Path
 ) -> None:
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         reponse = await pair.post(PAIRING_REQUEST_PATH, content=double.knock_body())
 
@@ -209,7 +211,7 @@ async def test_une_demande_signee_par_une_autre_cle_que_celle_deposee_est_refuse
     l'inverse — sous une origine qu'il ne contrôle pas. La signature lie le dépôt à la
     possession de la clé déposée.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     etrangere = generate_keypair()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         # Le nom est présent et valide : ce qui est éprouvé ici est la SIGNATURE, et un
@@ -226,7 +228,7 @@ async def test_une_demande_signee_par_une_autre_cle_que_celle_deposee_est_refuse
 async def test_frapper_deux_fois_ne_cree_qu_une_demande_et_renouvelle_le_secret(
     blank_db: str, tmp_path: Path
 ) -> None:
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         async with stack.anonymous() as pair:
             await double.knock(pair)
@@ -242,7 +244,7 @@ async def test_frapper_deux_fois_ne_cree_qu_une_demande_et_renouvelle_le_secret(
 
 async def test_le_code_colle_apparie_les_deux_modules(blank_db: str, tmp_path: Path) -> None:
     """Le cas nominal, bout en bout du côté enrôlement (critère 1 du ticket)."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         async with stack.anonymous() as pair:
             await double.knock(pair)
@@ -271,7 +273,7 @@ async def test_le_code_colle_apparie_les_deux_modules(blank_db: str, tmp_path: P
 
 async def test_apres_appariement_un_appel_signe_est_accepte(blank_db: str, tmp_path: Path) -> None:
     """L'autre moitié du critère 1 : l'appariement se CONSTATE par un appel signé."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double)
 
@@ -292,12 +294,12 @@ async def test_apres_appariement_un_appel_signe_est_accepte(blank_db: str, tmp_p
 async def test_un_appel_signe_par_une_cle_inconnue_est_refuse(
     blank_db: str, tmp_path: Path
 ) -> None:
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double)
         # Même origine, autre clé : c'est le cas qui compte, parce qu'il ressemble à un
         # appariement valide de tous les côtés sauf celui qui décide.
-        imposteur = EnvironmentDouble(origin=double.origin)
+        imposteur = RequesterDouble(origin=double.origin)
 
         async with stack.anonymous() as pair:
             refuse = await imposteur.ping(pair)
@@ -311,7 +313,7 @@ async def test_un_appel_signe_par_une_cle_inconnue_est_refuse(
 async def test_un_code_faux_est_refuse_et_la_demande_reste_en_attente(
     blank_db: str, tmp_path: Path
 ) -> None:
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         async with stack.anonymous() as pair:
             await double.knock(pair)
@@ -332,7 +334,7 @@ async def test_un_code_rejoue_est_refuse_meme_dans_la_meme_fenetre(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Le code est BRÛLÉ à l'usage : la fenêtre n'y change rien."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         code = await _code(stack, double)
@@ -352,7 +354,7 @@ async def test_la_fenetre_precedente_passe_et_les_plus_anciennes_nomment_l_horlo
     Le code est lu maintenant et présenté à une instance dont l'horloge avance : c'est
     exactement la forme qu'a la dérive entre deux serveurs.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     # Les deux horloges sont FIGÉES, et l'écart entre elles est exact. Les prendre de
     # l'horloge réelle ferait basculer le test une fois sur trente, à la seconde près où
     # la fenêtre change — l'échec un jour sur cent que la discipline de test proscrit.
@@ -384,8 +386,8 @@ async def test_le_code_d_une_demande_ne_vaut_pas_pour_une_autre(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Deux demandes simultanées : chacune a son secret (critère 7)."""
-    premier = EnvironmentDouble(origin="http://env-un.test")
-    second = EnvironmentDouble(origin="http://env-deux.test")
+    premier = RequesterDouble(origin="http://env-un.test")
+    second = RequesterDouble(origin="http://env-deux.test")
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await premier.knock(pair)
         await second.knock(pair)
@@ -405,7 +407,7 @@ async def test_un_code_lu_par_une_instance_est_accepte_par_une_autre(
     Sans état partagé, l'appariement échouerait par intermittence — et le diagnostic
     partirait sur l'horloge.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         await _designe(stack, double)
@@ -421,7 +423,7 @@ async def test_un_code_lu_par_une_instance_est_accepte_par_une_autre(
 async def test_une_demande_jamais_traitee_expire_et_son_secret_disparait(
     blank_db: str, tmp_path: Path
 ) -> None:
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         code = await _code(stack, double)
@@ -447,7 +449,7 @@ async def test_le_refus_humain_detruit_la_demande_et_son_secret(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 10 : l'environnement reçoit un refus explicite plutôt qu'une attente sans fin."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         code = await _code(stack, double)
@@ -469,7 +471,7 @@ async def test_un_module_d_enrolement_apparie_plusieurs_environnements(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 15 : c'est le cas NOMINAL, et chacun a ses propres clés."""
-    doubles = [EnvironmentDouble(origin=f"http://env-{rang}.test") for rang in range(3)]
+    doubles = [RequesterDouble(origin=f"http://env-{rang}.test") for rang in range(3)]
     async with open_stack(blank_db, tmp_path) as stack:
         for double in doubles:
             await _apparie(stack, double)
@@ -486,11 +488,11 @@ async def test_le_reappariement_remplace_la_cle_sans_laisser_de_doublon(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 14 : jamais deux identités pour une même stack."""
-    ancien = EnvironmentDouble()
+    ancien = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, ancien)
         creation = await stack.pool.fetchval("SELECT created_at FROM environment_peer")
-        nouveau = EnvironmentDouble(origin=ancien.origin)
+        nouveau = RequesterDouble(origin=ancien.origin)
 
         await _apparie(stack, nouveau)
 
@@ -512,7 +514,7 @@ async def test_la_cle_privee_du_module_est_rangee_comme_secret_chiffre(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Critère 16 : rangée comme les autres secrets du produit, jamais en clair."""
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double)
 
@@ -566,8 +568,8 @@ async def test_le_refus_ne_distingue_pas_le_code_de_la_demande(
     Les séparer offrirait un oracle — savoir qu'une demande existe pour une origine
     donnée, ou approcher le code en distinguant les deux causes.
     """
-    inconnu = EnvironmentDouble(origin="http://jamais-vu.test")
-    connu = EnvironmentDouble()
+    inconnu = RequesterDouble(origin="http://jamais-vu.test")
+    connu = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await connu.knock(pair)
         juste = await _code(stack, connu)
@@ -588,7 +590,7 @@ async def test_le_service_refuse_de_conclure_sans_adresse_publique(
     Il les refuserait tous, et le diagnostic partirait sur les clés. Mieux vaut refuser
     l'appariement que le conclure à moitié.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
         code = await _code(stack, double)
@@ -611,7 +613,7 @@ async def test_le_service_refuse_de_conclure_sans_adresse_publique(
 async def test_le_nom_declare_accompagne_la_demande_puis_l_appariement(
     blank_db: str, tmp_path: Path
 ) -> None:
-    double = EnvironmentDouble(name="  Recette nord  ")
+    double = RequesterDouble(name="  Recette nord  ")
     async with open_stack(blank_db, tmp_path) as stack:
         async with stack.anonymous() as pair:
             await double.knock(pair)
@@ -638,7 +640,7 @@ async def test_un_nom_declare_inacceptable_est_refuse(
     Un retour à la ligne casse une ligne de journal structuré, et l'écran de l'autre bout
     afficherait une demande sur deux lignes qu'on lirait comme deux demandes.
     """
-    double = EnvironmentDouble(name=nom)
+    double = RequesterDouble(name=nom)
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         reponse = await double.knock(pair)
 
@@ -651,8 +653,8 @@ async def test_deux_demandes_de_meme_nom_restent_distinguables(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Le nom déclaré n'identifie RIEN : c'est l'URL qui distingue, et elle est unique."""
-    premier = EnvironmentDouble(origin="http://env-un.test", name="Recette")
-    second = EnvironmentDouble(origin="http://env-deux.test", name="Recette")
+    premier = RequesterDouble(origin="http://env-un.test", name="Recette")
+    second = RequesterDouble(origin="http://env-deux.test", name="Recette")
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await premier.knock(pair)
         await second.knock(pair)
@@ -671,7 +673,7 @@ async def test_un_nom_qui_ressemble_a_du_balisage_est_stocke_tel_quel(
     # L'échappement appartient à l'affichage. Le mutiler ici abîmerait un nom légitime en
     # donnant l'illusion d'une protection, et masquerait un écran qui oublierait d'échapper.
     hostile = '<img src=x onerror="alert(1)"> & Cie'
-    double = EnvironmentDouble(name=hostile)
+    double = RequesterDouble(name=hostile)
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         assert (await double.knock(pair)).status_code == 202
 
@@ -687,7 +689,7 @@ async def test_l_environnement_peut_demander_ou_en_est_sa_demande(
     Son code refusé et sa demande disparue lui rendent le même refus opaque — c'est
     voulu —, donc rien d'autre ne lui dirait qu'un humain a dit non.
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await double.knock(pair)
 
@@ -710,18 +712,18 @@ async def test_l_environnement_peut_demander_ou_en_est_sa_demande(
 
 async def test_chacun_ne_lit_que_sa_propre_demande(blank_db: str, tmp_path: Path) -> None:
     """La route d'état est signée : elle ne dit rien à qui ne détient pas la clé déposée."""
-    legitime = EnvironmentDouble()
+    legitime = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as pair:
         await legitime.knock(pair)
         # Même origine, autre clé : c'est le cas qui compte, parce qu'il ressemble à une
         # demande valide de tous les côtés sauf celui qui décide.
-        imposteur = EnvironmentDouble(origin=legitime.origin)
+        imposteur = RequesterDouble(origin=legitime.origin)
 
         assert (await imposteur.status(pair)).status_code == 401
         # Et une origine dont ce module n'a jamais entendu parler n'apprend rien non plus :
         # répondre « inconnue » lui confirmerait qu'elle n'est pas déjà appariée.
         assert (
-            await EnvironmentDouble(origin="http://jamais-vu.test").status(pair)
+            await RequesterDouble(origin="http://jamais-vu.test").status(pair)
         ).status_code == 401
 
 
@@ -731,7 +733,7 @@ async def test_apres_appariement_l_etat_reste_interrogeable(blank_db: str, tmp_p
     Sa demande a disparu : sans recours à la clé du pair déjà apparié, sa dernière
     question serait refusée juste après son succès, et son écran dirait « refusée ».
     """
-    double = EnvironmentDouble()
+    double = RequesterDouble()
     async with open_stack(blank_db, tmp_path) as stack:
         await _apparie(stack, double)
 

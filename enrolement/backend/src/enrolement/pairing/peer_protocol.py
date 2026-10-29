@@ -7,19 +7,23 @@ import structlog
 from miles_socle.secrets.model import Secret, SecretUndecipherableError
 from miles_socle.signing.keys import fingerprint
 from miles_socle.signing.peers import validate_declared_name, validate_public_key
+from miles_socle.signing.protocol import PeerSpecies
 
-from enrolement.pairing.model import (
+from enrolement.pairing.events import (
     PAIRING_CONFIRMED_EVENT,
     PEER_OBJECT_KIND,
     REQUEST_OBJECT_KIND,
     REQUEST_OPENED_EVENT,
+)
+from enrolement.pairing.model import (
     ConfirmedPairing,
     EnvironmentAlreadyPairedError,
-    EnvironmentPeer,
     PairingClockSkewError,
     PairingRequest,
+    PairingSpeciesMismatchError,
+    ParametrageAlreadyPairedError,
 )
-from enrolement.pairing.refusals import PairingRefusals
+from enrolement.pairing.peer_reads import PairingPeerReads
 from enrolement.pairing.store import (
     db_delete_request,
     db_get_request,
@@ -28,7 +32,6 @@ from enrolement.pairing.store import (
 )
 from enrolement.pairing.store_peers import (
     db_forget_revocation,
-    db_get_peer,
     db_upsert_peer,
 )
 from enrolement.pairing.totp import (
@@ -41,13 +44,14 @@ from enrolement.pairing.totp import (
 log = structlog.get_logger(__name__)
 
 
-class PairingPeerProtocol(PairingRefusals):
-    """Ce qu'un PAIR déclenche : frapper, confirmer, être vérifié, demander son état.
+class PairingPeerProtocol(PairingPeerReads):
+    """Les deux GESTES qu'un pair déclenche : frapper, puis confirmer avec le code.
 
     Séparé de ce qu'un humain déclenche depuis son écran, parce que les deux n'ont ni la
     même source de confiance ni la même règle d'opacité — ici l'appelant est une machine
     non authentifiée tant que le code n'est pas passé, et rien de ce qu'il reçoit ne doit
-    lui apprendre autre chose que « refusé ».
+    lui apprendre autre chose que « refusé ». Les LECTURES d'un pair — vérifier son appel,
+    rendre l'état de sa demande — sont dans `peer_reads.py` : ici on écrit et on conclut.
     """
 
     async def resolve_open_request(
@@ -60,13 +64,19 @@ class PairingPeerProtocol(PairingRefusals):
         body: bytes,
         public_key: str,
         name: str,
+        species: PeerSpecies,
     ) -> PairingRequest:
-        """Un environnement frappe : la demande apparaît, avec un secret tout neuf.
+        """Un demandeur frappe : la demande apparaît, avec un secret tout neuf.
 
-        Le secret NAÎT ici, au moment où l'environnement frappe, et il ne vaut que pour
+        Le secret NAÎT ici, au moment où le demandeur frappe, et il ne vaut que pour
         cette demande. Frapper à nouveau depuis la même origine renouvelle le secret au
         lieu d'ouvrir une seconde demande : deux demandes pour une même origine, et
         l'humain ne saurait laquelle accepter.
+
+        L'ESPÈCE est enregistrée telle qu'elle est DÉCLARÉE, et elle n'autorise rien par
+        elle-même : comme le nom déclaré, elle vient d'un tiers que personne n'a encore
+        authentifié. Ce qu'elle fait, c'est permettre à l'humain de lire ce qu'il accepte,
+        et c'est son geste — révéler le code — qui autorise.
         """
         origine = self._verified_origin(declared_origin, signature)
         # Validée avant d'être employée comme clé de vérification. `IdentityInputError`
@@ -92,17 +102,26 @@ class PairingPeerProtocol(PairingRefusals):
                 maintenant,
                 maintenant + timedelta(seconds=self.request_ttl_s),
                 name,
+                species,
             )
             await self.module.write_event(
                 conn,
                 REQUEST_OPENED_EVENT,
                 REQUEST_OBJECT_KIND,
                 origine,
-                {"public_key_fingerprint": fingerprint(public_key), "declared_name": name},
+                {
+                    "public_key_fingerprint": fingerprint(public_key),
+                    "declared_name": name,
+                    # Au journal parce que c'est ce dont découleront les conséquences :
+                    # le jour où une stack a reçu ce qu'elle n'aurait pas dû, la première
+                    # question est « sous quelle espèce avait-elle frappé ? ».
+                    "species": species,
+                },
             )
         log.info(
             "demande_d_appariement_ouverte",
             base_url=origine,
+            species=species,
             public_key_fingerprint=fingerprint(public_key),
         )
         return demande
@@ -160,6 +179,8 @@ class PairingPeerProtocol(PairingRefusals):
                 # appariement neuf ne se conclut sans environnement. Ne devrait jamais
                 # mordre ici — le code n'est pas révélable sans désignation — mais la
                 # garde est à l'ÉCRITURE, pas seulement à l'écran.
+                # Exigé des environnements, et d'eux seuls : le module de paramétrage ne
+                # reçoit pas de devices, et il n'y a rien à lui désigner.
                 environnement = self._designated_or_refuse(demande)
                 # Pas de lecture de « qui porte déjà cet environnement » avant d'écrire.
                 # MESURÉ le 28/10/2026 : elle ne change RIEN. Une violation de contrainte
@@ -177,13 +198,22 @@ class PairingPeerProtocol(PairingRefusals):
                     demande.public_key,
                     maintenant,
                     demande.name,
-                    environnement.id,
+                    None if environnement is None else environnement.id,
                     # L'adresse de contact vaut l'origine déclarée au premier appariement :
                     # c'est tout ce qu'on sait d'elle, et c'est la stack qui nous a appelés,
                     # jamais l'inverse. Son administrateur la corrigera sur l'écran si un
                     # intermédiaire s'interpose. Au ré-appariement elle n'est pas réécrite.
                     origine,
+                    demande.species,
                 )
+                if pair is None:
+                    # Cette origine est appariée sous une AUTRE espèce. Refusé plutôt que
+                    # transformé, et la demande N'EST PAS rendue : la transaction entière
+                    # est défaite par la levée, donc la suppression ci-dessus aussi — le
+                    # code n'est pas brûlé, et un humain peut révoquer puis recommencer.
+                    raise PairingSpeciesMismatchError(
+                        f"{origine} est appariée sous une autre espèce : révoquer d'abord"
+                    )
                 # Une origine réappariée n'est plus révoquée : sa pierre tombale part avec
                 # l'appariement neuf. La laisser ferait dater une révocation ultérieure de
                 # la PRÉCÉDENTE, et le diagnostic lirait une date qui ne décrit plus rien.
@@ -197,11 +227,20 @@ class PairingPeerProtocol(PairingRefusals):
                     {"public_key_fingerprint": fingerprint(pair.public_key)},
                 )
         except asyncpg.UniqueViolationError as exc:
-            # `environment_peer_environment_unique`. Deux confirmations d'origines
-            # DIFFÉRENTES visant le même environnement ne se croisent pas sur le verrou
-            # consultatif, qui porte sur l'origine : la lecture ci-dessus les a vues libres
-            # toutes les deux, et c'est la base qui tranche. Le refus est le MÊME que
-            # celui de la lecture — une course ne doit pas produire un autre message.
+            # Deux unicités peuvent trancher ici, et elles n'appellent pas le même geste.
+            # Dans les deux cas, des confirmations d'origines DIFFÉRENTES ne se croisent
+            # pas sur le verrou consultatif, qui porte sur l'origine : la lecture les a
+            # vues libres, et c'est la base qui décide. Le refus est le MÊME que celui de
+            # la lecture — une course ne doit pas produire un autre message.
+            #
+            # On lit le NOM de la contrainte plutôt que de supposer laquelle a parlé :
+            # supposer ferait dire « choisissez un autre environnement » à qui vient
+            # d'apparier un second module de paramétrage, pour lequel il n'y a pas de
+            # second choix à faire.
+            if exc.constraint_name == "environment_peer_un_seul_parametrage":
+                raise ParametrageAlreadyPairedError(
+                    "un module de paramétrage est déjà apparié : le révoquer d'abord"
+                ) from exc
             raise EnvironmentAlreadyPairedError(
                 f"{origine} vise un environnement qu'un autre appariement vient de prendre"
             ) from exc
@@ -210,62 +249,7 @@ class PairingPeerProtocol(PairingRefusals):
             base_url=origine,
             peer_key_fingerprint=fingerprint(pair.public_key),
             own_key_fingerprint=fingerprint(identite.public_key),
+            species=pair.species,
             environment_slug=pair.environment.slug if pair.environment else None,
         )
         return ConfirmedPairing(propre_origine, identite.public_key, identite.algorithm)
-
-    async def resolve_verify_incoming(
-        self,
-        *,
-        declared_origin: str | None,
-        signature: str | None,
-        method: str,
-        target: str,
-        body: bytes,
-    ) -> EnvironmentPeer:
-        """Vérifie l'appel d'un environnement DÉJÀ apparié. Point d'application du fail closed.
-
-        Tous les refus passent par ici et sont journalisés avec l'origine DÉCLARÉE —
-        validée avant d'être écrite, parce qu'avant la vérification elle n'est encore
-        qu'une entrée anonyme. Ce que l'appelant apprend, lui, se limite à « refusé ».
-        """
-        origine = self._verified_origin(declared_origin, signature)
-        pair = await db_get_peer(self.pool, origine)
-        if pair is None:
-            await self._refuse_unknown_origin(self.pool, origine)
-        self._verify_or_refuse(pair.public_key, signature, origine, method, target, body)
-        return pair
-
-    async def resolve_request_state(
-        self,
-        *,
-        declared_origin: str | None,
-        signature: str | None,
-        method: str,
-        target: str,
-        body: bytes,
-    ) -> PairingRequest | None:
-        """Où en est la demande de l'appelant. Signée : chacun ne lit que la sienne.
-
-        Vérifiée contre la clé que la demande porte — et, si elle a disparu, contre celle
-        du pair déjà apparié, parce qu'un environnement qui vient d'être apparié demandera
-        encore une fois où il en est avant de rafraîchir son écran. Sans ce second
-        recours, sa dernière question serait refusée juste après son succès.
-
-        Rend `None` pour « inconnue », sans dire si elle a été refusée ou si elle a
-        expiré : ce module ne garde aucune trace d'une demande disparue. C'est l'appelant
-        qui tranche, en comparant à l'échéance qu'il a reçue en frappant.
-        """
-        origine = self._verified_origin(declared_origin, signature)
-        maintenant = self.now()
-        async with self.pool.acquire() as conn, conn.transaction():
-            await self._purge_expired(conn, maintenant)
-            rangee = await db_get_request(conn, origine)
-            pair = None if rangee is not None else await db_get_peer(conn, origine)
-        cle = rangee[0].public_key if rangee is not None else (pair.public_key if pair else None)
-        if cle is None:
-            # Ni demande ni appariement : rien à dire, et surtout pas « inconnue », qui
-            # confirmerait à un inconnu que cette origine n'est pas déjà appariée.
-            await self._refuse_unknown_origin(self.pool, origine)
-        self._verify_or_refuse(cle, signature, origine, method, target, body)
-        return None if rangee is None else rangee[0]

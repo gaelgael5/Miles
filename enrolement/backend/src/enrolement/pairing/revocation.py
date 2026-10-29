@@ -10,10 +10,12 @@ from miles_socle.signing.peers import validate_base_url
 from miles_socle.signing.protocol import PAIRING_REVOKED_PATH, REVOKED_BODY
 
 from enrolement.pairing.base import PairingBase
-from enrolement.pairing.model import (
+from enrolement.pairing.events import (
     PAIRING_REVOKED_EVENT,
     PEER_CONTACT_CHANGED_EVENT,
     PEER_OBJECT_KIND,
+)
+from enrolement.pairing.model import (
     EnvironmentPeer,
     PeerNotFoundError,
 )

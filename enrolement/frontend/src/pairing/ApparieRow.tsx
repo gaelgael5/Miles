@@ -7,6 +7,7 @@ import { type PairedEnvironment, useRevokePeer } from "../api/pairing";
 import { ContactUrlForm } from "./ContactUrlForm";
 import { EnvironmentAssign } from "./EnvironmentAssign";
 import { EnvironmentCell } from "./EnvironmentCell";
+import { EspeceBadge } from "./EspeceBadge";
 
 /**
  * Ce que la révocation va provoquer sur le parc, écrit AVANT qu'on la provoque.
@@ -29,6 +30,11 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
   const { t } = useTranslation();
   const [confirmeRevocation, setConfirmeRevocation] = useState(false);
   const revocation = useRevokePeer();
+  // L'espèce commande ce que cette ligne a du sens à montrer. Le module de paramétrage ne
+  // reçoit pas de devices : lui afficher « à rattacher » et un compte de devices
+  // réclamerait un geste qui n'existe pas pour lui, et offrirait un choix que le serveur
+  // refuse. On suit donc l'espèce, jamais l'absence de valeur.
+  const rattachable = environnement.species === "environnement";
   return (
     <li className="row">
       <div className="row-main">
@@ -36,29 +42,39 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
         <div className="row-sub">{environnement.base_url}</div>
       </div>
       <div className="cell">
-        <div className="caption">{t("pairing.designation.caption")}</div>
+        <div className="caption">{t("pairing.species.caption")}</div>
         <div className="value">
-          <EnvironmentCell environnement={environnement.environment} />
+          <EspeceBadge species={environnement.species} />
         </div>
       </div>
+      {rattachable && (
+        <div className="cell">
+          <div className="caption">{t("pairing.designation.caption")}</div>
+          <div className="value">
+            <EnvironmentCell environnement={environnement.environment} />
+          </div>
+        </div>
+      )}
       <div className="cell">
         <div className="caption">{t("pairing.paired.captionSince")}</div>
         <div className="value">{new Date(environnement.created_at).toLocaleString()}</div>
       </div>
-      <div className="cell">
-        <div className="caption">{t("pairing.paired.captionDevices")}</div>
-        {/* « — » et non « 0 » : le référentiel des devices n'existe pas encore, et un
-            zéro se lirait « aucun device » sur un écran qui ne sait pas compter. */}
-        <div className="value">
-          {environnement.device_count === null ? (
-            <span className="muted" title={t("pairing.paired.devicesUnknownHelp")}>
-              {t("pairing.paired.devicesUnknown")}
-            </span>
-          ) : (
-            environnement.device_count
-          )}
+      {rattachable && (
+        <div className="cell">
+          <div className="caption">{t("pairing.paired.captionDevices")}</div>
+          {/* « — » et non « 0 » : le référentiel des devices n'existe pas encore, et un
+              zéro se lirait « aucun device » sur un écran qui ne sait pas compter. */}
+          <div className="value">
+            {environnement.device_count === null ? (
+              <span className="muted" title={t("pairing.paired.devicesUnknownHelp")}>
+                {t("pairing.paired.devicesUnknown")}
+              </span>
+            ) : (
+              environnement.device_count
+            )}
+          </div>
         </div>
-      </div>
+      )}
       <div className="cell">
         <div className="caption">{t("pairing.requests.captionFingerprint")}</div>
         <div className="value">
@@ -66,7 +82,7 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
         </div>
       </div>
       <ContactUrlForm environnement={environnement} />
-      <EnvironmentAssign environnement={environnement} />
+      {rattachable && <EnvironmentAssign environnement={environnement} />}
       <div className="actions row-actions">
         <button
           type="button"
@@ -95,17 +111,26 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
           }}
         >
           <p>
-            {environnement.environment === null
-              ? t("pairing.revoke.bodyUnattached", { url: environnement.base_url })
-              : t("pairing.revoke.body", {
-                  url: environnement.base_url,
-                  label: environnement.environment.label,
-                  slug: environnement.environment.slug,
-                })}
+            {!rattachable
+              ? t("pairing.revoke.bodyParametrage", { url: environnement.base_url })
+              : environnement.environment === null
+                ? t("pairing.revoke.bodyUnattached", { url: environnement.base_url })
+                : t("pairing.revoke.body", {
+                    url: environnement.base_url,
+                    label: environnement.environment.label,
+                    slug: environnement.environment.slug,
+                  })}
           </p>
-          <Consequence devices={environnement.device_count} />
+          {/* Les devices ne concernent que les environnements. Pour le module de
+              paramétrage, la conséquence est d'un autre ordre — ce qui lui avait été
+              confié cesse de l'être — et elle se dit avec ses propres mots. */}
+          {rattachable ? (
+            <Consequence devices={environnement.device_count} />
+          ) : (
+            <p className="help">{t("pairing.revoke.parametrageConfided")}</p>
+          )}
           <p className="help">{t("pairing.revoke.keys")}</p>
-          {environnement.environment !== null && (
+          {rattachable && environnement.environment !== null && (
             <p className="help">{t("pairing.revoke.environmentKept")}</p>
           )}
         </ConfirmDialog>

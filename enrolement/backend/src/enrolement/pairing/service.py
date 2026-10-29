@@ -13,10 +13,12 @@ from miles_socle.secrets.service import SecretsService
 from miles_socle.signing.identity import ModuleIdentityService
 
 from enrolement.pairing.environment_link import PairingEnvironmentLink
-from enrolement.pairing.model import (
+from enrolement.pairing.events import (
     REQUEST_OBJECT_KIND,
     REQUEST_REJECTED_EVENT,
     SIGNING_KEY_LABEL,
+)
+from enrolement.pairing.model import (
     EnvironmentPeer,
     PairingCode,
     PairingRequest,

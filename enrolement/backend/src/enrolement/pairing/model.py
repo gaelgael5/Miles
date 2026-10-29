@@ -5,50 +5,7 @@ from datetime import datetime
 from uuid import UUID
 
 from miles_socle.signing.peers import IdentityError
-
-SIGNING_KEY_LABEL = "Clé privée de signature du module d'enrôlement"
-# Ce module nomme l'environnement « pair » dans un seul sens : il en apparie N. La
-# réciproque est fausse et doit le rester — un environnement n'a qu'un module
-# d'enrôlement, parce que ce module est l'autorité UNIQUE sur l'affectation de ses devices.
-PEER_OBJECT_KIND = "environment_peer"
-REQUEST_OBJECT_KIND = "pairing_request"
-
-REQUEST_OPENED_EVENT = "pairing.request_opened"
-REQUEST_REJECTED_EVENT = "pairing.request_rejected"
-REQUEST_EXPIRED_EVENT = "pairing.request_expired"
-PAIRING_CONFIRMED_EVENT = "pairing.confirmed"
-# Deux types et non un seul, parce que ce sont deux gestes : désigner l'environnement
-# d'une demande encore ouverte — révocable en changeant d'avis —, et rattacher un
-# appariement DÉJÀ conclu qui n'en avait pas. Les fondre rendrait impossible de retrouver
-# combien d'appariements hérités restaient à rattacher.
-ENVIRONMENT_DESIGNATED_EVENT = "pairing.environment_designated"
-ENVIRONMENT_ATTACHED_EVENT = "pairing.environment_attached"
-# Et un troisième, pour la même raison : DÉPLACER un appariement conclu d'un environnement
-# vers un autre. Ce n'est pas un rattachement — il y avait quelque chose avant, et c'est ce
-# « avant » qu'on viendra chercher. Un seul type portant un champ « ancien » parfois nul
-# obligerait à lire la charge utile pour savoir lequel des deux gestes on relit.
-ENVIRONMENT_MOVED_EVENT = "pairing.environment_moved"
-# La révocation. Un type à elle, et non un `pairing.confirmed` avec un drapeau : c'est la
-# trace qu'on cherchera le jour où des devices ne démarrent plus, et on la cherchera par
-# son nom.
-PAIRING_REVOKED_EVENT = "pairing.revoked"
-# Changer l'adresse où l'on joint une stack est une DÉCISION, pas un réglage : c'est
-# la seule chose que ce module compose vers l'extérieur, et il faut pouvoir dire qui
-# l'a changée le jour où un avis part ailleurs qu'on ne croit.
-PEER_CONTACT_CHANGED_EVENT = "pairing.peer_contact_changed"
-EVENT_TYPES = frozenset(
-    {
-        REQUEST_OPENED_EVENT,
-        REQUEST_REJECTED_EVENT,
-        REQUEST_EXPIRED_EVENT,
-        PAIRING_CONFIRMED_EVENT,
-        ENVIRONMENT_DESIGNATED_EVENT,
-        ENVIRONMENT_ATTACHED_EVENT,
-        ENVIRONMENT_MOVED_EVENT,
-        PAIRING_REVOKED_EVENT,
-        PEER_CONTACT_CHANGED_EVENT,
-    }
-)
+from miles_socle.signing.protocol import PeerSpecies
 
 
 class PairingRefusedError(IdentityError):
@@ -144,6 +101,41 @@ class PairingSettledError(IdentityError):
     """
 
 
+class EnvironmentNotApplicableError(IdentityError):
+    """Ce demandeur n'est pas un environnement : lui désigner un environnement n'a pas de sens.
+
+    Le module de paramétrage ne reçoit pas de devices — il se fait confier des connexions
+    git. Un refus NOMMÉ plutôt qu'une contrainte de base, parce que le geste à faire n'est
+    pas de recommencer : c'est de ne pas le faire. Et parce qu'un écran qui propose un
+    choix de liste déroulante là où il n'y en a pas est un défaut d'écran, que ce refus
+    rend visible au lieu de le laisser passer.
+    """
+
+
+class ParametrageAlreadyPairedError(IdentityError):
+    """Un module de paramétrage est DÉJÀ apparié, et il n'en faut qu'un.
+
+    Un-à-un, arbitré par Gael le 27/10/2026 : deux modules de paramétrage appariés au même
+    enrôlement, et « qui confie les connexions git » n'aurait plus de réponse unique. La
+    contrainte est portée par le modèle — index unique partiel — et non par l'écran : entre
+    une lecture et une écriture, deux confirmations concurrentes passeraient toutes les deux.
+
+    Distinct de `EnvironmentAlreadyPairedError`, qui dit qu'un environnement du référentiel
+    est pris : là le remède est d'en choisir un autre, ici il n'y en a pas — il faut
+    révoquer celui qui est apparié, ou constater qu'on vient d'en apparier un en double.
+    """
+
+
+class PairingSpeciesMismatchError(IdentityError):
+    """Cette origine est déjà appariée sous une AUTRE espèce : on ne la transforme pas.
+
+    Un ré-appariement fait tourner des clés ; il ne change pas ce qu'une stack est. Laisser
+    passer serait le pire des deux : garder l'ancienne espèce ferait confier des connexions
+    git à une stack enregistrée comme environnement, et prendre la nouvelle libérerait en
+    silence l'environnement qu'elle servait. On révoque d'abord, explicitement.
+    """
+
+
 class PairingChangedElsewhereError(IdentityError):
     """Un autre onglet a changé l'environnement de cet appariement entre la lecture et
     l'écriture.
@@ -216,7 +208,16 @@ class PairingRequest:
     # rattaché. Nul tant que personne n'a choisi, et c'est alors le code qui n'est pas
     # révélable. À ne pas confondre avec `name` juste au-dessus : l'un vient d'un inconnu
     # et aide à reconnaître, l'autre vient de nous et désigne.
+    #
+    # TOUJOURS nul pour un module de paramétrage, qui ne reçoit pas de devices : son code
+    # est donc révélable sans désignation, et c'est la seule différence de parcours entre
+    # les deux espèces.
     environment: EnvironmentRef | None
+    # Ce que le demandeur DÉCLARE être. Il n'est pas encore authentifié quand il le dit,
+    # exactement comme pour `name` : l'espèce ne l'autorise à rien, elle permet à l'humain
+    # de lire ce qu'il accepte — un environnement reçoit des devices, le module de
+    # paramétrage se fait confier des connexions git.
+    species: PeerSpecies
 
 
 @dataclass(frozen=True)
@@ -235,7 +236,14 @@ class PairingCode:
 
 @dataclass(frozen=True)
 class EnvironmentPeer:
-    """Un environnement apparié : son origine et la clé publique qui vérifie ses appels."""
+    """Un module apparié : son origine et la clé publique qui vérifie ses appels.
+
+    Le nom dit « environnement » et la table aussi, par HISTOIRE : c'était la seule espèce
+    jusqu'au 29/10/2026, et elle reste la plus nombreuse. Renommer coûterait la rupture du
+    genre d'objet `environment_peer` des events déjà écrits — l'historique de chaque
+    appariement se couperait en deux — pour le seul gain d'un nom plus juste. C'est dit ici
+    pour que personne ne le lise comme un oubli : l'espèce est dans le champ `species`.
+    """
 
     base_url: str
     public_key: str
@@ -251,3 +259,9 @@ class EnvironmentPeer:
     # aucune chaîne signée, et elle est SAISIE ICI — jamais déclarée par la stack, qui
     # choisirait alors la cible de nos appels sortants. Égale à `base_url` par défaut.
     contact_url: str
+    # L'espèce de module apparié, figée au moment de la conclusion. C'est elle que l'écran
+    # affiche dans la liste des appariés, et c'est d'elle que découleront les conséquences
+    # — recevoir des devices, se voir confier des connexions git. Un appariement dont on
+    # ne saurait plus l'espèce laisserait « pourquoi cette stack a-t-elle reçu ces
+    # secrets ? » sans réponse.
+    species: PeerSpecies

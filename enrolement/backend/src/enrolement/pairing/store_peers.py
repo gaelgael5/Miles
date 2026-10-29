@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from miles_socle.signing.keys import ALGORITHM
+from miles_socle.signing.protocol import PeerSpecies
 
 from enrolement.pairing.model import EnvironmentPeer
 from enrolement.pairing.store import PairingDb, environment_ref_from_row
@@ -24,6 +25,7 @@ def _peer(row: Any) -> EnvironmentPeer:
         row["name"],
         environment_ref_from_row(row),
         row["contact_url"],
+        row["species"],
     )
 
 
@@ -33,9 +35,10 @@ async def db_upsert_peer(
     public_key: str,
     now: datetime,
     name: str | None,
-    environment_id: UUID,
+    environment_id: UUID | None,
     contact_url: str,
-) -> EnvironmentPeer:
+    species: PeerSpecies,
+) -> EnvironmentPeer | None:
     """Enregistre l'environnement apparié, ou REMPLACE sa clé — jamais un doublon.
 
     Le remplacement est le ré-appariement. `created_at` est conservé : il date
@@ -52,16 +55,28 @@ async def db_upsert_peer(
     elle vaut l'adresse qu'on vient de composer avec succès ; ici elle vaut ce que NOTRE
     administrateur a saisi, et une stack qui tourne ses clés n'a aucune raison de l'effacer.
     Elle se change par `db_set_peer_contact_url`, qui est un geste, pas un effet de bord.
+
+    L'ESPÈCE NE CHANGE PAS SUR UN RÉ-APPARIEMENT, et la clause `WHERE` du conflit est ce
+    qui le tient : un ré-appariement fait tourner des clés, il ne transforme pas un
+    environnement en module de paramétrage. Si l'origine est connue sous une autre espèce,
+    AUCUNE ligne n'est rendue — la requête rend nul, et l'appelant NOMME le refus. Laisser
+    passer serait le pire des deux : garder l'ancienne espèce ferait confier des connexions
+    git à une stack enregistrée comme environnement, et prendre la nouvelle libérerait en
+    silence l'environnement qu'elle servait. Deux gestes qui n'ont pas les mêmes
+    conséquences ne s'enchaînent pas tout seuls : on révoque d'abord, explicitement.
+
+    Rend nul UNIQUEMENT pour cette raison : l'insertion, elle, ne peut pas ne rien rendre.
     """
     row = await db.fetchrow(
         "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
-        " updated_at, name, environment_id, contact_url)"
-        " VALUES ($1, $2, $3, $4, $4, $5, $6, $7)"
+        " updated_at, name, environment_id, contact_url, species)"
+        " VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8)"
         " ON CONFLICT (base_url) DO UPDATE SET public_key = excluded.public_key,"
         " algorithm = excluded.algorithm, updated_at = excluded.updated_at,"
         " name = excluded.name"
+        " WHERE environment_peer.species = excluded.species"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id, contact_url,"
+        " environment_id, contact_url, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -73,14 +88,15 @@ async def db_upsert_peer(
         name,
         environment_id,
         contact_url,
+        species,
     )
-    return _peer(row)
+    return None if row is None else _peer(row)
 
 
 async def db_get_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None:
     row = await db.fetchrow(
         "SELECT base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id, contact_url,"
+        " environment_id, contact_url, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -94,7 +110,7 @@ async def db_get_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None:
 async def db_list_peers(db: PairingDb, /) -> list[EnvironmentPeer]:
     rows = await db.fetch(
         "SELECT base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id, contact_url,"
+        " environment_id, contact_url, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -154,7 +170,7 @@ async def db_set_peer_environment(
         "UPDATE environment_peer SET environment_id = $2, updated_at = $3"
         " WHERE base_url = $1 AND environment_id IS NOT DISTINCT FROM $4"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id, contact_url,"
+        " environment_id, contact_url, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -195,7 +211,7 @@ async def db_delete_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None
     row = await db.fetchrow(
         "DELETE FROM environment_peer WHERE base_url = $1"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id, contact_url,"
+        " environment_id, contact_url, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -261,7 +277,7 @@ async def db_set_peer_contact_url(
     row = await db.fetchrow(
         "UPDATE environment_peer SET contact_url = $2 WHERE base_url = $1"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id, contact_url,"
+        " environment_id, contact_url, species,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"

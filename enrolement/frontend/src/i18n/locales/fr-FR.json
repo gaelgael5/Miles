@@ -73,7 +73,9 @@
       "devicesUnknown": "Le référentiel des devices n'existe pas encore : le nombre de devices qui seront remis en attente n'est pas connu, et n'est donc pas affiché comme zéro.",
       "keys": "La clé de cette stack sera détruite. Pour se réapparier, elle devra frapper de nouveau et un humain devra accepter une demande neuve.",
       "environmentKept": "L'environnement reste au référentiel : la révocation porte sur l'appariement, pas sur lui.",
-      "error": "La révocation a échoué. La liste relue dira l'état réel de cet appariement."
+      "error": "La révocation a échoué. La liste relue dira l'état réel de cet appariement.",
+      "bodyParametrage": "L'appariement du module de paramétrage {{url}} va être rompu.",
+      "parametrageConfided": "Ce qui lui avait été confié cesse de l'être, et il devra tout redemander après un appariement neuf."
     },
     "designation": {
       "caption": "Environnement",
@@ -98,7 +100,8 @@
         "requestGone": "Cette demande a disparu : elle a expiré, ou elle vient d'être refusée.",
         "unexpected": "La désignation a échoué. Réessayez, puis consultez les journaux.",
         "devices": "Cet appariement porte des devices : son environnement ne se change pas d'un clic. Déplacez d'abord les devices vers l'environnement visé.",
-        "changedElsewhere": "L'environnement de cet appariement vient d'être changé ailleurs. Rafraîchissez la liste avant de recommencer."
+        "changedElsewhere": "L'environnement de cet appariement vient d'être changé ailleurs. Rafraîchissez la liste avant de recommencer.",
+        "speciesHasNoEnvironment": "Ce demandeur n'est pas un environnement : il ne reçoit pas de devices, et il n'y a rien à lui désigner."
       }
     },
     "move": {
@@ -111,6 +114,13 @@
       "body": "L'appariement de {{url}} va quitter l'environnement « {{fromLabel}} » ({{fromSlug}}) pour « {{toLabel}} » ({{toSlug}}).",
       "keys": "Les clés ne bougent pas : la stack reste appariée et n'a rien à refaire.",
       "devices": "Aucun device n'est déplacé : ce changement n'est permis que tant que cet appariement n'en porte aucun."
+    },
+    "species": {
+      "caption": "Espèce",
+      "environnement": "Environnement",
+      "environnementConsequence": "Reçoit des devices de ce module.",
+      "parametrage": "Module de paramétrage",
+      "parametrageConsequence": "Se verra confier les connexions git. Il n'en est apparié qu'un seul."
     }
   },
   "environments": {

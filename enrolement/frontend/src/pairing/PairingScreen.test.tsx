@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { mockApi, type Routes } from "@miles/socle-web/testing";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
+import type { PairedEnvironment, PairingRequest } from "../api/pairing";
 import { PairingScreen } from "./PairingScreen";
 import "../i18n/i18n";
 
@@ -11,19 +12,35 @@ const DANS_UNE_HEURE = new Date(Date.now() + 3_600_000).toISOString();
 // les cas qui ne portent PAS sur la désignation partiraient tous d'un état refusé.
 const RECETTE = { id: "5e1b3a0c-0000-4000-8000-000000000001", slug: "recette", label: "Recette" };
 
-const DEMANDE = {
+// TYPÉS, et ce n'est pas de la décoration : jusqu'au 29/10/2026 ces jeux d'essai étaient
+// passés en `unknown[]`, et l'ajout d'un champ obligatoire au contrat les a laissés muets
+// — quatorze tests sont tombés d'un coup sans que `tsc` n'ait rien dit. Le type est ce qui
+// fait rougir le jeu d'essai au bon endroit : à la compilation, pas dans un rendu.
+const DEMANDE: PairingRequest = {
   base_url: "https://env-recette.example.org",
   name: "Environnement de recette",
   public_key_fingerprint: "4da291e81e6f8868f2b47bbed46d6925",
   algorithm: "ed25519",
   created_at: "2026-10-28T09:00:00+00:00",
   expires_at: DANS_UNE_HEURE,
+  species: "environnement",
   environment: RECETTE,
+};
+
+// Le module de paramétrage : une AUTRE espèce de demandeur, et tout ce qui en découle se
+// lit sur ce champ. Il ne reçoit pas de devices, donc aucune désignation ne l'attend — et
+// son code est révélable sans elle.
+const DEMANDE_PARAMETRAGE: PairingRequest = {
+  ...DEMANDE,
+  base_url: "https://parametrage.example.org",
+  name: "Portail de configuration",
+  species: "parametrage",
+  environment: null,
 };
 
 const APPARIE_BASE_URL = "https://env-production.example.org";
 
-const APPARIE = {
+const APPARIE: PairedEnvironment = {
   base_url: APPARIE_BASE_URL,
   name: "Environnement de production",
   public_key: "A".repeat(43),
@@ -35,11 +52,21 @@ const APPARIE = {
   // Le cas ordinaire : on joint la stack là où elle se nomme. Sans ce champ, la branche
   // qui le lit resterait invisible aux tests — leçon du 29/10/2026.
   contact_url: APPARIE_BASE_URL,
+  species: "environnement",
   environment: {
     id: "5e1b3a0c-0000-4000-8000-000000000002",
     slug: "production",
     label: "Production",
   },
+};
+
+const APPARIE_PARAMETRAGE: PairedEnvironment = {
+  ...APPARIE,
+  base_url: "https://parametrage.example.org",
+  name: "Portail de configuration",
+  species: "parametrage",
+  // Jamais rattaché, et la base le refuse : ce n'est pas « à rattacher », c'est sans objet.
+  environment: null,
 };
 
 const ENVIRONNEMENTS = [
@@ -62,7 +89,11 @@ function monte(routes: Routes) {
   return calls;
 }
 
-function routes(demandes: unknown[], apparies: unknown[], autres: Routes = {}): Routes {
+function routes(
+  demandes: PairingRequest[],
+  apparies: PairedEnvironment[],
+  autres: Routes = {},
+): Routes {
   return {
     "GET /api/pairing/requests": { status: 200, body: demandes },
     "GET /api/pairing/peers": { status: 200, body: apparies },
@@ -549,5 +580,74 @@ describe("écran d'appariement du module d'enrôlement", () => {
     expect(await screen.findByText("Production")).toBeInTheDocument();
     expect(screen.getByText("production")).toBeInTheDocument();
     expect(screen.getByText("Environnement de production")).toBeInTheDocument();
+  });
+
+  it("names the kind of a pending requester, and what accepting it entails", async () => {
+    // Critère 2 : l'espèce est visible sur l'écran des demandes. Le libellé SEUL ne
+    // suffirait pas — « module de paramétrage » ne dit pas à un humain qu'il s'apprête à
+    // lui confier des connexions git, et c'est sur cela que la décision se prend.
+    monte(routes([DEMANDE, DEMANDE_PARAMETRAGE], []));
+
+    expect(await screen.findByText("Configuration module")).toBeInTheDocument();
+    expect(
+      screen.getByText(/entrusted with the git connections/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Receives devices from this module.")).toBeInTheDocument();
+  });
+
+  it("names the kind in the paired list too", async () => {
+    // Même critère, et l'autre moitié : une liste qui ne dirait l'espèce qu'à l'acceptation
+    // laisserait, un mois plus tard, « pourquoi cette stack a-t-elle ces secrets ? » sans
+    // réponse lisible à l'écran.
+    monte(routes([], [APPARIE_PARAMETRAGE]));
+
+    expect(await screen.findByText("Configuration module")).toBeInTheDocument();
+  });
+
+  it("never asks to assign an environment to a configuration module", async () => {
+    // Il ne reçoit pas de devices : lui réclamer un rattachement serait réclamer un geste
+    // qui n'existe pas, et le serveur refuse le choix que l'écran aurait proposé. L'écran
+    // suit donc l'ESPÈCE, et jamais l'absence de valeur.
+    monte(routes([DEMANDE_PARAMETRAGE], [APPARIE_PARAMETRAGE]));
+
+    // Les deux listes la portent — la demande en attente et l'appariement conclu —, et les
+    // deux doivent se taire sur le rattachement.
+    expect(await screen.findAllByText("Portail de configuration")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Choose the environment" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Link to an environment" })).toBeNull();
+    expect(screen.queryByText("To be attached")).toBeNull();
+  });
+
+  it("reveals the code of a configuration module without any designation", async () => {
+    // La désignation conditionne la révélation pour un ENVIRONNEMENT, et pour lui seul :
+    // exiger la même chose du module de paramétrage rendrait son appariement impossible.
+    monte(
+      routes([DEMANDE_PARAMETRAGE], [], {
+        [`GET /api/pairing/code?base_url=${encodeURIComponent(DEMANDE_PARAMETRAGE.base_url)}`]: {
+          status: 200,
+          body: { base_url: DEMANDE_PARAMETRAGE.base_url, code: "314159", seconds_remaining: 20 },
+        },
+      }),
+    );
+
+    const bouton = await screen.findByRole("button", { name: "Show code" });
+    expect(bouton).toBeEnabled();
+    fireEvent.click(bouton);
+
+    expect(await screen.findByText("314159")).toBeInTheDocument();
+  });
+
+  it("tells a revoked configuration module what it loses, not how many devices", async () => {
+    // Les devices ne le concernent pas. Afficher « le nombre n'est pas connu » à son
+    // sujet ferait croire qu'il en porte peut-être, et c'est faux par construction.
+    monte(routes([], [APPARIE_PARAMETRAGE]));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Revoke pairing" }));
+
+    expect(
+      await screen.findByText(/pairing of configuration module/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/ceases to be/i)).toBeInTheDocument();
+    expect(screen.queryByText(/device registry does not exist yet/i)).toBeNull();
   });
 });

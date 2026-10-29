@@ -73,7 +73,9 @@
       "devicesUnknown": "The device registry does not exist yet: the number of devices that will be put back to awaiting assignment is unknown, and is therefore not shown as zero.",
       "keys": "This stack's key will be destroyed. To pair again it will have to knock anew, and a human will have to accept a fresh request.",
       "environmentKept": "The environment stays in the registry: revoking applies to the pairing, not to it.",
-      "error": "Revocation failed. The reloaded list will show this pairing's real state."
+      "error": "Revocation failed. The reloaded list will show this pairing's real state.",
+      "bodyParametrage": "The pairing of configuration module {{url}} will be broken.",
+      "parametrageConfided": "Whatever was entrusted to it ceases to be, and it will have to ask again after a fresh pairing."
     },
     "designation": {
       "caption": "Environment",
@@ -98,7 +100,8 @@
         "requestGone": "This request is gone: it expired, or it was just rejected.",
         "unexpected": "Choosing the environment failed. Try again, then check the logs.",
         "devices": "This pairing carries devices: its environment is not changed with one click. Move the devices to the target environment first.",
-        "changedElsewhere": "This pairing's environment has just been changed elsewhere. Refresh the list before trying again."
+        "changedElsewhere": "This pairing's environment has just been changed elsewhere. Refresh the list before trying again.",
+        "speciesHasNoEnvironment": "This requester is not an environment: it receives no devices, and there is nothing to assign it."
       }
     },
     "move": {
@@ -111,6 +114,13 @@
       "body": "The pairing of {{url}} will leave the “{{fromLabel}}” ({{fromSlug}}) environment for “{{toLabel}}” ({{toSlug}}).",
       "keys": "The keys do not move: the stack stays paired and has nothing to redo.",
       "devices": "No device is moved: this change is only allowed while this pairing carries none."
+    },
+    "species": {
+      "caption": "Kind",
+      "environnement": "Environment",
+      "environnementConsequence": "Receives devices from this module.",
+      "parametrage": "Configuration module",
+      "parametrageConsequence": "Will be entrusted with the git connections. Only one is ever paired."
     }
   },
   "environments": {

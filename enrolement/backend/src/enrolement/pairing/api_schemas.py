@@ -6,6 +6,7 @@ from uuid import UUID
 from miles_socle.signing.identity_model import ModuleIdentity
 from miles_socle.signing.keys import fingerprint
 from miles_socle.signing.peers import MAX_BASE_URL_LENGTH
+from miles_socle.signing.protocol import PeerSpecies
 from pydantic import BaseModel, ConfigDict, Field
 
 from enrolement.pairing.model import (
@@ -68,6 +69,13 @@ class RequestOut(BaseModel):
     algorithm: str
     created_at: datetime
     expires_at: datetime
+    # L'ESPÈCE que le demandeur déclare : un environnement, ou le module de paramétrage.
+    # Elle est à l'écran parce qu'accepter l'un ou l'autre n'a pas les mêmes conséquences
+    # — un environnement reçoit des devices, le module de paramétrage se fait confier des
+    # connexions git — et que l'humain qui accepte doit savoir ce qu'il accepte (critère 2
+    # du ticket ba44914b). Déclarée par un tiers non authentifié : elle n'autorise rien,
+    # c'est le geste de l'humain qui autorise.
+    species: PeerSpecies
     # L'environnement DÉSIGNÉ par un humain authentifié. Nul tant que personne n'a choisi,
     # et c'est alors le code qui n'est pas révélable. Ne pas le confondre avec `name`
     # ci-dessus : l'un vient d'un inconnu et aide à reconnaître, l'autre désigne.
@@ -104,9 +112,15 @@ class PeerOut(BaseModel):
     algorithm: str
     created_at: datetime
     updated_at: datetime
-    # Nul UNIQUEMENT pour les appariements hérités, conclus avant que la désignation
-    # n'existe : l'écran les signale « à rattacher ». Aucun appariement neuf ne peut plus
-    # se conclure sans — c'est un état transitoire hérité, pas un état admis.
+    # L'ESPÈCE du module apparié, pour la même raison que sur la demande : c'est d'elle
+    # que découlent les conséquences, et la liste des appariés doit la dire (critère 2).
+    species: PeerSpecies
+    # Nul pour un module de paramétrage, qui ne reçoit pas de devices — et nul, SINON,
+    # uniquement pour les appariements hérités, conclus avant que la désignation n'existe :
+    # l'écran les signale « à rattacher ». Aucun appariement neuf d'environnement ne peut
+    # plus se conclure sans. Deux absences pour deux raisons, et c'est `species` qui les
+    # sépare : un écran qui ne lirait que ce champ réclamerait un rattachement au module de
+    # paramétrage.
     environment: EnvironmentRefOut | None
     # L'adresse où JOINDRE cette stack, saisie par l'administrateur de CE module.
     # Elle n'entre dans aucune signature et ne vaut jamais identité : l'origine
@@ -130,6 +144,7 @@ def request_out(demande: PairingRequest) -> RequestOut:
         algorithm=demande.algorithm,
         created_at=demande.created_at,
         expires_at=demande.expires_at,
+        species=demande.species,
         environment=environment_out(demande.environment),
     )
 
@@ -144,6 +159,7 @@ def peer_out(pair: EnvironmentPeer) -> PeerOut:
         algorithm=pair.algorithm,
         created_at=pair.created_at,
         updated_at=pair.updated_at,
+        species=pair.species,
         environment=environment_out(pair.environment),
         contact_url=pair.contact_url,
     )

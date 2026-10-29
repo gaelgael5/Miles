@@ -13,6 +13,16 @@ export interface EnvironmentRef {
   label: string;
 }
 
+/**
+ * L'ESPÈCE du demandeur : un environnement, ou le module de paramétrage.
+ *
+ * Elle est DÉCLARÉE par le demandeur, qui n'est pas encore authentifié quand il le dit :
+ * elle n'autorise donc rien. Ce qu'elle fait, c'est permettre à l'humain de lire ce qu'il
+ * accepte — un environnement reçoit des devices, le module de paramétrage se fait confier
+ * des connexions git —, et c'est son geste qui autorise.
+ */
+export type PeerSpecies = "environnement" | "parametrage";
+
 /** Une demande d'appariement en attente du geste humain. Jamais son secret. */
 export interface PairingRequest {
   base_url: string;
@@ -27,6 +37,9 @@ export interface PairingRequest {
   algorithm: string;
   created_at: string;
   expires_at: string;
+  /** Ce que le demandeur déclare être. Affiché : accepter l'un ou l'autre n'a pas les mêmes
+   * conséquences, et l'humain qui accepte doit savoir ce qu'il accepte. */
+  species: PeerSpecies;
   /**
    * L'environnement DÉSIGNÉ par un humain authentifié. Nul tant que personne n'a choisi,
    * et c'est alors le code qui n'est pas révélable. À ne pas confondre avec `name`
@@ -52,10 +65,15 @@ export interface PairedEnvironment {
    * s'interpose — l'écran ne la montre alors pas.
    */
   contact_url: string;
+  /** L'espèce du module apparié, figée à la conclusion. C'est d'elle que découlent les
+   * conséquences, et c'est elle qui dit comment lire `environment` ci-dessous. */
+  species: PeerSpecies;
   /**
-   * Nul UNIQUEMENT pour les appariements hérités, conclus avant que la désignation
-   * n'existe : l'écran les signale « à rattacher ». Aucun appariement neuf ne peut plus
-   * se conclure sans — c'est un état transitoire hérité, pas un état admis.
+   * Nul pour un module de paramétrage, qui ne reçoit pas de devices — et nul, SINON,
+   * uniquement pour les appariements hérités, conclus avant que la désignation n'existe :
+   * l'écran les signale « à rattacher ». Deux absences pour deux raisons, et c'est
+   * `species` qui les sépare : un écran qui ne lirait que ce champ réclamerait un
+   * rattachement au module de paramétrage.
    */
   environment: EnvironmentRef | null;
 }
@@ -149,6 +167,11 @@ export function designationRefusKey(error: unknown): string {
       // Le geste à faire est de déplacer les devices, pas de corriger la saisie : un
       // message générique enverrait chercher du côté des droits ou du réseau.
       return "pairing.designation.errors.devices";
+    }
+    if (error.detail === "espece_sans_environnement") {
+      // L'écran a proposé un choix qui n'avait pas lieu d'être : ce refus le rend
+      // visible au lieu de le laisser passer pour une panne.
+      return "pairing.designation.errors.speciesHasNoEnvironment";
     }
     if (error.detail === "appariement_change_ailleurs") {
       // Une course, pas une règle : le remède est de relire la liste.

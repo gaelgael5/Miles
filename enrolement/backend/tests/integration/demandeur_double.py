@@ -31,12 +31,17 @@ from miles_socle.signing.protocol import (
 
 
 @dataclass
-class EnvironmentDouble:
-    """Contrepartie de test : le côté « module d'environnement » du protocole.
+class RequesterDouble:
+    """Contrepartie de test : le côté DEMANDEUR du protocole, quelle qu'en soit l'espèce.
 
-    C'est une doublure de l'AUTRE PRODUIT, jamais de notre code — le test de frontière
-    interdit qu'un produit en importe un autre, et c'est bien ce qu'on veut : ce qui est
-    éprouvé ici est le côté enrôlement, en entier et pour de vrai.
+    C'est une doublure de l'AUTRE PRODUIT — module d'environnement ou module de
+    paramétrage —, jamais de notre code : le test de frontière interdit qu'un produit en
+    importe un autre, et c'est bien ce qu'on veut : ce qui est éprouvé ici est le côté
+    enrôlement, en entier et pour de vrai.
+
+    UNE doublure pour les deux espèces, et non deux : le côté demandeur est le même code
+    depuis le 29/10/2026 (`miles_socle.pairing`), et deux doublures laisseraient croire
+    qu'il y a deux protocoles.
 
     Elle ne réimplémente aucune cryptographie : elle appelle `sign_call` du socle, celui-là
     même que l'environnement emploie. Une doublure qui forgerait ses signatures autrement
@@ -48,6 +53,10 @@ class EnvironmentDouble:
     # Nom déclaré. Valeur neutre par défaut ; les tests qui éprouvent l'échappement en
     # passent de hostiles.
     name: str = "Environnement de recette"
+    # L'espèce déclarée en frappant. `None` ne la déclare PAS, et c'est un cas à éprouver
+    # pour lui-même : un demandeur d'avant l'espèce doit continuer d'être lu comme un
+    # environnement, sans quoi le champ ajouté au contrat aurait rompu ce qui marchait.
+    species: str | None = None
     # La clé publique du module d'ENRÔLEMENT, telle que cette contrepartie la détient
     # après l'appariement. C'est contre elle qu'elle vérifie l'avis de révocation.
     expects_public_key: str = ""
@@ -95,7 +104,10 @@ class EnvironmentDouble:
         # signés, et un ré-encodage côté client produirait une autre suite d'octets donc
         # une signature refusée. Les valeurs sont échappées par `json.dumps` champ à champ.
         cle, nom = json.dumps(self.keypair.public_key), json.dumps(self.name)
-        return f'{{"public_key": {cle}, "name": {nom}}}'.encode()
+        if self.species is None:
+            return f'{{"public_key": {cle}, "name": {nom}}}'.encode()
+        espece = json.dumps(self.species)
+        return f'{{"public_key": {cle}, "name": {nom}, "species": {espece}}}'.encode()
 
     def app(self) -> FastAPI:
         """La contrepartie qui REÇOIT l'avis de révocation, et qui le vérifie vraiment.

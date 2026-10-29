@@ -32,6 +32,8 @@ from enrolement.pairing.model import (
     EnvironmentNotDesignatedError,
     PairingClockSkewError,
     PairingRefusedError,
+    PairingSpeciesMismatchError,
+    ParametrageAlreadyPairedError,
 )
 from enrolement.pairing.service import PairingService
 
@@ -76,6 +78,23 @@ def _refus(exc: IdentityError) -> JSONResponse:
             status_code=status.HTTP_409_CONFLICT,
             content={"detail": "environnement_indisponible"},
         )
+    if isinstance(exc, ParametrageAlreadyPairedError):
+        # Même exception à l'opacité que l'environnement indisponible, et pour la même
+        # raison : on ne l'atteint qu'après avoir passé la signature ET présenté un code
+        # dérivé du bon secret. Sans ce mot, l'exploitant retaperait des codes pendant que
+        # la cause est chez nous — un autre module de paramétrage est déjà apparié.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "module_de_parametrage_deja_apparie"},
+        )
+    if isinstance(exc, PairingSpeciesMismatchError):
+        # Idem : atteignable seulement avec le bon code. Le geste à faire est de révoquer
+        # l'appariement existant, pas de recommencer — et un refus opaque ferait chercher
+        # du côté des clés une décision qui attend un humain.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "espece_deja_appariee_autrement"},
+        )
     if isinstance(exc, EnvironmentNotDesignatedError):
         # Ne devrait jamais se produire : le code n'est pas révélable sans environnement
         # désigné, et l'appelant n'a pu l'obtenir qu'une fois celui-ci choisi. Si cela
@@ -115,7 +134,7 @@ def _corps_invalide() -> JSONResponse:
 
 @router.post(PAIRING_REQUEST_PATH, response_model=PairingRequestOut, status_code=202)
 async def post_pairing_request(request: Request) -> PairingRequestOut | JSONResponse:
-    """Un environnement frappe et dépose sa clé publique. 202 : rien n'est acquis.
+    """Un demandeur frappe et dépose sa clé publique. 202 : rien n'est acquis.
 
     Le corps est lu en OCTETS avant d'être interprété, parce que c'est son empreinte qui
     entre dans la chaîne signée : l'interpréter puis le ré-encoder donnerait une autre
@@ -140,6 +159,10 @@ async def post_pairing_request(request: Request) -> PairingRequestOut | JSONResp
             body=raw,
             public_key=corps.public_key,
             name=corps.name,
+            # Absente du corps, elle vaut « environnement » (`DEFAULT_PEER_SPECIES`) :
+            # c'était la seule espèce possible avant le 29/10/2026, donc c'est la lecture
+            # exacte d'un appelant d'avant — pas un repli de confort.
+            species=corps.species,
         )
     except IdentityError as exc:
         return _refus(exc)
