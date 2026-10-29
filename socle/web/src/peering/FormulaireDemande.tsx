@@ -19,8 +19,9 @@ export function FormulaireDemande({ reappariement }: { reappariement: boolean })
 
   function soumettre(event: FormEvent) {
     event.preventDefault();
-    // Un ré-appariement remplace l'appariement courant et prive l'environnement des
-    // devices que le module précédent lui avait affectés : jamais sans avertissement.
+    // Un ré-appariement remplace l'appariement courant : ce que le module d'enrôlement
+    // précédent avait confié à ce module cesse de venir de lui. Jamais sans avertissement
+    // — et c'est le PRODUIT qui dit en quoi, par son libellé de `peering.repair.body`.
     if (reappariement) {
       setConfirme(true);
       return;

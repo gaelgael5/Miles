@@ -60,7 +60,7 @@ class PeerUnexpectedResponseError(IdentityError):
 class PairingAttemptMissingError(IdentityError):
     """Aucune demande d'appariement en cours : il n'y a pas de destinataire pour ce code.
 
-    L'environnement a pu redémarrer, ou un administrateur a annulé. Dit tel quel à
+    Ce module a pu redémarrer, ou un administrateur a annulé. Dit tel quel à
     l'administrateur de CE module, qui regarde son propre écran : lui cacher l'état de sa
     propre demande ne protège de rien et l'empêcherait de comprendre.
     """

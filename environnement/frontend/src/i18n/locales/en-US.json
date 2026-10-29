@@ -20,5 +20,17 @@
     "neverKnown": "The enrolment module could not be reached, and no environment has ever been read: which one is assigned to us is unknown.",
     "stale": "Last known value, read on {{date}}: the enrolment module could not be reached to refresh it.",
     "unavailable": "The assigned environment could not be read."
+  },
+  "peering": {
+    "lead": "This environment pairs with a single enrolment module, which is the sole authority over its device assignment.",
+    "form": {
+      "name": "Name of this environment"
+    },
+    "pending": {
+      "where": "The code is shown on the « Pairing » screen of {{url}}, next to the request carrying this environment's URL. It renews every thirty seconds."
+    },
+    "repair": {
+      "body": "The current pairing will be replaced. Devices the previous enrolment module assigned to this environment will no longer be assigned by it."
+    }
   }
 }

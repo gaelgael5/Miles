@@ -243,7 +243,7 @@
   },
   "peering": {
     "title": "Appariement au module d'enrôlement",
-    "lead": "Cet environnement n'est apparié qu'à un seul module d'enrôlement, qui est l'autorité unique sur l'affectation de ses devices.",
+    "lead": "Ce module n'est apparié qu'à un seul module d'enrôlement, qui est l'autorité unique sur ce qu'il lui demande.",
     "loading": "Chargement…",
     "current": "État de l'appariement",
     "unreachable": "Le module d'enrôlement ne répond pas pour l'instant. La demande n'est ni refusée ni perdue : elle reste en attente, et cet écran se remettra à jour tout seul.",
@@ -268,14 +268,14 @@
       "titleAgain": "Changer de module d'enrôlement",
       "baseUrl": "URL du module d'enrôlement",
       "baseUrlHelp": "Adresse http(s) sans chemin, par exemple https://enrolement.exemple.org",
-      "name": "Nom de cet environnement",
+      "name": "Nom de ce module",
       "nameHelp": "Il servira à ce qu'un administrateur, à l'autre bout, reconnaisse la demande qu'il accepte. Il n'identifie rien : c'est l'URL qui fait foi.",
       "submit": "Envoyer la demande",
       "submitAgain": "Remplacer l'appariement"
     },
     "pending": {
       "title": "Coller le code d'appariement",
-      "where": "Le code s'affiche sur l'écran « Appariement » de {{url}}, auprès de la demande portant l'URL de cet environnement. Il se renouvelle toutes les trente secondes.",
+      "where": "Le code s'affiche sur l'écran « Appariement » de {{url}}, auprès de la demande portant l'URL de ce module. Il se renouvelle toutes les trente secondes.",
       "codeLabel": "Code à six chiffres",
       "codeHelp": "Les espaces et les retours à la ligne sont retirés automatiquement.",
       "submit": "Valider le code",
@@ -294,7 +294,7 @@
       "title": "Remplacer l'appariement courant ?",
       "confirm": "Remplacer",
       "cancel": "Annuler",
-      "body": "L'appariement actuel sera remplacé. Les devices que le module d'enrôlement précédent avait affectés à cet environnement ne le seront plus par lui."
+      "body": "L'appariement actuel sera remplacé. Ce que le module d'enrôlement précédent avait confié à ce module ne le sera plus par lui."
     },
     "errors": {
       "baseUrl": "Cette URL n'a pas la forme attendue : http(s), un hôte, éventuellement un port, et aucun chemin.",

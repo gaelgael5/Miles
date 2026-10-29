@@ -243,7 +243,7 @@
   },
   "peering": {
     "title": "Pairing with the enrolment module",
-    "lead": "This environment pairs with a single enrolment module, which is the sole authority over its device assignment.",
+    "lead": "This module pairs with a single enrolment module, which is the sole authority over what it asks of it.",
     "loading": "Loading…",
     "current": "Pairing status",
     "unreachable": "The enrolment module is not answering right now. The request is neither rejected nor lost: it is still pending, and this screen will refresh on its own.",
@@ -268,14 +268,14 @@
       "titleAgain": "Change enrolment module",
       "baseUrl": "Enrolment module URL",
       "baseUrlHelp": "An http(s) address without a path, for example https://enrolment.example.org",
-      "name": "Name of this environment",
+      "name": "Name of this module",
       "nameHelp": "It helps an administrator on the other side recognise the request they accept. It identifies nothing: the URL is what counts.",
       "submit": "Send the request",
       "submitAgain": "Replace the pairing"
     },
     "pending": {
       "title": "Paste the pairing code",
-      "where": "The code is shown on the « Pairing » screen of {{url}}, next to the request carrying this environment's URL. It renews every thirty seconds.",
+      "where": "The code is shown on the « Pairing » screen of {{url}}, next to the request carrying this module's URL. It renews every thirty seconds.",
       "codeLabel": "Six-digit code",
       "codeHelp": "Spaces and line breaks are stripped automatically.",
       "submit": "Submit the code",
@@ -294,7 +294,7 @@
       "title": "Replace the current pairing?",
       "confirm": "Replace",
       "cancel": "Cancel",
-      "body": "The current pairing will be replaced. Devices the previous enrolment module assigned to this environment will no longer be assigned by it."
+      "body": "The current pairing will be replaced. Whatever the previous enrolment module entrusted to this module will no longer come from it."
     },
     "errors": {
       "baseUrl": "This URL is not in the expected shape: http(s), a host, optionally a port, and no path.",

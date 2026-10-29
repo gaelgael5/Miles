@@ -1050,5 +1050,11 @@
   "swagger": {
     "back": "Back",
     "unreadable": "The document could not be read."
+  },
+  "peering": {
+    "lead": "This configuration module pairs with a single enrolment module: two authorities over the same secrets would leave « who entrusted us with this one? » without a single answer.",
+    "form": {
+      "name": "Name of this configuration module"
+    }
   }
 }

@@ -20,5 +20,17 @@
     "neverKnown": "Le module d'enrôlement n'a pas pu être joint, et aucun environnement n'a jamais été lu : lequel nous est assigné n'est pas connu.",
     "stale": "Dernière valeur connue, lue le {{date}} : le module d'enrôlement n'a pas pu être joint pour la rafraîchir.",
     "unavailable": "L'environnement assigné n'a pas pu être lu."
+  },
+  "peering": {
+    "lead": "Cet environnement n'est apparié qu'à un seul module d'enrôlement, qui est l'autorité unique sur l'affectation de ses devices.",
+    "form": {
+      "name": "Nom de cet environnement"
+    },
+    "pending": {
+      "where": "Le code s'affiche sur l'écran « Appariement » de {{url}}, auprès de la demande portant l'URL de cet environnement. Il se renouvelle toutes les trente secondes."
+    },
+    "repair": {
+      "body": "L'appariement actuel sera remplacé. Les devices que le module d'enrôlement précédent avait affectés à cet environnement ne le seront plus par lui."
+    }
   }
 }

@@ -57,7 +57,7 @@ describe("écran d'appariement vu du demandeur", () => {
 
     expect(await screen.findByText("Not paired")).toBeInTheDocument();
     expect(screen.getByLabelText("Enrolment module URL")).toBeInTheDocument();
-    expect(screen.getByLabelText("Name of this environment")).toBeInTheDocument();
+    expect(screen.getByLabelText("Name of this module")).toBeInTheDocument();
   });
 
   it("distinguishes a malformed URL from one that does not answer", async () => {
@@ -99,7 +99,7 @@ describe("écran d'appariement vu du demandeur", () => {
     fireEvent.change(await screen.findByLabelText("Enrolment module URL"), {
       target: { value: ENROLEMENT },
     });
-    fireEvent.change(screen.getByLabelText("Name of this environment"), {
+    fireEvent.change(screen.getByLabelText("Name of this module"), {
       target: { value: "Recette nord" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send the request" }));
@@ -253,7 +253,11 @@ describe("écran d'appariement vu du demandeur", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Replace the pairing" }));
     const dialogue = within(screen.getByRole("dialog"));
-    expect(dialogue.getByText(/will no longer be assigned by it/i)).toBeInTheDocument();
+    // Le libellé NEUTRE du socle : ce que le produit perd, c'est le produit qui le dit,
+    // en redéfinissant `peering.repair.body` dans ses propres libellés.
+    expect(
+      dialogue.getByText(/will no longer come from it/i),
+    ).toBeInTheDocument();
     // Tant qu'on n'a pas confirmé, rien n'est envoyé.
     expect(appels.some((appel) => appel.key === "POST /api/identity/pairing")).toBe(false);
 

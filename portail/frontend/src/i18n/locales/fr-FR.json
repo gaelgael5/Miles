@@ -1050,5 +1050,11 @@
   "swagger": {
     "back": "Retour",
     "unreadable": "Le document n'a pas pu être lu."
+  },
+  "peering": {
+    "lead": "Ce module de paramétrage n'est apparié qu'à un seul module d'enrôlement : deux autorités sur les mêmes secrets ne laisseraient plus de réponse unique à « qui nous a confié celui-ci ».",
+    "form": {
+      "name": "Nom de ce module de paramétrage"
+    }
   }
 }

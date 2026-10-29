@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PairingScreen } from "@miles/socle-web";
 import { mockApi, type Routes } from "@miles/socle-web/testing";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { EnvironnementAssigne } from "./EnvironnementAssigne";
@@ -111,5 +111,20 @@ describe("l'environnement que l'enrôlement assigne à ce module", () => {
 
     expect(await screen.findByText("Not paired")).toBeInTheDocument();
     expect(appels.some((appel) => appel.key === "GET /api/identity/environment")).toBe(false);
+  });
+
+  it("says what THIS module loses on a re-pairing, in its own words", async () => {
+    // L'écran est au socle, qui ne peut dire que du neutre — « ce qui lui avait été
+    // confié ». Ce que perd un environnement, lui, se compte en devices, et c'est le
+    // produit qui le dit en redéfinissant `peering.repair.body`. Sans ce test, la
+    // redéfinition pourrait sauter sans que rien ne rougisse : l'écran afficherait le
+    // neutre du socle, qui n'est pas faux — seulement moins vrai.
+    monte(etatRoute({ state: "apparie", attempt: null, peer: PAIR }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Replace the pairing" }));
+
+    expect(
+      within(screen.getByRole("dialog")).getByText(/will no longer be assigned by it/i),
+    ).toBeInTheDocument();
   });
 });
