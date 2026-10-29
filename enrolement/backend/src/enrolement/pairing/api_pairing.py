@@ -27,6 +27,8 @@ from enrolement.pairing.model import (
     EnvironmentAlreadyPairedError,
     EnvironmentNotDesignatedError,
     EnvironmentUnknownError,
+    PairingCarriesDevicesError,
+    PairingChangedElsewhereError,
     PairingSettledError,
     PeerNotFoundError,
     RequestNotFoundError,
@@ -60,10 +62,26 @@ def _error(exc: IdentityError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT, content={"detail": "environnement_apparie"}
         )
+    if isinstance(exc, PairingCarriesDevicesError):
+        # Un refus NOMMÉ, et non une erreur générique : le geste à faire est de déplacer
+        # les devices, pas de corriger une saisie ni de réessayer. Le compte, lui, ne sort
+        # pas — l'écran le lit de la liste des appariements, qui est sa source pour
+        # l'afficher, et deux sources finiraient par se contredire.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "appariement_porte_des_devices"},
+        )
+    if isinstance(exc, PairingChangedElsewhereError):
+        # Une COURSE, pas une règle : le remède est de relire la liste. Confondu avec
+        # « cet appariement est conclu », il ferait croire le geste interdit.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "appariement_change_ailleurs"},
+        )
     if isinstance(exc, PairingSettledError):
         # Distinct du précédent, parce que les deux appellent des gestes différents :
-        # choisir un autre environnement, ou révoquer puis réapparier. Les fondre ferait
-        # chercher du côté de la liste déroulante.
+        # déplacer les devices, ou changer l'environnement de l'appariement plutôt que
+        # celui de la demande. Les fondre ferait chercher du côté de la liste déroulante.
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT, content={"detail": "appariement_conclu"}
         )
@@ -168,14 +186,16 @@ async def put_request_environment(
 async def put_peer_environment(
     request: Request, body: EnvironmentDesignationIn, base_url: str = BaseUrlQuery
 ) -> PeerOut | JSONResponse:
-    """Rattache un appariement HÉRITÉ, conclu avant que la désignation n'existe.
+    """Pose l'environnement d'un appariement conclu : rattachement ou déplacement.
 
-    Sans toucher aux clés ni refaire l'appariement. Un appariement qui porte déjà un
-    environnement n'est pas concerné : en changer se fait par une révocation suivie d'un
-    réappariement, parce que le déplacer emporterait ses devices sans le dire.
+    Un seul geste côté humain, deux faits côté journal selon ce qu'il y avait avant.
+    Sans toucher aux clés ni refaire l'appariement. Le déplacement est ouvert tant que
+    l'appariement ne porte AUCUN device : avec des devices il emporterait leur destination,
+    et ce geste-là se compte et se confirme pour lui-même (409
+    `appariement_porte_des_devices`).
     """
     try:
-        pair = await _service(request).resolve_attach_environment(
+        pair = await _service(request).resolve_set_peer_environment(
             request_author(request), _base_url(base_url), body.environment_id
         )
     except IdentityError as exc:

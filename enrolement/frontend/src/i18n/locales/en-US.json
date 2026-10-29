@@ -93,11 +93,24 @@
       "attachSubmit": "Link",
       "errors": {
         "taken": "Another pairing already carries this environment. Pick a different one, or revoke the existing pairing.",
-        "settled": "This pairing is concluded: its environment can no longer be changed. Revoke it, then pair the stack again.",
+        "settled": "This pairing is settled: its environment is no longer changed from a request. Change it on the pairing itself, in the list of paired environments.",
         "environmentGone": "This environment is no longer in the registry. Refresh the list.",
         "requestGone": "This request is gone: it expired, or it was just rejected.",
-        "unexpected": "Choosing the environment failed. Try again, then check the logs."
+        "unexpected": "Choosing the environment failed. Try again, then check the logs.",
+        "devices": "This pairing carries devices: its environment is not changed with one click. Move the devices to the target environment first.",
+        "changedElsewhere": "This pairing's environment has just been changed elsewhere. Refresh the list before trying again."
       }
+    },
+    "move": {
+      "action": "Change the environment",
+      "submit": "Pick this environment",
+      "help": "The environment can only be changed while this pairing carries no device. As soon as it carries one, the devices must be moved first.",
+      "title": "Change this pairing's environment?",
+      "confirm": "Change the environment",
+      "cancel": "Cancel",
+      "body": "The pairing of {{url}} will leave the “{{fromLabel}}” ({{fromSlug}}) environment for “{{toLabel}}” ({{toSlug}}).",
+      "keys": "The keys do not move: the stack stays paired and has nothing to redo.",
+      "devices": "No device is moved: this change is only allowed while this pairing carries none."
     }
   },
   "environments": {

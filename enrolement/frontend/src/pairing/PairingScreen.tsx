@@ -99,9 +99,9 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
           pending={designation.isPending}
           error={designation.isError ? designation.error : null}
           submitLabel={t("pairing.designation.submit")}
-          onChoose={(environmentId) =>
+          onChoose={(choisi) =>
             designation.mutate(
-              { baseUrl: demande.base_url, environmentId },
+              { baseUrl: demande.base_url, environmentId: choisi.id },
               { onSuccess: () => setOuvreChoix(false) },
             )
           }

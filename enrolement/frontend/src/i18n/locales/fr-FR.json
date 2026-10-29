@@ -93,11 +93,24 @@
       "attachSubmit": "Rattacher",
       "errors": {
         "taken": "Un autre appariement porte déjà cet environnement. Choisissez-en un autre, ou révoquez l'appariement existant.",
-        "settled": "Cet appariement est conclu : son environnement ne se change plus. Révoquez-le puis réappariez la stack.",
+        "settled": "Cet appariement est conclu : son environnement ne se change plus depuis une demande. Changez-le sur l'appariement lui-même, dans la liste des environnements appariés.",
         "environmentGone": "Cet environnement n'est plus dans le référentiel. Rafraîchissez la liste.",
         "requestGone": "Cette demande a disparu : elle a expiré, ou elle vient d'être refusée.",
-        "unexpected": "La désignation a échoué. Réessayez, puis consultez les journaux."
+        "unexpected": "La désignation a échoué. Réessayez, puis consultez les journaux.",
+        "devices": "Cet appariement porte des devices : son environnement ne se change pas d'un clic. Déplacez d'abord les devices vers l'environnement visé.",
+        "changedElsewhere": "L'environnement de cet appariement vient d'être changé ailleurs. Rafraîchissez la liste avant de recommencer."
       }
+    },
+    "move": {
+      "action": "Changer l'environnement",
+      "submit": "Choisir cet environnement",
+      "help": "Le changement n'est possible que tant que cet appariement ne porte aucun device. Dès qu'il en porte, il faut d'abord déplacer les devices.",
+      "title": "Changer l'environnement de cet appariement ?",
+      "confirm": "Changer l'environnement",
+      "cancel": "Annuler",
+      "body": "L'appariement de {{url}} va quitter l'environnement « {{fromLabel}} » ({{fromSlug}}) pour « {{toLabel}} » ({{toSlug}}).",
+      "keys": "Les clés ne bougent pas : la stack reste appariée et n'a rien à refaire.",
+      "devices": "Aucun device n'est déplacé : ce changement n'est permis que tant que cet appariement n'en porte aucun."
     }
   },
   "environments": {

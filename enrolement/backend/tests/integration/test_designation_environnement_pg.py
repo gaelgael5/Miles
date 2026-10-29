@@ -269,21 +269,6 @@ async def test_un_appariement_herite_se_signale_a_rattacher_puis_se_rattache(
         assert apres["public_key"] == avant["public_key"]
 
 
-async def test_un_appariement_rattache_ne_se_deplace_plus(blank_db: str, tmp_path: Path) -> None:
-    """Critère 5 et interdit explicite : le déplacer emporterait ses devices sans le dire."""
-    async with open_stack(blank_db, tmp_path) as stack:
-        await _herite(stack, "http://herite.test")
-        premier = await _cree(stack, "recette")
-        second = await _cree(stack, "preprod")
-        await _rattache(stack, "http://herite.test", premier)
-
-        reponse = await _rattache(stack, "http://herite.test", second)
-
-        assert reponse.status_code == 409
-        assert reponse.json()["detail"] == "appariement_conclu"
-        assert (await _pair(stack, "http://herite.test"))["environment"]["id"] == premier
-
-
 async def test_deux_rattachements_concurrents_n_en_laissent_passer_qu_un(
     blank_db: str, tmp_path: Path
 ) -> None:
@@ -309,8 +294,11 @@ async def test_deux_rattachements_concurrents_n_en_laissent_passer_qu_un(
         assert sorted(reponse.status_code for reponse in reponses) == [200, 409]
         gagnant = next(r for r in reponses if r.status_code == 200).json()["environment"]["id"]
         assert (await _pair(stack, "http://herite.test"))["environment"]["id"] == gagnant
+        # Une COURSE, et le refus le dit : depuis le 29/10/2026 le changement d'environnement
+        # d'un appariement conclu est permis, donc « appariement conclu » aurait fait croire
+        # le geste interdit alors qu'il est seulement arrivé second.
         assert next(r for r in reponses if r.status_code == 409).json()["detail"] == (
-            "appariement_conclu"
+            "appariement_change_ailleurs"
         )
 
 

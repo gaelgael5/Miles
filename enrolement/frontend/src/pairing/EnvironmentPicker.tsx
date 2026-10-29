@@ -28,7 +28,12 @@ export function EnvironmentPicker({
   pending: boolean;
   error: unknown;
   submitLabel: string;
-  onChoose: (environmentId: string) => void;
+  /**
+   * L'environnement CHOISI, en entier et non son seul identifiant : l'appelant qui doit
+   * faire confirmer le geste a besoin de le NOMMER — libellé et slug —, et le relire
+   * d'une seconde requête ferait afficher un nom qui n'est pas celui qu'on vient de voir.
+   */
+  onChoose: (environnement: Environment) => void;
 }) {
   const { t } = useTranslation();
   const environnements = useEnvironments();
@@ -49,6 +54,10 @@ export function EnvironmentPicker({
     (environnement: Environment) =>
       environnement.paired_base_url === null || environnement.id === choisi,
   );
+  // Cherché dans la liste OFFERTE, et non dans la liste entière : une sélection qui ne
+  // s'y trouve plus — l'environnement vient d'être apparié ailleurs — laisse le bouton
+  // inactif au lieu de partir vers un identifiant que le serveur refusera.
+  const choix = offerts.find((environnement) => environnement.id === selection);
 
   if (ouvreCreation) {
     return (
@@ -68,7 +77,7 @@ export function EnvironmentPicker({
                 // La demande s'y rattache AUSSITÔT (critère 3) : un environnement créé
                 // puis laissé non désigné ferait croire le geste terminé alors que le
                 // code n'est toujours pas révélable.
-                onChoose(environnement.id);
+                onChoose(environnement);
               },
             })
           }
@@ -105,8 +114,8 @@ export function EnvironmentPicker({
         <button
           type="button"
           className="btn btn-primary"
-          disabled={pending || selection === "" || selection === choisi}
-          onClick={() => onChoose(selection)}
+          disabled={pending || choix === undefined || selection === choisi}
+          onClick={() => choix !== undefined && onChoose(choix)}
         >
           {submitLabel}
         </button>

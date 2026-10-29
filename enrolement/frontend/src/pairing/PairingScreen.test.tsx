@@ -421,18 +421,105 @@ describe("écran d'appariement du module d'enrôlement", () => {
     );
   });
 
-  it("offers no way to move a pairing that already carries an environment", async () => {
-    // Interdit explicite : le déplacer emporterait ses devices sans le dire. Ce geste
-    // existe, et il s'appelle révoquer puis réapparier.
+  it("never offers to LINK a pairing that already carries an environment", async () => {
+    // Deux gestes distincts, et le rattachement est celui d'un appariement HÉRITÉ : le
+    // proposer sur un appariement déjà rattaché ferait écrire « rattaché » au journal là
+    // où il s'est produit un déplacement.
     monte(routes([], [APPARIE]));
 
     expect(await screen.findByText("Production")).toBeInTheDocument();
-    // Resserré le 29/10/2026 : le motif disait /link|change/, et il attrapait depuis
-    // « Change contact address » — qui ne déplace RIEN, c'est l'adresse où l'on joint la
-    // stack, pas son environnement. Un test dont le filtre déborde finit par interdire
-    // ce qu'il ne visait pas. On nomme donc les deux gestes qu'on refuse ici.
+    // Le motif nomme le geste refusé et lui seul : il a débordé une fois, le 29/10/2026,
+    // en attrapant « Change contact address » — qui ne déplace rien.
     expect(screen.queryByRole("button", { name: /link to an environment/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /change the environment/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /change the environment/i })).toBeInTheDocument();
+  });
+
+  it("names both environments, by label and slug, before moving the pairing", async () => {
+    // Critère 1 : la confirmation nomme l'environnement quitté ET celui qui est pris, par
+    // leur libellé et leur slug. C'est le slug qui s'écrit dans une procédure, et deux
+    // libellés se ressemblent.
+    const appels = monte(
+      routes([], [APPARIE], {
+        [`PUT /api/pairing/peers/environment?base_url=${encodeURIComponent(APPARIE_BASE_URL)}`]: {
+          status: 200,
+          body: { ...APPARIE, environment: RECETTE },
+        },
+      }),
+    );
+
+    expect(await screen.findByText("Production")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change the environment" }));
+    const liste = await screen.findByLabelText("Environment from the registry");
+    await within(liste).findByRole("option", { name: /Recette/ });
+    fireEvent.change(liste, { target: { value: RECETTE.id } });
+    fireEvent.click(screen.getByRole("button", { name: "Pick this environment" }));
+
+    const dialogue = within(screen.getByRole("dialog"));
+    expect(dialogue.getByText(/“Production” \(production\)/)).toBeInTheDocument();
+    expect(dialogue.getByText(/“Recette” \(recette\)/)).toBeInTheDocument();
+    // Tant qu'on n'a pas confirmé, RIEN n'est envoyé : le choix dans la liste déroulante
+    // n'est pas le geste.
+    expect(appels.some((appel) => appel.key.startsWith("PUT /api/pairing/peers/environment"))).toBe(
+      false,
+    );
+
+    fireEvent.click(dialogue.getByRole("button", { name: "Change the environment" }));
+
+    await waitFor(() =>
+      expect(
+        appels.find((appel) => appel.key.startsWith("PUT /api/pairing/peers/environment"))?.body,
+      ).toEqual({ environment_id: RECETTE.id }),
+    );
+  });
+
+  it("names the devices as the reason when the move is refused", async () => {
+    // Le refus RENVOIE vers le déplacement des devices : un message générique enverrait
+    // chercher du côté des droits ou du réseau.
+    monte(
+      routes([], [APPARIE], {
+        [`PUT /api/pairing/peers/environment?base_url=${encodeURIComponent(APPARIE_BASE_URL)}`]: {
+          status: 409,
+          body: { detail: "appariement_porte_des_devices" },
+        },
+      }),
+    );
+
+    expect(await screen.findByText("Production")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change the environment" }));
+    const liste = await screen.findByLabelText("Environment from the registry");
+    await within(liste).findByRole("option", { name: /Recette/ });
+    fireEvent.change(liste, { target: { value: RECETTE.id } });
+    fireEvent.click(screen.getByRole("button", { name: "Pick this environment" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Change the environment" }),
+    );
+
+    expect(await screen.findByText(/Move the devices to the target environment first/i)).toBeInTheDocument();
+  });
+
+  it("tells to refresh when the environment was changed in another tab", async () => {
+    // Une COURSE, pas une règle. Confondue avec « cet appariement est conclu », elle
+    // ferait croire le geste interdit alors qu'il est seulement arrivé second.
+    monte(
+      routes([], [APPARIE], {
+        [`PUT /api/pairing/peers/environment?base_url=${encodeURIComponent(APPARIE_BASE_URL)}`]: {
+          status: 409,
+          body: { detail: "appariement_change_ailleurs" },
+        },
+      }),
+    );
+
+    expect(await screen.findByText("Production")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change the environment" }));
+    const liste = await screen.findByLabelText("Environment from the registry");
+    await within(liste).findByRole("option", { name: /Recette/ });
+    fireEvent.change(liste, { target: { value: RECETTE.id } });
+    fireEvent.click(screen.getByRole("button", { name: "Pick this environment" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Change the environment" }),
+    );
+
+    expect(await screen.findByText(/Refresh the list before trying again/i)).toBeInTheDocument();
   });
 
   it("names the refusal when the chosen environment was taken in the meantime", async () => {

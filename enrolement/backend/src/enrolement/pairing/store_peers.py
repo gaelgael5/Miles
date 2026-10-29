@@ -104,23 +104,55 @@ async def db_list_peers(db: PairingDb, /) -> list[EnvironmentPeer]:
     return [_peer(row) for row in rows]
 
 
-async def db_attach_peer_environment(
-    db: PairingDb, base_url: str, environment_id: UUID, now: datetime
+async def db_count_peer_devices(db: PairingDb, base_url: str) -> int:
+    """Le nombre de devices affectés à cet appariement. VAUT ZÉRO PARTOUT AUJOURD'HUI.
+
+    Le référentiel des devices n'existe pas encore : aucune table ne porte l'affectation,
+    et il n'y a donc littéralement rien à compter. Cette fonction existe quand même, et
+    c'est voulu : elle est LE SEUL endroit à rebrancher le jour où le parc arrive. Une
+    garde dispersée en trois endroits se rebranche en deux, et c'est le troisième qui
+    laisse passer un déplacement silencieux de devices.
+
+    Rend 0 et jamais nul. `device_count` vaut `null` dans l'API parce qu'on ne sait pas
+    compter, et l'écran affiche « — » ; ici il faut un compte — rendre nul au nom de la
+    prudence rendrait inutilisable une action qu'on vient d'ouvrir. Les deux ne disent pas
+    la même chose et ne se fondent pas : l'une informe un humain, l'autre décide.
+
+    Ni `db` ni `base_url` ne servent encore : ils sont là parce que la vraie requête les
+    prendra, et changer la signature le jour du branchement ferait toucher l'appelant.
+    """
+    return 0
+
+
+async def db_set_peer_environment(
+    db: PairingDb,
+    base_url: str,
+    environment_id: UUID,
+    now: datetime,
+    previous_environment_id: UUID | None,
 ) -> EnvironmentPeer | None:
-    """Rattache un appariement HÉRITÉ, conclu avant que la désignation n'existe.
+    """Pose l'environnement d'un appariement CONCLU : rattachement ou déplacement.
 
-    `environment_id IS NULL` n'est pas une précaution : c'est ce qui rend le DÉPLACEMENT
-    inexprimable. Un appariement qui porte déjà un environnement n'est pas rattachable, il
-    est à révoquer puis à réapparier — le déplacer emporterait ses devices sans le dire.
-    La condition est dans la clause `WHERE` plutôt que dans une lecture qui la précéderait,
-    pour que deux rattachements concurrents n'en voient pas tous deux le champ vide.
+    Les deux gestes, une seule écriture, parce que c'est la même : ce qui les distingue est
+    ce qu'il y avait avant, et c'est l'appelant qui le sait et qui en tire l'event et les
+    gardes. Le déplacement n'est ouvert que tant que l'appariement ne porte aucun device
+    (arbitrage du 29/10/2026) ; cette garde est chez l'appelant, pas ici — une écriture ne
+    sait pas compter des devices.
 
-    Rend nul quand rien n'a bougé, sans dire lequel des deux cas : l'appelant a lu
-    l'appariement juste avant et sait le distinguer.
+    `environment_id IS NOT DISTINCT FROM $4` n'est pas une précaution : c'est ce qui ferme
+    la course que la lecture préalable ne voit pas. MESURÉ le 28/10/2026 sur la version qui
+    comparait à `NULL` : sans cette clause, deux onglets qui rattachent en même temps
+    voient tous deux le champ vide et la seconde écriture ÉCRASE la première — un
+    déplacement silencieux. Aucune contrainte d'unicité ne le rattraperait, les deux
+    écritures portant sur la MÊME ligne. `IS NOT DISTINCT FROM` et non `=`, pour que le cas
+    « il n'y avait rien » se compare comme les autres.
+
+    Rend nul quand rien n'a bougé, sans dire lequel des cas : l'appelant a lu l'appariement
+    juste avant et sait le distinguer.
     """
     row = await db.fetchrow(
         "UPDATE environment_peer SET environment_id = $2, updated_at = $3"
-        " WHERE base_url = $1 AND environment_id IS NULL"
+        " WHERE base_url = $1 AND environment_id IS NOT DISTINCT FROM $4"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
         " environment_id, contact_url,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -130,6 +162,7 @@ async def db_attach_peer_environment(
         base_url,
         environment_id,
         now,
+        previous_environment_id,
     )
     return None if row is None else _peer(row)
 

@@ -3,14 +3,10 @@ import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog } from "@miles/socle-web";
 
-import {
-  type PairedEnvironment,
-  useAttachPeerEnvironment,
-  useRevokePeer,
-} from "../api/pairing";
+import { type PairedEnvironment, useRevokePeer } from "../api/pairing";
 import { ContactUrlForm } from "./ContactUrlForm";
+import { EnvironmentAssign } from "./EnvironmentAssign";
 import { EnvironmentCell } from "./EnvironmentCell";
-import { EnvironmentPicker } from "./EnvironmentPicker";
 
 /**
  * Ce que la révocation va provoquer sur le parc, écrit AVANT qu'on la provoque.
@@ -31,14 +27,8 @@ function Consequence({ devices }: { devices: number | null }) {
 
 export function ApparieRow({ environnement }: { environnement: PairedEnvironment }) {
   const { t } = useTranslation();
-  const [ouvreChoix, setOuvreChoix] = useState(false);
   const [confirmeRevocation, setConfirmeRevocation] = useState(false);
-  const rattachement = useAttachPeerEnvironment();
   const revocation = useRevokePeer();
-  // Un appariement conclu AVANT que la désignation n'existe. Il ne se rattache qu'une
-  // fois : l'en changer déplacerait ses devices sans le dire, et ce geste s'appelle
-  // révoquer puis réapparier.
-  const aRattacher = environnement.environment === null;
   return (
     <li className="row">
       <div className="row-main">
@@ -76,17 +66,8 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
         </div>
       </div>
       <ContactUrlForm environnement={environnement} />
+      <EnvironmentAssign environnement={environnement} />
       <div className="actions row-actions">
-        {aRattacher && (
-          <button
-            type="button"
-            className="btn btn-primary"
-            aria-expanded={ouvreChoix}
-            onClick={() => setOuvreChoix((ouvert) => !ouvert)}
-          >
-            {t("pairing.designation.attach")}
-          </button>
-        )}
         <button
           type="button"
           className="btn btn-danger"
@@ -95,25 +76,6 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
           {t("pairing.revoke.action")}
         </button>
       </div>
-      {aRattacher && !ouvreChoix && (
-        <p className="help" role="status">
-          {t("pairing.designation.attachHelp")}
-        </p>
-      )}
-      {ouvreChoix && (
-        <EnvironmentPicker
-          choisi={null}
-          pending={rattachement.isPending}
-          error={rattachement.isError ? rattachement.error : null}
-          submitLabel={t("pairing.designation.attachSubmit")}
-          onChoose={(environmentId) =>
-            rattachement.mutate(
-              { baseUrl: environnement.base_url, environmentId },
-              { onSuccess: () => setOuvreChoix(false) },
-            )
-          }
-        />
-      )}
       {revocation.isError && (
         <p className="alert alert-danger" role="alert">
           {t("pairing.revoke.error")}

@@ -23,6 +23,11 @@ PAIRING_CONFIRMED_EVENT = "pairing.confirmed"
 # combien d'appariements hérités restaient à rattacher.
 ENVIRONMENT_DESIGNATED_EVENT = "pairing.environment_designated"
 ENVIRONMENT_ATTACHED_EVENT = "pairing.environment_attached"
+# Et un troisième, pour la même raison : DÉPLACER un appariement conclu d'un environnement
+# vers un autre. Ce n'est pas un rattachement — il y avait quelque chose avant, et c'est ce
+# « avant » qu'on viendra chercher. Un seul type portant un champ « ancien » parfois nul
+# obligerait à lire la charge utile pour savoir lequel des deux gestes on relit.
+ENVIRONMENT_MOVED_EVENT = "pairing.environment_moved"
 # La révocation. Un type à elle, et non un `pairing.confirmed` avec un drapeau : c'est la
 # trace qu'on cherchera le jour où des devices ne démarrent plus, et on la cherchera par
 # son nom.
@@ -39,6 +44,7 @@ EVENT_TYPES = frozenset(
         PAIRING_CONFIRMED_EVENT,
         ENVIRONMENT_DESIGNATED_EVENT,
         ENVIRONMENT_ATTACHED_EVENT,
+        ENVIRONMENT_MOVED_EVENT,
         PAIRING_REVOKED_EVENT,
         PEER_CONTACT_CHANGED_EVENT,
     }
@@ -128,12 +134,41 @@ class EnvironmentAlreadyPairedError(IdentityError):
 
 
 class PairingSettledError(IdentityError):
-    """L'appariement est conclu : son environnement ne se change plus.
+    """L'appariement est conclu : ce n'est plus sur sa DEMANDE que son environnement change.
 
-    Le déplacer emporterait les devices sans le dire. Ce geste existe, et il s'appelle
-    révoquer puis réapparier (ticket d5ffeb33). Distinct du rattachement d'un appariement
-    HÉRITÉ, qui part d'un appariement sans environnement et n'en déplace donc aucun.
+    Une stack déjà appariée qui refrappe ne fait que tourner ses clés, et sa demande hérite
+    de l'environnement de l'appariement. Redésigner là ne mènerait à rien : la conclusion
+    réécrirait l'héritage. Le geste existe, il porte sur l'APPARIEMENT lui-même, et il est
+    ouvert tant que celui-ci ne porte aucun device (arbitrage du 29/10/2026, ticket
+    8803f092) — voir `PairingCarriesDevicesError`.
     """
+
+
+class PairingChangedElsewhereError(IdentityError):
+    """Un autre onglet a changé l'environnement de cet appariement entre la lecture et
+    l'écriture.
+
+    Distinct de tous les autres refus, et pas par scrupule : c'est le seul dont le remède
+    soit « relire la liste ». Le fondre dans « cet appariement est conclu » ferait chercher
+    une règle là où il n'y a qu'une course, et l'humain conclurait que son geste est
+    interdit alors qu'il est seulement arrivé second.
+    """
+
+
+class PairingCarriesDevicesError(IdentityError):
+    """L'appariement porte des devices : son environnement ne se change pas d'un clic.
+
+    Un appariement sans device n'emporte rien, et le changer est une correction de saisie.
+    Un appariement qui porte des devices emporte leur destination : déplacer des devices
+    est un geste à part, qui se voit, se compte et se confirme pour lui-même. Le refus
+    RENVOIE vers ce geste — un refus générique ferait chercher du côté des droits.
+    """
+
+    def __init__(self, base_url: str, devices: int) -> None:
+        super().__init__(f"{base_url} porte {devices} device(s) : les déplacer d'abord")
+        # Pour le journal et le diagnostic. La réponse HTTP, elle, ne porte pas ce compte :
+        # l'écran le lit de la liste des appariements, qui est sa source pour l'afficher.
+        self.devices = devices
 
 
 @dataclass(frozen=True)

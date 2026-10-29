@@ -145,6 +145,15 @@ export function designationRefusKey(error: unknown): string {
     if (error.detail === "appariement_conclu") {
       return "pairing.designation.errors.settled";
     }
+    if (error.detail === "appariement_porte_des_devices") {
+      // Le geste à faire est de déplacer les devices, pas de corriger la saisie : un
+      // message générique enverrait chercher du côté des droits ou du réseau.
+      return "pairing.designation.errors.devices";
+    }
+    if (error.detail === "appariement_change_ailleurs") {
+      // Une course, pas une règle : le remède est de relire la liste.
+      return "pairing.designation.errors.changedElsewhere";
+    }
     return "pairing.designation.errors.taken";
   }
   if (error.status === 404) {
@@ -175,8 +184,15 @@ export function useDesignateRequestEnvironment() {
   });
 }
 
-/** Rattache un appariement HÉRITÉ, conclu avant que la désignation n'existe. */
-export function useAttachPeerEnvironment() {
+/**
+ * Pose l'environnement d'un appariement CONCLU : rattachement ou déplacement.
+ *
+ * Un seul geste côté humain, et la même route : ce qui les distingue est ce qu'il y avait
+ * avant, que le serveur lit lui-même. Le déplacement n'est ouvert que tant que
+ * l'appariement ne porte aucun device — avec des devices il emporterait leur destination,
+ * et le refus renvoie vers leur déplacement en bloc.
+ */
+export function useSetPeerEnvironment() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ baseUrl, environmentId }: { baseUrl: string; environmentId: string }) =>

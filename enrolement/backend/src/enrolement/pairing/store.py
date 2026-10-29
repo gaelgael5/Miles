@@ -88,8 +88,10 @@ async def db_upsert_request(
     deux règles à la fois sans cas particulier ailleurs : une stack qui refrappe pendant
     qu'on la désignait ne fait pas perdre le choix à l'humain — qui ne saurait pas
     pourquoi son code a cessé d'être révélable —, et une stack qui tourne ses clés
-    réapparie le MÊME environnement, jamais un autre. Déplacer un appariement conclu
-    emporterait ses devices sans le dire ; ce geste s'appelle révoquer puis réapparier.
+    réapparie le MÊME environnement, jamais un autre — un ré-appariement n'est pas
+    l'occasion d'en changer. En changer est un geste à part, qui porte sur l'appariement et
+    non sur la demande, et qui n'est ouvert que tant qu'aucun device n'est en jeu
+    (`resolve_set_peer_environment`).
     """
     row = await db.fetchrow(
         "INSERT INTO pairing_request (base_url, public_key, algorithm, key_version, nonce,"
