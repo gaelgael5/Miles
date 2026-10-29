@@ -4,11 +4,24 @@ import json
 from dataclasses import dataclass, field
 
 import httpx
-from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, sign_call
-from miles_socle.signing.keys import KeyPair, generate_keypair, load_private_key
+from fastapi import FastAPI, Request, Response
+from miles_socle.signing.calls import (
+    ORIGIN_HEADER,
+    SIGNATURE_HEADER,
+    CallSignatureError,
+    sign_call,
+    verify_call,
+)
+from miles_socle.signing.keys import (
+    KeyPair,
+    generate_keypair,
+    load_private_key,
+    parse_public_key,
+)
 from miles_socle.signing.protocol import (
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
+    PAIRING_REVOKED_PATH,
     PAIRING_STATUS_PATH,
     PEER_PING_PATH,
     PING_BODY,
@@ -33,6 +46,14 @@ class EnvironmentDouble:
     # Nom déclaré. Valeur neutre par défaut ; les tests qui éprouvent l'échappement en
     # passent de hostiles.
     name: str = "Environnement de recette"
+    # La clé publique du module d'ENRÔLEMENT, telle que cette contrepartie la détient
+    # après l'appariement. C'est contre elle qu'elle vérifie l'avis de révocation.
+    expects_public_key: str = ""
+    # Ce qu'elle a reçu, et de qui. Les tests y lisent ce qui est RÉELLEMENT arrivé plutôt
+    # que de s'en remettre à l'intention du code appelant.
+    revoked: list[str] = field(default_factory=list)
+    refused: list[str] = field(default_factory=list)
+    dialled: list[str] = field(default_factory=list)
 
     def headers(self, path: str, body: bytes, *, method: str = "POST") -> dict[str, str]:
         entete = sign_call(
@@ -73,3 +94,35 @@ class EnvironmentDouble:
 
 def confirm_body(code: str) -> bytes:
     return b'{"code": "%s"}' % code.encode("ascii")
+
+    def app(self) -> FastAPI:
+        """La contrepartie qui REÇOIT l'avis de révocation, et qui le vérifie vraiment.
+
+        Elle appelle `verify_call` du socle contre la clé publique du module d'enrôlement,
+        exactement comme le fera le vrai module d'environnement. Une doublure qui dirait
+        « reçu » sans vérifier prouverait seulement qu'on sait écrire une doublure
+        complaisante — et le ticket demande précisément qu'un avis non signé soit refusé.
+        """
+        app = FastAPI()
+
+        @app.post(PAIRING_REVOKED_PATH, status_code=204)
+        async def pairing_revoked(request: Request) -> Response:
+            body = await request.body()
+            origine = request.headers.get(ORIGIN_HEADER) or ""
+            self.dialled.append(request.url.netloc)
+            try:
+                verify_call(
+                    parse_public_key(self.expects_public_key),
+                    request.headers.get(SIGNATURE_HEADER),
+                    origin=origine,
+                    method=request.method,
+                    target=request.url.path,
+                    body=body,
+                )
+            except CallSignatureError:
+                self.refused.append(origine)
+                return Response(status_code=401)
+            self.revoked.append(origine)
+            return Response(status_code=204)
+
+        return app

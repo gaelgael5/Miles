@@ -61,6 +61,11 @@ async def _herite(stack: EnrolementStack, origine: str) -> None:
     )
 
 
+async def _pair_apparie(stack: EnrolementStack, origine: str) -> dict[str, Any]:
+    apparies = await stack.client.get("/api/pairing/peers")
+    return next(p for p in apparies.json() if p["base_url"] == origine)
+
+
 async def _environnement(stack: EnrolementStack, environment_id: str) -> dict[str, Any]:
     reponse = await stack.client.get("/api/environments")
     return next(e for e in reponse.json() if e["id"] == environment_id)
@@ -252,6 +257,125 @@ async def test_la_route_de_revocation_exige_une_session(blank_db: str, tmp_path:
     async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as visiteur:
         reponse = await visiteur.delete(
             "/api/pairing/peers", params={"base_url": "http://environnement.test"}
+        )
+
+        assert reponse.status_code == 401
+        assert reponse.json()["detail"] == "session_requise"
+
+
+async def _identite(stack: EnrolementStack) -> str:
+    reponse = await stack.client.get("/api/pairing/identity")
+    return str(reponse.json()["public_key"])
+
+
+async def _contact(stack: EnrolementStack, origine: str, adresse: str) -> Any:
+    return await stack.client.put(
+        "/api/pairing/peers/contact", params={"base_url": origine}, json={"contact_url": adresse}
+    )
+
+
+async def test_la_revocation_previent_la_stack_par_un_appel_signe(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 1 : sans cet avis, l'écran d'en face ne peut qu'énumérer les causes.
+
+    Et il est VÉRIFIÉ chez elle : la contrepartie appelle `verify_call` du socle contre
+    notre clé publique, comme le fera le vrai module d'environnement.
+    """
+    double = EnvironmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double, "recette")
+        double.expects_public_key = await _identite(stack)
+
+        assert (await _revoque(stack, double.origin)).status_code == 204
+
+        # Reçu, et reçu SIGNÉ : la liste des refus est vide.
+        assert double.revoked == ["http://enrolement.test"]
+        assert double.refused == []
+
+
+async def test_une_stack_injoignable_n_empeche_pas_sa_revocation(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 2 : l'avis est au mieux. Une stack éteinte ne garde pas son accès.
+
+    C'est la crainte que portait le contrat quand il refusait cet avis, et elle reste
+    vraie : faire dépendre la révocation d'une réponse réseau donnerait à la stack qu'on
+    révoque le pouvoir de refuser sa propre révocation.
+    """
+    double = EnvironmentDouble()
+    # AUCUNE contrepartie : le client sortant tente une vraie connexion, qui échoue.
+    async with open_stack(blank_db, tmp_path) as stack:
+        await _apparie(stack, double, "recette")
+
+        reponse = await _revoque(stack, double.origin)
+
+        assert reponse.status_code == 204, reponse.text
+        assert (await stack.client.get("/api/pairing/peers")).json() == []
+        async with stack.anonymous() as pair:
+            assert (await double.ping(pair)).status_code == 401
+
+
+async def test_une_stack_qui_refuse_l_avis_est_revoquee_quand_meme(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Même règle : un avis refusé est un avis, pas une permission."""
+    double = EnvironmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double, "recette")
+        # Elle détient une AUTRE clé pour nous : elle refusera l'avis.
+        double.expects_public_key = generate_keypair().public_key
+
+        assert (await _revoque(stack, double.origin)).status_code == 204
+
+        assert double.refused == ["http://enrolement.test"]
+        assert double.revoked == []
+        assert (await stack.client.get("/api/pairing/peers")).json() == []
+
+
+async def test_l_avis_part_vers_l_adresse_de_contact_et_non_vers_l_identite(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critères 6 et 7 : l'URL publique d'une stack passe souvent par un intermédiaire."""
+    double = EnvironmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double, "recette")
+        double.expects_public_key = await _identite(stack)
+        change = await _contact(stack, double.origin, "http://100.74.9.236:8082")
+
+        assert change.status_code == 200, change.text
+        # L'IDENTITÉ n'a pas bougé : c'est elle qu'on vérifie des appels entrants.
+        assert change.json()["base_url"] == double.origin
+        assert change.json()["contact_url"] == "http://100.74.9.236:8082"
+
+        await _revoque(stack, double.origin)
+
+        assert double.dialled == ["100.74.9.236:8082"]
+        assert double.revoked == ["http://enrolement.test"]
+
+
+async def test_l_adresse_de_contact_vaut_l_identite_tant_qu_on_n_y_touche_pas(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 6 : le cas ordinaire ne demande aucune saisie."""
+    double = EnvironmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double, "recette")
+
+        pair = await _pair_apparie(stack, double.origin)
+
+        assert pair["contact_url"] == double.origin
+
+
+async def test_changer_l_adresse_de_contact_exige_une_session(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Fail closed : c'est la seule adresse que ce module compose vers l'extérieur."""
+    async with open_stack(blank_db, tmp_path) as stack, stack.anonymous() as visiteur:
+        reponse = await visiteur.put(
+            "/api/pairing/peers/contact",
+            params={"base_url": "http://environnement.test"},
+            json={"contact_url": "http://10.0.0.1:8082"},
         )
 
         assert reponse.status_code == 401

@@ -23,6 +23,7 @@ def _peer(row: Any) -> EnvironmentPeer:
         row["updated_at"],
         row["name"],
         environment_ref_from_row(row),
+        row["contact_url"],
     )
 
 
@@ -33,6 +34,7 @@ async def db_upsert_peer(
     now: datetime,
     name: str | None,
     environment_id: UUID,
+    contact_url: str,
 ) -> EnvironmentPeer:
     """Enregistre l'environnement apparié, ou REMPLACE sa clé — jamais un doublon.
 
@@ -44,15 +46,22 @@ async def db_upsert_peer(
     rattachement d'un appariement hérité passe par `db_attach_peer_environment`, et c'est
     la seule autre voie — déplacer un appariement conclu d'un environnement vers un autre
     reste inexprimable ici, ce qui vaut mieux qu'une garde qu'on peut oublier d'appeler.
+
+    `contact_url` est posée à l'insertion et, elle aussi, JAMAIS réécrite au conflit —
+    l'inverse exact de la règle du module d'environnement, et les deux sont justes. Là-bas
+    elle vaut l'adresse qu'on vient de composer avec succès ; ici elle vaut ce que NOTRE
+    administrateur a saisi, et une stack qui tourne ses clés n'a aucune raison de l'effacer.
+    Elle se change par `db_set_peer_contact_url`, qui est un geste, pas un effet de bord.
     """
     row = await db.fetchrow(
         "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
-        " updated_at, name, environment_id) VALUES ($1, $2, $3, $4, $4, $5, $6)"
+        " updated_at, name, environment_id, contact_url)"
+        " VALUES ($1, $2, $3, $4, $4, $5, $6, $7)"
         " ON CONFLICT (base_url) DO UPDATE SET public_key = excluded.public_key,"
         " algorithm = excluded.algorithm, updated_at = excluded.updated_at,"
         " name = excluded.name"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id,"
+        " environment_id, contact_url,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -63,6 +72,7 @@ async def db_upsert_peer(
         now,
         name,
         environment_id,
+        contact_url,
     )
     return _peer(row)
 
@@ -70,7 +80,7 @@ async def db_upsert_peer(
 async def db_get_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None:
     row = await db.fetchrow(
         "SELECT base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id,"
+        " environment_id, contact_url,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -84,7 +94,7 @@ async def db_get_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None:
 async def db_list_peers(db: PairingDb, /) -> list[EnvironmentPeer]:
     rows = await db.fetch(
         "SELECT base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id,"
+        " environment_id, contact_url,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -112,7 +122,7 @@ async def db_attach_peer_environment(
         "UPDATE environment_peer SET environment_id = $2, updated_at = $3"
         " WHERE base_url = $1 AND environment_id IS NULL"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id,"
+        " environment_id, contact_url,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -152,7 +162,7 @@ async def db_delete_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None
     row = await db.fetchrow(
         "DELETE FROM environment_peer WHERE base_url = $1"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
-        " environment_id,"
+        " environment_id, contact_url,"
         " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
         " AS environment_slug,"
         " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
@@ -203,3 +213,27 @@ async def db_forget_revocation(db: PairingDb, base_url: str) -> None:
     celui d'une table d'état.
     """
     await db.execute("DELETE FROM revoked_pairing WHERE base_url = $1", base_url)
+
+
+async def db_set_peer_contact_url(
+    db: PairingDb, base_url: str, contact_url: str
+) -> EnvironmentPeer | None:
+    """Change l'adresse où l'on JOINT cette stack. Nul si l'appariement n'existe plus.
+
+    Un geste à part, et non un effet de bord d'une autre écriture : c'est la seule chose
+    que ce module compose vers l'extérieur, et il doit rester clair qui l'a décidée.
+    L'identité, elle, ne se change pas — elle vient de la stack et entre dans ce qu'on
+    vérifie d'elle.
+    """
+    row = await db.fetchrow(
+        "UPDATE environment_peer SET contact_url = $2 WHERE base_url = $1"
+        " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
+        " environment_id, contact_url,"
+        " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_label",
+        base_url,
+        contact_url,
+    )
+    return None if row is None else _peer(row)

@@ -32,6 +32,9 @@ const APPARIE = {
   created_at: "2026-10-20T08:00:00+00:00",
   updated_at: "2026-10-20T08:00:00+00:00",
   device_count: null,
+  // Le cas ordinaire : on joint la stack là où elle se nomme. Sans ce champ, la branche
+  // qui le lit resterait invisible aux tests — leçon du 29/10/2026.
+  contact_url: APPARIE_BASE_URL,
   environment: {
     id: "5e1b3a0c-0000-4000-8000-000000000002",
     slug: "production",
@@ -165,6 +168,39 @@ describe("écran d'appariement du module d'enrôlement", () => {
       expect(appels.some((appel) => appel.key.startsWith("DELETE /api/pairing/requests"))).toBe(
         true,
       ),
+    );
+  });
+
+  it("shows the contact address only when it is not where the stack names itself", async () => {
+    monte(routes([], [APPARIE]));
+    expect(await screen.findByText("Environnement de production")).toBeInTheDocument();
+    expect(screen.queryByText("Reached at")).toBeNull();
+  });
+
+  it("saves a new contact address without touching the stack's identity", async () => {
+    const CONTACT = "http://100.74.9.236:8082";
+    const appels = monte(
+      routes([], [{ ...APPARIE, contact_url: CONTACT }], {
+        [`PUT /api/pairing/peers/contact?base_url=${encodeURIComponent(APPARIE_BASE_URL)}`]: {
+          status: 200,
+          body: { ...APPARIE, contact_url: CONTACT },
+        },
+      }),
+    );
+
+    // Différente de l'identité : elle est montrée, et dite pour ce qu'elle est.
+    expect(await screen.findByText(CONTACT)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Change contact address" }));
+    fireEvent.change(screen.getByLabelText("Contact address"), {
+      target: { value: "http://10.0.0.9:8082" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save address" }));
+
+    await waitFor(() =>
+      expect(
+        appels.find((appel) => appel.key.startsWith("PUT /api/pairing/peers/contact"))?.body,
+      ).toEqual({ contact_url: "http://10.0.0.9:8082" }),
     );
   });
 
@@ -391,7 +427,12 @@ describe("écran d'appariement du module d'enrôlement", () => {
     monte(routes([], [APPARIE]));
 
     expect(await screen.findByText("Production")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /link|change/i })).toBeNull();
+    // Resserré le 29/10/2026 : le motif disait /link|change/, et il attrapait depuis
+    // « Change contact address » — qui ne déplace RIEN, c'est l'adresse où l'on joint la
+    // stack, pas son environnement. Un test dont le filtre déborde finit par interdire
+    // ce qu'il ne visait pas. On nomme donc les deux gestes qu'on refuse ici.
+    expect(screen.queryByRole("button", { name: /link to an environment/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /change the environment/i })).toBeNull();
   });
 
   it("names the refusal when the chosen environment was taken in the meantime", async () => {

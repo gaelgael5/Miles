@@ -41,9 +41,11 @@ from environnement.identity.peer_calls import (
     peer_expires_at,
 )
 from environnement.identity.store import (
+    db_clear_peer_revoked,
     db_delete_attempt,
     db_get_attempt,
     db_get_peer,
+    db_mark_peer_revoked,
     db_upsert_attempt,
     db_upsert_peer,
 )
@@ -219,12 +221,23 @@ class IdentityPairingFlow(IdentityPeerCalls):
         if tentative is None:
             if pair is None:
                 return PairingState("non_apparie", None, None)
-            # Un appariement enregistré ici ne prouve pas qu'il tient encore EN FACE : le
-            # pair a pu le révoquer, et il n'a aucun moyen de nous le dire — il ne nous
-            # appelle jamais. On le lui demande donc à l'affichage, au prix d'un appel
-            # borné par `PEER_HTTP_TIMEOUT_S`. Sans cela, l'écran afficherait « apparié »
-            # pour toujours à un module que plus personne ne sert.
-            return PairingState(await self._peer_still_accepts_us(pair), None, pair)
+            # Un appariement enregistré ici ne prouve pas qu'il tient encore EN FACE. On
+            # le demande donc au pair à l'affichage, au prix d'un appel borné par
+            # `PEER_HTTP_TIMEOUT_S` ; sans cela, l'écran afficherait « apparié » pour
+            # toujours à un module que plus personne ne sert.
+            #
+            # L'avis de révocation reçu NE REMPLACE PAS cet appel, il le DÉSAMBIGUÏSE :
+            # l'avis est un indice, l'appel fait foi. Un avis arrivé juste avant un
+            # ré-appariement dirait sinon « révoqué » d'un appariement vivant — le
+            # contresens que ce ticket corrige, retourné. C'est aussi ce qui permet de
+            # l'oublier quand les faits le démentent.
+            etat = await self._peer_still_accepts_us(pair)
+            if etat == "apparie" and pair.revoked_at is not None:
+                await db_clear_peer_revoked(self.pool)
+                log.info("avis_de_revocation_dementi", base_url=pair.base_url)
+            if etat == "refuse_par_le_pair" and pair.revoked_at is not None:
+                etat = "revoque"
+            return PairingState(etat, None, pair)
         try:
             reponse = await self.post_signed(tentative.base_url, PAIRING_STATUS_PATH, PING_BODY)
         except (httpx.HTTPError, OriginMissingError):
@@ -250,6 +263,20 @@ class IdentityPairingFlow(IdentityPeerCalls):
         return PairingState(
             "expiree" if self.now() >= tentative.expires_at else "refusee", tentative, pair
         )
+
+    async def resolve_record_revocation(self) -> None:
+        """Retient l'avis de révocation que le pair vient de nous pousser, et VÉRIFIÉ.
+
+        Appelée seulement après `resolve_verify_incoming` : l'avis est signé de la clé du
+        pair et déclare son origine, exactement comme l'échange de vivacité. Sans cette
+        vérification, n'importe qui ferait croire à une stack qu'elle est révoquée — et
+        l'administrateur refrapperait pour rien.
+
+        Rien n'est détruit. L'appariement reste affiché, son empreinte comprise : c'est ce
+        qu'on voudra comparer après avoir refrappé.
+        """
+        if await db_mark_peer_revoked(self.pool, self.now()):
+            log.warning("avis_de_revocation_recu")
 
     async def resolve_cancel_attempt(self, author: EventAuthor) -> None:
         """Abandonne la demande en cours. Le pair, lui, laissera la sienne expirer."""

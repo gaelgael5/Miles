@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
 from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, CallSignatureError
 from miles_socle.signing.keys import fingerprint
 from miles_socle.signing.peers import IdentityError
-from miles_socle.signing.protocol import PEER_PING_PATH, PongOut
+from miles_socle.signing.protocol import PAIRING_REVOKED_PATH, PEER_PING_PATH, PongOut
 
 from environnement.identity.service import IdentityService
 
@@ -56,3 +56,39 @@ async def post_peer_ping(request: Request) -> PongOut | JSONResponse:
         verified_key_fingerprint=fingerprint(peer.public_key),
         own_key_fingerprint=fingerprint(identity.public_key),
     )
+
+
+@router.post(PAIRING_REVOKED_PATH, status_code=status.HTTP_204_NO_CONTENT)
+async def post_pairing_revoked(request: Request) -> Response:
+    """Le module d'enrôlement nous dit qu'il vient de nous révoquer l'accès.
+
+    SEULE route du protocole que ce module SERT et que l'enrôlement APPELLE : le sens
+    inverse de toutes les autres. Elle existe parce que la révocation détruit chez lui
+    notre clé publique — il ne peut donc plus vérifier que c'est bien nous qui demandons,
+    et nous répondre « tu es révoqué » l'apprendrait à n'importe quel inconnu déclarant
+    notre origine. Poussé, l'avis est signé de SA clé, que nous détenons encore.
+
+    Vérifiée exactement comme l'échange de vivacité, et pas autrement : sans cela,
+    n'importe qui ferait croire à cette stack qu'elle est révoquée, et son administrateur
+    referait un appariement qui n'avait rien perdu.
+
+    204 : rien à rendre. Ce que l'avis change est chez nous, et l'appelant n'en attend
+    aucune donnée — il ne doit surtout pas attendre non plus que nous soyons debout.
+    """
+    service: IdentityService = request.app.state.identity
+    # Lu AVANT la vérification parce qu'il entre dans ce qui est signé ; jamais interprété.
+    body = await request.body()
+    try:
+        await service.resolve_verify_incoming(
+            declared_origin=request.headers.get(ORIGIN_HEADER),
+            signature=request.headers.get(SIGNATURE_HEADER),
+            method=request.method,
+            target=request.url.path,
+            body=body,
+        )
+    except (CallSignatureError, IdentityError):
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "signature_refusee"}
+        )
+    await service.resolve_record_revocation()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

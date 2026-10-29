@@ -71,6 +71,9 @@ def _pairing_service(db: Any) -> PairingService:
         catalog=EventTypeCatalog(code_event_types()),
         now=lambda: datetime.now(UTC),
         origin=None,
+        # Aucun appel sortant n'est émis par les refus éprouvés ici : ils se décident sur
+        # l'absence de signature, bien avant toute lecture et bien avant tout envoi.
+        http=cast(Any, None),
         request_ttl_s=3600,
     )
 

@@ -25,9 +25,11 @@
       "refusee": "Request rejected",
       "expiree": "Request expired",
       "pair_injoignable": "Enrolment module unreachable",
-      "refuse_par_le_pair": "Pairing refused by the enrolment module"
+      "refuse_par_le_pair": "Pairing refused by the enrolment module",
+      "revoque": "Access revoked by the enrolment module"
     },
-    "refusedByPeer": "The enrolment module no longer accepts our signed calls: its administrator may have revoked this pairing, or the keys no longer match. The details above are those of the last known pairing. Request a new pairing to establish another one.",
+    "refusedByPeer": "The enrolment module no longer accepts our signed calls. The details above are those of the last known pairing: request a new pairing to establish another one.",
+    "revoked": "The enrolment module's administrator revoked this access, and notified us on {{date}}. This pairing is no longer of any use. The details above are those of the last known pairing: request a new pairing to establish another one.",
     "outcome": {
       "refusee": "An administrator of the enrolment module rejected the request. A new one can be sent.",
       "expiree": "The request expired without an answer. A new one can be sent."

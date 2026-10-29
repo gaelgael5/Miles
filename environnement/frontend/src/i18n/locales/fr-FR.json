@@ -25,9 +25,11 @@
       "refusee": "Demande refusée",
       "expiree": "Demande expirée",
       "pair_injoignable": "Module d'enrôlement injoignable",
-      "refuse_par_le_pair": "Appariement refusé par le module d'enrôlement"
+      "refuse_par_le_pair": "Appariement refusé par le module d'enrôlement",
+      "revoque": "Accès révoqué par le module d'enrôlement"
     },
-    "refusedByPeer": "Le module d'enrôlement n'accepte plus nos appels signés : son administrateur a pu révoquer cet appariement, ou les clés ne se correspondent plus. Les informations ci-dessus sont celles du dernier appariement connu. Demandez un nouvel appariement pour en établir un autre.",
+    "refusedByPeer": "Le module d'enrôlement n'accepte plus nos appels signés. Les informations ci-dessus sont celles du dernier appariement connu : demandez un nouvel appariement pour en établir un autre.",
+    "revoked": "L'administrateur du module d'enrôlement a révoqué cet accès, et nous l'a notifié le {{date}}. Cet appariement ne sert plus. Les informations ci-dessus sont celles du dernier appariement connu : demandez un nouvel appariement pour en établir un autre.",
     "outcome": {
       "refusee": "Un administrateur du module d'enrôlement a refusé la demande. Il est possible d'en envoyer une nouvelle.",
       "expiree": "La demande a expiré sans réponse. Il est possible d'en envoyer une nouvelle."

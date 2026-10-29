@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 import asyncpg
+import httpx
 import structlog
 from miles_socle.events.model import EventTypeCatalog
 from miles_socle.secrets.crypto import SecretCipher
@@ -46,6 +47,10 @@ class PairingBase:
     catalog: EventTypeCatalog
     now: Callable[[], datetime]
     origin: str | None
+    # Le client des appels SORTANTS. Ce module n'en émettait aucun avant le
+    # 29/10/2026 : les environnements l'appelaient, il répondait. La révocation
+    # renverse ce sens — il doit prévenir la stack qu'il lui retire l'accès.
+    http: httpx.AsyncClient
     request_ttl_s: int
     module: ModuleIdentityService
 

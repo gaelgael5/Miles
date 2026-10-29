@@ -5,6 +5,7 @@ import binascii
 import hashlib
 import re
 
+import httpx
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
@@ -123,3 +124,42 @@ def origin_for_log(raw: str | None) -> str:
         return validate_origin(raw)
     except CallSignatureError:
         return "(origine_invalide)"
+
+
+async def post_signed(
+    http: httpx.AsyncClient,
+    private_key: Ed25519PrivateKey,
+    *,
+    origin: str,
+    contact_url: str,
+    path: str,
+    body: bytes,
+) -> httpx.Response:
+    """L'appel sortant signé : le seul endroit du projet qui en compose un.
+
+    Au socle depuis le 29/10/2026, parce qu'un DEUXIÈME produit en a besoin — le module
+    d'enrôlement, qui doit prévenir une stack qu'il lui révoque l'accès, après le module
+    d'environnement qui appelle son pair. Un produit, on laisse chez lui ; deux, on extrait.
+
+    `origin` et `contact_url` sont deux choses, et c'est le cœur de cette fonction :
+
+    - `origin` est l'adresse publique CONFIGURÉE de l'émetteur, celle qui entre dans la
+      chaîne signée. Jamais lue d'un en-tête, qu'un `Host` forgé suffirait à tromper.
+    - `contact_url` est l'adresse que l'on COMPOSE. Elle n'entre dans AUCUNE signature :
+      la chaîne porte l'origine de l'émetteur, la méthode, le chemin et l'empreinte du
+      corps — jamais l'hôte appelé. C'est ce qui permet de joindre un pair derrière un
+      intermédiaire sans toucher ni aux clés ni aux origines.
+
+    `contact_url` est une origine SANS chemin : la cible signée et le chemin de la requête
+    coïncident donc, condition pour que le pair vérifie exactement la chaîne qu'on a signée.
+    """
+    entete = sign_call(private_key, origin=origin, method="POST", target=path, body=body)
+    return await http.post(
+        f"{contact_url}{path}",
+        content=body,
+        headers={
+            ORIGIN_HEADER: origin,
+            SIGNATURE_HEADER: entete,
+            "Content-Type": "application/json",
+        },
+    )

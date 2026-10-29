@@ -172,7 +172,17 @@ class PairingPeerProtocol(PairingRefusals):
                     # unique : sans ligne retirée, un autre appel est passé avant nous.
                     self._refuse("deja_brule", origine)
                 pair = await db_upsert_peer(
-                    conn, origine, demande.public_key, maintenant, demande.name, environnement.id
+                    conn,
+                    origine,
+                    demande.public_key,
+                    maintenant,
+                    demande.name,
+                    environnement.id,
+                    # L'adresse de contact vaut l'origine déclarée au premier appariement :
+                    # c'est tout ce qu'on sait d'elle, et c'est la stack qui nous a appelés,
+                    # jamais l'inverse. Son administrateur la corrigera sur l'écran si un
+                    # intermédiaire s'interpose. Au ré-appariement elle n'est pas réécrite.
+                    origine,
                 )
                 # Une origine réappariée n'est plus révoquée : sa pierre tombale part avec
                 # l'appariement neuf. La laisser ferait dater une révocation ultérieure de

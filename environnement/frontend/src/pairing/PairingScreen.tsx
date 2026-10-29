@@ -255,6 +255,9 @@ export function PairingScreen() {
   // avertissement qui dit que c'est le dernier appariement connu — l'effacer priverait
   // l'humain de l'empreinte qu'il voudra comparer après avoir refrappé.
   const refuseParLePair = state === "refuse_par_le_pair";
+  // Le pair l'a DIT, et ses appels nous sont refusés : plus rien à supposer. On nomme la
+  // cause et la date, au lieu d'énumérer ce qui aurait pu se passer.
+  const revoque = state === "revoque";
 
   return (
     <section className="section" aria-labelledby="pairing-title">
@@ -270,6 +273,13 @@ export function PairingScreen() {
           // un appariement que quelqu'un est peut-être en train d'accepter.
           <p className="alert" role="status">
             {t("pairing.unreachable")}
+          </p>
+        )}
+        {revoque && peer !== null && (
+          <p className="alert alert-warning" role="status">
+            {t("pairing.revoked", {
+              date: peer.revoked_at === null ? "" : new Date(peer.revoked_at).toLocaleString(),
+            })}
           </p>
         )}
         {refuseParLePair && (

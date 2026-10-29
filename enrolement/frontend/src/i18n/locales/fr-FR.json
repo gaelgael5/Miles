@@ -54,6 +54,12 @@
       "captionSince": "Apparié le",
       "captionDevices": "Devices affectés",
       "devicesUnknown": "—",
+      "contactCaption": "Joint à l'adresse",
+      "contactHelp": "L'adresse que ce module compose pour prévenir la stack — d'une révocation, par exemple. Elle n'entre dans aucune signature : seule l'origine que la stack déclare est vérifiée. À changer si un intermédiaire s'interpose.",
+      "contactLabel": "Adresse de contact",
+      "contactSubmit": "Enregistrer l'adresse",
+      "contactEdit": "Changer l'adresse de contact",
+      "contactError": "Adresse refusée. Une origine http(s) sans chemin est attendue.",
       "devicesUnknownHelp": "Le référentiel des devices n'existe pas encore : ce nombre n'est pas connu, et n'est donc pas affiché comme zéro."
     },
     "revoke": {

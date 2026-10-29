@@ -20,7 +20,11 @@ export type PairingStateName =
   // l'appariement de son côté. Distinct de `pair_injoignable`, qui est une panne de
   // réseau et ne remet rien en cause — et distinct de `non_apparie`, parce qu'un
   // appariement a bien existé et que ses informations restent utiles à comparer.
-  | "refuse_par_le_pair";
+  | "refuse_par_le_pair"
+  // Le pair nous a DIT qu'il nous révoquait, par un avis signé qu'on a vérifié — et ses
+  // appels nous sont bien refusés depuis. Distinct de `refuse_par_le_pair`, qui est le
+  // même refus sans avis : là on énumère les causes, ici on les nomme.
+  | "revoque";
 
 export interface PairingAttempt {
   base_url: string;
@@ -39,6 +43,8 @@ export interface EnrolmentPeer {
    * montre alors pas, deux lignes identiques faisant chercher une différence qui n'existe pas.
    */
   contact_url: string;
+  /** Quand l'avis de révocation a été reçu. Nul tant qu'il n'est pas venu. */
+  revoked_at: string | null;
   public_key: string;
   public_key_fingerprint: string;
   algorithm: string;

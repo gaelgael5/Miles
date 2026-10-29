@@ -13,6 +13,7 @@ from miles_socle.signing.peers import validate_base_url as _validate_base_url
 
 from enrolement.pairing.api_schemas import (
     CodeOut,
+    ContactUrlIn,
     EnvironmentDesignationIn,
     IdentityOut,
     PeerOut,
@@ -176,6 +177,28 @@ async def put_peer_environment(
     try:
         pair = await _service(request).resolve_attach_environment(
             request_author(request), _base_url(base_url), body.environment_id
+        )
+    except IdentityError as exc:
+        return _error(exc)
+    return peer_out(pair)
+
+
+@router.put("/peers/contact", response_model=PeerOut)
+async def put_peer_contact(
+    request: Request, body: ContactUrlIn, base_url: str = BaseUrlQuery
+) -> PeerOut | JSONResponse:
+    """Change l'adresse où l'on JOINT cette stack. Son identité, elle, ne change pas.
+
+    Les deux sont distinctes et le resteront : l'identité vient de la stack et entre dans
+    ce qu'on vérifie d'elle ; l'adresse de contact est à nous, n'entre dans aucune
+    signature, et c'est la seule chose que ce module compose vers l'extérieur. Elle est
+    saisie ICI plutôt que déclarée par la stack — laisser un tiers que personne n'a encore
+    authentifié désigner la cible de nos appels sortants reviendrait à lui confier ce que
+    nous composons.
+    """
+    try:
+        pair = await _service(request).resolve_set_peer_contact_url(
+            request_author(request), _base_url(base_url), body.contact_url
         )
     except IdentityError as exc:
         return _error(exc)

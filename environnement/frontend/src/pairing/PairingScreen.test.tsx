@@ -19,6 +19,9 @@ const PAIR = {
   declared_name: "Environnement de recette",
   // Le cas ordinaire : on joint le pair là où il se nomme.
   contact_url: ENROLEMENT,
+  // Aucun avis de révocation reçu. Omettre ce champ rendrait la branche qui le lit
+  // invisible aux tests — leçon du 29/10/2026, appliquée le jour même.
+  revoked_at: null,
   public_key: "A".repeat(43),
   public_key_fingerprint: "82876eb0c19c35fdf589d74b1d96ca65",
   algorithm: "ed25519",
@@ -198,6 +201,24 @@ describe("écran d'appariement du module d'environnement", () => {
     expect(await screen.findByText(CONTACT)).toBeInTheDocument();
     expect(screen.getByText(ENROLEMENT)).toBeInTheDocument();
     expect(screen.getByText(/part of no signature/i)).toBeInTheDocument();
+  });
+
+  it("names the revocation and its date once the enrolment module has told us", async () => {
+    // Le message vague — « son administrateur a PU révoquer, ou les clés ne correspondent
+    // plus » — était le symptôme d'un module qui devait deviner. Averti, il nomme.
+    monte(
+      etatRoute({
+        state: "revoque",
+        attempt: null,
+        peer: { ...PAIR, revoked_at: "2026-10-29T07:21:00+00:00" },
+      }),
+    );
+
+    expect(await screen.findByText(/revoked this access/i)).toBeInTheDocument();
+    expect(screen.getByText(/no longer of any use/i)).toBeInTheDocument();
+    // L'appariement reste affiché, et refrapper reste possible.
+    expect(screen.getByText(PAIR.public_key_fingerprint)).toBeInTheDocument();
+    expect(screen.getByLabelText("Enrolment module URL")).toBeInTheDocument();
   });
 
   it("says the enrolment module refuses us, keeps the pairing shown, and offers to knock again", async () => {

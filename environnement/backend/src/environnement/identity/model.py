@@ -111,6 +111,10 @@ class EnrolmentPeer:
     # aucun. Il permet à l'administrateur de retrouver son environnement dans la liste de
     # l'autre bout.
     declared_name: str | None
+    # La date à laquelle on a REÇU l'avis de révocation, nulle tant qu'il n'est pas venu.
+    # Notre horloge, pas la sienne : les deux dérivent, et pour un affichage mieux vaut la
+    # date dont on répond que celle qu'un autre annonce.
+    revoked_at: datetime | None
     # L'adresse où on le JOINT, qui n'est pas son identité. Elle ne figure dans aucune
     # chaîne signée — la chaîne porte l'origine de l'ÉMETTEUR, jamais l'hôte appelé —, donc
     # composer ailleurs ne change rien à ce que le pair vérifie. Égale à `base_url` tant
@@ -135,6 +139,10 @@ PairingStateName = Literal[
     # Ce qu'il dit de sûr, c'est que cet appariement ne sert plus à rien, et qu'il faut
     # refrapper.
     "refuse_par_le_pair",
+    # Le pair nous a DIT qu'il nous révoquait, par un avis signé que nous avons vérifié —
+    # et ses appels nous sont bien refusés depuis. Distinct de `refuse_par_le_pair`, qui
+    # est le même refus SANS avis : là on énumère les causes, ici on les nomme.
+    "revoque",
 ]
 
 

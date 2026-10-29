@@ -8,6 +8,7 @@ import {
   useAttachPeerEnvironment,
   useRevokePeer,
 } from "../api/pairing";
+import { ContactUrlForm } from "./ContactUrlForm";
 import { EnvironmentCell } from "./EnvironmentCell";
 import { EnvironmentPicker } from "./EnvironmentPicker";
 
@@ -74,6 +75,7 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
           <span className="badge">{environnement.public_key_fingerprint}</span>
         </div>
       </div>
+      <ContactUrlForm environnement={environnement} />
       <div className="actions row-actions">
         {aRattacher && (
           <button

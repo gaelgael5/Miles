@@ -5,7 +5,8 @@ from uuid import UUID
 
 from miles_socle.signing.identity_model import ModuleIdentity
 from miles_socle.signing.keys import fingerprint
-from pydantic import BaseModel, ConfigDict
+from miles_socle.signing.peers import MAX_BASE_URL_LENGTH
+from pydantic import BaseModel, ConfigDict, Field
 
 from enrolement.pairing.model import (
     EnvironmentPeer,
@@ -107,6 +108,10 @@ class PeerOut(BaseModel):
     # n'existe : l'écran les signale « à rattacher ». Aucun appariement neuf ne peut plus
     # se conclure sans — c'est un état transitoire hérité, pas un état admis.
     environment: EnvironmentRefOut | None
+    # L'adresse où JOINDRE cette stack, saisie par l'administrateur de CE module.
+    # Elle n'entre dans aucune signature et ne vaut jamais identité : l'origine
+    # déclarée d'un appel entrant se compare à `base_url`, et à elle seule.
+    contact_url: str
 
 
 def environment_out(environnement: EnvironmentRef | None) -> EnvironmentRefOut | None:
@@ -140,7 +145,14 @@ def peer_out(pair: EnvironmentPeer) -> PeerOut:
         created_at=pair.created_at,
         updated_at=pair.updated_at,
         environment=environment_out(pair.environment),
+        contact_url=pair.contact_url,
     )
+
+
+class ContactUrlIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    contact_url: str = Field(max_length=MAX_BASE_URL_LENGTH)
 
 
 def code_out(code: PairingCode) -> CodeOut:

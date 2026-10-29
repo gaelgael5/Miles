@@ -46,6 +46,13 @@ export interface PairedEnvironment {
   /** Nul tant que le référentiel des devices n'existe pas : l'écran affiche « — ». */
   device_count: number | null;
   /**
+   * L'adresse où JOINDRE cette stack, saisie ici. Elle n'entre dans aucune signature et
+   * ne vaut jamais identité : l'origine déclarée d'un appel entrant se compare à
+   * `base_url`, et à elle seule. Égale à `base_url` tant qu'aucun intermédiaire ne
+   * s'interpose — l'écran ne la montre alors pas.
+   */
+  contact_url: string;
+  /**
    * Nul UNIQUEMENT pour les appariements hérités, conclus avant que la désignation
    * n'existe : l'écran les signale « à rattacher ». Aucun appariement neuf ne peut plus
    * se conclure sans — c'est un état transitoire hérité, pas un état admis.
@@ -203,5 +210,24 @@ export function useRevokePeer() {
       void client.invalidateQueries({ queryKey: PAIRING_KEY });
       void client.invalidateQueries({ queryKey: ["environments"] });
     },
+  });
+}
+
+
+/**
+ * Change l'adresse où l'on joint une stack appariée. Son identité ne change pas.
+ *
+ * C'est la seule chose que ce module compose vers l'extérieur — l'avis de révocation —,
+ * et c'est pour cela qu'elle se saisit ici plutôt que d'être déclarée par la stack.
+ */
+export function useSetPeerContactUrl() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ baseUrl, contactUrl }: { baseUrl: string; contactUrl: string }) =>
+      request<PairedEnvironment>(
+        `/api/pairing/peers/contact?base_url=${encodeURIComponent(baseUrl)}`,
+        { method: "PUT", body: JSON.stringify({ contact_url: contactUrl }) },
+      ),
+    onSettled: () => client.invalidateQueries({ queryKey: PAIRING_KEY }),
   });
 }

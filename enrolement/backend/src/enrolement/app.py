@@ -87,6 +87,9 @@ def create_app() -> FastAPI:
             catalog,
             utc_now,
             settings.public_url,
+            # Le MÊME client que l'OIDC : un seul pool de connexions sortantes pour ce
+            # module, fermé par la durée de vie qui l'a ouvert.
+            http,
             settings.pairing_request_ttl_s,
         )
         app.state.environments = EnvironmentService(pool, catalog, utc_now)

@@ -27,6 +27,10 @@ ENVIRONMENT_ATTACHED_EVENT = "pairing.environment_attached"
 # trace qu'on cherchera le jour où des devices ne démarrent plus, et on la cherchera par
 # son nom.
 PAIRING_REVOKED_EVENT = "pairing.revoked"
+# Changer l'adresse où l'on joint une stack est une DÉCISION, pas un réglage : c'est
+# la seule chose que ce module compose vers l'extérieur, et il faut pouvoir dire qui
+# l'a changée le jour où un avis part ailleurs qu'on ne croit.
+PEER_CONTACT_CHANGED_EVENT = "pairing.peer_contact_changed"
 EVENT_TYPES = frozenset(
     {
         REQUEST_OPENED_EVENT,
@@ -36,6 +40,7 @@ EVENT_TYPES = frozenset(
         ENVIRONMENT_DESIGNATED_EVENT,
         ENVIRONMENT_ATTACHED_EVENT,
         PAIRING_REVOKED_EVENT,
+        PEER_CONTACT_CHANGED_EVENT,
     }
 )
 
@@ -207,3 +212,7 @@ class EnvironmentPeer:
     # n'existe. L'écran les signale « à rattacher » : c'est un état transitoire hérité,
     # pas un état admis — aucun appariement neuf ne peut plus se conclure sans.
     environment: EnvironmentRef | None
+    # L'adresse où JOINDRE cette stack, qui n'est pas son identité. Elle n'entre dans
+    # aucune chaîne signée, et elle est SAISIE ICI — jamais déclarée par la stack, qui
+    # choisirait alors la cible de nos appels sortants. Égale à `base_url` par défaut.
+    contact_url: str

@@ -10,7 +10,7 @@ import httpx
 from fastapi import FastAPI
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.testing.files import ADMIN_PASSWORD, ADMIN_USERNAME, BASE_ENV, admin_env, write_env
-from miles_socle.testing.stack import open_socle_stack, utc_now
+from miles_socle.testing.stack import SocleStack, open_socle_stack, utc_now
 
 from enrolement.app import build_app
 from enrolement.config import DEFAULT_MIGRATIONS_DIR
@@ -67,6 +67,7 @@ async def open_stack(
     admin_email: str | None = ADMIN_EMAIL,
     public_url: str = PUBLIC_URL,
     request_ttl_s: int = REQUEST_TTL_S,
+    peer_app: FastAPI | None = None,
 ) -> AsyncIterator[EnrolementStack]:
     """Monte le produit sur une base réelle, sans passer par uvicorn.
 
@@ -77,6 +78,11 @@ async def open_stack(
 
     `admin_email=None` monte une installation NEUVE, sans administrateur : c'est l'état
     dans lequel l'écran d'amorçage est ouvert, et le seul où il l'est.
+
+    `peer_app` remplace le réseau par une contrepartie EN PROCESSUS pour le seul appel que
+    ce module émette : l'avis de révocation. Sans elle, le client sortant tenterait une
+    vraie connexion et l'avis échouerait — ce qui est un cas à éprouver aussi, et c'est
+    pourquoi le défaut reste « pas de contrepartie ».
     """
     async with open_socle_stack(
         dsn=dsn,
@@ -88,28 +94,45 @@ async def open_stack(
         public_url=public_url,
         admin_email=admin_email,
     ) as socle:
-        pairing = PairingService(
-            socle.pool,
-            socle.app.state.secrets,
-            socle.cipher,
-            socle.catalog,
-            utc_now,
-            public_url,
-            request_ttl_s,
-        )
-        socle.app.state.pairing = pairing
-        environments = EnvironmentService(socle.pool, socle.catalog, utc_now)
-        socle.app.state.environments = environments
-        # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît au
-        # premier USAGE. Un montage qui la créerait d'avance cacherait justement le cas que
-        # la machine de test a révélé le 28/10/2026 — un démarrage sur base non migrée.
-        yield EnrolementStack(
-            socle.pool,
-            socle.app,
-            socle.client,
-            socle.env_file,
-            socle.http,
-            socle.cipher,
-            pairing,
-            environments,
-        )
+        transport = None if peer_app is None else httpx.ASGITransport(app=peer_app)
+        async with httpx.AsyncClient(transport=transport, timeout=5.0) as peer_http:
+            yield await _monte(socle, peer_http, public_url, request_ttl_s)
+
+
+async def _monte(
+    socle: SocleStack, peer_http: httpx.AsyncClient, public_url: str, request_ttl_s: int
+) -> EnrolementStack:
+    """Ce que CE produit ajoute aux sept services que le socle a déjà câblés.
+
+    Sorti de `open_stack` pour que le client des appels sortants soit fermé par son propre
+    `async with` : un client laissé ouvert sur une contrepartie en processus survit à la
+    campagne et fait traîner des connexions entre les tests.
+    """
+    pairing = PairingService(
+        socle.pool,
+        socle.app.state.secrets,
+        socle.cipher,
+        socle.catalog,
+        utc_now,
+        public_url,
+        # Branché sur la contrepartie en processus quand il y en a une : l'avis de
+        # révocation part alors pour de vrai, et se vérifie chez elle.
+        peer_http,
+        request_ttl_s,
+    )
+    socle.app.state.pairing = pairing
+    environments = EnvironmentService(socle.pool, socle.catalog, utc_now)
+    socle.app.state.environments = environments
+    # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît au
+    # premier USAGE. Un montage qui la créerait d'avance cacherait justement le cas que la
+    # machine de test a révélé le 28/10/2026 — un démarrage sur base non migrée.
+    return EnrolementStack(
+        socle.pool,
+        socle.app,
+        socle.client,
+        socle.env_file,
+        socle.http,
+        socle.cipher,
+        pairing,
+        environments,
+    )

@@ -7,7 +7,7 @@ from typing import NoReturn
 
 import httpx
 import structlog
-from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, sign_call
+from miles_socle.signing.calls import post_signed
 from miles_socle.signing.identity_model import OriginMissingError
 from miles_socle.signing.protocol import PEER_PING_PATH, PING_BODY
 
@@ -69,30 +69,23 @@ class IdentityPeerCalls(IdentityBase):
     """
 
     async def post_signed(self, contact_url: str, path: str, body: bytes) -> httpx.Response:
-        """POST signé par la clé privée du module. Seul endroit qui compose l'appel sortant.
+        """POST signé par la clé privée du module. Délègue au socle depuis le 29/10/2026.
 
-        `contact_url` est l'adresse où l'on COMPOSE, et elle n'entre dans AUCUNE signature :
-        la chaîne canonique porte notre propre origine, la méthode, le chemin et
-        l'empreinte du corps — jamais l'hôte appelé. C'est ce qui permet de joindre un pair
-        ailleurs qu'à l'origine qu'il déclare, sans que rien de ce qu'il vérifie ne change.
-
-        Elle est une origine SANS chemin : la cible signée et le chemin de la requête
-        coïncident donc, ce qui est la condition pour que le pair vérifie exactement la
-        chaîne qu'on a signée.
+        La composition elle-même est au socle (`miles_socle.signing.calls.post_signed`)
+        parce qu'un DEUXIÈME produit en a besoin : le module d'enrôlement, qui prévient
+        une stack qu'il lui révoque l'accès. Ce qui reste ici est ce qui n'appartient
+        qu'à ce module — sa clé privée, relue à chaque appel, et son origine configurée.
         """
         origine = self.origin
         if origine is None:
             raise OriginMissingError("MILES_PUBLIC_URL absente : le module ne peut pas signer")
-        privee = await self.resolve_private_key()
-        entete = sign_call(privee, origin=origine, method="POST", target=path, body=body)
-        return await self.http.post(
-            f"{contact_url}{path}",
-            content=body,
-            headers={
-                ORIGIN_HEADER: origine,
-                SIGNATURE_HEADER: entete,
-                "Content-Type": "application/json",
-            },
+        return await post_signed(
+            self.http,
+            await self.resolve_private_key(),
+            origin=origine,
+            contact_url=contact_url,
+            path=path,
+            body=body,
         )
 
     async def resolve_ping_peer(self) -> PeerPong:

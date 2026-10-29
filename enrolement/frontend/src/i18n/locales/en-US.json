@@ -54,6 +54,12 @@
       "captionSince": "Paired on",
       "captionDevices": "Assigned devices",
       "devicesUnknown": "—",
+      "contactCaption": "Reached at",
+      "contactHelp": "The address this module dials to notify the stack — of a revocation, for instance. It is part of no signature: only the origin the stack declares is verified. Change it if an intermediary stands in the way.",
+      "contactLabel": "Contact address",
+      "contactSubmit": "Save address",
+      "contactEdit": "Change contact address",
+      "contactError": "Address refused. An http(s) origin without a path is expected.",
       "devicesUnknownHelp": "The device registry does not exist yet: this number is unknown, and is deliberately not shown as zero."
     },
     "revoke": {

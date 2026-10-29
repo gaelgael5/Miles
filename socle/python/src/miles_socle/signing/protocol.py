@@ -126,3 +126,20 @@ class PairingConfirmOut(BaseModel):
     base_url: str
     public_key: str
     algorithm: str
+
+
+# L'enrôlement prévient l'environnement qu'il lui a RÉVOQUÉ l'accès. Seule route du
+# protocole servie par l'ENVIRONNEMENT et appelée par l'ENRÔLEMENT : le sens inverse de
+# toutes les autres, et c'est pour cela qu'elle est nommée ici plutôt que déduite.
+#
+# Elle existe parce que la révocation détruit la clé publique du pair : plus aucune
+# signature de lui n'étant vérifiable, répondre « tu es révoqué » à qui DÉCLARE cette
+# origine dirait à n'importe quel inconnu qu'une origine a été appariée puis révoquée.
+# L'avis poussé lève la contradiction — il est signé par l'enrôlement, et l'environnement
+# le vérifie avec une clé qu'il détient déjà.
+PAIRING_REVOKED_PATH = "/api/peer/pairing/revoked"
+# Corps de l'avis. Vide de sens, pas vide : son empreinte entre dans la signature, donc il
+# doit être identique des deux côtés. La DATE n'y figure pas — l'environnement date ce
+# qu'il reçoit avec sa propre horloge plutôt que de croire celle d'un autre, les deux
+# dérivant (mesuré à l'appariement, où la dérive a son propre refus).
+REVOKED_BODY = b"{}"

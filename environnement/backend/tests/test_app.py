@@ -16,6 +16,7 @@ from miles_socle.auth.throttle import LoginThrottle
 from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.probe import HealthReport
 from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER
+from miles_socle.signing.protocol import PAIRING_REVOKED_PATH
 
 from environnement.app import build_app
 from environnement.event_types import code_event_types
@@ -208,7 +209,11 @@ def test_la_route_de_pair_est_declaree_au_portillon_depuis_son_propre_routeur() 
     assert app.state.signed_api_paths == frozenset(
         route.path for route in peer_router.routes if isinstance(route, APIRoute)
     )
-    assert app.state.signed_api_paths == {PEER_PING_PATH}
+    # DEUX chemins ouverts depuis le 29/10/2026, et le second est le sens inverse du
+    # premier : l'enrôlement nous POUSSE l'avis qu'il nous a révoqué l'accès. Cette
+    # égalité est écrite en dur exprès — ouvrir un chemin de plus doit obliger quelqu'un
+    # à venir le dire ici, plutôt que de passer inaperçu.
+    assert app.state.signed_api_paths == {PEER_PING_PATH, PAIRING_REVOKED_PATH}
 
 
 def test_les_routes_de_l_identite_exigent_une_session(client_avec_admin: TestClient) -> None:

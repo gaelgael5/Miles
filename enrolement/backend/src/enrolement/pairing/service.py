@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 import asyncpg
+import httpx
 import structlog
 from miles_socle.events.model import EventAuthor, EventTypeCatalog
 from miles_socle.secrets.crypto import SecretCipher
@@ -23,6 +24,7 @@ from enrolement.pairing.model import (
     RequestNotFoundError,
 )
 from enrolement.pairing.peer_protocol import PairingPeerProtocol
+from enrolement.pairing.revocation import PairingRevocation
 from enrolement.pairing.store import (
     db_delete_request,
     db_get_request,
@@ -38,7 +40,7 @@ log = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
-class PairingService(PairingPeerProtocol, PairingEnvironmentLink):
+class PairingService(PairingPeerProtocol, PairingEnvironmentLink, PairingRevocation):
     """Le côté module d'enrôlement du protocole d'appariement (ticket 6a0daab6).
 
     Trois voies d'entrée, trois sources de confiance différentes, et les confondre serait
@@ -64,6 +66,9 @@ class PairingService(PairingPeerProtocol, PairingEnvironmentLink):
     # en-tête : un `Host` forgé ferait enregistrer chez le pair une origine qui n'est pas
     # la nôtre, et tous nos appels suivants seraient refusés.
     origin: str | None
+    # Client des appels sortants, construit et fermé par l'appelant. Ce module n'en
+    # émet qu'un seul genre : l'avis de révocation poussé à la stack qu'il révoque.
+    http: httpx.AsyncClient
     # Durée de vie d'une demande en attente, paramétrable (MILES_PAIRING_REQUEST_TTL_S).
     request_ttl_s: int
     # Composé plutôt que reçu : l'appelant construit déjà ce service avec exactement ce
