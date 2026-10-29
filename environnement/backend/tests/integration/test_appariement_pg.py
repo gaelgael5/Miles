@@ -664,7 +664,8 @@ async def test_un_appariement_que_le_pair_ne_reconnait_plus_se_voit_a_l_ecran(
         neuve = await stack.client.post(
             "/api/identity/pairing", json={"base_url": PEER_ORIGIN, "name": NOM}
         )
-        assert neuve.status_code == 200, neuve.text
+        # 202 : la demande est ouverte, rien n'est acquis. Le pair ne conclut qu'au code.
+        assert neuve.status_code == 202, neuve.text
 
 
 async def test_un_401_du_portillon_du_pair_n_est_pas_un_appariement_rompu(
