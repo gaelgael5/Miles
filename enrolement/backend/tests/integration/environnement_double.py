@@ -19,10 +19,12 @@ from miles_socle.signing.keys import (
     parse_public_key,
 )
 from miles_socle.signing.protocol import (
+    ENVIRONMENT_BODY,
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
     PAIRING_REVOKED_PATH,
     PAIRING_STATUS_PATH,
+    PEER_ENVIRONMENT_PATH,
     PEER_PING_PATH,
     PING_BODY,
 )
@@ -83,6 +85,10 @@ class EnvironmentDouble:
 
     async def status(self, client: httpx.AsyncClient) -> httpx.Response:
         return await self.post(client, PAIRING_STATUS_PATH, PING_BODY)
+
+    async def environment(self, client: httpx.AsyncClient) -> httpx.Response:
+        """Demande à quel environnement du référentiel cet appariement est rattaché."""
+        return await self.post(client, PEER_ENVIRONMENT_PATH, ENVIRONMENT_BODY)
 
     def knock_body(self) -> bytes:
         # Construit à la main plutôt que par `json.dumps` : ce sont ces OCTETS-LÀ qui sont

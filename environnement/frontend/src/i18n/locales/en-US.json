@@ -74,6 +74,15 @@
       "refused": "The code was refused: it is wrong, already used, or the request no longer exists. The request is still pending, another code can be entered.",
       "clockSkew": "The code was right, but the two servers' clocks differ by about {{seconds}} seconds. Set the machines to the right time, then try again.",
       "unexpected": "The operation did not succeed."
+    },
+    "environment": {
+      "caption": "Assigned environment",
+      "help": "This name is set by an administrator of the enrolment module: it is the authoritative one, not the name this stack declares about itself.",
+      "loading": "Reading the assigned environment…",
+      "none": "The enrolment module has not linked us to any environment of its registry.",
+      "neverKnown": "The enrolment module could not be reached, and no environment has ever been read: which one is assigned to us is unknown.",
+      "stale": "Last known value, read on {{date}}: the enrolment module could not be reached to refresh it.",
+      "unavailable": "The assigned environment could not be read."
     }
   }
 }

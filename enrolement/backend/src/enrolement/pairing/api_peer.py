@@ -14,12 +14,15 @@ from miles_socle.signing.protocol import (
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
     PAIRING_STATUS_PATH,
+    PEER_ENVIRONMENT_PATH,
     PEER_PING_PATH,
+    AssignedEnvironment,
     PairingConfirmIn,
     PairingConfirmOut,
     PairingRequestIn,
     PairingRequestOut,
     PairingStatusOut,
+    PeerEnvironmentOut,
     PongOut,
 )
 from pydantic import BaseModel, ValidationError
@@ -37,7 +40,7 @@ MODULE = "enrolement"
 # Routeur à part, et c'est tout l'intérêt : `app.py` lit SES chemins pour les déclarer au
 # portillon d'authentification. Le chemin ouvert et la route qui vérifie la signature
 # viennent ainsi de la même déclaration — un chemin ouvert sans sa vérification n'est plus
-# exprimable. Les trois routes d'ici sont authentifiées par signature, chacune contre une
+# exprimable. Les routes d'ici sont toutes authentifiées par signature, chacune contre une
 # clé d'une provenance différente, et aucune n'est ouverte à un appel nu.
 router = APIRouter()
 
@@ -223,4 +226,52 @@ async def post_peer_ping(request: Request) -> PongOut | JSONResponse:
         origin=service.origin,
         verified_key_fingerprint=fingerprint(pair.public_key),
         own_key_fingerprint=fingerprint(identite.public_key),
+    )
+
+
+@router.post(PEER_ENVIRONMENT_PATH, response_model=PeerEnvironmentOut)
+async def post_peer_environment(request: Request) -> PeerEnvironmentOut | JSONResponse:
+    """À quel environnement du référentiel cet appariement est-il rattaché ?
+
+    L'appelant ne CHOISIT rien ici et ne peut rien choisir : c'est un humain, chez nous,
+    qui a décidé. Il lit, pour l'afficher à son propre administrateur — le nom qui fait
+    autorité est celui-là, posé ici, et non le nom que la stack déclare sur elle-même.
+
+    Vérifiée contre la clé publique de l'environnement APPARIÉ, comme l'échange de
+    vivacité : chacun ne lit donc que son propre rattachement. Sans cette vérification,
+    la route dirait à n'importe qui comment nous nommons nos environnements.
+
+    POST et non GET bien qu'elle ne modifie rien, pour les deux mêmes raisons que le
+    `ping` : une réponse de GET est cachable par n'importe quel intermédiaire — et un
+    rattachement servi d'un cache ferait afficher un environnement qui n'est plus le bon —,
+    et la chaîne signée porte le corps, qu'un GET n'a pas.
+
+    Nul plutôt qu'un 404 quand aucun environnement n'est rattaché : « je n'ai rien décidé
+    pour toi » est une réponse, et un 404 se lirait « cette route n'existe pas chez lui »,
+    ce qui est exactement ce que son portillon d'authentification rend par ailleurs.
+    """
+    service = _service(request)
+    # Lu AVANT la vérification parce qu'il entre dans ce qui est signé. Il n'est pas
+    # interprété pour autant : seule son empreinte est employée ici.
+    raw = await request.body()
+    try:
+        pair = await service.resolve_verify_incoming(
+            declared_origin=request.headers.get(ORIGIN_HEADER),
+            signature=request.headers.get(SIGNATURE_HEADER),
+            method=request.method,
+            target=request.url.path,
+            body=raw,
+        )
+    except PairingRefusedError:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "signature_refusee"}
+        )
+    except IdentityError as exc:
+        return _refus(exc)
+    if pair.environment is None:
+        # Un appariement HÉRITÉ, conclu avant que la désignation n'existe. L'autre bout
+        # l'affiche « non rattaché » plutôt que vide : les deux ne se lisent pas pareil.
+        return PeerEnvironmentOut(environment=None)
+    return PeerEnvironmentOut(
+        environment=AssignedEnvironment(slug=pair.environment.slug, label=pair.environment.label)
     )

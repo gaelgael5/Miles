@@ -74,6 +74,15 @@
       "refused": "Le code a été refusé : il est faux, déjà utilisé, ou la demande n'existe plus. La demande reste en attente, un nouveau code peut être saisi.",
       "clockSkew": "Le code était le bon, mais les horloges des deux serveurs diffèrent d'environ {{seconds}} secondes. Remettre les machines à l'heure, puis réessayer.",
       "unexpected": "L'opération n'a pas abouti."
+    },
+    "environment": {
+      "caption": "Environnement assigné",
+      "help": "Ce nom est posé par un administrateur du module d'enrôlement : c'est lui qui fait autorité, et non le nom que cette stack déclare sur elle-même.",
+      "loading": "Lecture de l'environnement assigné…",
+      "none": "Le module d'enrôlement ne nous a rattachés à aucun environnement de son référentiel.",
+      "neverKnown": "Le module d'enrôlement n'a pas pu être joint, et aucun environnement n'a jamais été lu : lequel nous est assigné n'est pas connu.",
+      "stale": "Dernière valeur connue, lue le {{date}} : le module d'enrôlement n'a pas pu être joint pour la rafraîchir.",
+      "unavailable": "L'environnement assigné n'a pas pu être lu."
     }
   }
 }

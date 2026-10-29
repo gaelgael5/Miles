@@ -6,7 +6,7 @@ from typing import Any, Protocol
 from miles_socle.signing.identity_model import SINGLETON
 from miles_socle.signing.keys import ALGORITHM
 
-from environnement.identity.model import EnrolmentPeer, PairingAttempt
+from environnement.identity.model import AssignedEnvironment, EnrolmentPeer, PairingAttempt
 
 # `module_identity` est lue et écrite par le socle (`miles_socle.signing.identity_store`) :
 # la table est déclarée par la migration de CE produit, les requêtes sont au socle, qui
@@ -64,6 +64,14 @@ async def db_upsert_peer(
     main ne change rien à cela. Mesuré le 28/10/2026 en repointant le transport sur machine
     de test — le nom déclaré disparaissait sans que rien ne le dise, et l'écran de l'autre
     bout continuait pourtant de l'afficher. Une perte silencieuse est pire qu'un refus.
+
+    L'ENVIRONNEMENT RATTACHÉ mémorisé n'est effacé que si l'IDENTITÉ du pair change. Une
+    stack qui tourne ses clés chez le même enrôlement garde son repli daté, qui reste vrai
+    ; un pair différent, lui, n'a jamais rien dit de nous, et montrer comme repli ce qu'un
+    autre module avait décidé serait un mensonge que la date ne rattraperait pas. C'est
+    l'inverse de `revoked_at`, effacée dans tous les cas : une date de révocation sur un
+    appariement vivant se CONTREDIT, alors qu'un rattachement périmé est seulement vieux —
+    et il le dit.
     """
     row = await db.fetchrow(
         "INSERT INTO enrolment_peer (id, base_url, public_key, algorithm, created_at,"
@@ -72,7 +80,13 @@ async def db_upsert_peer(
         " public_key = excluded.public_key, algorithm = excluded.algorithm,"
         " updated_at = excluded.updated_at,"
         " declared_name = coalesce(excluded.declared_name, enrolment_peer.declared_name),"
-        " contact_url = excluded.contact_url, revoked_at = NULL"
+        " contact_url = excluded.contact_url, revoked_at = NULL,"
+        " environment_slug = CASE WHEN enrolment_peer.base_url = excluded.base_url"
+        " THEN enrolment_peer.environment_slug END,"
+        " environment_label = CASE WHEN enrolment_peer.base_url = excluded.base_url"
+        " THEN enrolment_peer.environment_label END,"
+        " environment_fetched_at = CASE WHEN enrolment_peer.base_url = excluded.base_url"
+        " THEN enrolment_peer.environment_fetched_at END"
         " RETURNING base_url, public_key, algorithm, created_at, updated_at,"
         " declared_name, contact_url, revoked_at",
         SINGLETON,
@@ -164,3 +178,65 @@ async def db_clear_peer_revoked(db: PeerDb, /) -> None:
     contresens exact que ce ticket corrige, retourné.
     """
     await db.execute("UPDATE enrolment_peer SET revoked_at = NULL WHERE id = $1", SINGLETON)
+
+
+def _environnement(row: Any) -> AssignedEnvironment | None:
+    """Les trois colonnes, ou rien. La base garantit qu'elles ne sont jamais à moitié là.
+
+    Lire `slug` seul suffirait aujourd'hui, mais la lecture dit ce que l'invariant promet :
+    le jour où la contrainte sauterait, c'est ici que ça se verrait plutôt qu'à l'affichage.
+    """
+    if row["environment_slug"] is None or row["environment_fetched_at"] is None:
+        return None
+    return AssignedEnvironment(
+        row["environment_slug"], row["environment_label"], row["environment_fetched_at"]
+    )
+
+
+async def db_get_assigned_environment(db: PeerDb, /) -> AssignedEnvironment | None:
+    """La dernière valeur connue, avec sa date. Nulle tant qu'on n'a jamais réussi à la lire.
+
+    Nulle AUSSI quand aucun pair n'est enregistré, et c'est la même réponse pour une
+    raison différente : l'appelant a lu le pair avant, et sait distinguer les deux.
+    """
+    row = await db.fetchrow(
+        "SELECT environment_slug, environment_label, environment_fetched_at"
+        " FROM enrolment_peer WHERE id = $1",
+        SINGLETON,
+    )
+    return None if row is None else _environnement(row)
+
+
+async def db_save_assigned_environment(
+    db: PeerDb, slug: str, label: str, now: datetime
+) -> AssignedEnvironment | None:
+    """Mémorise ce que le pair vient de dire. Nul si aucun pair n'est enregistré.
+
+    Rend ce qui a été ÉCRIT plutôt que ce qu'on voulait écrire : un stockage normalise ce
+    qu'on lui donne, et c'est la valeur relue que l'écran affichera.
+    """
+    row = await db.fetchrow(
+        "UPDATE enrolment_peer SET environment_slug = $2, environment_label = $3,"
+        " environment_fetched_at = $4 WHERE id = $1"
+        " RETURNING environment_slug, environment_label, environment_fetched_at",
+        SINGLETON,
+        slug,
+        label,
+        now,
+    )
+    return None if row is None else _environnement(row)
+
+
+async def db_clear_assigned_environment(db: PeerDb, /) -> None:
+    """Oublie la valeur mémorisée parce que le pair vient de dire qu'il n'en a plus.
+
+    Une valeur mémorisée ne survit PAS à une réponse fraîche qui la contredit (critère 5) :
+    la garder ferait afficher un environnement dont l'autorité vient de dire qu'il n'est
+    plus le nôtre, et la date n'y changerait rien — elle dirait seulement depuis quand on
+    se trompe.
+    """
+    await db.execute(
+        "UPDATE enrolment_peer SET environment_slug = NULL, environment_label = NULL,"
+        " environment_fetched_at = NULL WHERE id = $1",
+        SINGLETON,
+    )

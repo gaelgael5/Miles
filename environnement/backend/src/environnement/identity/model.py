@@ -122,6 +122,54 @@ class EnrolmentPeer:
     contact_url: str
 
 
+@dataclass(frozen=True)
+class AssignedEnvironment:
+    """L'environnement du référentiel de l'enrôlement auquel il nous a rattachés.
+
+    Le seul nom qui fasse AUTORITÉ sur cet environnement : il est posé par un humain chez
+    l'enrôlement, alors que `declared_name` est ce que cette stack dit d'elle-même. Les
+    deux peuvent différer, et c'est celui-ci qui compte.
+
+    `fetched_at` est DANS cette classe, et non à côté : une valeur venue d'un autre module
+    ne s'affiche jamais sans la date à laquelle on l'a obtenue — faute de quoi un repli
+    serait indiscernable d'une lecture fraîche. Les trois champs vivent et meurent
+    ensemble, et la base le refuse aussi (contrainte `enrolment_peer_environment_complet`).
+
+    L'identifiant du référentiel n'y figure PAS : c'est la clé d'une autre base, et la
+    ranger ici écrirait une relation que personne ne réconcilie.
+    """
+
+    slug: str
+    label: str
+    # NOTRE horloge, pas celle du pair. Les deux dérivent, et pour un affichage mieux vaut
+    # la date dont on répond que celle qu'un autre annonce.
+    fetched_at: datetime
+
+
+@dataclass(frozen=True)
+class AssignedEnvironmentView:
+    """L'environnement rattaché tel que l'écran doit le montrer, fraîcheur comprise.
+
+    Quatre cas, et les quatre se lisent différemment — c'est pourquoi `fresh` ne se déduit
+    pas de `environment` :
+
+    - frais avec valeur : ce que le pair vient de dire ;
+    - frais SANS valeur : le pair répond qu'aucun environnement ne nous est rattaché.
+      La valeur mémorisée est alors EFFACÉE — elle ne survit pas à une réponse fraîche qui
+      la contredit ;
+    - pas frais avec valeur : le pair est injoignable, on montre la dernière valeur connue
+      et sa date, en disant qu'elle n'a pas pu être rafraîchie ;
+    - pas frais SANS valeur : le pair est injoignable et on n'a jamais rien su. On le dit,
+      plutôt que de montrer un vide qui se lirait « aucun environnement rattaché ».
+
+    Les deux derniers cas ne diffèrent que par ce champ, et les confondre ferait annoncer
+    « aucun environnement » à un administrateur dont le réseau est coupé.
+    """
+
+    environment: AssignedEnvironment | None
+    fresh: bool
+
+
 # Les états que l'écran d'appariement doit distinguer. « En attente » et « échoué » ne
 # peuvent pas être confondus : un écran qui les mélange fait recommencer la demande
 # indéfiniment, ou fait attendre une acceptation qui ne viendra jamais.

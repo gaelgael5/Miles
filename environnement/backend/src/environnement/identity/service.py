@@ -20,6 +20,7 @@ from miles_socle.signing.identity import ModuleIdentityService
 from miles_socle.signing.keys import parse_public_key
 from miles_socle.signing.protocol import PEER_PING_PATH as PEER_PING_PATH
 
+from environnement.identity.assigned_environment import IdentityAssignedEnvironment
 from environnement.identity.events import EVENT_TYPES as EVENT_TYPES
 from environnement.identity.events import PAIRING_CANCELLED_EVENT as PAIRING_CANCELLED_EVENT
 from environnement.identity.events import PAIRING_REQUESTED_EVENT as PAIRING_REQUESTED_EVENT
@@ -31,6 +32,7 @@ from environnement.identity.model import (
     EnrolmentPeer,
 )
 from environnement.identity.pairing_flow import IdentityPairingFlow
+from environnement.identity.pairing_status import IdentityPairingStatus
 from environnement.identity.peer_calls import PEER_HTTP_TIMEOUT_S as PEER_HTTP_TIMEOUT_S
 from environnement.identity.peer_calls import PeerPong as PeerPong
 from environnement.identity.store import db_get_peer
@@ -39,7 +41,7 @@ log = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
-class IdentityService(IdentityPairingFlow):
+class IdentityService(IdentityPairingFlow, IdentityPairingStatus, IdentityAssignedEnvironment):
     """L'identité du module et son pair unique : ce que l'environnement ajoute au socle.
 
     La paire de clés, son secret et son contrôle de cohérence viennent du socle
@@ -47,6 +49,11 @@ class IdentityService(IdentityPairingFlow):
     condition pour que les deux bouts signent et vérifient la même chose. Ce qui est ici
     est ce qui n'appartient qu'à l'environnement : son pair UNIQUE, et les deux sens de
     l'échange avec lui.
+
+    UNE classe, découpée en plusieurs fichiers par héritage — aucune indirection ajoutée à
+    l'exécution, et il n'existe toujours qu'une classe concrète. Les parties : les appels
+    sortants et la lecture de ce qui revient, les gestes de l'appariement, le constat de
+    son état, et l'environnement que l'enrôlement nous a assigné.
     """
 
     pool: asyncpg.Pool

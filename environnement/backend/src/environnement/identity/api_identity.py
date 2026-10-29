@@ -22,6 +22,7 @@ from miles_socle.signing.peers import (
 from miles_socle.signing.protocol import PongOut
 
 from environnement.identity.api_schemas import (
+    AssignedEnvironmentViewOut,
     AttemptOut,
     IdentityOut,
     PairingConfirmIn,
@@ -29,6 +30,7 @@ from environnement.identity.api_schemas import (
     PairingStateOut,
     PeerIn,
     PeerOut,
+    assigned_environment_out,
     attempt_out,
     identity_out,
     peer_out,
@@ -213,6 +215,29 @@ async def get_pairing_state(request: Request) -> PairingStateOut | JSONResponse:
         attempt=None if etat.attempt is None else attempt_out(etat.attempt),
         peer=None if etat.peer is None else peer_out(etat.peer),
     )
+
+
+@router.get("/environment", response_model=AssignedEnvironmentViewOut)
+async def get_assigned_environment(request: Request) -> AssignedEnvironmentViewOut | JSONResponse:
+    """L'environnement du référentiel auquel le module d'enrôlement nous a rattachés.
+
+    Route à part de l'état d'appariement, et non un champ de plus dans sa réponse : les
+    deux émettent chacune leur appel signé vers le pair, et les fondre ferait échouer
+    l'une avec l'autre. L'écran veut au contraire pouvoir dire « apparié, mais
+    l'environnement n'a pas pu être rafraîchi ».
+
+    Un appel SORTANT à chaque affichage, borné par `PEER_HTTP_TIMEOUT_S`. Le pair
+    injoignable n'est pas une erreur ici : la réponse porte alors la dernière valeur
+    connue et sa date, avec `fresh: false` — c'est le repli assumé du ticket.
+    """
+    try:
+        vue = await _service(request).resolve_assigned_environment()
+    except IdentityError as exc:
+        # Pas de pair apparié : il n'y a personne à qui demander. 404 et non une vue vide,
+        # qui se lirait « aucun environnement rattaché » alors qu'il n'y a pas
+        # d'appariement du tout.
+        return _error(exc)
+    return assigned_environment_out(vue)
 
 
 @router.post("/pairing", response_model=AttemptOut, status_code=status.HTTP_202_ACCEPTED)

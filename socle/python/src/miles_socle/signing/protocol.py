@@ -143,3 +143,51 @@ PAIRING_REVOKED_PATH = "/api/peer/pairing/revoked"
 # qu'il reçoit avec sa propre horloge plutôt que de croire celle d'un autre, les deux
 # dérivant (mesuré à l'appariement, où la dérive a son propre refus).
 REVOKED_BODY = b"{}"
+
+# L'environnement demande à quel environnement du référentiel l'enrôlement l'a rattaché.
+# Servie par l'ENRÔLEMENT, appelée par l'ENVIRONNEMENT, comme les quatre premières.
+#
+# POURQUOI UNE ROUTE À ELLE, ET PAS UN CHAMP DE PLUS DANS LE PONG. L'échange de vivacité
+# est servi par les DEUX modules avec la même forme de réponse, et c'est ce qui permet à
+# `PongOut` d'être défini une seule fois ici. L'environnement rattaché, lui, n'existe que
+# d'un côté : l'y ajouter ferait porter au pong un champ toujours nul chez l'un des deux
+# répondants, et la symétrie qui rend ce modèle partageable serait perdue. Une route de
+# plus ne change rien à l'existant ; un champ asymétrique change la lecture des deux.
+PEER_ENVIRONMENT_PATH = "/api/peer/environment"
+# Corps de la question. Vide de sens, pas vide : son empreinte entre dans la signature.
+ENVIRONMENT_BODY = b"{}"
+# Bornes GROSSIÈRES de ce qui voyage, volontairement plus larges que la règle du
+# référentiel de l'enrôlement — qui est à lui, pas au contrat, et que le contrat n'a pas à
+# recopier sous peine de refuser demain un nom qu'il aura décidé d'accepter. Elles
+# existent pour qu'une charge démesurée ne soit pas écrite dans la base du consommateur.
+MAX_ENVIRONMENT_SLUG_LENGTH = 200
+MAX_ENVIRONMENT_LABEL_LENGTH = 400
+
+
+class AssignedEnvironment(BaseModel):
+    """L'environnement du référentiel de l'enrôlement, nommé pour un écran.
+
+    Le SLUG et le LIBELLÉ, jamais l'identifiant. L'identifiant est la clé du référentiel de
+    l'enrôlement, et le faire voyager inviterait l'autre bout à s'en servir comme d'une
+    référence stable — donc à écrire une relation entre deux bases que personne ne
+    réconcilie. Les deux noms voyagent parce qu'ils s'affichent : le libellé se lit, et le
+    slug est ce qui s'écrit dans une procédure.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str = Field(max_length=MAX_ENVIRONMENT_SLUG_LENGTH)
+    label: str = Field(max_length=MAX_ENVIRONMENT_LABEL_LENGTH)
+
+
+class PeerEnvironmentOut(BaseModel):
+    """Réponse de la route ci-dessus : l'environnement rattaché, ou rien.
+
+    Un objet imbriqué plutôt que deux champs plats et nullables : « rattaché ou non » est
+    UNE information, et deux champs permettraient d'en rendre une moitié — un slug sans
+    libellé — que personne ne saurait afficher.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    environment: AssignedEnvironment | None

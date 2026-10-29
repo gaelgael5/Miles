@@ -20,6 +20,7 @@ from miles_socle.signing.protocol import (
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
     PAIRING_STATUS_PATH,
+    PEER_ENVIRONMENT_PATH,
     PEER_PING_PATH,
 )
 
@@ -209,7 +210,7 @@ def test_seules_les_routes_de_pair_echappent_a_la_session() -> None:
     """La liste blanche des chemins signés est DÉRIVÉE du routeur qui les porte.
 
     Cette garde vérifie les deux moitiés : que la dérivation donne bien ce que le routeur
-    porte, et que ce routeur ne porte QUE les trois routes du protocole. Sans la seconde,
+    porte, et que ce routeur ne porte QUE les routes du protocole. Sans la seconde,
     une route d'administration glissée dans ce routeur serait ouverte à tous — et la
     première assertion resterait verte.
     """
@@ -223,6 +224,11 @@ def test_seules_les_routes_de_pair_echappent_a_la_session() -> None:
         PAIRING_REQUEST_PATH,
         PAIRING_CONFIRM_PATH,
         PAIRING_STATUS_PATH,
+        # Ajoutée le 29/10/2026 : l'environnement apparié y lit à quel environnement du
+        # référentiel il est rattaché. La liste est écrite À LA MAIN ici, et c'est tout
+        # l'intérêt — elle a rougi à l'ajout de cette route, ce qui est exactement le
+        # moment où quelqu'un doit décider qu'un chemin de plus échappe à la session.
+        PEER_ENVIRONMENT_PATH,
     }
 
 

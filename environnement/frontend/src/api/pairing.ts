@@ -58,6 +58,35 @@ export interface PairingState {
   peer: EnrolmentPeer | null;
 }
 
+/**
+ * L'environnement du référentiel auquel le module d'enrôlement nous a rattachés.
+ *
+ * Le seul nom qui fasse AUTORITÉ sur cet environnement : il est posé par un humain chez
+ * l'enrôlement, alors que `declared_name` est ce que cette stack dit d'elle-même. Les deux
+ * peuvent différer, et c'est celui-ci qui compte.
+ *
+ * `fetched_at` voyage AVEC la valeur, parce qu'une valeur venue d'un autre module ne
+ * s'affiche jamais sans la date à laquelle on l'a obtenue : sans elle, un repli serait
+ * indiscernable d'une lecture fraîche.
+ */
+export interface AssignedEnvironment {
+  slug: string;
+  label: string;
+  fetched_at: string;
+}
+
+export interface AssignedEnvironmentView {
+  environment: AssignedEnvironment | null;
+  /**
+   * Vrai quand la valeur vient d'être relue chez le pair. Ne se déduit PAS de
+   * `environment` : « le pair est injoignable et on n'a jamais rien su » et « le pair dit
+   * qu'aucun environnement ne nous est rattaché » rendent tous deux `environment: null`,
+   * et les confondre annoncerait « aucun environnement » à un administrateur dont le
+   * réseau est coupé.
+   */
+  fresh: boolean;
+}
+
 const PAIRING_KEY = ["pairing"] as const;
 // Pendant l'attente, l'état vit chez le pair : c'est un humain, là-bas, qui va répondre.
 // Sans relecture, l'écran dirait « en attente » longtemps après le refus.
@@ -124,4 +153,22 @@ export function clockDrift(error: unknown): number | null {
   }
   const derive = error.payload.drift_s;
   return typeof derive === "number" && Number.isFinite(derive) ? Math.round(derive) : null;
+}
+
+/**
+ * L'environnement assigné, relu CHEZ LE PAIR à chaque affichage.
+ *
+ * Sa propre requête, et non un champ de l'état d'appariement : les deux émettent chacune
+ * un appel signé vers le pair, et les fondre ferait échouer l'une avec l'autre. L'écran
+ * veut au contraire pouvoir dire « apparié, mais l'environnement n'a pas pu être rafraîchi ».
+ *
+ * Aucune relecture périodique : ce nom ne change que par un geste humain à l'autre bout,
+ * et le serveur paie un appel sortant à chaque lecture.
+ */
+export function useAssignedEnvironment() {
+  return useQuery({
+    queryKey: [...PAIRING_KEY, "environment"],
+    queryFn: ({ signal }) =>
+      request<AssignedEnvironmentView>("/api/identity/environment", { signal }),
+  });
 }

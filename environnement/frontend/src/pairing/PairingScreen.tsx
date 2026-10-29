@@ -1,174 +1,11 @@
-import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, ConfirmDialog, PageHead } from "@miles/socle-web";
+import { PageHead } from "@miles/socle-web";
 
-import {
-  clockDrift,
-  type EnrolmentPeer,
-  type PairingState,
-  useCancelPairing,
-  useConfirmPairing,
-  usePairingState,
-  useRequestPairing,
-} from "../api/pairing";
-
-/**
- * La clef de libellé d'un refus, choisie sur ce que le serveur a RÉELLEMENT dit.
- *
- * Les cas sont séparés parce qu'ils appellent des gestes différents : une URL malformée
- * se corrige dans le champ, une URL qui ne répond pas se vérifie ailleurs, et un code
- * refusé se ressaisit. Les fondre en « une erreur est survenue » ferait recommencer au
- * hasard — ce que le ticket interdit explicitement.
- */
-function refusKey(error: unknown): string {
-  if (!(error instanceof ApiError)) {
-    return "pairing.errors.unexpected";
-  }
-  if (error.status === 422) {
-    return error.detail === "name" ? "pairing.errors.name" : "pairing.errors.baseUrl";
-  }
-  if (error.status === 502) {
-    return "pairing.errors.unreachable";
-  }
-  if (error.status === 409) {
-    return "pairing.errors.refused";
-  }
-  return "pairing.errors.unexpected";
-}
-
-function Refus({ error }: { error: unknown }) {
-  const { t } = useTranslation();
-  const derive = clockDrift(error);
-  return (
-    <p className="alert alert-danger" role="alert">
-      {/* La dérive d'horloge est le SEUL refus que le pair détaille, et il le fait parce
-          qu'un appariement TOTP qui échoue sans dire pourquoi est le piège classique :
-          on cherche du côté du code pendant que la cause est une machine à l'heure près. */}
-      {derive === null
-        ? t(refusKey(error))
-        : t("pairing.errors.clockSkew", { seconds: Math.abs(derive) })}
-    </p>
-  );
-}
-
-function FormulaireDemande({ reappariement }: { reappariement: boolean }) {
-  const { t } = useTranslation();
-  const [baseUrl, setBaseUrl] = useState("");
-  const [nom, setNom] = useState("");
-  const [confirme, setConfirme] = useState(false);
-  const demande = useRequestPairing();
-
-  function envoyer() {
-    demande.mutate({ base_url: baseUrl, name: nom });
-  }
-
-  function soumettre(event: FormEvent) {
-    event.preventDefault();
-    // Un ré-appariement remplace l'appariement courant et prive l'environnement des
-    // devices que le module précédent lui avait affectés : jamais sans avertissement.
-    if (reappariement) {
-      setConfirme(true);
-      return;
-    }
-    envoyer();
-  }
-
-  return (
-    <form className="panel" onSubmit={soumettre}>
-      <div className="field">
-        <label htmlFor="pairing-url">{t("pairing.form.baseUrl")}</label>
-        <input
-          id="pairing-url"
-          type="text"
-          value={baseUrl}
-          autoComplete="off"
-          onChange={(event) => setBaseUrl(event.target.value)}
-        />
-        <p className="help">{t("pairing.form.baseUrlHelp")}</p>
-      </div>
-      <div className="field">
-        <label htmlFor="pairing-name">{t("pairing.form.name")}</label>
-        <input
-          id="pairing-name"
-          type="text"
-          value={nom}
-          maxLength={80}
-          autoComplete="off"
-          onChange={(event) => setNom(event.target.value)}
-        />
-        <p className="help">{t("pairing.form.nameHelp")}</p>
-      </div>
-      {demande.isError && <Refus error={demande.error} />}
-      <div className="actions">
-        <button type="submit" className="btn btn-primary" disabled={demande.isPending}>
-          {reappariement ? t("pairing.form.submitAgain") : t("pairing.form.submit")}
-        </button>
-      </div>
-      {confirme && (
-        <ConfirmDialog
-          title={t("pairing.repair.title")}
-          confirmLabel={t("pairing.repair.confirm")}
-          cancelLabel={t("pairing.repair.cancel")}
-          onCancel={() => setConfirme(false)}
-          onConfirm={() => {
-            setConfirme(false);
-            envoyer();
-          }}
-        >
-          <p>{t("pairing.repair.body")}</p>
-        </ConfirmDialog>
-      )}
-    </form>
-  );
-}
-
-function SaisieDuCode({ enrolmentUrl }: { enrolmentUrl: string }) {
-  const { t } = useTranslation();
-  const [code, setCode] = useState("");
-  const confirmation = useConfirmPairing();
-  const annulation = useCancelPairing();
-
-  return (
-    <div className="panel">
-      <p className="help">{t("pairing.pending.where", { url: enrolmentUrl })}</p>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          confirmation.mutate(code, { onSuccess: () => setCode("") });
-        }}
-      >
-        <div className="field">
-          <label htmlFor="pairing-code">{t("pairing.pending.codeLabel")}</label>
-          <input
-            id="pairing-code"
-            type="text"
-            value={code}
-            autoComplete="off"
-            inputMode="numeric"
-            onChange={(event) => setCode(event.target.value)}
-          />
-          {/* Le code arrive par copier-coller : espaces et retours à la ligne sont
-              nettoyés avant l'envoi, pas refusés. */}
-          <p className="help">{t("pairing.pending.codeHelp")}</p>
-        </div>
-        {confirmation.isError && <Refus error={confirmation.error} />}
-        <div className="actions">
-          <button type="submit" className="btn btn-primary" disabled={confirmation.isPending}>
-            {t("pairing.pending.submit")}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => annulation.mutate()}
-          >
-            {t("pairing.pending.cancel")}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
+import { type EnrolmentPeer, type PairingState, usePairingState } from "../api/pairing";
+import { EnvironnementAssigne } from "./EnvironnementAssigne";
+import { FormulaireDemande } from "./FormulaireDemande";
+import { SaisieDuCode } from "./SaisieDuCode";
 
 function Apparie({ peer }: { peer: EnrolmentPeer }) {
   const { t } = useTranslation();
@@ -268,6 +105,13 @@ export function PairingScreen() {
           <Etat etat={etat.data} />
         </div>
         {peer !== null && <Apparie peer={peer} />}
+        {/* Lu CHEZ L'ENRÔLEMENT à l'affichage, dans sa propre requête : c'est le seul nom
+            qui fasse autorité sur cet environnement — il est posé par un humain là-bas,
+            alors que le nom déclaré juste au-dessus est ce que cette stack dit d'elle-même.
+            Une requête à part de l'état d'appariement, pour que l'une puisse échouer sans
+            l'autre : « apparié, mais l'environnement n'a pas pu être rafraîchi » est
+            précisément ce que l'écran doit pouvoir dire. */}
+        {peer !== null && <EnvironnementAssigne />}
         {state === "pair_injoignable" && (
           // Distinct d'un refus : faire recommencer pour une panne de réseau détruirait
           // un appariement que quelqu'un est peut-être en train d'accepter.

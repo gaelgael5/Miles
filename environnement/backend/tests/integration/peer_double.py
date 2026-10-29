@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
 from miles_socle.signing.calls import (
     ORIGIN_HEADER,
@@ -16,6 +16,7 @@ from miles_socle.signing.protocol import (
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
     PAIRING_STATUS_PATH,
+    PEER_ENVIRONMENT_PATH,
     PEER_PING_PATH,
 )
 
@@ -77,6 +78,24 @@ class EnrolmentDouble:
     # Les hôtes réellement COMPOSÉS, dans l'ordre. L'origine déclarée dit qui appelle ;
     # celui-ci dit où l'appel a été envoyé, et les deux n'ont plus à coïncider.
     dialled: list[str] = field(default_factory=list)
+    # L'environnement du référentiel auquel la contrepartie nous a rattachés. `None` est
+    # la réponse d'un appariement HÉRITÉ, conclu chez elle avant que la désignation
+    # n'existe : elle répond alors 200 « rien », qui n'est pas un refus.
+    environment: dict[str, str] | None = field(
+        default_factory=lambda: {"slug": "recette", "label": "Environnement de recette"}
+    )
+    # Un refus servi PAR AVANCE sur cette route, comme `ping_refusal` sur l'autre : un
+    # refus n'est pas une absence d'environnement, et ce module doit lire les deux
+    # différemment — l'un fait replier sur la dernière valeur connue, l'autre l'efface.
+    environment_refusal: tuple[int, str] | None = None
+    # Un corps HORS CONTRAT servi en 200. Il existe parce qu'un 200 ne garantit pas la
+    # forme : un intermédiaire, une page d'erreur ou une autre version du pair peuvent
+    # rendre 200 sur autre chose, et l'écrire en base reviendrait à y ranger ce qu'un
+    # inconnu a renvoyé.
+    environment_raw: bytes | None = None
+    # Combien de fois la route a été appelée. Un affichage qui ne redemande rien laisserait
+    # l'écran sur une valeur périmée sans que rien ne le dise.
+    environment_calls: int = 0
 
     def app(self) -> FastAPI:
         app = FastAPI()
@@ -155,6 +174,26 @@ class EnrolmentDouble:
                     "own_key_fingerprint": fingerprint(self.keypair.public_key),
                 }
             )
+
+        @app.post(PEER_ENVIRONMENT_PATH)
+        async def environnement(request: Request) -> Response:
+            body = await request.body()
+            self.environment_calls += 1
+            self.dialled.append(request.url.netloc)
+            if self.environment_refusal is not None:
+                statut, detail = self.environment_refusal
+                return JSONResponse(status_code=statut, content={"detail": detail})
+            # La vraie route est vérifiée contre la clé du pair APPARIÉ, exactement comme
+            # l'échange de vivacité : la doublure fait de même, sans quoi elle laisserait
+            # passer ce que le vrai refuserait.
+            if not self._verifie(request, body, self.expects_public_key):
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": "signature_refusee"},
+                )
+            if self.environment_raw is not None:
+                return Response(content=self.environment_raw, media_type="application/json")
+            return JSONResponse(content={"environment": self.environment})
 
         return app
 

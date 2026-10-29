@@ -8,7 +8,11 @@ from miles_socle.signing.peers import MAX_BASE_URL_LENGTH, MAX_DECLARED_NAME_LEN
 from miles_socle.signing.protocol import PongOut
 from pydantic import BaseModel, ConfigDict, Field
 
-from environnement.identity.model import EnrolmentPeer, PairingAttempt
+from environnement.identity.model import (
+    AssignedEnvironmentView,
+    EnrolmentPeer,
+    PairingAttempt,
+)
 from environnement.identity.peer_calls import PeerPong
 
 # Les FORMES que les routes d'administration rendent, et la traduction du modèle vers
@@ -111,6 +115,36 @@ class PeerOut(BaseModel):
     updated_at: datetime
 
 
+class AssignedEnvironmentOut(BaseModel):
+    """L'environnement rattaché, et QUAND on l'a appris. Les trois vont ensemble.
+
+    La date voyage avec la valeur plutôt qu'à côté : un écran qui recevrait l'une sans
+    l'autre afficherait un repli comme une lecture fraîche, et c'est exactement ce que ce
+    ticket interdit.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    label: str
+    fetched_at: datetime
+
+
+class AssignedEnvironmentViewOut(BaseModel):
+    """Ce que l'écran reçoit : la valeur, et si elle vient d'être relue chez le pair.
+
+    `fresh` ne se déduit PAS de `environment` : « le pair est injoignable et on n'a jamais
+    rien su » et « le pair dit qu'aucun environnement ne nous est rattaché » rendent tous
+    deux `environment: null`, et les confondre annoncerait « aucun environnement » à un
+    administrateur dont le réseau est coupé.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    environment: AssignedEnvironmentOut | None
+    fresh: bool
+
+
 def identity_out(identity: ModuleIdentity) -> IdentityOut:
     return IdentityOut(
         public_key=identity.public_key,
@@ -149,4 +183,19 @@ def attempt_out(attempt: PairingAttempt) -> AttemptOut:
         created_at=attempt.created_at,
         name=attempt.name,
         expires_at=attempt.expires_at,
+    )
+
+
+def assigned_environment_out(vue: AssignedEnvironmentView) -> AssignedEnvironmentViewOut:
+    return AssignedEnvironmentViewOut(
+        environment=(
+            None
+            if vue.environment is None
+            else AssignedEnvironmentOut(
+                slug=vue.environment.slug,
+                label=vue.environment.label,
+                fetched_at=vue.environment.fetched_at,
+            )
+        ),
+        fresh=vue.fresh,
     )

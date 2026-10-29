@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import replace
 
-import httpx
 import structlog
 from miles_socle.events.model import EventAuthor
-from miles_socle.signing.identity_model import SINGLETON, OriginMissingError
+from miles_socle.signing.identity_model import SINGLETON
 from miles_socle.signing.keys import fingerprint
 from miles_socle.signing.peers import (
     IdentityInputError,
@@ -15,12 +13,7 @@ from miles_socle.signing.peers import (
     validate_declared_name,
     validate_public_key,
 )
-from miles_socle.signing.protocol import (
-    PAIRING_CONFIRM_PATH,
-    PAIRING_REQUEST_PATH,
-    PAIRING_STATUS_PATH,
-    PING_BODY,
-)
+from miles_socle.signing.protocol import PAIRING_CONFIRM_PATH, PAIRING_REQUEST_PATH
 
 from environnement.identity.events import (
     ATTEMPT_OBJECT_KIND,
@@ -33,20 +26,11 @@ from environnement.identity.model import (
     EnrolmentPeer,
     PairingAttempt,
     PairingAttemptMissingError,
-    PairingState,
 )
-from environnement.identity.peer_calls import (
-    IdentityPeerCalls,
-    demande_disparue,
-    peer_detail,
-    peer_expires_at,
-)
+from environnement.identity.peer_calls import IdentityPeerCalls, peer_expires_at
 from environnement.identity.store import (
-    db_clear_peer_revoked,
     db_delete_attempt,
     db_get_attempt,
-    db_get_peer,
-    db_mark_peer_revoked,
     db_upsert_attempt,
     db_upsert_peer,
 )
@@ -60,12 +44,12 @@ _CODE_RE = re.compile(r"^[0-9]{6}$")
 
 
 class IdentityPairingFlow(IdentityPeerCalls):
-    """Le parcours d'appariement vu de CE module : frapper, coller le code, où on en est.
+    """Les GESTES de l'appariement vus de ce module : frapper, coller le code, annuler.
 
-    Séparé des appels sortants ordinaires parce qu'il a sa propre règle : ce module
-    détient la moitié que le pair n'a pas — l'échéance annoncée — et c'est elle qui lui
-    permet de trancher entre une demande refusée et une demande expirée. Le pair, lui, ne
-    dit que « en attente » ou « inconnue ».
+    Séparé des appels sortants ordinaires parce qu'ici chaque geste écrit — une tentative,
+    un pair, un event — et qu'un appel sortant qui échoue à mi-chemin doit laisser la base
+    dans un état qu'un humain puisse reprendre. Le CONSTAT de l'état, lui, est dans
+    `pairing_status.py` : on agit d'un côté, on observe de l'autre.
     """
 
     async def resolve_attempt(self) -> PairingAttempt:
@@ -204,84 +188,6 @@ class IdentityPairingFlow(IdentityPeerCalls):
             peer_key_fingerprint=fingerprint(public_key),
         )
         return pair
-
-    async def resolve_pairing_state(self) -> PairingState:
-        """L'état complet de l'appariement, celui que l'écran rend lisible.
-
-        Sans demande en cours, il se lit localement. Avec une demande en cours, il faut
-        DEMANDER AU PAIR : son refus d'un code et la disparition de la demande rendent le
-        même refus opaque — volontairement —, donc rien d'ici ne distinguerait « un humain
-        n'a pas encore répondu » de « un humain a dit non ».
-
-        Le pair ne dit que « en attente » ou « inconnue ». C'est NOUS qui tranchons entre
-        refusée et expirée, en comparant à l'échéance qu'il nous a annoncée en accusant la
-        demande : nous détenons les deux moitiés, lui n'en détient qu'une.
-        """
-        pair = await db_get_peer(self.pool)
-        tentative = await db_get_attempt(self.pool)
-        if tentative is None:
-            if pair is None:
-                return PairingState("non_apparie", None, None)
-            # Un appariement enregistré ici ne prouve pas qu'il tient encore EN FACE. On
-            # le demande donc au pair à l'affichage, au prix d'un appel borné par
-            # `PEER_HTTP_TIMEOUT_S` ; sans cela, l'écran afficherait « apparié » pour
-            # toujours à un module que plus personne ne sert.
-            #
-            # L'avis de révocation reçu NE REMPLACE PAS cet appel, il le DÉSAMBIGUÏSE :
-            # l'avis est un indice, l'appel fait foi. Un avis arrivé juste avant un
-            # ré-appariement dirait sinon « révoqué » d'un appariement vivant — le
-            # contresens que ce ticket corrige, retourné. C'est aussi ce qui permet de
-            # l'oublier quand les faits le démentent.
-            etat = await self._peer_still_accepts_us(pair)
-            if etat == "apparie" and pair.revoked_at is not None:
-                await db_clear_peer_revoked(self.pool)
-                log.info("avis_de_revocation_dementi", base_url=pair.base_url)
-                # La ligne RENDUE porte l'oubli, elle aussi. Sans ce remplacement, la même
-                # réponse dirait « apparié » tout en datant une révocation : une charge qui
-                # se contredit elle-même fait chercher la panne des deux côtés à la fois.
-                pair = replace(pair, revoked_at=None)
-            if etat == "refuse_par_le_pair" and pair.revoked_at is not None:
-                etat = "revoque"
-            return PairingState(etat, None, pair)
-        try:
-            reponse = await self.post_signed(tentative.base_url, PAIRING_STATUS_PATH, PING_BODY)
-        except (httpx.HTTPError, OriginMissingError):
-            # Injoignable n'est pas « refusée » : faire recommencer la demande pour une
-            # panne de réseau détruirait un appariement en cours d'acceptation.
-            log.warning("etat_d_appariement_indisponible", base_url=tentative.base_url)
-            return PairingState("pair_injoignable", tentative, pair)
-        disparue = demande_disparue(reponse)
-        if disparue is None:
-            log.warning(
-                "etat_d_appariement_indisponible",
-                base_url=tentative.base_url,
-                status_code=reponse.status_code,
-                peer_detail=peer_detail(reponse),
-            )
-            return PairingState("pair_injoignable", tentative, pair)
-        if not disparue:
-            return PairingState("en_attente", tentative, pair)
-        if tentative.expires_at is None:
-            # Sans échéance connue, on ne tranche pas : dire « refusée » quand on ne sait
-            # pas enverrait chercher un humain qui n'a rien fait.
-            return PairingState("expiree", tentative, pair)
-        return PairingState(
-            "expiree" if self.now() >= tentative.expires_at else "refusee", tentative, pair
-        )
-
-    async def resolve_record_revocation(self) -> None:
-        """Retient l'avis de révocation que le pair vient de nous pousser, et VÉRIFIÉ.
-
-        Appelée seulement après `resolve_verify_incoming` : l'avis est signé de la clé du
-        pair et déclare son origine, exactement comme l'échange de vivacité. Sans cette
-        vérification, n'importe qui ferait croire à une stack qu'elle est révoquée — et
-        l'administrateur refrapperait pour rien.
-
-        Rien n'est détruit. L'appariement reste affiché, son empreinte comprise : c'est ce
-        qu'on voudra comparer après avoir refrappé.
-        """
-        if await db_mark_peer_revoked(self.pool, self.now()):
-            log.warning("avis_de_revocation_recu")
 
     async def resolve_cancel_attempt(self, author: EventAuthor) -> None:
         """Abandonne la demande en cours. Le pair, lui, laissera la sienne expirer."""
