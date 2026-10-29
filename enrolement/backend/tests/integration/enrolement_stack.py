@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import asyncpg
 import httpx
@@ -17,6 +18,7 @@ from enrolement.config import DEFAULT_MIGRATIONS_DIR
 from enrolement.environments.service import EnvironmentService
 from enrolement.event_types import code_event_types
 from enrolement.pairing.service import PairingService
+from tests.integration.demandeur_double import RequesterDouble
 
 # Réexportés : les tests d'intégration du produit s'en servent, et ils viennent du socle
 # parce que la forme du `.env` et le compte d'amorçage sont imposés par lui, pas choisis ici.
@@ -26,6 +28,8 @@ __all__ = [
     "BASE_ENV",
     "EnrolementStack",
     "admin_env",
+    "conclut_appariement",
+    "demande_appariement",
     "open_stack",
     "utc_now",
     "write_env",
@@ -136,3 +140,37 @@ async def _monte(
         pairing,
         environments,
     )
+
+
+async def demande_appariement(stack: EnrolementStack, double: RequesterDouble) -> dict[str, Any]:
+    """Frappe, et rend la demande telle que L'ÉCRAN la lira. Jamais une lecture SQL.
+
+    Dans le harnais et non dans un fichier de test, parce que deux fichiers s'en servent
+    depuis le 29/10/2026 : deux copies auraient divergé au premier champ ajouté, et c'est
+    exactement l'écart qu'on cherche à voir.
+
+    La route est la source de l'écran : c'est elle qui doit porter ce qu'on vérifie, et un
+    SELECT prouverait seulement que la colonne existe.
+    """
+    frappe = await double.knock(stack.anonymous())
+    assert frappe.status_code == 202, frappe.text
+    attendues = await stack.client.get("/api/pairing/requests")
+    assert attendues.status_code == 200, attendues.text
+    lignes = [d for d in attendues.json() if d["base_url"] == double.origin]
+    assert len(lignes) == 1
+    ligne: dict[str, Any] = lignes[0]
+    return ligne
+
+
+async def conclut_appariement(stack: EnrolementStack, double: RequesterDouble) -> None:
+    """Révèle le code et le présente. La doublure range la clé que l'enrôlement rend.
+
+    Ranger cette clé n'est pas un détail : sans elle, l'avis de révocation échoue CHEZ LA
+    DOUBLURE, et le test rougit pour une raison qui n'a rien à voir avec ce qu'il vérifie
+    (mesuré le 29/10/2026).
+    """
+    code = await stack.client.get("/api/pairing/code", params={"base_url": double.origin})
+    assert code.status_code == 200, code.text
+    conclu = await double.confirm(stack.anonymous(), str(code.json()["code"]))
+    assert conclu.status_code == 200, conclu.text
+    double.expects_public_key = str(conclu.json()["public_key"])

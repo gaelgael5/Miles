@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError } from "./http";
-import { request } from "./http";
+import { ApiError, request } from "./http";
 
 /**
  * Ce que fait CELUI QUI S'APPARIE : frapper chez le module d'enrôlement, coller le code,
