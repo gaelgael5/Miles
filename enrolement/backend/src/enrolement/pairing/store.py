@@ -315,3 +315,71 @@ async def db_get_peer_base_url_by_environment(db: PairingDb, environment_id: UUI
         "SELECT base_url FROM environment_peer WHERE environment_id = $1", environment_id
     )
     return None if row is None else str(row["base_url"])
+
+
+async def db_delete_peer(db: PairingDb, base_url: str) -> EnvironmentPeer | None:
+    """Révoque : la ligne de l'appariement DISPARAÎT, et sa clé publique avec elle.
+
+    Une suppression, pas un drapeau. Le critère 8 du ticket d5ffeb33 demande des clés
+    détruites et « pas seulement marquées inactives » : une colonne `revoked` laisserait
+    la clé en base, à portée du premier code qui oublierait de la filtrer — et un filtre
+    oublié ne se voit pas en test.
+
+    Rend l'appariement tel qu'il était JUSTE AVANT, avec son environnement : c'est la
+    seule occasion de le lire, et le journal en a besoin pour nommer ce qui a été révoqué.
+    Nul si rien n'a été supprimé, ce qui est le cas d'un second clic.
+    """
+    row = await db.fetchrow(
+        "DELETE FROM environment_peer WHERE base_url = $1"
+        " RETURNING base_url, public_key, algorithm, created_at, updated_at, name,"
+        " environment_id,"
+        " (SELECT e.slug FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_slug,"
+        " (SELECT e.label FROM environment e WHERE e.id = environment_peer.environment_id)"
+        " AS environment_label",
+        base_url,
+    )
+    return None if row is None else _peer(row)
+
+
+async def db_record_revocation(
+    db: PairingDb, base_url: str, public_key_fingerprint: str, now: datetime
+) -> None:
+    """Pose la pierre tombale : de quoi NOMMER le refus au journal, et rien de plus.
+
+    `ON CONFLICT DO UPDATE` parce qu'une origine peut être révoquée, réappariée, puis
+    révoquée de nouveau. La dernière révocation est celle qui compte pour le diagnostic ;
+    l'historique complet est dans les events, qui ne s'écrasent pas.
+    """
+    await db.execute(
+        "INSERT INTO revoked_pairing (base_url, public_key_fingerprint, revoked_at)"
+        " VALUES ($1, $2, $3)"
+        " ON CONFLICT (base_url) DO UPDATE SET"
+        " public_key_fingerprint = excluded.public_key_fingerprint,"
+        " revoked_at = excluded.revoked_at",
+        base_url,
+        public_key_fingerprint,
+        now,
+    )
+
+
+async def db_get_revocation(db: PairingDb, base_url: str) -> datetime | None:
+    """La date de révocation de cette origine, s'il y en a une. Lue sur le CHEMIN DE REFUS.
+
+    Appelée seulement quand aucun appariement n'a été trouvé : le chemin nominal ne paie
+    pas cette requête. Ce qu'elle rend ne change aucune réponse HTTP — uniquement le mot
+    porté au journal.
+    """
+    row = await db.fetchrow("SELECT revoked_at FROM revoked_pairing WHERE base_url = $1", base_url)
+    return None if row is None else row["revoked_at"]
+
+
+async def db_forget_revocation(db: PairingDb, base_url: str) -> None:
+    """Retire la pierre tombale d'une origine qui vient d'être RÉAPPARIÉE.
+
+    Sans cela, une origine révoquée puis réappariée garderait une tombe qui ne décrit plus
+    rien — et le jour où elle serait révoquée une seconde fois, la date lue serait celle
+    de la première. L'historique, lui, reste entier dans les events : c'est leur rôle, pas
+    celui d'une table d'état.
+    """
+    await db.execute("DELETE FROM revoked_pairing WHERE base_url = $1", base_url)

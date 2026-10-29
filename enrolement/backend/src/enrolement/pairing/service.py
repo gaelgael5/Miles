@@ -27,6 +27,7 @@ from enrolement.pairing.model import (
     ENVIRONMENT_ATTACHED_EVENT,
     ENVIRONMENT_DESIGNATED_EVENT,
     PAIRING_CONFIRMED_EVENT,
+    PAIRING_REVOKED_EVENT,
     PEER_OBJECT_KIND,
     REQUEST_EXPIRED_EVENT,
     REQUEST_OBJECT_KIND,
@@ -49,14 +50,18 @@ from enrolement.pairing.model import (
 from enrolement.pairing.store import (
     db_attach_peer_environment,
     db_delete_expired_requests,
+    db_delete_peer,
     db_delete_request,
     db_designate_request_environment,
+    db_forget_revocation,
     db_get_peer,
     db_get_peer_base_url_by_environment,
     db_get_request,
+    db_get_revocation,
     db_list_peers,
     db_list_requests,
     db_lock_request,
+    db_record_revocation,
     db_upsert_peer,
     db_upsert_request,
 )
@@ -256,6 +261,11 @@ class PairingService:
                 pair = await db_upsert_peer(
                     conn, origine, demande.public_key, maintenant, demande.name, environnement.id
                 )
+                # Une origine réappariée n'est plus révoquée : sa pierre tombale part avec
+                # l'appariement neuf. La laisser ferait dater une révocation ultérieure de
+                # la PRÉCÉDENTE, et le diagnostic lirait une date qui ne décrit plus rien.
+                # L'historique reste entier dans les events, qui ne s'écrasent pas.
+                await db_forget_revocation(conn, origine)
                 await self.module.write_event(
                     conn,
                     PAIRING_CONFIRMED_EVENT,
@@ -299,9 +309,7 @@ class PairingService:
         origine = self._verified_origin(declared_origin, signature)
         pair = await db_get_peer(self.pool, origine)
         if pair is None:
-            # Origine valide mais inconnue : ni appariée, ni en attente. C'est le « signé
-            # par une clé inconnue » du ticket, et l'origine est au journal.
-            self._refuse("origine_inconnue", origine)
+            await self._refuse_unknown_origin(self.pool, origine)
         self._verify_or_refuse(pair.public_key, signature, origine, method, target, body)
         return pair
 
@@ -335,7 +343,7 @@ class PairingService:
         if cle is None:
             # Ni demande ni appariement : rien à dire, et surtout pas « inconnue », qui
             # confirmerait à un inconnu que cette origine n'est pas déjà appariée.
-            self._refuse("origine_inconnue", origine)
+            await self._refuse_unknown_origin(self.pool, origine)
         self._verify_or_refuse(cle, signature, origine, method, target, body)
         return None if rangee is None else rangee[0]
 
@@ -485,6 +493,62 @@ class PairingService:
         )
         return rattache
 
+    async def resolve_revoke_pairing(self, author: EventAuthor, base_url: str) -> EnvironmentPeer:
+        """Révoque l'appariement : sa ligne disparaît, et la clé publique du pair avec elle.
+
+        Le geste inverse de l'appariement, et il n'en est pas le symétrique : un
+        environnement porte des devices, et ce qu'ils deviennent est une décision, pas un
+        effet de bord. Elle est prise (ticket d5ffeb33) : ils sont REMIS EN ATTENTE
+        d'affectation, jamais réaffectés vers un repli. « Un device qui ne démarre pas est
+        un incident visible ; un device qui démarre sur les mauvaises données est un
+        incident invisible. » Rien ici ne doit jamais ressembler à un repli.
+
+        L'environnement, lui, RESTE au référentiel et redevient libre : la révocation
+        porte sur l'appariement, pas sur l'environnement. Deux gestes qui n'ont pas les
+        mêmes conséquences ne s'enchaînent pas tout seuls.
+        """
+        maintenant = self.now()
+        async with self.pool.acquire() as conn, conn.transaction():
+            revoque = await db_delete_peer(conn, base_url)
+            if revoque is None:
+                raise PeerNotFoundError(f"aucun environnement apparié sous {base_url}")
+            empreinte = fingerprint(revoque.public_key)
+            # Dans la MÊME transaction que la suppression : une pierre tombale sans
+            # suppression dirait révoqué un appariement encore vivant, et une suppression
+            # sans pierre tombale ferait journaliser « origine inconnue » le premier appel
+            # du pair — soit exactement la fausse piste que le critère 4 interdit.
+            await db_record_revocation(conn, base_url, empreinte, maintenant)
+            await self.module.write_event(
+                conn,
+                PAIRING_REVOKED_EVENT,
+                PEER_OBJECT_KIND,
+                base_url,
+                {
+                    "public_key_fingerprint": empreinte,
+                    # L'environnement quitté est nommé par son identifiant ET par ses deux
+                    # noms du moment : c'est sous le nom de l'époque qu'on relira ce
+                    # journal. Nul pour un appariement hérité, qui n'en portait aucun.
+                    "environment_id": str(revoque.environment.id) if revoque.environment else None,
+                    "environment_slug": (revoque.environment.slug if revoque.environment else None),
+                    "environment_label": (
+                        revoque.environment.label if revoque.environment else None
+                    ),
+                    # NUL, et jamais 0. Le référentiel des devices n'existe pas encore :
+                    # écrire 0 serait indiscernable, dans un an, d'un vrai « aucun device
+                    # n'a été libéré » — et c'est précisément cette ligne qu'on viendra
+                    # lire le jour où des devices ne démarrent plus.
+                    "devices_released": None,
+                },
+                author=author,
+            )
+        log.info(
+            "appariement_revoque",
+            base_url=base_url,
+            peer_key_fingerprint=empreinte,
+            environment_slug=revoque.environment.slug if revoque.environment else None,
+        )
+        return revoque
+
     async def _refuse_if_taken(self, conn: Any, base_url: str, environment_id: UUID) -> None:
         """Refuse un environnement que porte DÉJÀ un autre appariement.
 
@@ -582,6 +646,21 @@ class PairingService:
                 conn, REQUEST_EXPIRED_EVENT, REQUEST_OBJECT_KIND, base_url, {}
             )
             log.info("demande_d_appariement_expiree", base_url=base_url)
+
+    async def _refuse_unknown_origin(self, conn: Any, origin: str) -> NoReturn:
+        """Refuse une origine sans appariement, en DISANT au journal si elle a été révoquée.
+
+        La réponse servie est la même dans les deux cas, mot pour mot : distinguer
+        offrirait un oracle — savoir qu'une origine a déjà été appariée, puis révoquée.
+        Seule la ligne de journal change, et c'est tout l'objet du critère 4 : sans elle,
+        un exploitant cherche une clé perdue ou une horloge alors qu'un humain a décidé.
+
+        La lecture de la pierre tombale n'a lieu que sur ce chemin de REFUS : un appel
+        d'un pair apparié ne la paie jamais.
+        """
+        if await db_get_revocation(conn, origin) is not None:
+            self._refuse("origine_revoquee", origin)
+        self._refuse("origine_inconnue", origin)
 
     def _refuse(self, reason: str, declared_origin: str) -> NoReturn:
         log.warning("appariement_refuse", reason=reason, declared_origin=declared_origin)

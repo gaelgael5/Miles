@@ -322,6 +322,26 @@ async def get_peers(request: Request) -> list[PeerOut]:
     return [_peer_out(pair) for pair in await _service(request).resolve_peers()]
 
 
+@router.delete("/peers", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_peer(request: Request, base_url: str = BaseUrlQuery) -> Response:
+    """Révoque l'appariement : la clé du pair est DÉTRUITE, et ses devices libérés.
+
+    `DELETE` et non un drapeau sur une route de mise à jour, parce que c'est bien une
+    destruction : l'appariement n'existe plus, et aucun appel signé de cette origine ne
+    sera plus accepté. L'environnement, lui, reste au référentiel — révoquer porte sur
+    l'appariement, pas sur l'environnement.
+
+    La conséquence sur le parc — des devices remis en attente d'affectation — est montrée
+    à l'humain par l'écran AVANT qu'il ne confirme ; cette route ne la rappelle pas, elle
+    l'applique.
+    """
+    try:
+        await _service(request).resolve_revoke_pairing(request_author(request), _base_url(base_url))
+    except IdentityError as exc:
+        return _error(exc)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 def _base_url(raw: str) -> str:
     # Entrée utilisateur employée ensuite comme clé de base ET comme données associées du
     # chiffrement : validée avant tout usage, jamais concaténée sur la foi de la saisie.

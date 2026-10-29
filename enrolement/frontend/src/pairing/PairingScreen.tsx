@@ -4,43 +4,16 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog, PageHead } from "@miles/socle-web";
 
 import {
-  type EnvironmentRef,
-  type PairedEnvironment,
   type PairingRequest,
-  useAttachPeerEnvironment,
   useDesignateRequestEnvironment,
   usePairedEnvironments,
   usePairingRequests,
   useRejectRequest,
 } from "../api/pairing";
+import { ApparieRow } from "./ApparieRow";
 import { CodeRevele, Duree, resteJusqua, useTicTac } from "./CodeRevele";
+import { EnvironmentCell } from "./EnvironmentCell";
 import { EnvironmentPicker } from "./EnvironmentPicker";
-
-/**
- * L'environnement rattaché, ou le signal qu'il manque.
- *
- * « À rattacher » porte une pastille d'alerte, et c'est voulu : un appariement sans
- * environnement est un état transitoire HÉRITÉ, pas l'état normal du premier jour — à
- * l'inverse d'un environnement déclaré et pas encore apparié, que le référentiel montre
- * en gris. Les deux absences ne se lisent pas pareil.
- */
-function EnvironmentCell({ environnement }: { environnement: EnvironmentRef | null }) {
-  const { t } = useTranslation();
-  if (environnement === null) {
-    return (
-      <span className="badge badge-warning">{t("pairing.designation.missing")}</span>
-    );
-  }
-  return (
-    <>
-      <div>{environnement.label}</div>
-      {/* Le slug sous le libellé : c'est lui qui s'écrit dans une procédure, et le
-          retrouver sans changer d'écran évite de le recopier de mémoire. */}
-      <div className="row-sub">{environnement.slug}</div>
-    </>
-  );
-}
-
 
 function DemandeRow({ demande }: { demande: PairingRequest }) {
   const { t } = useTranslation();
@@ -149,85 +122,6 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
         >
           <p>{t("pairing.reject.body", { url: demande.base_url })}</p>
         </ConfirmDialog>
-      )}
-    </li>
-  );
-}
-
-function ApparieRow({ environnement }: { environnement: PairedEnvironment }) {
-  const { t } = useTranslation();
-  const [ouvreChoix, setOuvreChoix] = useState(false);
-  const rattachement = useAttachPeerEnvironment();
-  // Un appariement conclu AVANT que la désignation n'existe. Il ne se rattache qu'une
-  // fois : l'en changer déplacerait ses devices sans le dire, et ce geste s'appelle
-  // révoquer puis réapparier.
-  const aRattacher = environnement.environment === null;
-  return (
-    <li className="row">
-      <div className="row-main">
-        <div className="row-title">{environnement.name ?? t("pairing.requests.unnamed")}</div>
-        <div className="row-sub">{environnement.base_url}</div>
-      </div>
-      <div className="cell">
-        <div className="caption">{t("pairing.designation.caption")}</div>
-        <div className="value">
-          <EnvironmentCell environnement={environnement.environment} />
-        </div>
-      </div>
-      <div className="cell">
-        <div className="caption">{t("pairing.paired.captionSince")}</div>
-        <div className="value">{new Date(environnement.created_at).toLocaleString()}</div>
-      </div>
-      <div className="cell">
-        <div className="caption">{t("pairing.paired.captionDevices")}</div>
-        {/* « — » et non « 0 » : le référentiel des devices n'existe pas encore, et un
-            zéro se lirait « aucun device » sur un écran qui ne sait pas compter. */}
-        <div className="value">
-          {environnement.device_count === null ? (
-            <span className="muted" title={t("pairing.paired.devicesUnknownHelp")}>
-              {t("pairing.paired.devicesUnknown")}
-            </span>
-          ) : (
-            environnement.device_count
-          )}
-        </div>
-      </div>
-      <div className="cell">
-        <div className="caption">{t("pairing.requests.captionFingerprint")}</div>
-        <div className="value">
-          <span className="badge">{environnement.public_key_fingerprint}</span>
-        </div>
-      </div>
-      {aRattacher && (
-        <div className="actions row-actions">
-          <button
-            type="button"
-            className="btn btn-primary"
-            aria-expanded={ouvreChoix}
-            onClick={() => setOuvreChoix((ouvert) => !ouvert)}
-          >
-            {t("pairing.designation.attach")}
-          </button>
-        </div>
-      )}
-      {aRattacher && !ouvreChoix && (
-        <p className="help" role="status">
-          {t("pairing.designation.attachHelp")}
-        </p>
-      )}
-      {ouvreChoix && (
-        <EnvironmentPicker
-          choisi={null}
-          pending={rattachement.isPending}
-          error={rattachement.isError ? rattachement.error : null}
-          submitLabel={t("pairing.designation.attachSubmit")}
-          onChoose={(environmentId) =>
-            rattachement.mutate(
-              { baseUrl: environnement.base_url, environmentId },
-              { onSuccess: () => setOuvreChoix(false) },
-            )
-          }
-        />
       )}
     </li>
   );

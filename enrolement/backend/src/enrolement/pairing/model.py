@@ -23,6 +23,10 @@ PAIRING_CONFIRMED_EVENT = "pairing.confirmed"
 # combien d'appariements hérités restaient à rattacher.
 ENVIRONMENT_DESIGNATED_EVENT = "pairing.environment_designated"
 ENVIRONMENT_ATTACHED_EVENT = "pairing.environment_attached"
+# La révocation. Un type à elle, et non un `pairing.confirmed` avec un drapeau : c'est la
+# trace qu'on cherchera le jour où des devices ne démarrent plus, et on la cherchera par
+# son nom.
+PAIRING_REVOKED_EVENT = "pairing.revoked"
 EVENT_TYPES = frozenset(
     {
         REQUEST_OPENED_EVENT,
@@ -31,6 +35,7 @@ EVENT_TYPES = frozenset(
         PAIRING_CONFIRMED_EVENT,
         ENVIRONMENT_DESIGNATED_EVENT,
         ENVIRONMENT_ATTACHED_EVENT,
+        PAIRING_REVOKED_EVENT,
     }
 )
 

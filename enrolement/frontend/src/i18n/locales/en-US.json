@@ -56,6 +56,19 @@
       "devicesUnknown": "—",
       "devicesUnknownHelp": "The device registry does not exist yet: this number is unknown, and is deliberately not shown as zero."
     },
+    "revoke": {
+      "action": "Revoke pairing",
+      "title": "Revoke this pairing?",
+      "confirm": "Revoke",
+      "cancel": "Cancel",
+      "body": "The pairing of {{url}} to environment “{{label}}” ({{slug}}) will be broken.",
+      "bodyUnattached": "The pairing of {{url}} will be broken. It is not attached to any environment.",
+      "devices": "{{count}} device(s) will be put back to awaiting assignment and will no longer start until a human reassigns them.",
+      "devicesUnknown": "The device registry does not exist yet: the number of devices that will be put back to awaiting assignment is unknown, and is therefore not shown as zero.",
+      "keys": "This stack's key will be destroyed. To pair again it will have to knock anew, and a human will have to accept a fresh request.",
+      "environmentKept": "The environment stays in the registry: revoking applies to the pairing, not to it.",
+      "error": "Revocation failed. The reloaded list will show this pairing's real state."
+    },
     "designation": {
       "caption": "Environment",
       "missing": "To be linked",

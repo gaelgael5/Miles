@@ -56,6 +56,19 @@
       "devicesUnknown": "—",
       "devicesUnknownHelp": "Le référentiel des devices n'existe pas encore : ce nombre n'est pas connu, et n'est donc pas affiché comme zéro."
     },
+    "revoke": {
+      "action": "Révoquer l'appariement",
+      "title": "Révoquer cet appariement ?",
+      "confirm": "Révoquer",
+      "cancel": "Annuler",
+      "body": "L'appariement de {{url}} à l'environnement « {{label}} » ({{slug}}) va être rompu.",
+      "bodyUnattached": "L'appariement de {{url}} va être rompu. Il n'est rattaché à aucun environnement.",
+      "devices": "{{count}} device(s) seront remis en attente d'affectation et ne démarreront plus jusqu'à ce qu'un humain les réaffecte.",
+      "devicesUnknown": "Le référentiel des devices n'existe pas encore : le nombre de devices qui seront remis en attente n'est pas connu, et n'est donc pas affiché comme zéro.",
+      "keys": "La clé de cette stack sera détruite. Pour se réapparier, elle devra frapper de nouveau et un humain devra accepter une demande neuve.",
+      "environmentKept": "L'environnement reste au référentiel : la révocation porte sur l'appariement, pas sur lui.",
+      "error": "La révocation a échoué. La liste relue dira l'état réel de cet appariement."
+    },
     "designation": {
       "caption": "Environnement",
       "missing": "À rattacher",

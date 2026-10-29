@@ -168,6 +168,57 @@ describe("écran d'appariement du module d'enrôlement", () => {
     );
   });
 
+  it("names the environment and the device consequence before revoking", async () => {
+    // Critère 1 : l'humain doit voir la conséquence AVANT de la provoquer. Le nom de
+    // l'environnement et le sort des devices sont les deux seules choses qui rendent ce
+    // geste décidable.
+    monte(routes([], [APPARIE]));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Revoke pairing" }));
+
+    const dialogue = within(screen.getByRole("dialog"));
+    expect(dialogue.getByText(/Production/)).toBeInTheDocument();
+    expect(dialogue.getByText(/production/)).toBeInTheDocument();
+    // Le nombre de devices est INCONNU, et le dire est la seule réponse honnête : « 0
+    // devices seront remis en attente » serait une affirmation fausse sur le parc, et
+    // c'est sur cette phrase que l'humain déciderait.
+    expect(dialogue.getByText(/device registry does not exist yet/i)).toBeInTheDocument();
+    expect(dialogue.getByText(/key will be destroyed/i)).toBeInTheDocument();
+    expect(dialogue.getByText(/stays in the registry/i)).toBeInTheDocument();
+  });
+
+  it("asks for a confirmation before revoking, then deletes the pairing", async () => {
+    const appels = monte(
+      routes([], [APPARIE], {
+        [`DELETE /api/pairing/peers?base_url=${encodeURIComponent(APPARIE_BASE_URL)}`]: {
+          status: 204,
+        },
+      }),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Revoke pairing" }));
+    const dialogue = within(screen.getByRole("dialog"));
+    // La garde doit mordre : tant qu'on n'a pas confirmé, aucune clé n'est détruite.
+    expect(appels.some((appel) => appel.key.startsWith("DELETE"))).toBe(false);
+
+    fireEvent.click(dialogue.getByRole("button", { name: "Revoke" }));
+
+    await waitFor(() =>
+      expect(appels.some((appel) => appel.key.startsWith("DELETE /api/pairing/peers"))).toBe(true),
+    );
+  });
+
+  it("offers revocation on an inherited pairing that carries no environment", async () => {
+    // Un appariement hérité est le cas où l'on a LE PLUS besoin de révoquer : il date
+    // d'avant la désignation, et rien d'autre ne permet de s'en défaire.
+    monte(routes([], [{ ...APPARIE, environment: null }]));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Revoke pairing" }));
+
+    const dialogue = within(screen.getByRole("dialog"));
+    expect(dialogue.getByText(/not attached to any environment/i)).toBeInTheDocument();
+  });
+
   it("shows a dash rather than zero while the device registry does not exist", async () => {
     // Zéro se lirait « aucun device » sur un écran qui ne sait pas compter, et personne
     // ne distinguerait plus « vide » d'« ignoré ».

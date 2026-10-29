@@ -183,3 +183,25 @@ export function useAttachPeerEnvironment() {
     },
   });
 }
+
+/**
+ * Révoque un appariement conclu : sa clé est DÉTRUITE côté module d'enrôlement.
+ *
+ * Le référentiel est réinvalidé en même temps : l'environnement quitté redevient
+ * supprimable et réappariable, et sa ligne doit le dire sans qu'on change d'écran puis
+ * revienne. La révocation porte sur l'appariement, pas sur l'environnement — qui reste
+ * au référentiel.
+ */
+export function useRevokePeer() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (baseUrl: string) =>
+      request<undefined>(`/api/pairing/peers?base_url=${encodeURIComponent(baseUrl)}`, {
+        method: "DELETE",
+      }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: PAIRING_KEY });
+      void client.invalidateQueries({ queryKey: ["environments"] });
+    },
+  });
+}
