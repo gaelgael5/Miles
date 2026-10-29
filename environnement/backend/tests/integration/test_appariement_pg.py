@@ -7,7 +7,7 @@ import pytest
 from miles_socle.events.model import LOCAL_DIRECTORY, EventAuthor
 from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, sign_call
 from miles_socle.signing.keys import fingerprint, generate_keypair, load_private_key
-from miles_socle.signing.protocol import PEER_PING_PATH
+from miles_socle.signing.protocol import PAIRING_REVOKED_PATH, PEER_PING_PATH, REVOKED_BODY
 
 from environnement.identity.model import (
     PairingAttemptMissingError,
@@ -834,3 +834,75 @@ async def test_sans_adresse_de_contact_le_pair_est_joint_la_ou_il_se_nomme(
 
         assert depose.status_code == 200, depose.text
         assert depose.json()["contact_url"] == PEER_ORIGIN
+
+
+async def _avis_de_revocation(stack: Any, double: EnrolmentDouble, *, signe: bool = True) -> Any:
+    """L'avis tel que le module d'enrôlement le pousse : signé de SA clé privée."""
+    entetes = {ORIGIN_HEADER: PEER_ORIGIN}
+    if signe:
+        entetes[SIGNATURE_HEADER] = sign_call(
+            load_private_key(double.keypair.private_pem),
+            origin=PEER_ORIGIN,
+            method="POST",
+            target=PAIRING_REVOKED_PATH,
+            body=REVOKED_BODY,
+        )
+    return await stack.anonymous().post(PAIRING_REVOKED_PATH, content=REVOKED_BODY, headers=entetes)
+
+
+async def test_un_avis_de_revocation_signe_fait_NOMMER_la_cause(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 3 : plus d'énumération. L'écran dit qui a révoqué, et quand.
+
+    L'avis ne remplace pas la vérification — il la DÉSAMBIGUÏSE. Le pair refuse aussi nos
+    appels, et c'est la conjonction des deux qui donne cet état.
+    """
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double)
+
+        assert (await _avis_de_revocation(stack, double)).status_code == 204
+        # Et le pair ne nous sert plus : c'est ce que fait une vraie révocation.
+        double.expects_public_key = generate_keypair().public_key
+        etat = await stack.client.get("/api/identity/pairing/state")
+
+        assert etat.json()["state"] == "revoque"
+        assert etat.json()["peer"]["revoked_at"] is not None
+        # Rien n'est détruit : l'empreinte reste comparable après un ré-appariement.
+        assert etat.json()["peer"]["public_key_fingerprint"] is not None
+
+
+async def test_un_avis_de_revocation_non_signe_est_refuse(blank_db: str, tmp_path: Path) -> None:
+    """Critère 4 : sans cette garde, n'importe qui ferait croire à une stack qu'elle est
+    révoquée, et son administrateur referait un appariement qui n'avait rien perdu."""
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double)
+
+        refus = await _avis_de_revocation(stack, double, signe=False)
+
+        assert refus.status_code == 401
+        etat = await stack.client.get("/api/identity/pairing/state")
+        assert etat.json()["state"] == "apparie"
+        assert etat.json()["peer"]["revoked_at"] is None
+
+
+async def test_un_avis_dementi_par_un_appel_qui_passe_est_oublie(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 8 : l'avis est un indice, l'appel fait foi.
+
+    Un avis arrivé juste avant un ré-appariement dirait sinon « révoqué » d'un appariement
+    vivant — le contresens que ce ticket corrige, retourné.
+    """
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double)
+        await _avis_de_revocation(stack, double)
+
+        # Le pair, lui, accepte toujours nos appels : les faits démentent l'avis.
+        etat = await stack.client.get("/api/identity/pairing/state")
+
+        assert etat.json()["state"] == "apparie"
+        assert etat.json()["peer"]["revoked_at"] is None
