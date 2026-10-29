@@ -248,6 +248,55 @@ du contrat, et la crainte qu'elle portait reste vraie.
   contact saisie, révocation → `avis_de_revocation_remis` / `avis_de_revocation_recu`,
   état `revoque` daté. L'appariement vivant a été rétabli après.
 
+## Le référentiel n'est plus un écran d'appariement (29/10, ticket `8474baf4`)
+
+L'écran « Environnements déclarés » n'affiche plus **aucun** état d'appariement : ni
+« Apparié / Non apparié », ni l'URL de la stack appariée, ni la demande en attente. Il
+déclare, l'autre écran assigne. Deux écrans qui montrent le même état finissent par se
+contredire.
+
+- `paired_base_url` et `designated_base_url` **restent** dans l'API et dans le modèle du
+  front : le sélecteur de l'écran d'appariement lit le premier pour ne pas proposer un
+  environnement déjà apparié. Le commentaire du modèle le dit, parce qu'un champ que plus
+  aucun écran n'affiche se « nettoie » au premier passage.
+- Le **refus de supprimer** un environnement apparié reste, et c'est lui — pas une colonne
+  — qui dit à l'humain pourquoi il ne peut pas.
+- Le critère 12 du ticket `d5ffeb33` (« le référentiel montre non apparié après
+  révocation ») **tombe** : la liste ne montre plus d'état du tout.
+
+## Changer l'environnement d'un appariement conclu (29/10, ticket `8803f092`)
+
+Arbitrage de Gael : le changement direct est ouvert, **tant que l'appariement ne porte
+aucun device**. Il renverse la règle « révoquer puis réapparier » du ticket `bf2115cd`.
+
+- **Un geste côté humain, deux faits côté journal.** `PUT /api/pairing/peers/environment`
+  pose l'environnement d'un appariement conclu ; l'event est
+  `pairing.environment_attached` s'il n'y avait rien, `pairing.environment_moved` sinon,
+  avec les trois champs `previous_environment_*`. Ces champs sont **absents et non nuls**
+  au rattachement : un `null` ferait chercher un déplacement qui n'a pas eu lieu.
+- **La garde des devices vit en UN SEUL endroit nommé** : `_refuse_if_devices`, qui lit
+  `db_count_peer_devices`. Cette fonction **rend zéro partout** — le référentiel des
+  devices n'existe pas encore —, donc la garde **ne mord sur rien en vrai**. C'est dit, et
+  c'est le point précis à rebrancher sur le parc. Un test lui injecte un compte non nul
+  pour éprouver qu'elle mord.
+- **Ne pas confondre avec le `null` de l'API.** `device_count` vaut `null` parce qu'on ne
+  sait pas compter et que l'écran affiche « — » ; la garde a besoin d'un **compte**. L'une
+  informe un humain, l'autre décide.
+- **Trois refus distincts, et c'est exprès** : `appariement_porte_des_devices` renvoie vers
+  le déplacement des devices, `appariement_change_ailleurs` est une **course** dont le
+  remède est de relire la liste, `appariement_conclu` dit que le changement se fait sur
+  l'appariement et non sur la demande d'une stack qui refrappe. Fondus, ils feraient croire
+  le geste interdit alors qu'il est permis.
+- `environment_id IS NOT DISTINCT FROM $4` dans l'écriture **généralise** l'ancien
+  `IS NULL` : c'est ce qui ferme la course de deux onglets sur la MÊME ligne, qu'aucune
+  contrainte d'unicité ne rattraperait.
+- **Mesuré** : retirer la lecture préalable `_refuse_if_taken` laisse toute la suite verte
+  — le refus d'un environnement déjà pris vient bien de la **contrainte**, pas de cette
+  lecture. C'est le critère 3, prouvé plutôt qu'affirmé.
+- **Éprouvé en vrai sur test1** : l'appariement vivant déplacé `recette` → `dev`, le
+  référentiel a libéré `recette`, reposer `dev` n'a rien écrit, puis retour sur `recette`.
+  Le journal porte deux `pairing.environment_moved` et rien pour le no-op.
+
 ## L'assainissement des modules d'appariement (29/10, ticket `f85d248e`)
 
 `PairingService` et `IdentityService` restent **une classe chacune**, découpées en
@@ -422,12 +471,6 @@ Les campagnes repartent.
   28/10 : le protocole complet tourne des deux côtés.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
-- `8474baf4` — **le référentiel n'affiche plus l'appariement**. Décidé par Gael le 29/10 :
-  c'est une liste d'environnements à assigner, pas un second écran d'appariement. Attention,
-  l'API garde `paired_base_url` — le sélecteur s'en sert pour écarter les déjà appariés.
-- `8803f092` — **changer l'environnement d'un appariement conclu**, tant qu'il ne porte
-  aucun device. Renverse en partie la règle de `bf2115cd` : les commentaires qui disent
-  « révoquer puis réapparier » sont à corriger avec.
 - `2edf1f3c` — **le module d'environnement affiche l'environnement qui lui est assigné**,
   lu chez l'enrôlement et mémorisé, avec repli daté sur la dernière valeur connue. Était
   bloqué par le portillon du portail ; **ne l'est plus** depuis `1ce685e9`. Il demandera
@@ -438,8 +481,10 @@ Les campagnes repartent.
   tickets de l'epic *Module d'enrôlement*.
 
 **En revue au 29/10 au soir** : `d5ffeb33` (révocation), `f85d248e` (assainissement),
-`1ce685e9` (adresse de contact), plus les tickets des jours précédents. Les quatre tickets
-neufs de Gael du 29/10 sont `8474baf4`, `8803f092`, `2edf1f3c` et `c51a732c`.
+`1ce685e9` (adresse de contact), `4ce141d3` (avis de révocation), `8474baf4` (le
+référentiel n'affiche plus l'appariement) et `8803f092` (changer l'environnement d'un
+appariement conclu), plus les tickets des jours précédents. Des quatre tickets neufs de
+Gael du 29/10, il reste `2edf1f3c` — éligible — et `c51a732c`, bloqué par le parc.
 
 ## Cinq décisions prises par Gael le 27/10 — les questions sont closes
 
