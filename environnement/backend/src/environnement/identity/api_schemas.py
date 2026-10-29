@@ -100,6 +100,10 @@ class PeerOut(BaseModel):
     # s'interpose : l'écran ne la montre alors pas, deux lignes identiques faisant
     # chercher une différence qui n'existe pas.
     contact_url: str
+    # Quand l'avis de révocation a été REÇU, nul tant qu'il n'est pas venu. Il n'est pas
+    # cru sur parole : l'écran ne nomme la révocation que si les appels nous sont AUSSI
+    # refusés. L'avis dit la cause, l'appel dit le fait.
+    revoked_at: datetime | None
     public_key: str
     public_key_fingerprint: str
     algorithm: str
@@ -121,6 +125,7 @@ def peer_out(peer: EnrolmentPeer) -> PeerOut:
         base_url=peer.base_url,
         declared_name=peer.declared_name,
         contact_url=peer.contact_url,
+        revoked_at=peer.revoked_at,
         public_key=peer.public_key,
         public_key_fingerprint=fingerprint(peer.public_key),
         algorithm=peer.algorithm,
