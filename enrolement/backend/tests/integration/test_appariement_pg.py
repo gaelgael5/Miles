@@ -600,6 +600,7 @@ async def test_le_service_refuse_de_conclure_sans_adresse_publique(
             courant.catalog,
             courant.now,
             None,
+            courant.http,
             courant.request_ttl_s,
         )
 
