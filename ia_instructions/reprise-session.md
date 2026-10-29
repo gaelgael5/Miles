@@ -190,6 +190,53 @@ Le geste inverse de l'appariement, et il n'en est pas le symétrique.
   des devices remis en attente d'affectation. Le référentiel des devices n'existe pas, donc
   rien de ces trois-là n'est vérifiable aujourd'hui. C'est écrit dans le ticket.
 
+## Le portillon du portail, et l'adresse de contact (29/10, ticket `1ce685e9`)
+
+**À lire avant de toucher aux appels entre modules.** C'est le défaut qui a coûté le plus
+de temps à diagnostiquer, et il n'était ni dans les clés ni dans le protocole.
+
+- L'annuaire `dev.yoops.org` place un **portillon d'authentification devant tout service
+  exposé**, `/api/health` compris. Un appel vers `https://svc-miles-miles-*.yoops.org/...`
+  reçoit `302` vers `https://dev.yoops.org/auth/login`.
+- La mesure qui tranche : la MÊME requête signée, par l'URL publique, rend 302 et le module
+  **n'en garde aucune ligne de journal** ; droit sur le module (`http://100.74.9.236:8081`),
+  elle rend un 401 que le module a lui-même calculé, avec sa ligne. La requête n'arrivait
+  pas — les credentials étaient bons depuis le début.
+- **L'adresse composée n'entre dans AUCUNE signature.** La chaîne canonique porte l'origine
+  de l'ÉMETTEUR, la méthode, le chemin et l'empreinte du corps. Jamais l'hôte appelé.
+- D'où le correctif : `enrolment_peer` porte `contact_url` **en plus** de `base_url`.
+  L'identité (`base_url`) sert à UNE chose — comparer l'origine déclarée d'un appel
+  entrant —, l'adresse de contact sert à composer. Un appel entrant qui déclare l'adresse
+  de contact est **refusé**, et un test le prouve : elle est choisie chez nous, l'accepter
+  comme identité authentifierait une origine que le pair n'a jamais revendiquée.
+- L'adresse de contact est celle que l'administrateur **tape** à la demande d'appariement ;
+  elle était jetée jusque-là. On la change par un ré-appariement, ou par
+  `PUT /api/identity/peer` qui l'accepte sans toucher aux clés.
+- **L'appariement vivant de test1 est repointé** sur `http://100.74.9.236:8081` et
+  refonctionne (`state = apparie`), même clé `82876eb0…`. En `http` : le maillage est
+  chiffré, et le seul secret qui y transite est le code d'appariement, à usage unique et
+  d'une fenêtre de 30 s.
+- **Ne pas « simplifier » les deux champs en un.** C'est ce qui fait marcher les appels.
+
+## L'assainissement des modules d'appariement (29/10, ticket `f85d248e`)
+
+`PairingService` et `IdentityService` restent **une classe chacune**, découpées en
+plusieurs fichiers par héritage — aucune indirection ajoutée à l'exécution. Le plus gros
+fichier des deux modules est passé de 667 à 261 lignes.
+
+- Les annotations des collaborateurs sont **dupliquées** sur la classe de base : mesuré,
+  `dataclasses` ne collecte que les annotations de la classe qu'il décore, donc les vrais
+  champs restent sur la classe concrète. mypy refuse qu'elles divergent.
+- Trois noms privés traversaient un module : un `_` qui s'importe ailleurs est un **faux
+  privé**, ils sont nommés pour ce qu'ils font.
+- Les **réexports explicites** (`as`) de `identity/service.py` ne sont pas des imports
+  oubliés : le produit et sa suite les importent de là. `ruff --fix` les retire si on
+  touche à la forme.
+- Les listes de colonnes SQL restent écrites **littéralement** dans chaque requête, et les
+  deux fichiers de store les répètent. Les factoriser serait la faute (ruff S608).
+- **Restent 6 fichiers du portail et du socle** entre 307 et 380 lignes. Hors périmètre,
+  autre produit, autre campagne — le ticket les liste.
+
 ## Ce qui vient d'être livré — le socle partagé
 
 **Ticket `5695664d`, en revue.** Le socle technique est sorti du portail et vit dans
@@ -341,12 +388,8 @@ Les campagnes repartent.
 
 ## Ce qui est éligible, et par quoi commencer
 
-- `6a0daab6` — **l'échange de clés à l'appariement**. C'est la tête de file : ses **trois
-  prérequis sont livrés** depuis le 28/10, et la section « Prérequis » de son corps est
-  désormais à jour. Les deux côtés existent, chacun avec sa stack et sa base ; le socle
-  porte déjà les clés et les appels signés, et l'environnement porte sa paire persistante.
-  Ce qui reste est le protocole lui-même — demande en attente, code TOTP brûlé à l'usage,
-  dépôt mutuel des clés publiques — plus le côté enrôlement de la route de pair.
+- `31025fe6`, `449e1694` et la suite ci-dessous. `6a0daab6` est **livré** depuis le
+  28/10 : le protocole complet tourne des deux côtés.
 - `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
 - `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
 - `8474baf4` — **le référentiel n'affiche plus l'appariement**. Décidé par Gael le 29/10 :
@@ -356,15 +399,17 @@ Les campagnes repartent.
   aucun device. Renverse en partie la règle de `bf2115cd` : les commentaires qui disent
   « révoquer puis réapparier » sont à corriger avec.
 - `2edf1f3c` — **le module d'environnement affiche l'environnement qui lui est assigné**,
-  lu chez l'enrôlement et mémorisé, avec repli daté sur la dernière valeur connue.
+  lu chez l'enrôlement et mémorisé, avec repli daté sur la dernière valeur connue. Était
+  bloqué par le portillon du portail ; **ne l'est plus** depuis `1ce685e9`. Il demandera
+  d'enrichir la réponse du ping ou d'ajouter une route de pair — donc d'amender le contrat.
 - `c51a732c` — **déplacer en bloc les devices d'un environnement**. Bloqué par le parc.
 - Le **métier** de l'enrôlement : la coquille ne porte rien de lui. Référentiel des
   devices, enrôlement d'une installation, dispatch, parc, tags, groupes — autant de
   tickets de l'epic *Module d'enrôlement*.
 
-**`6a0daab6` est devenu éligible le 28/10** : ses trois prérequis sont en revue. Son corps
-porte toujours la section « Prérequis », mise à jour — la lire, elle dit ce qui existe et
-sous quelle forme, ce qui évite de reconstruire ce qui est déjà là.
+**En revue au 29/10 au soir** : `d5ffeb33` (révocation), `f85d248e` (assainissement),
+`1ce685e9` (adresse de contact), plus les tickets des jours précédents. Les quatre tickets
+neufs de Gael du 29/10 sont `8474baf4`, `8803f092`, `2edf1f3c` et `c51a732c`.
 
 ## Cinq décisions prises par Gael le 27/10 — les questions sont closes
 
