@@ -91,10 +91,6 @@ class EnvironmentDouble:
         cle, nom = json.dumps(self.keypair.public_key), json.dumps(self.name)
         return f'{{"public_key": {cle}, "name": {nom}}}'.encode()
 
-
-def confirm_body(code: str) -> bytes:
-    return b'{"code": "%s"}' % code.encode("ascii")
-
     def app(self) -> FastAPI:
         """La contrepartie qui REÇOIT l'avis de révocation, et qui le vérifie vraiment.
 
@@ -126,3 +122,7 @@ def confirm_body(code: str) -> bytes:
             return Response(status_code=204)
 
         return app
+
+
+def confirm_body(code: str) -> bytes:
+    return b'{"code": "%s"}' % code.encode("ascii")

@@ -52,6 +52,7 @@ def _instance(
         courant.catalog,
         now or courant.now,
         courant.origin,
+        courant.http,
         courant.request_ttl_s if request_ttl_s is None else request_ttl_s,
     )
 

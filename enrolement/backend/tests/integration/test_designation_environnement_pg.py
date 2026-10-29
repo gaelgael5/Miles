@@ -66,7 +66,8 @@ async def _herite(stack: EnrolementStack, origine: str) -> None:
     """
     await stack.pool.execute(
         "INSERT INTO environment_peer (base_url, public_key, algorithm, created_at,"
-        " updated_at, name) VALUES ($1, $2, 'ed25519', now(), now(), 'Hérité')",
+        " updated_at, name, contact_url)"
+        " VALUES ($1, $2, 'ed25519', now(), now(), 'Hérité', $1)",
         origine,
         generate_keypair().public_key,
     )
