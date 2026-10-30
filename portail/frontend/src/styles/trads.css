@@ -123,6 +123,24 @@ textarea.value-field {
   gap: 0.5rem;
 }
 
+/*
+ * Les deux filtres côte à côte. La recherche prend deux fois la largeur du sélecteur de
+ * culture : elle reçoit des identifiants entiers, là où l'autre ne montre que des codes.
+ */
+.trads-filters {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: 2fr 1fr;
+}
+
+/* Sous cette largeur, deux colonnes rendraient chaque champ trop étroit pour son
+   contenu — et c'est la largeur, pas le type d'appareil, qui décide. */
+@media (width <= 48rem) {
+  .trads-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 /*
  * Un groupe repliable DANS le menu (Gael, 30/10/2026). Il ressemble à un lien — c'est le

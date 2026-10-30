@@ -178,28 +178,32 @@ export function TradsKeysScreen({
         />
       )}
       <div className="card">
-        <label className="field">
-          {t("tradsKeys.filter.search")}
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => refilter({ search: e.target.value })}
-          />
-        </label>
-        <label className="field">
-          {t("tradsKeys.filter.untranslated")}
-          <select
-            value={untranslated ?? ""}
-            onChange={(e) => refilter({ untranslated: e.target.value || null })}
-          >
-            <option value="">{t("tradsKeys.filter.anyCulture")}</option>
-            {columns.map((culture) => (
-              <option key={culture} value={culture}>
-                {culture}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* Les deux filtres sur une MÊME ligne (Gael, 30/10/2026) : ils se combinent, et
+            empilés ils repoussaient la liste d'une demi-page sur un écran d'ordinateur. */}
+        <div className="trads-filters">
+          <label className="field">
+            {t("tradsKeys.filter.search")}
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => refilter({ search: e.target.value })}
+            />
+          </label>
+          <label className="field">
+            {t("tradsKeys.filter.untranslated")}
+            <select
+              value={untranslated ?? ""}
+              onChange={(e) => refilter({ untranslated: e.target.value || null })}
+            >
+              <option value="">{t("tradsKeys.filter.anyCulture")}</option>
+              {columns.map((culture) => (
+                <option key={culture} value={culture}>
+                  {culture}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <p className="muted" role="status">
           {t("tradsKeys.count", { count: total })}
         </p>
