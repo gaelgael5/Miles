@@ -19,6 +19,14 @@ from miles.mcp_api.errors import refusal, refusal_code
 from miles.obo.service import Actor
 from miles.transform.api_transform import step_problem_out
 from miles.transform.chain import ChainInvalidError
+from miles.workshop.trads import TradsFileError
+from miles.workshop.trads_keys_errors import (
+    KeyUnknownError,
+    SlugTakenError,
+    UnknownCultureError,
+)
+from miles.workshop.trads_service import ContextTakenError
+from miles.workshop.trads_values import EmptyDefaultError, ReorderingError, SlugError
 from miles.workspaces.model import (
     BranchNotFoundError,
     HoldRequiredError,
@@ -163,6 +171,22 @@ def tool_refusal(exc: Exception) -> ToolError | None:
         code, detail = "modele_utilise", {"par": exc.users}
     elif isinstance(exc, ChainInUseError):
         code, detail = "chaine_utilisee", {"par": exc.users}
+    elif isinstance(exc, ReorderingError):
+        # Les caractères sont INVISIBLES : sans leurs noms, un agent voit sa valeur
+        # refusée sans rien pouvoir changer, et réessaiera à l'identique.
+        code, detail = "direction_forcee", {"found": list(exc.found)}
+    elif isinstance(exc, EmptyDefaultError):
+        code, detail = "valeur_par_defaut_obligatoire", {"culture": exc.culture}
+    elif isinstance(exc, SlugError):
+        code, detail = "champ_invalide", {"champ": "slug", "raison": "forme"}
+    elif isinstance(exc, ContextTakenError):
+        code, detail = exc.code, {"libelle": exc.label}
+    elif isinstance(exc, (SlugTakenError, KeyUnknownError)):
+        code, detail = exc.code, {"slug": exc.slug}
+    elif isinstance(exc, UnknownCultureError):
+        code, detail = exc.code, {"culture": exc.culture}
+    elif isinstance(exc, TradsFileError):
+        code, detail = "trads_illisible", {"fichier": exc.path, "raison": exc.reason}
     elif isinstance(exc, WorkspaceInputError):
         code, detail = "champ_invalide", {"champ": exc.field, "raison": exc.reason}
     elif isinstance(exc, HoldRequiredError):

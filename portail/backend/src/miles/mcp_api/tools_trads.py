@@ -192,10 +192,11 @@ def register(server: MCPServer) -> None:
                 limit=limit,
             )
         except Exception as exc:
-            refused = tool_refusal(exc)
-            if refused is None and _is_unknown_context(exc):
+            # AVANT `tool_refusal` : sa branche générique rendrait « contexte_inconnu »
+            # sans la liste de ce qui existe, et l'agent n'aurait rien pour se corriger.
+            if _is_unknown_context(exc):
                 raise await _unknown(caller, workspace_id, branch, context) from None
-            raise refused or exc from None
+            raise tool_refusal(exc) or exc from None
         return {
             "keys": [{"slug": k.slug, "values": dict(k.values)} for k in page.keys],
             "total": page.total,
