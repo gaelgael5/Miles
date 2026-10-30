@@ -67,8 +67,10 @@ const SECTIONS: Section[] = [
       "pairing",
       "security",
       "oidc",
-      "apiKeys",
-      "oauthClients",
+      // Ce par quoi un AGENT entre : une clé de service et le client OAuth qui la lui
+      // fait obtenir. Regroupés (Gael, 30/10/2026) — ils ne servent qu'à cela, et au
+      // premier niveau ils se lisaient comme deux réglages de plus.
+      { group: "agent", pages: ["apiKeys", "oauthClients"] },
       "health",
     ],
   },
@@ -110,12 +112,12 @@ function AdminPortal({ profile, onLeave }: { profile: ReactNode; onLeave: () => 
     setSelection(next);
   }
 
-  function navLink(name: Page) {
+  function navLink(name: Page, extra = "") {
     return (
       <button
         key={name}
         type="button"
-        className="sidebar-link"
+        className={extra ? `sidebar-link ${extra}` : "sidebar-link"}
         aria-current={page === name ? "page" : undefined}
         onClick={() => setPage(name)}
       >
@@ -149,7 +151,7 @@ function AdminPortal({ profile, onLeave }: { profile: ReactNode; onLeave: () => 
                       className="sidebar-link sidebar-group-link"
                       label={t(`app.groups.${item.group}`)}
                     >
-                      {item.pages.map((name) => navLink(name))}
+                      {item.pages.map((name) => navLink(name, "sidebar-grouped-link"))}
                     </CollapsibleGroup>
                   ),
                 )

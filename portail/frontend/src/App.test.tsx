@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { App } from "./App";
 import "./i18n/i18n";
@@ -13,6 +13,19 @@ function renderApp() {
       <App />
     </QueryClientProvider>,
   );
+}
+
+/**
+ * Déplie un groupe du menu. Tous sont REPLIÉS au chargement depuis le 30/10/2026 : un
+ * groupe fermé est `hidden`, donc ses entrées n'ont aucun rôle accessible, et c'est
+ * voulu — un lecteur d'écran ne doit pas annoncer ce que l'œil ne voit pas.
+ */
+async function openMenu(name: string) {
+  const bouton = await screen.findByRole("button", { name });
+  // Jamais de bascule aveugle : un groupe déjà ouvert serait refermé par le clic.
+  if (bouton.getAttribute("aria-expanded") === "false") {
+    fireEvent.click(bouton);
+  }
 }
 
 const BRANCHES = [
@@ -69,7 +82,8 @@ describe("App", () => {
 
     renderApp();
 
-    expect(await screen.findByRole("button", { name: "OIDC connectors" })).toBeInTheDocument();
+    await openMenu("Global");
+    expect(screen.getByRole("button", { name: "OIDC connectors" })).toBeInTheDocument();
     expect(screen.queryByText(/no right/)).not.toBeInTheDocument();
   });
 
@@ -79,7 +93,11 @@ describe("App", () => {
     renderApp();
 
     const nav = await screen.findByRole("navigation");
-    await screen.findByRole("button", { name: "OIDC connectors" });
+    // Tout est replié au chargement : on ouvre les deux niveaux dont ce test parle.
+    await openMenu("Global");
+    await openMenu("Globalisation");
+    await openMenu("Agent");
+    await openMenu("Workspaces");
     // Le menu global d'abord, dans l'ordre voulu, puis les workspaces (21/10/2026).
     expect(Array.from(nav.querySelectorAll(".sidebar-section, .sidebar-link"), (e) => e.textContent)).toEqual([
       "Global",
@@ -95,6 +113,8 @@ describe("App", () => {
       "Pairing",
       "Security services",
       "OIDC connectors",
+      // Ce par quoi un agent entre, sous son propre sous-groupe (Gael, 30/10/2026).
+      "Agent",
       "API keys",
       "OAuth clients",
       "Service status",
@@ -108,12 +128,18 @@ describe("App", () => {
     renderApp();
     const global = await screen.findByRole("button", { name: "Global" });
 
+    // Replié d'emblée : rien de son contenu n'est atteignable.
+    expect(global).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Globalisation" })).not.toBeInTheDocument();
+
     fireEvent.click(global);
 
-    expect(global).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("button", { name: "Cultures" })).not.toBeInTheDocument();
-    fireEvent.click(global);
+    expect(global).toHaveAttribute("aria-expanded", "true");
+    await openMenu("Globalisation");
     expect(screen.getByRole("button", { name: "Cultures" })).toBeVisible();
+    fireEvent.click(global);
+    expect(screen.queryByRole("button", { name: "Cultures" })).not.toBeInTheDocument();
+    await openMenu("Workspaces");
     expect(screen.getByRole("button", { name: "All workspaces" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -138,6 +164,7 @@ describe("App", () => {
     });
     renderApp();
     const nav = await screen.findByRole("navigation");
+    await openMenu("Workspaces");
     const retrait = await within(nav).findByRole("button", { name: "Retrait de colis (essai)" });
     // Replié par défaut : avec beaucoup de workspaces, tout déplier noierait le menu.
     expect(retrait).toHaveAttribute("aria-expanded", "false");
@@ -157,10 +184,7 @@ describe("App", () => {
     ).toBeInTheDocument();
     // « Data models » PORTE des entrées : depuis le 30/10/2026 son bouton replie le
     // groupe, et l'écran s'ouvre par l'entrée dédiée — un clic ne fait qu'une chose.
-    expect(within(nav).getByRole("button", { name: "Data models" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    await openMenu("Data models");
     fireEvent.click(within(nav).getByRole("button", { name: "All models" }));
 
     expect(
@@ -192,18 +216,25 @@ describe("App", () => {
     });
     renderApp();
     const nav = await screen.findByRole("navigation");
+    // Le menu reste REPLIÉ : ce test parle du libellé que le menu porte, pas de son
+    // ouverture, et le lire par le texte ne dépend donc pas du moment où on déplie.
+    // Lu par `findByRole` après un dépliage, l'attente laissait la doublure séquentielle
+    // servir sa SECONDE réponse, et le test mesurait l'état d'après plutôt que celui
+    // d'avant — il dépendait du temps, ce que mon dépliage a seulement révélé.
+    const menuPorte = async (libelle: string) =>
+      await waitFor(() =>
+        expect(
+          [...nav.querySelectorAll("button")].map((b) => b.textContent),
+        ).toContain(libelle),
+      );
     // Sans choix enregistré, c'est la branche de base qu'on regarde.
-    expect(
-      await within(nav).findByRole("button", { name: "Retrait de colis (atelier)" }),
-    ).toBeInTheDocument();
+    await menuPorte("Retrait de colis (atelier)");
     const picker = await screen.findByLabelText("Branch viewed");
     await within(picker).findByRole("option", { name: "essai" });
 
     fireEvent.change(picker, { target: { value: "essai" } });
 
-    expect(
-      await within(nav).findByRole("button", { name: "Retrait de colis (essai)" }),
-    ).toBeInTheDocument();
+    await menuPorte("Retrait de colis (essai)");
     expect(calls.find((c) => c.key === "PUT /api/workspaces/retrait/branches/view")?.body).toEqual({
       branch: "essai",
     });
@@ -221,8 +252,10 @@ describe("App", () => {
     });
     renderApp();
     const nav = await screen.findByRole("navigation");
+    await openMenu("Workspaces");
     fireEvent.click(await within(nav).findByRole("button", { name: "Retrait de colis (atelier)" }));
 
+    await openMenu("Contracts");
     const contract = await within(nav).findByRole("button", { name: "Suivi des demandes" });
     fireEvent.click(contract);
 

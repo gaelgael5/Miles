@@ -137,6 +137,9 @@ describe("ContractModelsScreen", () => {
       </QueryClientProvider>,
     );
 
+    // « Data models » porte ces deux entrées : depuis le 30/10/2026 c'est un groupe
+    // repliable, fermé au chargement comme tout le menu.
+    fireEvent.click(screen.getByRole("button", { name: "Data models" }));
     fireEvent.click(screen.getByRole("button", { name: "Internal contracts" }));
     fireEvent.click(screen.getByRole("button", { name: "External contracts" }));
 

@@ -10,7 +10,7 @@ from starlette.requests import Request
 from starlette.types import ASGIApp
 
 from miles.apikeys.model import KeyPrincipal
-from miles.mcp_api import tools_chains, tools_models, tools_reads
+from miles.mcp_api import tools_chains, tools_models, tools_reads, tools_trads
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE, ApiKeyAuth
 from miles.mcp_api.calls import caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
@@ -34,6 +34,9 @@ INSTRUCTIONS = (
     " Elle agit au nom de la personne pour qui le portail appelle, qui doit avoir pris la"
     " main sur cette branche dans Miles : chaque modification y devient un commit local,"
     " que publish_branch pousse dans la forge."
+    " Les traductions du paramétrage vivent dans trads/<contexte>/<culture>.yaml :"
+    " list_trads_contexts puis list_trads_keys ; les cultures sont celles du WORKSPACE,"
+    " pas celles du back-office."
 )
 
 
@@ -162,6 +165,7 @@ def build_server() -> MCPServer:
     tools_models.register(server)
     tools_chains.register(server)
     tools_reads.register(server)
+    tools_trads.register(server)
     return server
 
 

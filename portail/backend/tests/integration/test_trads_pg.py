@@ -300,7 +300,11 @@ async def test_deleting_an_unknown_context_is_a_named_refusal(forge: Forge) -> N
     assert (answered.status_code, answered.json()["detail"]) == (409, "contexte_inconnu")
 
 
-@pytest.mark.parametrize("hostile", ["..", "a%2Fb"])
+# `..` NON ENCODÉ est absent du jeu : httpx normalise le chemin AVANT de l'envoyer, et la
+# requête partait vers la suppression du WORKSPACE — refusée par un 409 qui n'avait rien à
+# voir, et qui aurait réussi sans la prise de main. Le test mesurait autre chose que ce
+# qu'il croyait. Encodé, il atteint vraiment la route et sa garde de forme.
+@pytest.mark.parametrize("hostile", ["%2E%2E", "a%2Fb", "%2E", "Accueil"])
 async def test_deleting_through_a_hostile_name_is_refused(forge: Forge, hostile: str) -> None:
     await _add(forge)
 
@@ -445,7 +449,8 @@ async def test_cleaning_a_culture_without_any_file_is_a_named_refusal(forge: For
     assert (answered.status_code, answered.json()["detail"]) == (409, "culture_sans_fichier")
 
 
-@pytest.mark.parametrize("hostile", ["..", "FR", "fr_FR"])
+# Même raison : `..` non encodé n'arrive jamais jusqu'ici.
+@pytest.mark.parametrize("hostile", ["%2E%2E", "FR", "fr_FR"])
 async def test_cleaning_through_a_hostile_culture_code_is_refused(
     forge: Forge, hostile: str
 ) -> None:

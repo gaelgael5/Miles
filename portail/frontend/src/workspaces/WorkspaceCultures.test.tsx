@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { type Routes, mockApi } from "@miles/socle-web/testing";
-import { CATALOGUE, WORKSPACE_CULTURES, fill } from "./workspaceFixtures";
+import { CATALOGUE, WORKSPACE_CULTURES } from "./workspaceFixtures";
 import { WorkspaceCulturesCard } from "./WorkspaceCultures";
 
 const CULTURES = "/api/workspaces/retrait/cultures";
@@ -54,8 +54,7 @@ describe("WorkspaceCulturesCard", () => {
     await screen.findByText("ar-MA");
 
     // th-TH n'est pas active dans l'application, et se propose quand même (critère 9).
-    await screen.findByRole("option", { name: /th-TH/ });
-    fill("Additional culture", "th-TH");
+    fireEvent.click(await screen.findByRole("button", { name: /th-TH/ }));
     fireEvent.click(screen.getByText("Add"));
 
     expect(await screen.findByText("th-TH")).toBeInTheDocument();
@@ -66,9 +65,9 @@ describe("WorkspaceCulturesCard", () => {
     renderCard();
     await screen.findByText("ar-MA");
 
-    await screen.findByRole("option", { name: /th-TH/ });
-    expect(screen.queryByRole("option", { name: /ar-MA/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: /fr-FR/ })).not.toBeInTheDocument();
+    await screen.findByRole("button", { name: /th-TH/ });
+    expect(screen.queryByRole("button", { name: /ar-MA/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /fr-FR/ })).not.toBeInTheDocument();
   });
 
   it("says how many keys are missing when the default culture cannot change yet", async () => {
@@ -167,8 +166,7 @@ describe("WorkspaceCulturesCard", () => {
       },
     });
     await screen.findByText("ar-MA");
-    await screen.findByRole("option", { name: /th-TH/ });
-    fill("Additional culture", "th-TH");
+    fireEvent.click(await screen.findByRole("button", { name: /th-TH/ }));
 
     fireEvent.click(screen.getByText("Add"));
 

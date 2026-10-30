@@ -69,7 +69,7 @@ describe("TradsKeysScreen", () => {
   });
 
   it("opens the edition from the whole row, and keeps the other actions reachable", async () => {
-    routes({ status: 200, body: [TITRE] && { keys: [TITRE], total: 1 } });
+    routes({ status: 200, body: { keys: [TITRE], total: 1 } });
     await openKeys();
 
     const row = (await screen.findByText("titre")).closest("li") as HTMLElement;

@@ -22,7 +22,8 @@
       "workspaces": "Workspaces"
     },
     "groups": {
-      "globalisation": "Globalisation"
+      "globalisation": "Globalisation",
+      "agent": "Agent"
     }
   },
   "security": {
@@ -1141,7 +1142,6 @@
     "removeConfirm": "Retirer {{culture}} des cultures de ce workspace ?",
     "filesKept": "Ses fichiers de traduction restent dans le dépôt : ses valeurs réapparaîtront si vous la remettez.",
     "filter": "Filtrer les cultures",
-    "choose": "Choisir une culture…",
     "noMatch": "Aucune culture ne correspond à « {{filter}} ».",
     "errors": {
       "incomplete": "{{missing}} clé(s) n'ont pas de valeur en {{culture}} : complétez-les avant d'en faire la culture par défaut.",
@@ -1151,7 +1151,9 @@
       "unreachable": "Les cultures de ce workspace n'ont pas pu être lues.",
       "catalogue": "Le catalogue des cultures n'a pas pu être lu.",
       "unexpected": "Le changement n'a pas pu être enregistré."
-    }
+    },
+    "filterPlaceholder": "Taper pour filtrer, puis cliquer une culture",
+    "more": "…et {{count}} autre(s) : affinez le filtre."
   },
   "trads": {
     "title": "Traductions",

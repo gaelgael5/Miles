@@ -949,6 +949,441 @@
         "title": "get_catalogArguments",
         "type": "object"
       }
+    },
+    {
+      "name": "list_trads_contexts",
+      "description": "Liste les contextes de traduction d'une branche : leur nom technique, leur libellé, leur nombre de clés, les clés traduites par culture du workspace, et les cultures retirées du workspace dont le dépôt garde encore un fichier. Le dépôt fait foi : un répertoire créé à la main y figure, avec son nom technique pour libellé.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "list_trads_contextsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_trads_context",
+      "description": "Crée un contexte et son répertoire trads/<nom>/ dans une branche enfant. Le nom technique est FIGÉ après création : il entre dans le chemin sur disque et dans tout ce qui référencera ses clés. Refus : contexte_pris (le refus nomme le libellé du contexte existant).",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom technique du contexte : son répertoire trads/<nom>/, figé.",
+            "title": "Name",
+            "type": "string"
+          },
+          "label": {
+            "description": "Libellé pour l'humain, sur une ligne.",
+            "title": "Label",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "name",
+          "label"
+        ],
+        "title": "create_trads_contextArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "rename_trads_context",
+      "description": "Change le LIBELLÉ d'un contexte. Il n'existe aucun outil pour changer son nom technique : le renommer déplacerait des fichiers et casserait des références que le produit ne sait pas encore retrouver.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom technique du contexte : son répertoire trads/<nom>/, figé.",
+            "title": "Name",
+            "type": "string"
+          },
+          "label": {
+            "description": "Nouveau libellé.",
+            "title": "Label",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "name",
+          "label"
+        ],
+        "title": "rename_trads_contextArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_trads_context",
+      "description": "Supprime un contexte et TOUTES ses clés d'une branche enfant. Rend ce qui a disparu : le nombre de clés et le nombre de valeurs, toutes cultures confondues. C'est un commit, donc la suppression se relit et se défait.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom technique du contexte : son répertoire trads/<nom>/, figé.",
+            "title": "Name",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "name"
+        ],
+        "title": "delete_trads_contextArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_trads_keys",
+      "description": "Liste les clés d'un contexte et leurs valeurs par culture du workspace. `search` filtre sur le slug ; `untranslated` ne rend que les clés SANS valeur dans cette culture — la liste de travail d'un traducteur. Une culture absente des valeurs n'est pas traduite ; elle n'y figure jamais avec une chaîne vide.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "context": {
+            "description": "Nom technique du contexte : son répertoire trads/<nom>/, figé.",
+            "title": "Context",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          },
+          "search": {
+            "default": "",
+            "description": "Fragment du slug.",
+            "title": "Search",
+            "type": "string"
+          },
+          "untranslated": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Code de culture : les clés sans valeur dedans.",
+            "title": "Untranslated"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Rang de départ.",
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 200,
+            "description": "Taille de page.",
+            "maximum": 200,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "context"
+        ],
+        "title": "list_trads_keysArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_trads_key",
+      "description": "Ajoute une clé à un contexte, avec ses valeurs. La valeur de la culture par défaut du workspace est obligatoire. Refus : slug_pris, slug invalide (minuscules, chiffres, tiret, souligné), valeur_par_defaut_obligatoire, direction_forcee (la valeur porte des caractères qui la feraient s'afficher autrement qu'elle n'est écrite ; le refus les nomme).",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "context": {
+            "description": "Nom technique du contexte : son répertoire trads/<nom>/, figé.",
+            "title": "Context",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Slug de la clé, ce que le paramétrage référencera : figé sauf renommage.",
+            "title": "Slug",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Valeur par code de culture. Une culture ABSENTE de la mappe n'est pas touchée et son fichier n'est pas réécrit ; null VIDE la valeur et retire sa ligne du fichier. La valeur de la culture par défaut du workspace est obligatoire.",
+            "title": "Values",
+            "type": "object"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "context",
+          "slug",
+          "values"
+        ],
+        "title": "create_trads_keyArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "update_trads_values",
+      "description": "Écrit les valeurs d'une clé existante, et SEULEMENT les cultures présentes dans `values` : les autres fichiers ne sont pas réécrits, ce qui garde le diff git lisible. null vide une valeur et retire sa ligne ; vider celle de la culture par défaut est refusé.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "context": {
+            "description": "Nom technique du contexte : son répertoire trads/<nom>/, figé.",
+            "title": "Context",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Slug de la clé, ce que le paramétrage référencera : figé sauf renommage.",
+            "title": "Slug",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Valeur par code de culture. Une culture ABSENTE de la mappe n'est pas touchée et son fichier n'est pas réécrit ; null VIDE la valeur et retire sa ligne du fichier. La valeur de la culture par défaut du workspace est obligatoire.",
+            "title": "Values",
+            "type": "object"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "context",
+          "slug",
+          "values"
+        ],
+        "title": "update_trads_valuesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "rename_trads_key",
+      "description": "Renomme une clé dans TOUS les fichiers de cultures du contexte. C'est une RUPTURE, pas une correction : le slug est ce que le paramétrage référencera, et le produit ne sait pas encore dire ce qui pointe une clé.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "context": {
+            "description": "Nom technique du contexte : son répertoire trads/<nom>/, figé.",
+            "title": "Context",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Slug de la clé, ce que le paramétrage référencera : figé sauf renommage.",
+            "title": "Slug",
+            "type": "string"
+          },
+          "new_slug": {
+            "description": "Nouveau slug.",
+            "title": "New Slug",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "context",
+          "slug",
+          "new_slug"
+        ],
+        "title": "rename_trads_keyArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_trads_key",
+      "description": "Supprime une clé de tous les fichiers de cultures du contexte. Même régime que le renommage : personne ne sait encore qui la référence.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "context": {
+            "description": "Nom technique du contexte : son répertoire trads/<nom>/, figé.",
+            "title": "Context",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Slug de la clé, ce que le paramétrage référencera : figé sauf renommage.",
+            "title": "Slug",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "context",
+          "slug"
+        ],
+        "title": "delete_trads_keyArguments",
+        "type": "object"
+      }
     }
   ]
 }

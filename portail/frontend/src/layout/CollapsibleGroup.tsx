@@ -14,12 +14,14 @@ import { type ReactNode, useId, useState } from "react";
 export function CollapsibleGroup({
   label,
   className,
-  defaultOpen = true,
+  defaultOpen = false,
   children,
 }: {
   label: ReactNode;
   /** Classe du bouton : le niveau du menu décide de son allure. */
   className: string;
+  /** Replié par défaut (Gael, 30/10/2026) : la barre compte une vingtaine d'entrées, et
+   * tout ouvrir au chargement oblige à faire défiler pour atteindre ce qu'on cherche. */
   defaultOpen?: boolean;
   children: ReactNode;
 }) {

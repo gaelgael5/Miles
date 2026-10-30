@@ -73,7 +73,6 @@ function CreateForm({ onDone }: { onDone: (id: string) => void }) {
       <CulturePicker
         label={t("workspaces.fields.defaultCulture")}
         value={culture}
-        required
         onChange={setCulture}
       />
       <p className="help">{t("workspaces.form.defaultCultureHelp")}</p>
