@@ -68,12 +68,29 @@ describe("TradsKeysScreen", () => {
     expect(codes).toEqual(["fr-FR", "ar-MA"]);
   });
 
+  it("opens the edition from the whole row, and keeps the other actions reachable", async () => {
+    routes({ status: 200, body: [TITRE] && { keys: [TITRE], total: 1 } });
+    await openKeys();
+
+    const row = (await screen.findByText("titre")).closest("li") as HTMLElement;
+    // Le bouton du slug couvre la ligne (`row-open::after { inset: 0 }`) : il n'y a plus
+    // de bouton « Modifier », c'est la ligne qui ouvre.
+    expect(within(row).queryByText("Edit")).not.toBeInTheDocument();
+    expect(row.className).toContain("row-openable");
+    // Et les actions repassent AU-DESSUS de ce calque. jsdom ne calcule aucun rectangle :
+    // ce test prouve que la classe est là, pas que le clic atteint le bouton. La mesure
+    // qui mord est celle d'un vrai navigateur (LESSONS.md, mise en page).
+    expect(within(row).getByText("Rename").closest(".actions")?.className).toContain(
+      "row-actions",
+    );
+  });
+
   // --- Critères 7, 8, 9 : la langue et le sens viennent de la CULTURE ---
 
   it("declares the language and the direction on each field, not on the page", async () => {
     routes({ status: 200, body: { keys: [TITRE], total: 1 } });
     await openKeys();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByRole("button", { name: "titre" }));
 
     expect(fieldOf("fr-FR")).toHaveAttribute("dir", "ltr");
     expect(fieldOf("ar-MA")).toHaveAttribute("dir", "rtl");
@@ -85,7 +102,7 @@ describe("TradsKeysScreen", () => {
   it("never uses dir=auto, which would guess the direction from the content", async () => {
     routes({ status: 200, body: { keys: [TITRE], total: 1 } });
     await openKeys();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByRole("button", { name: "titre" }));
 
     // `dir="auto"` disposerait de gauche à droite une valeur arabe commençant par un nom
     // de marque latin : l'erreur n'apparaîtrait que sur certaines valeurs, donc tard.
@@ -116,7 +133,7 @@ describe("TradsKeysScreen", () => {
   it("marks the right-to-left columns and the required one", async () => {
     routes({ status: 200, body: { keys: [TITRE], total: 1 } });
     await openKeys();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByRole("button", { name: "titre" }));
 
     const arabic = fieldOf("ar-MA").closest("label") as HTMLElement;
     expect(within(arabic).getByText("(right to left)")).toBeInTheDocument();
@@ -128,7 +145,7 @@ describe("TradsKeysScreen", () => {
     const withMark = { slug: "marque", values: { "fr-FR": "Bonjour", "ar-MA": "شركة‏ Acme" } };
     routes({ status: 200, body: { keys: [withMark], total: 1 } });
     await openKeys();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByRole("button", { name: "marque" }));
 
     expect(await screen.findByText(/invisible direction marks: RLM/)).toBeInTheDocument();
   });
@@ -144,7 +161,7 @@ describe("TradsKeysScreen", () => {
         } },
     );
     await openKeys();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByRole("button", { name: "titre" }));
 
     fireEvent.change(fieldOf("ar-MA"), { target: { value: "أهلا" } });
     fireEvent.click(screen.getByText("Save"));
@@ -164,7 +181,7 @@ describe("TradsKeysScreen", () => {
         } },
     );
     await openKeys();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByRole("button", { name: "titre" }));
 
     fireEvent.change(fieldOf("ar-MA"), { target: { value: "" } });
     fireEvent.click(screen.getByText("Save"));
@@ -184,7 +201,7 @@ describe("TradsKeysScreen", () => {
         } },
     );
     await openKeys();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByRole("button", { name: "titre" }));
 
     fireEvent.click(screen.getByText("Save"));
 
@@ -337,7 +354,7 @@ describe("TradsKeysScreen", () => {
         } },
     );
     await openKeys();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByRole("button", { name: "titre" }));
     fireEvent.change(fieldOf("fr-FR"), { target: { value: "Salut" } });
 
     fireEvent.click(screen.getByText("Save"));
@@ -362,7 +379,7 @@ describe("TradsKeysScreen", () => {
     await screen.findByText("Bonjour");
 
     expect(screen.queryByText("Add a key")).not.toBeInTheDocument();
-    expect(screen.queryByText("Edit")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "titre" })).not.toBeInTheDocument();
     expect(screen.queryByText("Rename")).not.toBeInTheDocument();
     expect(screen.queryByText("Delete")).not.toBeInTheDocument();
   });

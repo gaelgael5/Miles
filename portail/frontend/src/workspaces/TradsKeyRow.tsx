@@ -101,9 +101,18 @@ export function TradsKeyRow({
   }
 
   return (
-    <li className="row trads-key-row">
+    // La ligne entière ouvre l'édition, comme les autres listes du portail : le bouton du
+    // slug couvre la ligne et porte le nom accessible, et `row-actions` repasse au-dessus
+    // pour que « Renommer » et « Supprimer » restent atteignables.
+    <li className={editing || readOnly ? "row trads-key-row" : "row trads-key-row row-openable"}>
       <div className="row-main">
-        <code>{entry.slug}</code>
+        {editing || readOnly ? (
+          <code>{entry.slug}</code>
+        ) : (
+          <button type="button" className="row-open" onClick={open}>
+            <code>{entry.slug}</code>
+          </button>
+        )}
         {renaming && (
           <RenameForm slug={entry.slug} onDone={() => setRenaming(false)} onRename={onRename} />
         )}
@@ -153,12 +162,7 @@ export function TradsKeyRow({
         </div>
       )}
       {!readOnly && (
-        <div className="actions">
-          {!editing && (
-            <button type="button" className="btn btn-secondary" onClick={open}>
-              {t("tradsKeys.edit.action")}
-            </button>
-          )}
+        <div className="actions row-actions">
           <button type="button" className="btn btn-secondary" onClick={() => setRenaming(true)}>
             {t("tradsKeys.rename.action")}
           </button>

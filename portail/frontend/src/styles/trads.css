@@ -118,9 +118,15 @@ textarea.value-field {
   }
 }
 
+/*
+ * Les valeurs d'une clé côte à côte quand la place le permet. Empilées, un contexte à
+ * plusieurs cultures faisait du formulaire d'ajout une page entière : la liste des clés
+ * sortait de l'écran, et on ne voyait plus que le formulaire (Gael, 30/10/2026).
+ */
 .trads-values {
   display: grid;
-  gap: 0.5rem;
+  gap: 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
 }
 
 /*
