@@ -5,6 +5,7 @@
       "security": "Services de sécurité",
       "oidc": "Connecteurs OIDC",
       "cultures": "Cultures",
+      "countries": "Pays",
       "secrets": "Secrets",
       "health": "État du service",
       "gitConnections": "Connexions git",
@@ -1070,5 +1071,21 @@
     "stale": "Le module d'enrôlement ne détient plus ce que nous avons : une transmission n'est pas arrivée, ou l'appariement a été rompu. Retransmettre ci-dessous — c'est sans effet s'il est déjà à jour.",
     "transmit": "Retransmettre maintenant",
     "refused": "La transmission a été refusée ou le module d'enrôlement est injoignable. Rien n'a changé de son côté."
+  },
+  "countries": {
+    "title": "Pays",
+    "intro": "La liste des pays est donnée : elle vient de l'ISO 3166 et ne se modifie pas. Activez ceux dont cette installation se sert.",
+    "filter": "Filtrer par nom ou par code",
+    "selected": "{{count}} sélectionné(s)",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "active": "Actif",
+    "keepRows": "Désactiver un pays ne le supprime pas : il cesse d'être proposé, et le réactiver le retrouve tel quel.",
+    "loading": "Chargement des pays…",
+    "noMatch": "Aucun pays ne correspond à « {{filter}} ».",
+    "errors": {
+      "unreachable": "La liste des pays n'a pas pu être lue.",
+      "change": "Le changement a été refusé. Rien n'a été modifié."
+    }
   }
 }

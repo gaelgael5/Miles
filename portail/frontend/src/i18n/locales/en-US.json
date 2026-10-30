@@ -5,6 +5,7 @@
       "security": "Security services",
       "oidc": "OIDC connectors",
       "cultures": "Cultures",
+      "countries": "Countries",
       "secrets": "Secrets",
       "health": "Service status",
       "gitConnections": "Git connections",
@@ -1070,5 +1071,21 @@
     "stale": "The enrolment module no longer holds what we have: a transmission did not arrive, or the pairing was broken. Send it again below — it is a no-op if it is already current.",
     "transmit": "Send again now",
     "refused": "The transmission was refused, or the enrolment module is unreachable. Nothing changed on its side."
+  },
+  "countries": {
+    "title": "Countries",
+    "intro": "The country list is given: it comes from ISO 3166 and cannot be edited. Activate the ones this installation uses.",
+    "filter": "Filter by name or code",
+    "selected": "{{count}} selected",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "active": "Active",
+    "keepRows": "Deactivating a country does not delete it: it stops being offered, and reactivating it brings it back unchanged.",
+    "loading": "Loading countries…",
+    "noMatch": "No country matches “{{filter}}”.",
+    "errors": {
+      "unreachable": "The country list could not be read.",
+      "change": "The change was refused. Nothing was modified."
+    }
   }
 }

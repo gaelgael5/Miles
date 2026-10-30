@@ -15,6 +15,7 @@ from miles.gitaccess import confide_model as confide_events
 from miles.gitaccess import model as gitaccess_events
 from miles.identities import service as identities_events
 from miles.oauth import clients as oauth_events
+from miles.reference import model as country_events
 from miles.security import service as security_events
 from miles.sources import service as sources_events
 from miles.storages import service as storages_events
@@ -44,6 +45,7 @@ def code_event_types() -> frozenset[str]:
         | identities_events.EVENT_TYPES
         | oauth_events.EVENT_TYPES
         | module_identity_events.EVENT_TYPES
+        | country_events.EVENT_TYPES
         | oidc_events.EVENT_TYPES
         | pairing_events.EVENT_TYPES
         | secrets_events.EVENT_TYPES

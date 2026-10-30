@@ -7,6 +7,14 @@ dependencies = [
     "aiomqtt==2.5.1",
     "argon2-cffi>=23.1",
     "asyncpg>=0.30",
+    # Données CLDR. Dépendance d'EXÉCUTION depuis le 30/10/2026, et c'est une décision :
+    # les libellés des pays et des fuseaux sont dérivés au moment d'afficher, dans la
+    # culture du visiteur, plutôt que chargés en base. Les charger aurait voulu dire
+    # choisir pour quelles cultures — 249 pays × 800 cultures font deux cent mille lignes
+    # de SQL, et s'en tenir aux langues laisse sans libellé toute culture non prévue.
+    # Elle servait déjà à ENGENDRER la migration des cultures ; elle sert maintenant aussi
+    # à l'exécution. Version figée : une version de CLDR qui change renomme des pays.
+    "babel==2.17.0",
     "cryptography>=44",
     "fastapi>=0.115",
     "httpx>=0.27",

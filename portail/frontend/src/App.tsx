@@ -15,6 +15,7 @@ import {
   usePreferences,
 } from "@miles/socle-web";
 import { ApiKeysScreen } from "./apiKeys/ApiKeysScreen";
+import { CountriesScreen } from "./countries/CountriesScreen";
 import { GitConnectionsScreen } from "./gitConnections/GitConnectionsScreen";
 import { applyLanguage } from "./i18n/i18n";
 import { type WorkspaceSelection, WorkspacesNav } from "./layout/WorkspacesNav";
@@ -36,6 +37,7 @@ type Page =
   | "secrets"
   | "apiKeys"
   | "oauthClients"
+  | "countries"
   | "health";
 // Deux menus, dans cet ordre (Gael, 21/10/2026) : le global d'abord, ce que partagent tous
 // les workspaces, puis les workspaces. L'ordre des écrans dans le global est voulu.
@@ -48,7 +50,10 @@ const SECTIONS: Section[] = [
     // L'appariement est placé après les connexions git, et c'est voulu : c'est à lui
     // qu'elles seront bientôt confiées (ticket edcf78bc), et les lire dans cet ordre dit
     // ce qui dépend de quoi.
-    pages: ["cultures", "secrets", "gitConnections", "pairing", "security", "oidc", "apiKeys", "oauthClients", "health"],
+    // Les pays suivent les cultures : ce sont deux référentiels DONNÉS du même genre, et
+    // le libellé d'un pays dépend des cultures actives. Les lire dans cet ordre dit ce qui
+    // dépend de quoi, comme l'appariement après les connexions git.
+    pages: ["cultures", "countries", "secrets", "gitConnections", "pairing", "security", "oidc", "apiKeys", "oauthClients", "health"],
   },
   { title: "workspaces", pages: ["workspaces"] },
 ];
@@ -61,6 +66,7 @@ const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
   pairing: () => <PairingScreen peerExtra={<ConnexionsConfiees />} />,
   oidc: ConnectorsScreen,
   cultures: CulturesScreen,
+  countries: CountriesScreen,
   secrets: SecretsScreen,
   apiKeys: ApiKeysScreen,
   oauthClients: OAuthClientsScreen,
