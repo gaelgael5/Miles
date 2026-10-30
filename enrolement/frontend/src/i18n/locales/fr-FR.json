@@ -49,8 +49,6 @@
       "body": "La demande de {{url}} disparaîtra et son code cessera de valoir. L'environnement devra redemander."
     },
     "paired": {
-      "title": "Environnements appariés",
-      "empty": "Aucun environnement apparié.",
       "captionSince": "Apparié le",
       "captionDevices": "Devices affectés",
       "devicesUnknown": "—",
@@ -60,7 +58,11 @@
       "contactSubmit": "Enregistrer l'adresse",
       "contactEdit": "Changer l'adresse de contact",
       "contactError": "Adresse refusée. Une origine http(s) sans chemin est attendue.",
-      "devicesUnknownHelp": "Le référentiel des devices n'existe pas encore : ce nombre n'est pas connu, et n'est donc pas affiché comme zéro."
+      "devicesUnknownHelp": "Le référentiel des devices n'existe pas encore : ce nombre n'est pas connu, et n'est donc pas affiché comme zéro.",
+      "parametrageTitle": "Module de paramétrage apparié",
+      "parametrageEmpty": "Aucun module de paramétrage apparié.",
+      "environnementsTitle": "Environnements appariés",
+      "environnementsEmpty": "Aucun environnement apparié."
     },
     "revoke": {
       "action": "Révoquer l'appariement",

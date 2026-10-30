@@ -7,7 +7,6 @@ import { type PairedEnvironment, useRevokePeer } from "../api/pairing";
 import { ContactUrlForm } from "./ContactUrlForm";
 import { EnvironmentAssign } from "./EnvironmentAssign";
 import { EnvironmentCell } from "./EnvironmentCell";
-import { EspeceBadge } from "./EspeceBadge";
 
 /**
  * Ce que la révocation va provoquer sur le parc, écrit AVANT qu'on la provoque.
@@ -40,12 +39,6 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
       <div className="row-main">
         <div className="row-title">{environnement.name ?? t("pairing.requests.unnamed")}</div>
         <div className="row-sub">{environnement.base_url}</div>
-      </div>
-      <div className="cell">
-        <div className="caption">{t("pairing.species.caption")}</div>
-        <div className="value">
-          <EspeceBadge species={environnement.species} />
-        </div>
       </div>
       {rattachable && (
         <div className="cell">

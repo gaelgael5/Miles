@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog, PageHead } from "@miles/socle-web";
 
 import {
+  type PairedEnvironment,
   type PairingRequest,
   useDesignateRequestEnvironment,
   usePairedEnvironments,
@@ -146,6 +147,50 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
   );
 }
 
+/**
+ * Un bloc d'appariés d'une seule espèce.
+ *
+ * `apparies` vaut `undefined` tant que la lecture n'a pas rendu : on ne dit alors NI
+ * « aucun » ni une liste vide, parce que les deux affirmeraient un état qu'on ne connaît
+ * pas encore.
+ */
+function ApparieBloc({
+  titre,
+  aide,
+  vide,
+  apparies,
+  chargement,
+}: {
+  titre: string;
+  aide: string;
+  vide: string;
+  apparies: PairedEnvironment[] | undefined;
+  chargement: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h2>{titre}</h2>
+      </div>
+      {/* La conséquence de l'espèce, une fois pour le bloc : c'est ce que le badge de
+          chaque ligne répétait, et ce qui justifie que les deux listes soient séparées. */}
+      <p className="help">{aide}</p>
+      {chargement && <p role="status">{t("pairing.loading")}</p>}
+      {apparies?.length === 0 && (
+        <p className="muted" role="status">
+          {vide}
+        </p>
+      )}
+      <ul className="card-list">
+        {apparies?.map((environnement) => (
+          <ApparieRow key={environnement.base_url} environnement={environnement} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function PairingScreen() {
   const { t } = useTranslation();
   const demandes = usePairingRequests();
@@ -181,24 +226,29 @@ export function PairingScreen() {
           ))}
         </ul>
       </div>
-      <div className="card">
-        <div className="card-head">
-          <h2>{t("pairing.paired.title")}</h2>
-        </div>
-        {apparies.data?.length === 0 && (
-          <p className="muted" role="status">
-            {t("pairing.paired.empty")}
-          </p>
-        )}
-        <ul className="card-list">
-          {apparies.data?.map((environnement) => (
-            <ApparieRow key={environnement.base_url} environnement={environnement} />
-          ))}
-        </ul>
-      </div>
-      {/* APRÈS les appariés, et c'est l'ordre de lecture : ce qu'on détient découle de
-          l'appariement du module de paramétrage, qui est dans la liste ci-dessus. */}
+      {/* Les appariés sont séparés PAR ESPÈCE, et le module de paramétrage vient en
+          premier (Gael, 30/10/2026). Une liste unique les mélangeait, alors que ce sont
+          deux choses sans rapport : il n'y a qu'UN module de paramétrage, et ce qu'on lui
+          confie n'a rien à voir avec les devices qu'un environnement reçoit. Séparés, le
+          titre du bloc porte l'espèce et sa conséquence une seule fois, au lieu de les
+          répéter sur chaque ligne. */}
+      <ApparieBloc
+        titre={t("pairing.paired.parametrageTitle")}
+        aide={t("pairing.species.parametrageConsequence")}
+        vide={t("pairing.paired.parametrageEmpty")}
+        apparies={apparies.data?.filter((a) => a.species === "parametrage")}
+        chargement={apparies.isPending}
+      />
+      {/* Juste sous le module de paramétrage : ce qu'on détient découle de SON
+          appariement, et le bloc qui le porte est maintenant celui du dessus. */}
       <ConnexionsConfiees />
+      <ApparieBloc
+        titre={t("pairing.paired.environnementsTitle")}
+        aide={t("pairing.species.environnementConsequence")}
+        vide={t("pairing.paired.environnementsEmpty")}
+        apparies={apparies.data?.filter((a) => a.species === "environnement")}
+        chargement={apparies.isPending}
+      />
     </section>
   );
 }

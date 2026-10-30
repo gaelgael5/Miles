@@ -49,8 +49,6 @@
       "body": "The request from {{url}} will disappear and its code will stop working. The environment will have to ask again."
     },
     "paired": {
-      "title": "Paired environments",
-      "empty": "No paired environment.",
       "captionSince": "Paired on",
       "captionDevices": "Assigned devices",
       "devicesUnknown": "—",
@@ -60,7 +58,11 @@
       "contactSubmit": "Save address",
       "contactEdit": "Change contact address",
       "contactError": "Address refused. An http(s) origin without a path is expected.",
-      "devicesUnknownHelp": "The device registry does not exist yet: this number is unknown, and is deliberately not shown as zero."
+      "devicesUnknownHelp": "The device registry does not exist yet: this number is unknown, and is deliberately not shown as zero.",
+      "parametrageTitle": "Paired configuration module",
+      "parametrageEmpty": "No configuration module paired.",
+      "environnementsTitle": "Paired environments",
+      "environnementsEmpty": "No environment paired."
     },
     "revoke": {
       "action": "Revoke pairing",

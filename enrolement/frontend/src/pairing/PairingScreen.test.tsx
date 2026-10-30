@@ -121,7 +121,10 @@ describe("écran d'appariement du module d'enrôlement", () => {
 
     // Un état vide NEUTRE : aucune demande en attente est le cas ordinaire, pas une panne.
     expect(await screen.findByText("No pending request.")).toBeInTheDocument();
-    expect(screen.getByText("No paired environment.")).toBeInTheDocument();
+    // Chaque espèce a son bloc, et chacun dit le sien : « aucun environnement » ne
+    // renseigne pas sur le module de paramétrage, qui est une autre question.
+    expect(screen.getByText("No environment paired.")).toBeInTheDocument();
+    expect(screen.getByText("No configuration module paired.")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -601,20 +604,49 @@ describe("écran d'appariement du module d'enrôlement", () => {
     // lui confier des connexions git, et c'est sur cela que la décision se prend.
     monte(routes([DEMANDE, DEMANDE_PARAMETRAGE], []));
 
-    expect(await screen.findByText("Configuration module")).toBeInTheDocument();
+    await screen.findByText("Portail de configuration");
+    const demandes = screen
+      .getByRole("heading", { name: "Pending requests" })
+      .closest(".card") as HTMLElement;
+    expect(within(demandes).getByText("Configuration module")).toBeInTheDocument();
     expect(
-      screen.getByText(/entrusted with the git connections/i),
+      within(demandes).getByText(/entrusted with the git connections/i),
     ).toBeInTheDocument();
-    expect(screen.getByText("Receives devices from this module.")).toBeInTheDocument();
+    expect(
+      within(demandes).getByText("Receives devices from this module."),
+    ).toBeInTheDocument();
   });
 
-  it("names the kind in the paired list too", async () => {
+  it("names the kind in the paired list too, by its own block", async () => {
     // Même critère, et l'autre moitié : une liste qui ne dirait l'espèce qu'à l'acceptation
     // laisserait, un mois plus tard, « pourquoi cette stack a-t-elle ces secrets ? » sans
-    // réponse lisible à l'écran.
+    // réponse lisible à l'écran. Depuis la séparation par espèce (Gael, 30/10/2026), c'est
+    // le TITRE du bloc qui la porte, et sa conséquence une seule fois dessous.
     monte(routes([], [APPARIE_PARAMETRAGE]));
 
-    expect(await screen.findByText("Configuration module")).toBeInTheDocument();
+    await screen.findByText("Portail de configuration");
+    const bloc = screen
+      .getByRole("heading", { name: "Paired configuration module" })
+      .closest(".card") as HTMLElement;
+    expect(within(bloc).getByText(/entrusted with the git connections/i)).toBeInTheDocument();
+    expect(within(bloc).getByText("Portail de configuration")).toBeInTheDocument();
+    // Et il n'est PAS dans le bloc des environnements, qui se dit vide.
+    expect(screen.getByText("No environment paired.")).toBeInTheDocument();
+  });
+
+  it("puts the configuration module above the environments", async () => {
+    // L'ordre demandé (Gael, 30/10/2026) : ce qu'on confie se lit avant le parc, et c'est
+    // aussi l'ordre dont les connexions confiées découlent.
+    monte(routes([], [APPARIE_PARAMETRAGE, APPARIE]));
+
+    await screen.findByText("Portail de configuration");
+    const titres = [...document.querySelectorAll(".card-head h2")].map((e) => e.textContent);
+    expect(titres).toEqual([
+      "Pending requests",
+      "Paired configuration module",
+      "Confided git connections",
+      "Paired environments",
+    ]);
   });
 
   it("never asks to assign an environment to a configuration module", async () => {
