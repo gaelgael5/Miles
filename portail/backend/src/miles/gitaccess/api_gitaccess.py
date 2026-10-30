@@ -166,8 +166,13 @@ def _confiding(state: ConfidingState) -> ConfidingOut:
 
 @connections_router.get("/confided", response_model=ConfidingOut)
 async def get_confided(service: Confiding) -> ConfidingOut:
-    """Où en est le confiage. Déclarée AVANT `/{connection_id}` n'est pas nécessaire :
-    aucune route ne lit un identifiant en GET, donc il n'y a pas d'ambiguïté à lever."""
+    """Où en est le confiage.
+
+    `confided` est un identifiant de connexion LICITE : le jour où une route
+    `GET /{connection_id}` sera ajoutée, celle-ci devra rester déclarée AVANT elle, sinon
+    une connexion qu'un administrateur aurait nommée « confided » masquerait cet écran.
+    Aucune ambiguïté aujourd'hui — il n'existe pas de lecture par identifiant.
+    """
     return _confiding(await service.resolve_state())
 
 
