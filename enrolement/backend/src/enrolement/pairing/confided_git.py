@@ -28,7 +28,6 @@ from enrolement.pairing.events import (
 )
 from enrolement.pairing.peer_reads import PairingPeerReads
 from enrolement.pairing.store_confided_git import (
-    db_count_confided,
     db_delete_absent_connections,
     db_delete_workspaces,
     db_get_confided,
@@ -275,11 +274,6 @@ class PairingConfidedGit(PairingPeerReads):
             )
             return False
         return True
-
-    async def resolve_count_confided(self, conn: Any, peer_base_url: str) -> int:
-        """Combien de connexions git ce pair nous a confiées. Lu avant de le révoquer."""
-        return await db_count_confided(conn, peer_base_url)
-
 
 def _aad(peer_base_url: str, connection_id: str) -> str:
     """Les données associées du chiffrement : le pair ET la connexion.
