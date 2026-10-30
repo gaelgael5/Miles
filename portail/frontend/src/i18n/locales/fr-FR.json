@@ -72,7 +72,8 @@
       "id": "Identifiant",
       "name": "Nom",
       "securityService": "Service de sécurité racine",
-      "noSecurityService": "— Aucun pour l'instant —"
+      "noSecurityService": "— Aucun pour l'instant —",
+      "defaultCulture": "Culture par défaut"
     },
     "form": {
       "title": "Nouveau workspace",
@@ -80,7 +81,8 @@
       "cancel": "Annuler",
       "idHelp": "Déduit du nom ; modifiable avant la création.",
       "writesForReal": "Le test écrit vraiment : il crée la branche et le tag {{branch}}, pousse un commit, puis retire les deux. Sur un dépôt vide, Miles crée d'abord la branche main.",
-      "testing": "Essai des cinq droits avec la branche {{branch}}…"
+      "testing": "Essai des cinq droits avec la branche {{branch}}…",
+      "defaultCultureHelp": "La langue dans laquelle une valeur sera exigée sur chaque clé de traduction de ce workspace. Elle se change ensuite dans le paramétrage."
     },
     "card": {
       "recheck": "Retester les accès",
@@ -128,7 +130,8 @@
         "repo_url": "Dépôt : une adresse de la forme https://github.com/organisation/depot.",
         "git_connection_id": "Cette connexion n'existe pas, ou son accès est inutilisable.",
         "security_service_id": "Ce service de sécurité n'existe pas.",
-        "verification_suffix": "Nom de vérification invalide."
+        "verification_suffix": "Nom de vérification invalide.",
+        "default_culture": "Culture par défaut invalide ou inconnue."
       },
       "conflict": {
         "identifiant_pris": "Cet identifiant est déjà pris par un autre workspace.",
@@ -1113,6 +1116,33 @@
     "errors": {
       "unreachable": "La liste des fuseaux n'a pas pu être lue.",
       "change": "Le changement a été refusé. Rien n'a été modifié."
+    }
+  },
+  "workspaceCultures": {
+    "title": "Cultures du paramétrage",
+    "intro": "Les langues dans lesquelles on traduit ce que ce workspace décrit. Distinctes des cultures actives de l'application, qui sont les langues du back-office lui-même.",
+    "defaultNote": "Valeur exigée sur chaque clé du référentiel de traductions.",
+    "isDefault": "Par défaut",
+    "additional": "Culture additionnelle",
+    "addTitle": "Ajouter une culture",
+    "add": "Ajouter",
+    "promote": "Mettre par défaut",
+    "remove": "Retirer",
+    "cancel": "Annuler",
+    "removeTitle": "Retirer une culture",
+    "removeConfirm": "Retirer {{culture}} des cultures de ce workspace ?",
+    "filesKept": "Ses fichiers de traduction restent dans le dépôt : ses valeurs réapparaîtront si vous la remettez.",
+    "filter": "Filtrer les cultures",
+    "choose": "Choisir une culture…",
+    "noMatch": "Aucune culture ne correspond à « {{filter}} ».",
+    "errors": {
+      "incomplete": "{{missing}} clé(s) n'ont pas de valeur en {{culture}} : complétez-les avant d'en faire la culture par défaut.",
+      "unreadable": "Le fichier {{path}} n'est pas lisible : corrigez-le dans le dépôt.",
+      "unknown": "Cette culture n'est pas au catalogue.",
+      "shape": "Ce code de culture n'a pas une forme valide.",
+      "unreachable": "Les cultures de ce workspace n'ont pas pu être lues.",
+      "catalogue": "Le catalogue des cultures n'a pas pu être lu.",
+      "unexpected": "Le changement n'a pas pu être enregistré."
     }
   }
 }

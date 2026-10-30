@@ -72,7 +72,8 @@
       "id": "Identifier",
       "name": "Name",
       "securityService": "Root security service",
-      "noSecurityService": "— None for now —"
+      "noSecurityService": "— None for now —",
+      "defaultCulture": "Default culture"
     },
     "form": {
       "title": "New workspace",
@@ -80,7 +81,8 @@
       "cancel": "Cancel",
       "idHelp": "Derived from the name; editable before creation.",
       "writesForReal": "The test really writes: it creates the branch and tag {{branch}}, pushes a commit, then removes both. On an empty repository, Miles first creates the main branch.",
-      "testing": "Testing the five rights with branch {{branch}}…"
+      "testing": "Testing the five rights with branch {{branch}}…",
+      "defaultCultureHelp": "The language a value will be required in on every translation key of this workspace. It can be changed later in the settings."
     },
     "card": {
       "recheck": "Test access again",
@@ -128,7 +130,8 @@
         "repo_url": "Repository: an address like https://github.com/organisation/repository.",
         "git_connection_id": "This connection does not exist, or its access is unusable.",
         "security_service_id": "This security service does not exist.",
-        "verification_suffix": "Invalid verification name."
+        "verification_suffix": "Invalid verification name.",
+        "default_culture": "Default culture missing or unknown."
       },
       "conflict": {
         "identifiant_pris": "This identifier is already used by another workspace.",
@@ -1113,6 +1116,33 @@
     "errors": {
       "unreachable": "The time zone list could not be read.",
       "change": "The change was refused. Nothing was modified."
+    }
+  },
+  "workspaceCultures": {
+    "title": "Configuration cultures",
+    "intro": "The languages this workspace's configuration is translated into. Distinct from the application's active cultures, which are the languages of the back office itself.",
+    "defaultNote": "A value in this culture is required on every key of the translation referential.",
+    "isDefault": "Default",
+    "additional": "Additional culture",
+    "addTitle": "Add a culture",
+    "add": "Add",
+    "promote": "Make default",
+    "remove": "Remove",
+    "cancel": "Cancel",
+    "removeTitle": "Remove a culture",
+    "removeConfirm": "Remove {{culture}} from this workspace's cultures?",
+    "filesKept": "Its translation files stay in the repository: its values come back if you add it again.",
+    "filter": "Filter cultures",
+    "choose": "Choose a culture…",
+    "noMatch": "No culture matches “{{filter}}”.",
+    "errors": {
+      "incomplete": "{{missing}} key(s) have no value in {{culture}}: fill them in before making it the default culture.",
+      "unreadable": "File {{path}} cannot be read: fix it in the repository.",
+      "unknown": "That culture is not in the catalogue.",
+      "shape": "That culture code is not a valid shape.",
+      "unreachable": "This workspace's cultures could not be read.",
+      "catalogue": "The culture catalogue could not be read.",
+      "unexpected": "The change could not be saved."
     }
   }
 }

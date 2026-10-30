@@ -10,6 +10,7 @@ import {
   viewedBranchOf,
 } from "../layout/WorkspacesNav";
 import { BranchPicker } from "./BranchPicker";
+import { CulturePicker } from "./CulturePicker";
 import { BranchViewScreen, hasBranchScreen } from "./branchViews";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
@@ -28,6 +29,10 @@ function errorKey(error: unknown): string {
  * Création par le nom seul (Gael, 21/10/2026) : dépôt, accès et service de sécurité se
  * règlent ensuite dans le paramétrage. L'identifiant suit le nom tant qu'on ne l'a pas
  * saisi soi-même.
+ *
+ * La culture par défaut s'y ajoute depuis la story 639c25da : c'est celle dont la valeur
+ * sera exigée sur chaque clé du référentiel de traductions, donc le workspace ne peut pas
+ * exister sans. Elle n'a rien à voir avec les cultures actives de l'application.
  */
 function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   const { t } = useTranslation();
@@ -35,11 +40,15 @@ function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   const [name, setName] = useState("");
   const [id, setId] = useState("");
   const [idTouched, setIdTouched] = useState(false);
+  const [culture, setCulture] = useState("");
   const shownId = idTouched ? id : slugFromLabel(name);
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    create.mutate({ id: shownId, name }, { onSuccess: (w) => onDone(w.id) });
+    create.mutate(
+      { id: shownId, name, default_culture: culture },
+      { onSuccess: (w) => onDone(w.id) },
+    );
   }
 
   return (
@@ -61,9 +70,20 @@ function CreateForm({ onDone }: { onDone: (id: string) => void }) {
         />
       </label>
       <p className="help">{t("workspaces.form.idHelp")}</p>
+      <CulturePicker
+        label={t("workspaces.fields.defaultCulture")}
+        value={culture}
+        required
+        onChange={setCulture}
+      />
+      <p className="help">{t("workspaces.form.defaultCultureHelp")}</p>
       {create.isError && <p className="alert" role="alert">{t(errorKey(create.error))}</p>}
       <div className="actions">
-        <button type="submit" className="btn btn-primary" disabled={create.isPending}>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={create.isPending || !culture}
+        >
           {t("workspaces.form.submit")}
         </button>
         <button type="button" className="btn btn-secondary" onClick={() => onDone("")}>

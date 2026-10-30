@@ -97,7 +97,9 @@ from miles.workshop.service import WorkshopService
 from miles.workshop.shelving import ShelvesService
 from miles.workshop.target import WorkBranches
 from miles.workshop.targeted import TargetedReads
+from miles.workspaces.api_workspace_cultures import router as workspace_cultures_router
 from miles.workspaces.api_workspaces import router as workspaces_router
+from miles.workspaces.cultures_service import WorkspaceCulturesService
 from miles.workspaces.service import WorkspacesService
 
 log = structlog.get_logger(__name__)
@@ -223,6 +225,7 @@ def create_app() -> FastAPI:
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
         app.state.storages = StoragesService(pool, branches, catalog, utc_now)
+        app.state.workspace_cultures = WorkspaceCulturesService(pool, branches, catalog, utc_now)
         app.state.api_keys = ApiKeysService(pool, catalog, utc_now)
         app.state.public_url = settings.public_url
         app.state.oauth_clients = OAuthClientsService(pool, catalog, utc_now)
@@ -306,6 +309,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(oidc_login_router)
     app.include_router(security_router)
     app.include_router(workspaces_router)
+    app.include_router(workspace_cultures_router)
     app.include_router(connections_router)
     app.include_router(countries_router)
     app.include_router(timezones_router)

@@ -18,6 +18,7 @@ import { AccessReportView } from "./AccessReportView";
 import { BranchForm } from "./BranchForm";
 import { HoldControl } from "./HoldControl";
 import { WorkBranchPanel } from "./WorkBranchPanel";
+import { WorkspaceCulturesCard } from "./WorkspaceCultures";
 
 function failedReport(error: unknown): AccessReport | null {
   if (error instanceof ApiError && error.status === 422) {
@@ -227,6 +228,9 @@ export function WorkspaceSettings({
       </div>
       <RepositoryCard workspace={workspace} />
       <SecurityCard workspace={workspace} />
+      {/* Les langues du PARAMÉTRAGE de ce workspace, distinctes des cultures actives de
+          l'application : c'est ce que le référentiel de traductions lit (story 639c25da). */}
+      <WorkspaceCulturesCard workspaceId={workspace.id} />
       <div className="card">
         <h2>{t("workspaces.work.title")}</h2>
         {/* Sans dépôt, la branche de travail n'a nulle part où s'ouvrir. */}

@@ -9,6 +9,8 @@ from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict
 
 from miles.git.worktree import NonConformTreeError, diagnosis_json
+from miles.workshop.trads import TradsFileError
+from miles.workspaces.cultures import DefaultCultureIncompleteError
 from miles.workspaces.model import (
     AccessCheckFailedError,
     RepositoryUnavailableError,
@@ -54,6 +56,10 @@ class WorkspaceCreate(BaseModel):
     # Le nom seul (21/10/2026) ; l'identifiant est proposé par l'écran à partir du nom.
     id: str
     name: str
+    # Obligatoire (story 639c25da, critère 1) : c'est la culture dont la valeur sera
+    # exigée sur chaque clé du référentiel de traductions, donc le workspace ne peut pas
+    # exister sans. Elle n'a rien à voir avec les cultures actives de l'application.
+    default_culture: str
 
 
 class RepositoryBody(BaseModel):
@@ -108,8 +114,12 @@ def _error(code: int, detail: object) -> JSONResponse:
     return JSONResponse(status_code=code, content={"detail": detail})
 
 
-_REFUSALS = (
+# Table des refus du workspace, partagée par ses routeurs (dont celui de ses cultures) :
+# une seule traduction, pour que deux écrans ne lisent pas deux formes du même refus.
+REFUSALS = (
+    DefaultCultureIncompleteError,
     NonConformTreeError,
+    TradsFileError,
     RepositoryUnavailableError,
     WorkspaceInputError,
     WorkspaceConflictError,
@@ -118,7 +128,7 @@ _REFUSALS = (
 )
 
 
-def _refusal(exc: Exception) -> JSONResponse:
+def refusal(exc: Exception) -> JSONResponse:
     if isinstance(exc, NonConformTreeError):
         detail = {"code": "arborescence_non_conforme", **diagnosis_json(exc.diagnosis)}
         return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
@@ -139,6 +149,17 @@ def _refusal(exc: Exception) -> JSONResponse:
             "report": report_json(exc.report),
         }
         return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
+    if isinstance(exc, TradsFileError):
+        # Une incohérence du dépôt se DIT, elle ne se compte pas comme un travail à faire :
+        # la lire comme « rien ne manque » accepterait un changement de culture par défaut
+        # à tort. On nomme le fichier, seul moyen pour l'humain de le corriger.
+        detail = {"code": "trads_illisible", "path": exc.path, "reason": exc.reason}
+        return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
+    if isinstance(exc, DefaultCultureIncompleteError):
+        # Le NOMBRE de clés manquantes, pas seulement le refus : l'écran mène à la liste
+        # (critère 6), et sans le compte il ne peut pas dire l'ampleur du travail.
+        detail = {"code": exc.code, "culture": exc.culture, "missing": exc.missing}
+        return _error(status.HTTP_409_CONFLICT, detail)
     if isinstance(exc, WorkspaceHeldError):
         # Nommer le porteur : sans lui, l'écran ne peut dire à qui s'adresser.
         return _error(status.HTTP_409_CONFLICT, {"code": exc.code, "by": exc.holder})
@@ -158,8 +179,8 @@ async def list_workspaces(service: Service) -> list[WorkspaceOut]:
 async def get_workspace(workspace_id: str, service: Service) -> object:
     try:
         return _out(await service.resolve_get(workspace_id))
-    except _REFUSALS as exc:
-        return _refusal(exc)
+    except REFUSALS as exc:
+        return refusal(exc)
 
 
 @router.delete("/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -167,8 +188,8 @@ async def delete_workspace(workspace_id: str, request: Request, service: Service
     """Miles oublie le workspace ; le dépôt git et ses branches restent intacts."""
     try:
         await service.resolve_delete(request_author(request), workspace_id)
-    except _REFUSALS as exc:
-        return _refusal(exc)
+    except REFUSALS as exc:
+        return refusal(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -178,10 +199,10 @@ async def create_workspace(
 ) -> object:
     try:
         workspace, existed = await service.resolve_create(
-            request_author(request), body.id, body.name
+            request_author(request), body.id, body.name, body.default_culture
         )
-    except _REFUSALS as exc:
-        return _refusal(exc)
+    except REFUSALS as exc:
+        return refusal(exc)
     _replayed(response, existed)
     return _out(workspace)
 
@@ -198,8 +219,8 @@ async def set_repository(
             body.repo_url,
             body.verification_suffix,
         )
-    except _REFUSALS as exc:
-        return _refusal(exc)
+    except REFUSALS as exc:
+        return refusal(exc)
     _replayed(response, existed)
     return _out(workspace)
 
@@ -212,8 +233,8 @@ async def set_security_service(
         workspace = await service.resolve_set_security_service(
             request_author(request), workspace_id, body.security_service_id
         )
-    except _REFUSALS as exc:
-        return _refusal(exc)
+    except REFUSALS as exc:
+        return refusal(exc)
     return _out(workspace)
 
 
@@ -225,8 +246,8 @@ async def recheck_access(
         report = await service.resolve_recheck(
             request_author(request), workspace_id, body.verification_suffix
         )
-    except _REFUSALS as exc:
-        return _refusal(exc)
+    except REFUSALS as exc:
+        return refusal(exc)
     return report_json(report)
 
 
@@ -238,8 +259,8 @@ async def open_work_branch(
         workspace, outcome = await service.resolve_open_work_branch(
             request_author(request), workspace_id, body.name, adopt_existing=body.adopt_existing
         )
-    except _REFUSALS as exc:
-        return _refusal(exc)
+    except REFUSALS as exc:
+        return refusal(exc)
     if outcome is None:
         # Rejeu : ni seconde branche ni second commit (critère 9).
         response.status_code = status.HTTP_200_OK

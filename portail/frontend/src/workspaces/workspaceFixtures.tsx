@@ -57,9 +57,22 @@ export const CONNECTION = {
   created_at: "2026-10-21T09:00:00Z",
   updated_at: "2026-10-21T09:00:00Z",
 };
+/** Catalogue des cultures : le sélecteur en propose la TOTALITÉ, pas les seules actives. */
+export const CATALOGUE = [
+  { code: "fr-FR", label_en: "French (France)", label_native: "français (France)", active: true },
+  { code: "en-US", label_en: "English (US)", label_native: "English (US)", active: true },
+  { code: "ar-MA", label_en: "Arabic (Morocco)", label_native: "العربية (المغرب)", active: false },
+  { code: "th-TH", label_en: "Thai (Thailand)", label_native: "ไทย (ไทย)", active: false },
+];
+export const WORKSPACE_CULTURES = { default: "fr-FR", additional: ["ar-MA"] };
 export const SETTINGS: Routes = {
   "GET /api/git-connections": { status: 200, body: [CONNECTION] },
   "GET /api/security-services": { status: 200, body: [] },
+  // Posées dans le jeu COMMUN, et non dans les seuls tests qui les regardent : un écran
+  // qui interroge une route absente des doublures n'échoue pas, il affiche son chemin
+  // d'erreur, et les tests restent verts en l'exerçant en silence (LESSONS.md).
+  "GET /api/cultures": { status: 200, body: CATALOGUE },
+  "GET /api/workspaces/retrait/cultures": { status: 200, body: WORKSPACE_CULTURES },
 };
 
 /**

@@ -26,6 +26,7 @@ from miles.git.worktree import (
 from miles.gitaccess.model import GitAccessError
 from miles.gitaccess.resolver import AccessResolver
 from miles.workshop.holds_db import db_holds
+from miles.workspaces.cultures import checked_culture, db_insert_default
 from miles.workspaces.model import (
     CHECKED_EVENT,
     CREATED_EVENT,
@@ -106,7 +107,7 @@ class WorkspacesService:
         log.info("workspace_supprime", workspace=workspace_id)
 
     async def resolve_create(
-        self, author: EventAuthor, workspace_id: str, name: str
+        self, author: EventAuthor, workspace_id: str, name: str, default_culture: str
     ) -> tuple[Workspace, bool]:
         """Crée le workspace par son nom ; rend (workspace, déjà_là). Rejeu : sans effet."""
         if not CONNECTOR_ID_RE.match(workspace_id):
@@ -114,6 +115,7 @@ class WorkspacesService:
         name = name.strip()
         if not name or len(name) > NAME_MAX:
             raise WorkspaceInputError("name")
+        default_culture = checked_culture(default_culture, "default_culture")
         existing = await self.pool.fetchrow(SELECT + " WHERE w.id = $1", workspace_id)
         if existing is not None:
             if existing["name"] == name:
@@ -128,9 +130,23 @@ class WorkspacesService:
                     name,
                     self.now(),
                 )
-                await self._event(conn, CREATED_EVENT, workspace_id, author, {"name": name})
+                # Dans la MÊME transaction que le workspace (story 639c25da, critère 1) :
+                # la culture par défaut est obligatoire, et un workspace qui naîtrait sans
+                # elle laisserait le référentiel de traductions sans valeur obligatoire.
+                await db_insert_default(conn, workspace_id, default_culture)
+                await self._event(
+                    conn,
+                    CREATED_EVENT,
+                    workspace_id,
+                    author,
+                    {"name": name, "default_culture": default_culture},
+                )
         except asyncpg.UniqueViolationError:
             raise WorkspaceConflictError("identifiant_pris") from None
+        except asyncpg.ForeignKeyViolationError:
+            # La clé étrangère vers `cultures` est la garde : on insère et la base
+            # tranche, plutôt que de relire le catalogue avant d'écrire.
+            raise WorkspaceInputError("default_culture", "inconnue") from None
         log.info("workspace_cree", workspace=workspace_id)
         return await self.resolve_get(workspace_id), False
 

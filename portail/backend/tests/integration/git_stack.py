@@ -41,6 +41,7 @@ from miles.workshop.service import WorkshopService
 from miles.workshop.shelving import ShelvesService
 from miles.workshop.target import WorkBranches
 from miles.workshop.targeted import TargetedReads
+from miles.workspaces.cultures_service import WorkspaceCulturesService
 from miles.workspaces.service import WorkspacesService
 from tests.integration.portal_stack import PortalStack, utc_now
 
@@ -109,6 +110,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
     state.sources = SourcesService(portal.pool, branches, catalog, utc_now)
     state.storages = StoragesService(portal.pool, branches, catalog, utc_now)
+    state.workspace_cultures = WorkspaceCulturesService(portal.pool, branches, catalog, utc_now)
     state.api_keys = ApiKeysService(portal.pool, catalog, utc_now)
     # Celui de la configuration par défaut : l'essai d'une chaîne s'évalue sous cette borne.
     state.transform_budget = Settings.model_fields["transform_budget"].default
@@ -132,7 +134,8 @@ async def add_connection(client: httpx.AsyncClient, cid: str, base: str, **acces
 
 
 async def create_workspace(client: httpx.AsyncClient, wid: str = "retrait") -> httpx.Response:
-    return await client.post("/api/workspaces", json={"id": wid, "name": f"Nom {wid}"})
+    body = {"id": wid, "name": f"Nom {wid}", "default_culture": "en-US"}
+    return await client.post("/api/workspaces", json=body)
 
 
 async def set_repository(

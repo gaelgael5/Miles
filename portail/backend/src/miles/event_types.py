@@ -24,6 +24,7 @@ from miles.workshop import domains_service as domains_events
 from miles.workshop import holds as holds_events
 from miles.workshop import service as workshop_events
 from miles.workshop import shelving as shelving_events
+from miles.workspaces import cultures as workspace_cultures_events
 from miles.workspaces import model as workspace_events
 
 
@@ -57,5 +58,6 @@ def code_event_types() -> frozenset[str]:
         | holds_events.EVENT_TYPES
         | workshop_events.EVENT_TYPES
         | shelving_events.EVENT_TYPES
+        | workspace_cultures_events.EVENT_TYPES
         | workspace_events.EVENT_TYPES
     )
