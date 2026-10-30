@@ -7,6 +7,7 @@ import { CATALOGUE, WORKSPACE_CULTURES, fill } from "./workspaceFixtures";
 import { WorkspaceCulturesCard } from "./WorkspaceCultures";
 
 const CULTURES = "/api/workspaces/retrait/cultures";
+const DIRS = { "fr-FR": "ltr", "ar-MA": "rtl", "th-TH": "ltr" };
 const BASE: Routes = {
   "GET /api/cultures": { status: 200, body: CATALOGUE },
   [`GET ${CULTURES}`]: { status: 200, body: WORKSPACE_CULTURES },
@@ -43,11 +44,11 @@ describe("WorkspaceCulturesCard", () => {
     const calls = renderCard({
       [`GET ${CULTURES}`]: [
         { status: 200, body: WORKSPACE_CULTURES },
-        { status: 200, body: { default: "fr-FR", additional: ["ar-MA", "th-TH"] } },
+        { status: 200, body: { default: "fr-FR", additional: ["ar-MA", "th-TH"], directions: DIRS } },
       ],
       [`POST ${CULTURES}`]: {
         status: 200,
-        body: { default: "fr-FR", additional: ["ar-MA", "th-TH"] },
+        body: { default: "fr-FR", additional: ["ar-MA", "th-TH"], directions: DIRS },
       },
     });
     await screen.findByText("ar-MA");
@@ -89,11 +90,11 @@ describe("WorkspaceCulturesCard", () => {
     const calls = renderCard({
       [`GET ${CULTURES}`]: [
         { status: 200, body: WORKSPACE_CULTURES },
-        { status: 200, body: { default: "ar-MA", additional: ["fr-FR"] } },
+        { status: 200, body: { default: "ar-MA", additional: ["fr-FR"], directions: DIRS } },
       ],
       [`PUT ${CULTURES}/default`]: {
         status: 200,
-        body: { default: "ar-MA", additional: ["fr-FR"] },
+        body: { default: "ar-MA", additional: ["fr-FR"], directions: DIRS },
       },
     });
     await screen.findByText("ar-MA");
@@ -112,9 +113,9 @@ describe("WorkspaceCulturesCard", () => {
     const calls = renderCard({
       [`GET ${CULTURES}`]: [
         { status: 200, body: WORKSPACE_CULTURES },
-        { status: 200, body: { default: "fr-FR", additional: [] } },
+        { status: 200, body: { default: "fr-FR", additional: [], directions: DIRS } },
       ],
-      [`DELETE ${CULTURES}/ar-MA`]: { status: 200, body: { default: "fr-FR", additional: [] } },
+      [`DELETE ${CULTURES}/ar-MA`]: { status: 200, body: { default: "fr-FR", additional: [], directions: DIRS } },
     });
     await screen.findByText("ar-MA");
 
@@ -130,7 +131,7 @@ describe("WorkspaceCulturesCard", () => {
 
   it("offers no removal nor promotion on the default culture", async () => {
     renderCard({
-      [`GET ${CULTURES}`]: { status: 200, body: { default: "fr-FR", additional: [] } },
+      [`GET ${CULTURES}`]: { status: 200, body: { default: "fr-FR", additional: [], directions: DIRS } },
     });
 
     expect(await screen.findByText("fr-FR")).toBeInTheDocument();

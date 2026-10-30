@@ -1,0 +1,116 @@
+/*
+ * Saisie des traductions (story 289c8d9f). Ces règles ne sont pas cosmétiques : chacune
+ * répond à un défaut qui ne se voit QUE sur certaines langues et certaines valeurs — donc
+ * tard, et sans qu'on comprenne pourquoi les autres lignes vont bien.
+ *
+ * Propres au portail, et non au socle : aucun autre produit ne saisit de traduction, et
+ * une feuille commune ferait porter aux trois une règle qui ne sert qu'à un.
+ */
+
+/*
+ * CHAÎNE DE REPLI DE POLICES LARGE. Le back-office s'affiche en polices système, et
+ * aucune ne couvre à la fois l'arabe, l'hébreu, le devanagari, le thaï et les
+ * idéogrammes. Sur un poste qui n'a pas la police, l'utilisateur voit des rectangles
+ * vides et croit que sa traduction est perdue. Les trois systèmes sont nommés parce
+ * qu'aucun ne porte les polices des autres.
+ */
+.value-field,
+.value-cell {
+  font-family:
+    system-ui,
+    "Segoe UI",
+    Roboto,
+    "Noto Sans",
+    "Noto Sans Arabic",
+    "Noto Sans Hebrew",
+    "Noto Sans Devanagari",
+    "Noto Sans Thai",
+    "Noto Sans CJK SC",
+    "Noto Sans CJK JP",
+    "Geeza Pro",
+    "Arial Hebrew",
+    "Kohinoor Devanagari",
+    Thonburi,
+    "PingFang SC",
+    "Hiragino Sans",
+    "Nirmala UI",
+    "Leelawadee UI",
+    "Microsoft YaHei",
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    sans-serif;
+}
+
+/*
+ * ISOLATION DE CHAQUE VALEUR. Un texte droite-à-gauche posé dans un tableau
+ * gauche-à-droite, à côté du slug et des autres langues, fait migrer la ponctuation de
+ * bord : une virgule, une parenthèse ou un chiffre passe de l'autre côté. Les gens
+ * concluent que la donnée est abîmée, alors que seul l'affichage l'est.
+ */
+.value-field,
+.value-cell {
+  unicode-bidi: isolate;
+}
+
+/*
+ * HAUTEUR DE LIGNE. L'arabe, le devanagari et le thaï demandent plus de place verticale
+ * que le latin. Une cellule à hauteur fixe coupe les signes diacritiques par le haut ou
+ * par le bas, et le texte paraît faux alors qu'il est juste. Donc une hauteur de ligne
+ * généreuse, et aucune hauteur fixe ni `overflow: hidden` sur ces éléments.
+ */
+.value-field,
+.value-cell {
+  line-height: 1.8;
+  min-height: 2.6em;
+  overflow: visible;
+}
+
+/* Un champ de valeur grandit avec son contenu : une valeur sur deux lignes se lit. */
+textarea.value-field {
+  resize: vertical;
+  width: 100%;
+}
+
+/* La colonne porte le code de culture, jamais son sens : l'en-tête reste dans le sens de
+   celui qui lit l'écran, et seules les cellules suivent leur culture. */
+.value-head {
+  font-size: 0.85em;
+  font-weight: 600;
+  unicode-bidi: normal;
+}
+
+.value-head .rtl-tag {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* Les marques de direction sont invisibles : on les NOMME à côté du champ plutôt que de
+   laisser croire que la valeur porte un caractère de trop. */
+.marks {
+  font-size: 0.8em;
+  opacity: 0.8;
+  unicode-bidi: normal;
+}
+
+.trads-keys {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.trads-key-row {
+  align-items: start;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(10rem, 1fr) 3fr auto;
+}
+
+@media (width <= 60rem) {
+  .trads-key-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trads-values {
+  display: grid;
+  gap: 0.5rem;
+}

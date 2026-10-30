@@ -19,6 +19,7 @@ import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
 import { StorageScreen } from "./StorageScreen";
 import { StoragesScreen } from "./StoragesScreen";
+import { TradsKeysScreen } from "./TradsKeysScreen";
 import { TradsScreen } from "./TradsScreen";
 
 /** Une vue de branche s'affiche-t-elle ? Non pour le paramétrage, ni sans branche de base. */
@@ -178,8 +179,27 @@ function viewScreen(
       />
     );
   }
+  if (selection.view === "trads" && selection.tradsContext !== undefined) {
+    return (
+      <TradsKeysScreen
+        key={key}
+        target={target}
+        context={selection.tradsContext}
+        onBack={() => onSelect({ id: workspace.id, view: "trads", branch })}
+      />
+    );
+  }
   if (selection.view === "trads") {
-    return <TradsScreen key={key} target={target} onBack={back} />;
+    return (
+      <TradsScreen
+        key={key}
+        target={target}
+        onBack={back}
+        onOpen={(tradsContext) =>
+          onSelect({ id: workspace.id, view: "trads", branch, tradsContext })
+        }
+      />
+    );
   }
   if (selection.view === "storages") {
     return (

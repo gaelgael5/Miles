@@ -1187,6 +1187,69 @@
       "invalidLabel": "Invalid label: a single line, 120 characters at most.",
       "unreadable": "File {{path}} cannot be read: fix it in the repository.",
       "unexpected": "The operation could not be completed."
+    },
+    "openHint": "Open a context to fill in its keys."
+  },
+  "tradsKeys": {
+    "title": "Translations — {{context}}",
+    "intro": "The keys of this context and their values. Each field is in its own language: the value in the default culture is required, the others are optional.",
+    "back": "← Back to contexts",
+    "add": "Add a key",
+    "count": "{{count}} key(s)",
+    "loading": "Reading keys…",
+    "none": "No key in this context.",
+    "noMatch": "No key matches this filter.",
+    "untranslated": "Untranslated",
+    "rightToLeft": "(right to left)",
+    "requiredTag": "(required)",
+    "marks": "Contains invisible direction marks: {{marks}}",
+    "previous": "Previous page",
+    "next": "Next page",
+    "range": "{{from}}–{{to}} of {{total}}",
+    "fields": {
+      "slug": "Key identifier"
+    },
+    "filter": {
+      "search": "Filter by identifier",
+      "untranslated": "Untranslated in",
+      "anyCulture": "All keys"
+    },
+    "form": {
+      "title": "New key",
+      "submit": "Add the key",
+      "cancel": "Cancel",
+      "slugHelp": "What the configuration will reference: lowercase, digits, hyphen and underscore. Renaming it later is a break, not a correction."
+    },
+    "edit": {
+      "action": "Edit",
+      "title": "Values of {{slug}}",
+      "submit": "Save"
+    },
+    "rename": {
+      "action": "Rename",
+      "title": "Rename {{slug}}",
+      "submit": "Rename the key",
+      "warning": "Renaming an identifier may break references, and the product cannot yet tell which ones point at this key."
+    },
+    "remove": {
+      "action": "Delete",
+      "title": "Delete {{slug}}",
+      "submit": "Delete the key",
+      "warning": "Deleting an identifier may break references, and the product cannot yet tell which ones point at this key.",
+      "values": "{{count}} value(s) will disappear, across every culture of the context."
+    },
+    "errors": {
+      "direction_forcee": "Value refused: it holds characters that would make it display differently from how it is written ({{found}}). Remove them and try again.",
+      "valeur_par_defaut_obligatoire": "The value in {{culture}} is required: it is the workspace's default culture.",
+      "culture_hors_workspace": "{{culture}} is not one of this workspace's cultures.",
+      "slug_pris": "The identifier {{slug}} is already taken in this context.",
+      "cle_inconnue": "The key {{slug}} does not exist in this context.",
+      "slug_invalide": "Invalid identifier: lowercase, digits, hyphen and underscore, starting with a letter or a digit.",
+      "trads_illisible": "File {{path}} cannot be read: fix it in the repository.",
+      "branche_a_bouge": "The branch changed while saving: nothing was written. Reload and try again — no value was lost.",
+      "contexte_inconnu": "That context does not exist on this branch.",
+      "branche_racine_lecture_seule": "The root branch is read-only: work in a child branch.",
+      "unexpected": "The operation could not be completed."
     }
   }
 }

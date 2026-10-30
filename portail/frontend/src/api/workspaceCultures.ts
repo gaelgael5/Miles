@@ -11,6 +11,12 @@ export interface WorkspaceCultures {
   default: string;
   /** Par code ; la culture par défaut est à part et vient toujours en premier. */
   additional: string[];
+  /**
+   * Sens d'écriture de chaque culture, « ltr » ou « rtl », donné par le SERVEUR depuis
+   * CLDR. L'écran de saisie ne tient donc aucune table de langues — et le sens vient
+   * parfois du script plutôt que de la langue (`az-Arab` s'écrit de droite à gauche).
+   */
+  directions: Record<string, string>;
 }
 
 const KEY = ["workspace-cultures"] as const;
@@ -33,6 +39,11 @@ export function useWorkspaceCultures(id: string) {
 /** La culture par défaut d'abord, puis les additionnelles : l'ordre de tous les écrans. */
 export function orderedCultures(cultures: WorkspaceCultures | undefined): string[] {
   return cultures ? [cultures.default, ...cultures.additional] : [];
+}
+
+/** Le sens d'écriture d'une culture ; « ltr » par défaut, comme le repli du serveur. */
+export function directionOf(cultures: WorkspaceCultures | undefined, culture: string): "ltr" | "rtl" {
+  return cultures?.directions[culture] === "rtl" ? "rtl" : "ltr";
 }
 
 export function useAddWorkspaceCulture(id: string) {

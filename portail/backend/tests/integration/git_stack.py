@@ -41,6 +41,7 @@ from miles.workshop.service import WorkshopService
 from miles.workshop.shelving import ShelvesService
 from miles.workshop.target import WorkBranches
 from miles.workshop.targeted import TargetedReads
+from miles.workshop.trads_keys import TradsKeysService
 from miles.workshop.trads_service import TradsService
 from miles.workspaces.cultures_service import WorkspaceCulturesService
 from miles.workspaces.service import WorkspacesService
@@ -113,6 +114,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.storages = StoragesService(portal.pool, branches, catalog, utc_now)
     state.workspace_cultures = WorkspaceCulturesService(portal.pool, branches, catalog, utc_now)
     state.trads = TradsService(portal.pool, branches, catalog, utc_now)
+    state.trads_keys = TradsKeysService(portal.pool, branches, catalog, utc_now)
     state.api_keys = ApiKeysService(portal.pool, catalog, utc_now)
     # Celui de la configuration par défaut : l'essai d'une chaîne s'évalue sous cette borne.
     state.transform_budget = Settings.model_fields["transform_budget"].default

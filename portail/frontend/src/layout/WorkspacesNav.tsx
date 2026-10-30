@@ -27,6 +27,8 @@ export type WorkspaceSelection = {
   view: WorkspaceView;
   branch?: string;
   contract?: string;
+  // Un contexte de traduction ouvert, avec la vue « trads ».
+  tradsContext?: string;
   // Une chaîne de transformations ouverte, avec la vue « transformations ».
   chain?: string;
   // Une étape de cette chaîne, ouverte en page pleine (Gael, 24/10/2026) : son nom.

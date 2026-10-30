@@ -71,6 +71,21 @@ def timezone_name(zone: str, culture: str) -> str | None:
     return None if nom == zone else nom
 
 
+def direction_of(culture: str) -> str:
+    """Le sens d'écriture d'une culture, d'après CLDR : « ltr » ou « rtl ».
+
+    Dérivé, et non lu dans une table maison : une liste de langues écrites à la main se
+    trompe exactement là où ça compte. Mesuré le 30/10/2026 — CLDR tient `ckb`, `dv`,
+    `ug`, `nqo` et jusqu'à `az-Arab-IR`, dont le sens vient du SCRIPT et non de la langue.
+    Une table par langue aurait rendu « ltr » pour l'azerbaïdjanais en écriture arabe.
+
+    Repli sur « ltr » quand CLDR ne connaît pas le code : c'est ce que CLDR rend lui-même
+    pour `und`, et c'est le seul repli qui ne retourne pas un écran par erreur.
+    """
+    locale = _locale(culture)
+    return "ltr" if locale is None else str(locale.text_direction)
+
+
 def resolve_label(
     *,
     culture: str | None,

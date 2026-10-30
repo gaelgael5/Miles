@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 
+import type { WorkspaceCultures } from "../api/workspaceCultures";
 import type { WorkspaceSelection } from "../layout/WorkspacesNav";
 
 import type { Routes } from "@miles/socle-web/testing";
@@ -64,7 +65,13 @@ export const CATALOGUE = [
   { code: "ar-MA", label_en: "Arabic (Morocco)", label_native: "العربية (المغرب)", active: false },
   { code: "th-TH", label_en: "Thai (Thailand)", label_native: "ไทย (ไทย)", active: false },
 ];
-export const WORKSPACE_CULTURES = { default: "fr-FR", additional: ["ar-MA"] };
+export const WORKSPACE_CULTURES: WorkspaceCultures = {
+  default: "fr-FR",
+  additional: ["ar-MA"],
+  // ar-MA s'écrit de droite à gauche : c'est la culture discriminante du jeu d'essai,
+  // sans quoi aucun test ne verrait la différence entre les deux sens.
+  directions: { "fr-FR": "ltr", "ar-MA": "rtl" },
+};
 export const SETTINGS: Routes = {
   "GET /api/git-connections": { status: 200, body: [CONNECTION] },
   "GET /api/security-services": { status: 200, body: [] },

@@ -99,7 +99,11 @@ async def test_workspace_cannot_be_created_without_a_default_culture(stack: Stac
 async def test_creation_records_the_default_culture_and_no_additional_one(stack: Stack) -> None:
     assert (await stack.workspace("fr-FR")).status_code == 201
 
-    assert (await stack.client.get(CULTURES)).json() == {"default": "fr-FR", "additional": []}
+    assert (await stack.client.get(CULTURES)).json() == {
+        "default": "fr-FR",
+        "additional": [],
+        "directions": {"fr-FR": "ltr"},
+    }
 
 
 async def test_unknown_default_culture_is_refused_and_the_workspace_is_not_created(
@@ -148,7 +152,11 @@ async def test_additional_culture_may_be_one_the_application_does_not_display(
     added = await stack.client.post(CULTURES, json={"culture": "ar-MA"})
 
     assert added.status_code == 200
-    assert added.json() == {"default": "fr-FR", "additional": ["ar-MA"]}
+    assert added.json() == {
+        "default": "fr-FR",
+        "additional": ["ar-MA"],
+        "directions": {"fr-FR": "ltr", "ar-MA": "rtl"},
+    }
 
 
 # --- Critères 2, 3, 4 : ordre, ajout, refus du doublon ---
@@ -174,7 +182,11 @@ async def test_additional_culture_equal_to_the_default_one_changes_nothing(stack
     added = await stack.client.post(CULTURES, json={"culture": "fr-FR"})
 
     assert added.status_code == 200
-    assert added.json() == {"default": "fr-FR", "additional": []}
+    assert added.json() == {
+        "default": "fr-FR",
+        "additional": [],
+        "directions": {"fr-FR": "ltr"},
+    }
 
 
 async def test_adding_the_same_additional_culture_twice_is_replayed_without_effect(
@@ -185,7 +197,11 @@ async def test_adding_the_same_additional_culture_twice_is_replayed_without_effe
 
     again = await stack.client.post(CULTURES, json={"culture": "ar-MA"})
 
-    assert again.json() == {"default": "fr-FR", "additional": ["ar-MA"]}
+    assert again.json() == {
+        "default": "fr-FR",
+        "additional": ["ar-MA"],
+        "directions": {"fr-FR": "ltr", "ar-MA": "rtl"},
+    }
 
 
 async def test_unknown_additional_culture_is_refused_by_the_catalogue(stack: Stack) -> None:
@@ -207,7 +223,7 @@ async def test_removing_an_additional_culture_takes_it_off_the_screens(stack: St
     removed = await stack.client.delete(f"{CULTURES}/ar-MA")
 
     assert removed.status_code == 200
-    assert removed.json() == {"default": "fr-FR", "additional": []}
+    assert removed.json()["additional"] == []
 
 
 async def test_the_default_culture_cannot_be_removed(stack: Stack) -> None:
@@ -215,7 +231,7 @@ async def test_the_default_culture_cannot_be_removed(stack: Stack) -> None:
 
     removed = await stack.client.delete(f"{CULTURES}/fr-FR")
 
-    assert removed.json() == {"default": "fr-FR", "additional": []}
+    assert removed.json()["additional"] == []
 
 
 async def test_removing_a_culture_leaves_its_files_in_the_repository(stack: Stack) -> None:
@@ -256,7 +272,12 @@ async def test_default_culture_changes_when_the_referential_is_complete_in_the_t
 
     assert changed.status_code == 200
     # L'ancienne devient additionnelle et garde ses valeurs (critère 5).
-    assert changed.json() == {"default": "ar-MA", "additional": ["fr-FR"]}
+    assert changed.json() == {
+        "default": "ar-MA",
+        "additional": ["fr-FR"],
+        # Le sens d'écriture suit la culture, dérivé de CLDR : l'écran de saisie le lit ici.
+        "directions": {"ar-MA": "rtl", "fr-FR": "ltr"},
+    }
 
 
 async def test_default_culture_change_is_refused_with_the_count_of_missing_keys(
@@ -296,7 +317,11 @@ async def test_default_culture_change_passes_on_a_workspace_without_a_repository
     changed = await stack.client.put(DEFAULT, json={"culture": "ar-MA"})
 
     assert changed.status_code == 200, changed.text
-    assert changed.json() == {"default": "ar-MA", "additional": ["fr-FR"]}
+    assert changed.json() == {
+        "default": "ar-MA",
+        "additional": ["fr-FR"],
+        "directions": {"ar-MA": "rtl", "fr-FR": "ltr"},
+    }
 
 
 async def test_default_culture_change_to_a_culture_not_yet_in_the_workspace(stack: Stack) -> None:
@@ -304,7 +329,11 @@ async def test_default_culture_change_to_a_culture_not_yet_in_the_workspace(stac
 
     changed = await stack.client.put(DEFAULT, json={"culture": "th-TH"})
 
-    assert changed.json() == {"default": "th-TH", "additional": ["fr-FR"]}
+    assert changed.json() == {
+        "default": "th-TH",
+        "additional": ["fr-FR"],
+        "directions": {"th-TH": "ltr", "fr-FR": "ltr"},
+    }
 
 
 async def test_default_culture_set_to_the_current_one_changes_nothing(stack: Stack) -> None:
@@ -312,7 +341,11 @@ async def test_default_culture_set_to_the_current_one_changes_nothing(stack: Sta
 
     unchanged = await stack.client.put(DEFAULT, json={"culture": "fr-FR"})
 
-    assert unchanged.json() == {"default": "fr-FR", "additional": []}
+    assert unchanged.json() == {
+        "default": "fr-FR",
+        "additional": [],
+        "directions": {"fr-FR": "ltr"},
+    }
 
 
 async def test_unreadable_trads_file_is_named_rather_than_counted_as_work(stack: Stack) -> None:
@@ -344,10 +377,12 @@ async def test_two_workspaces_keep_independent_lists(stack: Stack) -> None:
     assert (await stack.client.get(CULTURES)).json() == {
         "default": "fr-FR",
         "additional": ["ar-MA"],
+        "directions": {"fr-FR": "ltr", "ar-MA": "rtl"},
     }
     assert (await stack.client.get(f"{ROUTE}/colis/cultures")).json() == {
         "default": "th-TH",
         "additional": [],
+        "directions": {"th-TH": "ltr"},
     }
 
 

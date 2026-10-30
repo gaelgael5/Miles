@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict
 
+from miles.reference.labels import direction_of
 from miles.workspaces.api_workspaces import REFUSALS, refusal, workspaces_service
 from miles.workspaces.cultures import WorkspaceCultures
 from miles.workspaces.cultures_service import WorkspaceCulturesService
@@ -36,10 +37,18 @@ class CulturesOut(BaseModel):
     default: str
     # Par code ; la culture par défaut est à part et vient toujours en premier (critère 2).
     additional: list[str]
+    # Sens d'écriture de chaque culture, dérivé de CLDR (story 289c8d9f) : c'est le SERVEUR
+    # qui le dit, pour que l'écran de saisie n'ait pas de table de langues à tenir — et
+    # parce que le sens vient parfois du script et non de la langue (`az-Arab`).
+    directions: dict[str, str]
 
 
 def _out(cultures: WorkspaceCultures) -> CulturesOut:
-    return CulturesOut(default=cultures.default, additional=list(cultures.additional))
+    return CulturesOut(
+        default=cultures.default,
+        additional=list(cultures.additional),
+        directions={code: direction_of(code) for code in cultures.all},
+    )
 
 
 @router.get("/{workspace_id}/cultures", response_model=CulturesOut)

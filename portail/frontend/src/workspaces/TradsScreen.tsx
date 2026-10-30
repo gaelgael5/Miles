@@ -212,7 +212,16 @@ function RemoveDialog({
  * Les cultures de la couverture sont celles du workspace, réglées dans son paramétrage —
  * pas les cultures actives de l'application, qui sont les langues du back-office.
  */
-export function TradsScreen({ target, onBack }: { target: WorkTarget; onBack: () => void }) {
+export function TradsScreen({
+  target,
+  onBack,
+  onOpen,
+}: {
+  target: WorkTarget;
+  onBack: () => void;
+  // Ouvre la saisie des clés du contexte. Absent : la liste ne navigue pas.
+  onOpen?: (context: string) => void;
+}) {
   const { t } = useTranslation();
   const contexts = useTradsContexts(target);
   const [creating, setCreating] = useState(false);
@@ -252,9 +261,21 @@ export function TradsScreen({ target, onBack }: { target: WorkTarget; onBack: ()
       {contexts.data && contexts.data.length > 0 && (
         <ul className="card-list plain-list">
           {contexts.data.map((context) => (
-            <li className="row" key={context.name}>
+            <li className="row row-openable" key={context.name}>
               <div className="row-main">
-                {context.label}
+                {/* Convention maison des lignes ouvrables : le bouton du titre couvre la
+                    ligne et porte le nom accessible (story fbe9b512). */}
+                {onOpen ? (
+                  <button
+                    type="button"
+                    className="row-open"
+                    onClick={() => onOpen(context.name)}
+                  >
+                    {context.label}
+                  </button>
+                ) : (
+                  context.label
+                )}
                 <div className="row-sub mono">{context.name}</div>
                 {relabelling === context.name && (
                   <RelabelForm

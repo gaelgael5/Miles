@@ -1187,6 +1187,69 @@
       "invalidLabel": "Libellé invalide : une seule ligne, 120 caractères au plus.",
       "unreadable": "Le fichier {{path}} n'est pas lisible : corrigez-le dans le dépôt.",
       "unexpected": "L'opération n'a pas pu être effectuée."
+    },
+    "openHint": "Ouvrir un contexte pour saisir ses clés."
+  },
+  "tradsKeys": {
+    "title": "Traductions — {{context}}",
+    "intro": "Les clés de ce contexte et leurs valeurs. Chaque champ est dans sa langue : la valeur de la culture par défaut est obligatoire, les autres sont facultatives.",
+    "back": "← Retour aux contextes",
+    "add": "Ajouter une clé",
+    "count": "{{count}} clé(s)",
+    "loading": "Lecture des clés…",
+    "none": "Aucune clé dans ce contexte.",
+    "noMatch": "Aucune clé ne correspond à ce filtre.",
+    "untranslated": "Non traduit",
+    "rightToLeft": "(droite à gauche)",
+    "requiredTag": "(obligatoire)",
+    "marks": "Contient des marques de direction invisibles : {{marks}}",
+    "previous": "Page précédente",
+    "next": "Page suivante",
+    "range": "{{from}}–{{to}} sur {{total}}",
+    "fields": {
+      "slug": "Identifiant de la clé"
+    },
+    "filter": {
+      "search": "Filtrer par identifiant",
+      "untranslated": "Non traduit en",
+      "anyCulture": "Toutes les clés"
+    },
+    "form": {
+      "title": "Nouvelle clé",
+      "submit": "Ajouter la clé",
+      "cancel": "Annuler",
+      "slugHelp": "Ce que le paramétrage référencera : minuscules, chiffres, tiret et souligné. Le renommer plus tard est une rupture, pas une correction."
+    },
+    "edit": {
+      "action": "Modifier",
+      "title": "Valeurs de {{slug}}",
+      "submit": "Enregistrer"
+    },
+    "rename": {
+      "action": "Renommer",
+      "title": "Renommer {{slug}}",
+      "submit": "Renommer la clé",
+      "warning": "Renommer un identifiant peut casser des références, et le produit ne sait pas encore lesquelles pointent cette clé."
+    },
+    "remove": {
+      "action": "Supprimer",
+      "title": "Supprimer {{slug}}",
+      "submit": "Supprimer la clé",
+      "warning": "Supprimer un identifiant peut casser des références, et le produit ne sait pas encore lesquelles pointent cette clé.",
+      "values": "{{count}} valeur(s) vont disparaître, dans toutes les cultures du contexte."
+    },
+    "errors": {
+      "direction_forcee": "Valeur refusée : elle contient des caractères qui la feraient s'afficher autrement qu'elle n'est écrite ({{found}}). Retirez-les et réessayez.",
+      "valeur_par_defaut_obligatoire": "La valeur en {{culture}} est obligatoire : c'est la culture par défaut du workspace.",
+      "culture_hors_workspace": "{{culture}} ne fait pas partie des cultures de ce workspace.",
+      "slug_pris": "L'identifiant {{slug}} est déjà pris dans ce contexte.",
+      "cle_inconnue": "La clé {{slug}} n'existe pas dans ce contexte.",
+      "slug_invalide": "Identifiant invalide : minuscules, chiffres, tiret et souligné, en commençant par une lettre ou un chiffre.",
+      "trads_illisible": "Le fichier {{path}} n'est pas lisible : corrigez-le dans le dépôt.",
+      "branche_a_bouge": "La branche a changé pendant l'enregistrement : rien n'a été écrit. Rechargez et réessayez — aucune valeur n'a été perdue.",
+      "contexte_inconnu": "Ce contexte n'existe pas sur cette branche.",
+      "branche_racine_lecture_seule": "La branche racine est en lecture seule : travaillez dans une branche enfant.",
+      "unexpected": "L'opération n'a pas pu être effectuée."
     }
   }
 }
