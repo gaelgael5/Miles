@@ -124,7 +124,8 @@ async def test_replaying_the_creation_creates_nothing_and_says_so(forge: Forge) 
     await create_workspace(forge.client)
 
     again = await create_workspace(forge.client)
-    other = await forge.client.post(ROUTE, json={"id": "retrait", "name": "Autre"})
+    body = {"id": "retrait", "name": "Autre", "default_culture": "en-US"}
+    other = await forge.client.post(ROUTE, json=body)
 
     assert (again.status_code, again.headers["x-miles-already-exists"]) == (200, "true")
     assert (other.status_code, other.json()["detail"]) == (409, "identifiant_pris")

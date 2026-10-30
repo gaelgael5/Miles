@@ -126,9 +126,15 @@ async def test_default_culture_shaped_like_a_path_is_refused_before_the_database
 
 
 async def test_default_culture_may_be_one_the_application_does_not_display(stack: Stack) -> None:
-    """Traduire en thaï n'exige pas de lire le back-office en thaï : ce sont deux listes."""
-    active = {c["code"] for c in (await stack.client.get("/api/cultures/active")).json()}
-    assert "th-TH" not in active
+    """Traduire en thaï n'exige pas de lire le back-office en thaï : ce sont deux listes.
+
+    L'état d'activation se lit en BASE : la discrimination du test est que th-TH ne soit
+    pas active, et la route des cultures de l'application n'est pas montée par ce harnais.
+    """
+    active = await stack.portal.pool.fetchval(
+        "SELECT active FROM cultures WHERE code = $1", "th-TH"
+    )
+    assert active is False
 
     assert (await stack.workspace("th-TH")).status_code == 201
     assert (await stack.client.get(CULTURES)).json()["default"] == "th-TH"
