@@ -528,12 +528,47 @@ validation de la culture est doublée par la capture d'erreur de `_locale`, donc
 laissait tout vert. Elle a maintenant son test à elle — ce qu'elle seule apporte est
 d'empêcher une chaîne arbitraire de servir de clé au cache de locales.
 
-**Ce qui reste** : la story `d4fb364a` — les fuseaux horaires, bloquée par celle-ci. Elle
-réemploie la règle de repli (c'est pour ça qu'elle est au socle du module, dans
-`labels.py`), et ajoute le pays de chaque fuseau. Deux vérités du standard y sont déjà
-nommées : certains fuseaux n'ont pas de pays (CLDR rattache `UTC` au monde), et les alias
-(`Europe/Kiev` → `Europe/Kyiv`, 154 chez CLDR) ne doivent pas être chargés comme des
-fuseaux à part entière — ils feraient deux lignes pour un même lieu dans l'écran.
+## Les fuseaux horaires, et ce que la mesure a corrigé (30/10, story `d4fb364a`)
+
+**Jumeau du référentiel des pays**, livré le même jour. 312 zones, activation, filtre,
+libellés dérivés de CLDR — rien de neuf dans le dispositif. Ce qui a demandé du travail,
+c'est la DONNÉE : **trois mesures ont renversé trois décisions que j'aurais prises de
+mémoire**, et c'est le seul enseignement durable de cette story.
+
+| Ce que j'aurais fait | Ce que la mesure a dit |
+| --- | --- |
+| Écarter les alias en filtrant les clés de `zone_aliases` (CLDR) | Il va du nom **canonique vers l'ancien** (`Europe/Kyiv` → `Europe/Kiev`) : filtrer sur ses clés retire les BONS noms |
+| Un pays par fuseau | `Asia/Dubai` en sert cinq, et **93 pays** n'apparaissent jamais en première position — ils seraient tous sans aucun fuseau |
+| Ajouter `UTC`, pour le cas « sans pays » | CLDR n'en a aucun nom et rend « heure : région indéterminée (UTC) ». Retiré : la table IANA l'exclut parce que ce référentiel qualifie des **lieux** |
+
+**La source est la table IANA `zone1970.tab`**, pas CLDR : elle seule donne les zones
+canoniques (312, contre 486 identifiants système mélangeant les noms obsolètes et
+`localtime`) et tous les pays de chacune. CLDR ne sert plus qu'aux libellés.
+
+**Conséquence de la troisième mesure** : aucune entrée n'est sans pays, donc le critère qui
+prévoyait ce cas est tombé. Il venait d'une mesure CLDR (`Antarctica/Troll` rattaché au
+monde) que la source IANA rend fausse — elle lui donne `AQ`. **Le ticket a été corrigé
+avant l'écriture du code**, deux fois, et c'est ce qu'il faut faire : un ticket qui cite un
+exemple faux induit le suivant en erreur.
+
+**Le libellé ne désigne pas le fuseau**, et l'écran en tient compte : CLDR rend un nom de
+MÉTAZONE — « heure d'Europe centrale » vaut pour Paris, Berlin et Madrid. L'identifiant
+IANA est donc affiché à côté, toujours. Le test qui le prouve monte deux fuseaux au
+**même** libellé : sans l'identifiant, les deux lignes seraient indiscernables.
+
+**Le décalage horaire n'est PAS stocké**, et l'écran le dit : il dépend de la date et des
+règles d'heure d'été, qui changent plusieurs fois par an. Une valeur en base serait fausse
+six mois sur douze, et fausse en silence.
+
+**L'activation est extraite au second usage** (`reference/activation.py`), comme la règle
+du dépôt le demande. C'est la partie à invariants — verrou avant écriture, tout ou rien,
+« déjà dans l'état voulu n'est pas un changement ». La mesure de la refactorisation : les
+tests des pays passent **sans modification**. Et un test mesure que les deux référentiels
+ne partagent pas leur état — sans lui, un descripteur mal câblé ferait activer des pays
+depuis l'écran des fuseaux, les deux campagnes restant vertes chacune de son côté.
+
+**Un jeu d'essai écrit de mémoire a été corrigé par la campagne** : `Europe/Paris` sert la
+France **et Monaco** (`FR,MC` dans la table). Le code avait raison, l'assertion non.
 
 ## L'assainissement des modules d'appariement (29/10, ticket `f85d248e`)
 

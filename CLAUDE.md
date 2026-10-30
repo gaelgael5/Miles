@@ -50,14 +50,18 @@ cookie) s'appliquent. Détail : cadrage `terminal-pr`, « Correspondances OIDC v
 - **Transport terminal** : MQTT 5 request/response, sans wrapper maison.
 - **Transformation** : JSLT (grammaire ANTLR de `Black-Beard-Sdk/jslt`) ; forme d'intégration
   côté Python *à confirmer*.
-- **Référentiels DONNÉS** (cultures, pays, et les fuseaux à venir) : la liste est en base,
+- **Référentiels DONNÉS** (cultures, pays, fuseaux horaires) : la liste est en base,
   chargée par une migration **engendrée** par un script du dépôt, et l'administrateur n'y
   fait qu'**activer**. Ni création, ni suppression, ni renommage — une liste amendable
   dérive, et la migration suivante écraserait l'amendement. Leurs **libellés** ne sont pas
   en base : ils sont dérivés de **CLDR** (`babel`, dépendance d'EXÉCUTION du portail depuis
   le 30/10/2026) dans la culture du visiteur, avec repli sur `en-US` puis sur le code. Les
   charger aurait voulu dire choisir pour quelles cultures — deux cent mille lignes de SQL,
-  ou des cultures sans libellé.
+  ou des cultures sans libellé. Le geste d'activation est écrit UNE fois
+  (`miles/reference/activation.py`), chaque référentiel n'apportant que ses requêtes et ses
+  types d'events. **La donnée de ces listes se mesure, elle ne se déduit pas** : trois
+  décisions ont été renversées par la mesure le 30/10/2026, dont `zone_aliases` de CLDR,
+  qui va du nom canonique vers l'ancien et non l'inverse.
 
 ## Trois produits, un seul dépôt
 Découpage posé par Gael le 27/10/2026, qui suit le cadrage « Découpage en trois produits ».
