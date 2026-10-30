@@ -69,7 +69,9 @@ from miles.obo.api_identity import router as identity_router
 from miles.obo.service import ActorIdentitiesService
 from miles.pairing.service import PairingService
 from miles.reference.api_countries import router as countries_router
+from miles.reference.api_timezones import router as timezones_router
 from miles.reference.service import CountriesService
+from miles.reference.timezones import TimezonesService
 from miles.security.api_security import router as security_router
 from miles.security.service import SecurityServices
 from miles.sources.api_sources import router as sources_router
@@ -177,6 +179,7 @@ def create_app() -> FastAPI:
         # Le référentiel donné des pays. APRÈS le socle, dont il lit les cultures ACTIVES
         # pour appliquer la règle de repli des libellés — ils ne sont pas en base.
         app.state.countries = CountriesService(pool, app.state.cultures, catalog, utc_now)
+        app.state.timezones = TimezonesService(pool, app.state.cultures, catalog, utc_now)
         app.state.security = SecurityServices(
             pool, http, app.state.secrets, catalog, utc_now, settings.allow_http_identity_providers
         )
@@ -305,6 +308,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(workspaces_router)
     app.include_router(connections_router)
     app.include_router(countries_router)
+    app.include_router(timezones_router)
     app.include_router(data_models_router)
     app.include_router(domains_router)
     app.include_router(workshop_router)

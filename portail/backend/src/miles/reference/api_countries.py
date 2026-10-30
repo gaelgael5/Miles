@@ -7,12 +7,8 @@ from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict
 
-from miles.reference.model import (
-    Country,
-    EmptyChangeError,
-    UnknownCountriesError,
-    validate_culture,
-)
+from miles.reference.activation import EmptyChangeError, UnknownSlugsError
+from miles.reference.model import Country, validate_culture
 from miles.reference.service import CountriesService
 
 # Le référentiel des pays, section Global du portail. Le préfixe est `/api/countries` et
@@ -94,7 +90,7 @@ async def set_activation(
     """
     try:
         changed = await service.resolve_set_active(request_author(request), body.slugs, body.active)
-    except UnknownCountriesError as exc:
+    except UnknownSlugsError as exc:
         # Les slugs fautifs sont NOMMÉS : ils viennent d'une saisie d'écran, et lui cacher
         # lesquels l'obligerait à tout retenter.
         return _error({"field": "slugs", "unknown": list(exc.slugs)})

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -8,32 +7,21 @@ from datetime import datetime
 import asyncpg
 import structlog
 from miles_socle.cultures.service import CulturesService
-from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventTypeCatalog
 
+from miles.reference.activation import foldcase as _foldcase
+from miles.reference.activation import matches
+from miles.reference.activation import resolve_set_active as _resolve_set_active
 from miles.reference.labels import country_name, resolve_label
 from miles.reference.model import (
-    COUNTRY_ACTIVATED_EVENT,
-    COUNTRY_DEACTIVATED_EVENT,
-    COUNTRY_OBJECT_KIND,
-    MAX_SLUGS_PER_CHANGE,
     Country,
-    EmptyChangeError,
-    UnknownCountriesError,
 )
 from miles.reference.store import (
+    COUNTRIES,
     db_list_countries,
-    db_lock_countries,
-    db_set_countries_active,
 )
 
 log = structlog.get_logger(__name__)
-
-
-def _foldcase(text: str) -> str:
-    """Repli de casse et d'accents, pour que le filtre trouve « cote » dans « Côte »."""
-    decompose = unicodedata.normalize("NFD", text)
-    return "".join(c for c in decompose if unicodedata.category(c) != "Mn").casefold()
 
 
 @dataclass(frozen=True)
@@ -79,44 +67,27 @@ class CountriesService:
         if not search or not search.strip():
             return pays
         aiguille = _foldcase(search.strip())
-        return [
-            p
-            for p in pays
-            if aiguille in _foldcase(p.slug)
-            or aiguille in _foldcase(p.alpha2)
-            or aiguille in _foldcase(p.label)
-        ]
+        return [p for p in pays if matches(aiguille, p.slug, p.alpha2, p.label)]
 
     async def resolve_set_active(
         self, author: EventAuthor, slugs: Sequence[str], active: bool
     ) -> list[str]:
-        """Applique exactement la sélection reçue ; rend les slugs réellement changés.
+        """Active ou désactive une sélection. Le geste lui-même est au module partagé.
 
-        Écrit dans UNE transaction, verrou d'abord : l'écran envoie une sélection entière,
-        et la moitié appliquée serait un état que personne n'a demandé.
+        Il l'est depuis que les fuseaux horaires en ont eu besoin — second usage, donc
+        extraction : c'est la partie à invariants (verrou avant écriture, tout ou rien,
+        « déjà dans l'état voulu n'est pas un changement »), et elle n'a pas à exister à
+        deux endroits.
         """
-        voulus = sorted(set(slugs))
-        if not voulus or len(voulus) > MAX_SLUGS_PER_CHANGE:
-            raise EmptyChangeError
-        async with self.pool.acquire() as conn, conn.transaction():
-            connus = await db_lock_countries(conn, voulus)
-            inconnus = tuple(slug for slug in voulus if slug not in connus)
-            if inconnus:
-                # Nommés, et refusés AVANT toute écriture : un slug hors référentiel vient
-                # d'une saisie, et le créer au passage ferait du référentiel donné une
-                # liste ouverte.
-                raise UnknownCountriesError(inconnus)
-            changes = await db_set_countries_active(conn, voulus, active)
-            if changes:
-                event = NewEvent(
-                    COUNTRY_ACTIVATED_EVENT if active else COUNTRY_DEACTIVATED_EVENT,
-                    tuple(ObjectRef(COUNTRY_OBJECT_KIND, slug) for slug in changes),
-                    author,
-                    {"count": len(changes)},
-                )
-                await db_write_event(conn, event, self.catalog, self.now)
-        log.info("pays_changes", active=active, count=len(changes))
-        return changes
+        return await _resolve_set_active(
+            pool=self.pool,
+            catalog=self.catalog,
+            now=self.now,
+            referential=COUNTRIES,
+            author=author,
+            slugs=slugs,
+            active=active,
+        )
 
 
 def _libelle(alpha2: str, slug: str, culture: str | None, actives: frozenset[str]) -> str:

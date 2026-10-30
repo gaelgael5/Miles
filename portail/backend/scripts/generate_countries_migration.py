@@ -13,6 +13,12 @@ la culture du visiteur, qui n'est pas connue ici.
 La migration produite est immuable dès qu'elle est jouée quelque part. Une liste plus
 récente se charge par une NOUVELLE migration, qui ne touche pas à l'état actif des pays
 existants — même règle que les cultures (décision du 20/10/2026).
+
+ÉCART CONNU, et ce n'est pas une dérive : l'en-tête ci-dessous a reçu le 30/10/2026 une
+correction de formulation (un signe « multiplié » remplacé par « pour »), que le linter du
+dépôt exige et que la migration DÉJÀ JOUÉE ne porte pas. Régénérer produirait donc un
+fichier différent de celui qui a été appliqué — ce que l'interdiction ci-dessus couvre
+déjà, et qui est redit ici parce que le diff, lui, aurait l'air d'un oubli.
 """
 
 from __future__ import annotations
@@ -37,7 +43,7 @@ HEADER = """-- Référentiel des pays : la liste est DONNÉE, pas saisie. L'admi
 --
 -- POURQUOI AUCUN LIBELLÉ ICI. Ils sont dérivés de CLDR au moment d'afficher, dans la
 -- culture du visiteur. Les charger aurait voulu dire choisir POUR QUELLES cultures : les
--- 249 pays × les ~800 cultures du référentiel font deux cent mille lignes de SQL, et s'en
+-- 249 pays pour les ~800 cultures du référentiel font deux cent mille lignes de SQL, et s'en
 -- tenir aux langues laisse sans libellé toute culture non prévue. Activer une culture de
 -- plus donne ainsi aussitôt ses libellés, sans migration ni saisie.
 --

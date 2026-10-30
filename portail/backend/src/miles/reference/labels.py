@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Container
 from functools import lru_cache
 
+import babel.dates
 import structlog
 from babel import Locale, UnknownLocaleError
 from miles_socle.cultures.service import FALLBACK_CULTURE
@@ -50,6 +51,24 @@ def country_name(alpha2: str, culture: str) -> str | None:
     """
     locale = _locale(culture)
     return None if locale is None else locale.territories.get(alpha2)
+
+
+def timezone_name(zone: str, culture: str) -> str | None:
+    """Le nom d'un fuseau dans une culture, d'après CLDR. `None` si CLDR ne l'a pas.
+
+    CLDR rend un nom de MÉTAZONE : « heure d'Europe centrale » vaut pour Paris, Berlin et
+    Madrid à la fois. Ce libellé ne désigne donc AUCUN fuseau à lui seul, et l'écran
+    affiche toujours l'identifiant IANA à côté.
+
+    Babel rend l'identifiant lui-même quand il ne connaît pas le nom. On le traite comme
+    une absence : rendre « Europe/Paris » comme libellé de `Europe/Paris` ferait croire à
+    un nom, là où la règle de repli sait déjà dire la même chose plus honnêtement.
+    """
+    locale = _locale(culture)
+    if locale is None:
+        return None
+    nom = babel.dates.get_timezone_name(zone, locale=locale)
+    return None if nom == zone else nom
 
 
 def resolve_label(

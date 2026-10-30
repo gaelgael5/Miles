@@ -11,15 +11,22 @@ from dataclasses import dataclass
 # ISO 3166-1 alpha-3, et rien d'autre. Un slug en alpha-2 glissé ici serait introuvable par
 # qui écrit une procédure, et le libellé dérivé de CLDR serait celui d'un autre pays.
 SLUG_RE = re.compile(r"^[A-Z]{3}$")
-# Borne du nombre de slugs qu'un seul geste peut changer. Généreuse — on peut tout
-# sélectionner — mais bornée : la charge vient d'un appel HTTP.
-MAX_SLUGS_PER_CHANGE = 500
 CULTURE_RE = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
 
 COUNTRY_OBJECT_KIND = "country"
 COUNTRY_ACTIVATED_EVENT = "country.activated"
 COUNTRY_DEACTIVATED_EVENT = "country.deactivated"
-EVENT_TYPES = frozenset({COUNTRY_ACTIVATED_EVENT, COUNTRY_DEACTIVATED_EVENT})
+TIMEZONE_OBJECT_KIND = "timezone"
+TIMEZONE_ACTIVATED_EVENT = "timezone.activated"
+TIMEZONE_DEACTIVATED_EVENT = "timezone.deactivated"
+EVENT_TYPES = frozenset(
+    {
+        COUNTRY_ACTIVATED_EVENT,
+        COUNTRY_DEACTIVATED_EVENT,
+        TIMEZONE_ACTIVATED_EVENT,
+        TIMEZONE_DEACTIVATED_EVENT,
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -37,25 +44,36 @@ class Country:
     active: bool
 
 
-class CountryError(Exception):
-    """Refus ; rien n'a été écrit."""
+@dataclass(frozen=True)
+class Timezone:
+    """Un fuseau du référentiel, tel qu'on le montre.
+
+    `slug` est l'identifiant IANA, et il s'affiche TOUJOURS à côté du libellé : CLDR rend
+    un nom de métazone — « heure d'Europe centrale » vaut pour Paris, Berlin et Madrid —
+    donc le libellé seul ne désigne aucun fuseau.
+
+    `countries` porte TOUS les pays du fuseau, dans l'ordre d'IANA, et il n'est JAMAIS
+    vide : la table `zone1970.tab` donne au moins un pays à chacune de ses zones, et rien
+    n'est ajouté à cette table. Mesuré le 30/10/2026 : 93 pays n'apparaissent jamais en
+    première position, donc n'en garder qu'un les laisserait tous sans aucun fuseau.
+    """
+
+    slug: str
+    label: str
+    countries: tuple[str, ...]
+    active: bool
 
 
-class UnknownCountriesError(CountryError):
-    """Des slugs hors référentiel. Nommés, parce qu'ils viennent d'une saisie d'écran."""
+def validate_country_slug(value: str | None) -> str | None:
+    """Le pays sur lequel filtrer, validé AVANT d'entrer dans une requête.
 
-    def __init__(self, slugs: tuple[str, ...]) -> None:
-        super().__init__(f"{len(slugs)} pays inconnu(s)")
-        self.slugs = slugs
-
-
-class EmptyChangeError(CountryError):
-    """Aucun pays désigné, ou trop. Un geste qui ne porte sur rien n'est pas un geste."""
-
-
-def validate_slug(value: str) -> str:
-    if not SLUG_RE.match(value):
-        raise UnknownCountriesError((value,))
+    Il vient d'un paramètre d'URL. Une forme inattendue est lue comme « pas de filtre »
+    plutôt que refusée : la requête est paramétrée, donc il n'y a aucun danger à la passer,
+    mais un slug impossible ne rendrait rien et l'écran afficherait une liste vide sans
+    dire pourquoi. Mieux vaut montrer tous les fuseaux — ce qui se voit — que rien.
+    """
+    if value is None or not SLUG_RE.match(value):
+        return None
     return value
 
 
