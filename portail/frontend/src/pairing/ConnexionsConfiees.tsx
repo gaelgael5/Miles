@@ -62,6 +62,11 @@ export function ConnexionsConfiees() {
           {t("confiding.never")}
         </p>
       )}
+      {/* UN seul message pour les deux causes — transmission perdue, ou appariement rompu
+          (que l'écran du socle nomme juste au-dessus, avec sa date). Un second état à
+          plumer dans l'API pour distinguer deux phrases qui appellent le MÊME geste n'en
+          vaut pas le prix ; ce qui compte est de ne jamais dire « confiées » pour ce que
+          l'autre bout ne détient plus. */}
       {transmis !== null && !aJour && (
         <p className="alert alert-warning" role="status">
           {t("confiding.stale")}

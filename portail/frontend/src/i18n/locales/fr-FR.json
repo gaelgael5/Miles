@@ -1067,7 +1067,7 @@
     "captionTransmitted": "Transmises le",
     "revision": "révision {{revision}}",
     "never": "Rien n'a encore été transmis à ce module d'enrôlement.",
-    "stale": "Le module d'enrôlement détient une version plus ancienne : une transmission n'est pas arrivée. Retransmettre ci-dessous.",
+    "stale": "Le module d'enrôlement ne détient plus ce que nous avons : une transmission n'est pas arrivée, ou l'appariement a été rompu. Retransmettre ci-dessous — c'est sans effet s'il est déjà à jour.",
     "transmit": "Retransmettre maintenant",
     "refused": "La transmission a été refusée ou le module d'enrôlement est injoignable. Rien n'a changé de son côté."
   }

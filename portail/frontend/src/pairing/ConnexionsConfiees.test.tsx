@@ -43,7 +43,7 @@ describe("connexions git confiées", () => {
     expect(await screen.findByText("2 connections")).toBeInTheDocument();
     expect(screen.getByText("revision 4")).toBeInTheDocument();
     // Rien à réparer : aucun avertissement n'est affiché à tort.
-    expect(screen.queryByText(/older version/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no longer holds what we have/i)).not.toBeInTheDocument();
   });
 
   it("says nothing has been handed over yet, which is not a failure", async () => {
@@ -61,7 +61,7 @@ describe("connexions git confiées", () => {
     });
 
     expect(await screen.findByText(/Nothing has been handed/i)).toBeInTheDocument();
-    expect(screen.queryByText(/older version/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no longer holds what we have/i)).not.toBeInTheDocument();
   });
 
   it("names the divergence when the peer holds an older version", async () => {
@@ -80,7 +80,7 @@ describe("connexions git confiées", () => {
       },
     });
 
-    expect(await screen.findByText(/holds an older version/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no longer holds what we have/i)).toBeInTheDocument();
   });
 
   it("surfaces a refused transmission instead of swallowing it", async () => {

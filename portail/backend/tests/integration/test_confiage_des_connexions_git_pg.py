@@ -361,6 +361,35 @@ async def test_la_trace_de_confiage_appartient_au_pair_a_qui_l_on_a_transmis(
         assert etat.json()["up_to_date"] is False
 
 
+async def test_un_avis_de_revocation_recu_ne_laisse_plus_rien_de_garanti(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Trouvé en VRAI le 30/10/2026, et par rien d'autre.
+
+    Après une révocation, l'écran disait « confiées, à jour » à côté de « révoqué » —
+    alors que le contrat garantit que révoquer un module de paramétrage DÉTRUIT ce qui lui
+    avait été confié. L'erreur n'est pas symétrique : dire « à retransmettre » à tort coûte
+    un geste idempotent, croire confié ce qui est détruit coûte un déploiement qui ne lit
+    plus git.
+    """
+    double = EnrolmentDouble()
+    async with _stack(blank_db, tmp_path, double) as (portail, _):
+        await _secret(portail, "pat-yoops", CREDENTIAL)
+        await _connexion(portail, "yoops", "pat-yoops")
+        assert (await portail.client.get("/api/git-connections/confided")).json()["up_to_date"]
+
+        # L'avis de révocation reçu, tel que le socle l'écrit : la date de réception.
+        await portail.pool.execute("UPDATE enrolment_peer SET revoked_at = now()")
+
+        etat = await portail.client.get("/api/git-connections/confided")
+
+        assert etat.json()["up_to_date"] is False
+        # La trace reste LISIBLE : ce qui a été transmis, et quand, est un fait. C'est la
+        # garantie qui tombe, pas l'historique.
+        assert etat.json()["revision"] is not None
+        assert etat.json()["transmitted_at"] is not None
+
+
 async def _event(portail: PortalStack, event_type: str) -> dict[str, Any]:
     row = await portail.pool.fetchrow(
         "SELECT properties FROM events WHERE type = $1 ORDER BY written_at DESC LIMIT 1",

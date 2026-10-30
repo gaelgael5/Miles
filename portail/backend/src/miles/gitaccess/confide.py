@@ -161,7 +161,18 @@ class GitConfidingService:
             pair.base_url,
             revision,
             transmise_le,
-            empreinte_transmise == empreinte,
+            # Un avis de RÉVOCATION reçu suffit à ne plus rien garantir : le contrat dit
+            # depuis le 30/10/2026 que révoquer un module de paramétrage DÉTRUIT ce qui
+            # lui avait été confié, donc la trace que nous gardons ne décrit plus rien.
+            #
+            # TROUVÉ EN VRAI le 30/10/2026, et par rien d'autre : après une révocation, cet
+            # écran affichait « confiées, à jour » à côté de « révoqué », alors que l'autre
+            # bout ne détenait plus une seule ligne. L'avis n'est pourtant qu'un INDICE —
+            # le contrat l'écrit —, et il peut être démenti par un ré-appariement. Mais
+            # l'erreur n'est pas symétrique : dire « à retransmettre » à tort coûte un
+            # geste idempotent, croire confié ce qui est détruit coûte un déploiement qui
+            # ne lit plus git. On prend donc le risque du premier côté.
+            pair.revoked_at is None and empreinte_transmise == empreinte,
             len(connexions),
         )
 
