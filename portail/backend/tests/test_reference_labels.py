@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from miles.reference.labels import country_name, resolve_label
+from miles.reference.model import validate_culture
 
 COUNTRIES_MIGRATION = "0028_referentiel_des_pays.sql"
 
@@ -153,3 +154,24 @@ def test_les_libelles_suivent_la_culture_pour_plusieurs_pays() -> None:
     for alpha2, (en_francais, en_anglais) in attendus.items():
         assert country_name(alpha2, "fr-FR") == en_francais
         assert country_name(alpha2, "en-US") == en_anglais
+
+
+def test_la_culture_demandee_est_validee_pour_elle_meme() -> None:
+    """La validation de la culture, éprouvée SEULE — et il faut le faire exprès.
+
+    Son effet est doublé : `_locale` capture déjà ce que Babel refuse, donc le
+    comportement visible (« une culture mal formée donne le repli ») reste juste même sans
+    elle. Ce qu'elle apporte en plus ne se voit pas dans une réponse : elle empêche une
+    chaîne arbitraire de servir de CLÉ au cache de locales — 512 entrées de rebut en
+    chasseraient les vraies — et de partir dans un analyseur qui n'a pas à servir de garde
+    d'entrée. Sans ce test, la retirer ne ferait rougir personne.
+    """
+    assert validate_culture("fr-FR") == "fr-FR"
+    assert validate_culture("fr") == "fr"
+    assert validate_culture("zh-Hant-TW") == "zh-Hant-TW"
+    # Lues comme « pas de culture », jamais transmises telles quelles.
+    assert validate_culture(None) is None
+    assert validate_culture("../../etc/passwd") is None
+    assert validate_culture("fr_FR") is None
+    assert validate_culture("") is None
+    assert validate_culture("a" * 200) is None
