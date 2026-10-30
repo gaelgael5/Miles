@@ -1,4 +1,4 @@
-# Reprise de session — état au 28 octobre 2026
+# Reprise de session — état au 30 octobre 2026, fin de journée
 
 Point de reprise écrit à la demande de Gael, pour repartir d'un contexte propre.
 **Le backlog docflow `terminal-pr` et le cadrage font foi, jamais ce fichier** : il dit où
@@ -13,16 +13,19 @@ base — et son propre `dev-deploy.sh`. Rien ne se déploie depuis la racine.
 
 | Répertoire | Produit | État |
 |---|---|---|
-| `portail/` | Portail de configuration — le **module de paramétrage** | livré, déployé sur test1, **port 8080**. **S'apparie au module d'enrôlement** depuis le 29/10 (ticket `ba44914b`) |
-| `enrolement/` | Service d'enrôlement | coquille le 27/10 ; **sert le protocole d'appariement** depuis le 28/10 (ticket `6a0daab6`), **port 8081**, pour **deux espèces de demandeur** depuis le 29/10. Le parc des devices reste à faire |
+| `portail/` | Portail de configuration — le **module de paramétrage** | livré, déployé sur test1, **port 8080**. **S'apparie au module d'enrôlement** depuis le 29/10 (`ba44914b`) et **lui confie ses connexions git** depuis le 30/10 (`edcf78bc`). Porte depuis le 30/10 deux **référentiels donnés** de plus — pays et fuseaux horaires —, section Global du menu |
+| `enrolement/` | Service d'enrôlement | coquille le 27/10 ; **sert le protocole d'appariement** depuis le 28/10 (`6a0daab6`), **port 8081**, pour **deux espèces de demandeur** depuis le 29/10. **Détient les connexions git** du module de paramétrage depuis le 30/10, chiffrées, détruites à la révocation. Le parc des devices reste à faire, et personne ne lit encore git avec ces credentials |
 | `environnement/` | Back-office d'environnement | coquille le 28/10 ; **frappe, confirme et range la clé de son pair** depuis le 28/10, **port 8082**. Le métier reste à faire |
 
 **Trois socles partagés**, et c'est là que vit le code commun : `socle/python` (paquet
 `miles_socle`), `socle/web` (paquet `@miles/socle-web`) et `socle/deploy` (les gardes des
 scripts). Le socle porte les **requêtes** de ses propres tables mais **aucune migration** :
 le schéma reste à chaque produit, relu produit par produit. La frontière entre les racines
-est tenue par `tests/` — 22 tests, Python par `ast`, TypeScript par motif et shell par ses
-`source`. À lancer après tout déplacement de code entre racines.
+est tenue par `tests/` — **27 tests** depuis le 30/10, Python par `ast`, TypeScript par
+motif et shell par ses `source`. À lancer après tout déplacement de code entre racines. Les
+cinq derniers tiennent un interdit du ticket `edcf78bc` : **aucun nom porteur de credential
+git n'est atteint par `environnement/`**, front compris, et un second test vérifie que ces
+noms existent toujours au contrat — sinon un renommage désarmerait la garde en silence.
 
 ## Ce qui vient d'être livré — l'appariement (28/10, ticket `6a0daab6`)
 
@@ -570,6 +573,50 @@ depuis l'écran des fuseaux, les deux campagnes restant vertes chacune de son c�
 **Un jeu d'essai écrit de mémoire a été corrigé par la campagne** : `Europe/Paris` sert la
 France **et Monaco** (`FR,MC` dans la table). Le code avait raison, l'assertion non.
 
+## L'association, vue depuis le pays (30/10, story `2ae7e357`)
+
+**Demandée par Gael** : « pour chaque pays lister les fuseaux possibles. en referentiel
+dans le pays ».
+
+**La moitié de la demande était déjà faite**, et c'est ce qu'il fallait dire avant de
+proposer quoi que ce soit : le lien est N–N en base depuis le matin même (423 liens,
+l'ordre d'IANA compris) et `GET /api/timezones?country=LUX` le sert déjà. Ce qui manquait
+n'était pas la donnée, c'était de la montrer **depuis le pays**.
+
+**La décision prise avec lui : montrer, pas choisir en plus.** Trois voies pesées, deux
+écartées — et elles restent écrites dans le ticket avec leur raison, parce que l'usage peut
+les rappeler :
+
+| Voie | Pourquoi écartée |
+| --- | --- |
+| Les fuseaux s'activent PAR PAYS, et plus globalement | Défait ce qui venait d'être livré, et un fuseau servant trois pays devrait être retenu trois fois |
+| Une sélection par pays EN PLUS de l'activation globale | Deux états superposés, dont l'interaction serait tranchée écran par écran |
+
+**Donc : aucune table, aucune route, aucune colonne, aucun état nouveau.** La story est un
+ÉCRAN, et le ticket le dit comme critère : si quelque chose manque côté serveur, c'est
+qu'on s'est trompé de chemin.
+
+**Ce que cet écran DOIT dire, et c'est son cœur** : l'activation reste **globale**.
+`Europe/Brussels` sert trois pays, donc le retenir depuis le Luxembourg le retient aussi
+pour la Belgique et les Pays-Bas. L'avertissement est **sur la ligne**, à l'endroit du
+geste, et il nomme les autres pays — une mention en bas de page ne serait pas lue par qui
+clique. C'est le seul vrai risque de cet écran, et les deux moitiés de l'avertissement ont
+leur faute injectée : le retirer rougit, l'afficher à tort sur un fuseau non partagé rougit
+aussi.
+
+**Le panneau ne se monte qu'au dépli**, et c'est ce qui tient le coût : 249 pays dépliés
+d'office feraient 249 lectures pour une information que personne ne regarde. Les huit tests
+de l'écran des pays passent **sans modification**, ce qui le prouve au passage.
+
+**Une bascule directe plutôt que « cocher puis appliquer »** : un pays n'a le plus souvent
+qu'un fuseau, et une sélection groupée pour un élément unique demanderait deux gestes pour
+un. L'écran des fuseaux, lui, garde sa sélection groupée — 312 lignes.
+
+**Mesuré en vrai** : `FRA` → `Europe/Paris` (qui porte `FRA, MCO`), `LUX` →
+`Europe/Brussels` alors que le Luxembourg n'est le premier pays d'**aucune** zone, `USA` →
+29 fuseaux, `MCO` → le même que la France, `ATA` → 11. Monaco et le Luxembourg sont
+précisément les cas qui auraient été vides avec un seul pays par fuseau.
+
 ## L'assainissement des modules d'appariement (29/10, ticket `f85d248e`)
 
 `PairingService` et `IdentityService` restent **une classe chacune**, découpées en
@@ -737,33 +784,51 @@ Les campagnes repartent.
 - Le ticket `c705e801` renvoie à un **« epic de la fabrique »** (génération du script
   d'initialisation, calcul de la stack) **qui n'existe pas dans le backlog**. Sans lui,
   le ticket consomme un schéma que personne ne produit. Signalé le 27/10.
+- **Une question posée le 30/10, sans réponse** : le cadrage porte « Cultures : un
+  référentiel donné, qu'on active », et ce dispositif a maintenant **trois** applications
+  — cultures, pays, fuseaux horaires. L'article du cadrage n'a **pas** été touché, parce
+  qu'il est celui de Gael ; il reste à lui demander s'il veut le paragraphe qui le dit.
+- **Le relais de lecture de git** (hors périmètre d'`edcf78bc`, reporté par lui) et le
+  **credential du registre d'images** (point ouvert de `1decb986`) n'ont aucun ticket.
+  L'enrôlement détient les credentials depuis le 30/10 ; personne ne lit git avec eux.
 
 ## Ce qui est éligible, et par quoi commencer
 
-- `31025fe6`, `449e1694` et la suite ci-dessous. `6a0daab6` est **livré** depuis le
-  28/10 : le protocole complet tourne des deux côtés.
-- `31025fe6` — modèles « Devices entrants » / « Devices sortants ».
-- `449e1694` — famille « Sources » : le schéma de ce qu'une source reçoit.
-- `c51a732c` — **déplacer en bloc les devices d'un environnement**. Bloqué par le parc.
-- Le **métier** de l'enrôlement : la coquille ne porte rien de lui. Référentiel des
-  devices, enrôlement d'une installation, dispatch, parc, tags, groupes — autant de
-  tickets de l'epic *Module d'enrôlement*.
+**Rien de ce qui a été livré n'est `done`** : tout est en **revue**, et c'est l'état normal
+de ce backlog — la revue est humaine. Un prédécesseur en revue est traité comme satisfait,
+c'est la pratique de ce dépôt depuis le 29/10.
 
-**En revue au 29/10 au soir** : `d5ffeb33` (révocation), `f85d248e` (assainissement),
-`1ce685e9` (adresse de contact), `4ce141d3` (avis de révocation), `8474baf4` (le
-référentiel n'affiche plus l'appariement), `8803f092` (changer l'environnement d'un
-appariement conclu), `2edf1f3c` (l'environnement assigné) et `ba44914b` (le module de
-paramétrage s'apparie), plus les tickets des jours précédents. Des quatre tickets neufs de
-Gael du 29/10, il ne reste que `c51a732c`, bloqué par le parc.
-
-**`edcf78bc` est livré le 30/10** — les connexions git sont confiées. Ce qu'il laisse
-ouvert est nommé dans sa section : le **relais de lecture de git**, reporté par Gael, et le
-**credential du registre d'images**, point ouvert de la feature. Aucun des deux n'a de
-ticket éligible à ce jour.
+**Livré le 30/10, en revue** : `edcf78bc` (les connexions git confiées), `ccd8703c` (les
+pays), `d4fb364a` (les fuseaux horaires), `2ae7e357` (l'association vue du pays). Les trois
+dernières sont les stories de la feature **neuve** `f6e54dee` — *Référentiels donnés de
+l'instance* —, écrite le même jour sous l'epic *Amorçage et accès au portail back-office*,
+là où vivent déjà les cultures, les secrets et les connecteurs OIDC.
 
 **Ce qui reste des quatre tickets neufs de Gael du 29/10** : `c51a732c` seul, bloqué par le
-parc, lui-même bloqué par `a4f05302`. Le **métier de l'enrôlement** est donc la suite
-naturelle — référentiel des devices d'abord, puisque trois tickets l'attendent.
+parc, lui-même bloqué par `a4f05302`.
+
+**La suite naturelle est le métier de l'enrôlement**, et le référentiel des devices
+d'abord : trois tickets l'attendent (`12422429`, `a4f05302`, `c51a732c`), et c'est lui qui
+donnera un consommateur aux deux référentiels livrés — un terminal est quelque part, à une
+heure locale. **Mais rien n'y est rattaché aujourd'hui, et c'est un choix de Gael** : « les
+deux listes seules, pour l'instant », parce que la table qui les porterait n'existe pas et
+que le ticket du parc en décidera.
+
+**Autres tickets éligibles**, inchangés : `31025fe6` (modèles « Devices entrants » /
+« Devices sortants »), `449e1694` (famille « Sources »), et la quinzaine de features
+`pret_pour_dev` des epics du paramétrage.
+
+**Deux chantiers sans ticket éligible, et il faut le savoir avant de les commencer** :
+
+- le **relais de lecture de git** — l'enrôlement détient les credentials depuis le 30/10,
+  mais aucun module ne lit git avec eux. Reporté par Gael, et la forme du relais décidera
+  de l'erreur qu'un credential refusé par la forge produira chez un environnement ;
+- le **credential du registre d'images**, point ouvert de la feature `1decb986`.
+
+**Une question en attente de Gael**, posée le 30/10 et sans réponse : le cadrage porte
+« Cultures : un référentiel donné, qu'on active », dispositif qui a maintenant **trois**
+applications. L'article n'a pas été touché — c'est le sien — et il reste à lui demander s'il
+veut le paragraphe qui le dit.
 
 ## Cinq décisions prises par Gael le 27/10 — les questions sont closes
 
@@ -851,6 +916,19 @@ Lire `LESSONS.md` — il porte les leçons du dépôt. Les plus coûteuses de ce
 - **`MILES_SECRETS_KEY` ne se régénère jamais** : les secrets chiffrés en base
   deviendraient illisibles. `portail/dev-deploy.sh` porte une reprise qui *déplace*
   `.env`, `.env.bak` et `.deploy` au lieu de les recréer.
+- **Mesurés le 30/10, et chacun aurait coûté un défaut silencieux** :
+  - `zone_aliases` de CLDR va du nom **canonique vers l'ancien** (`Europe/Kyiv` →
+    `Europe/Kiev`). Filtrer sur ses clés retire les BONS noms ;
+  - `babel.dates.get_timezone_name(..., return_zone=True)` **ne détecte pas** un nom
+    manquant : il rend l'identifiant dans tous les cas, même quand le nom existe ;
+  - pour savoir ce qu'une application **sert**, lire `app.openapi()["paths"]`. La version
+    de FastAPI du dépôt enveloppe les routeurs inclus dans un `_IncludedRouter`, donc
+    `app.routes` rend des objets sans `path` — une sonde qui rend « rien » est d'abord une
+    sonde à vérifier ;
+  - `uv` **n'existe pas** sur l'hôte de test1 : il ne vit que dans les conteneurs des
+    campagnes. Une injection de fautes unitaire se mesure donc en local, pas là-bas ;
+  - un `tail` sur la sortie d'une injection **jette les verdicts** : ils sont imprimés au
+    fur et à mesure, le résumé est à la fin.
 
 ## Gestes du quotidien
 
@@ -868,6 +946,26 @@ cd tests && uv run pytest -q                # frontière socle / produits — à
 <produit>/dev-deploy.sh                     # livrer, PORTAL_TOKEN sur stdin, jamais en argv
 <produit>/scripts/run-integration-tests.sh  # campagne, à lancer détachée
 ```
+
+**Les deux listes de référence s'engendrent, elles ne s'écrivent pas** — et ces scripts ne
+se relancent JAMAIS sur une migration déjà jouée :
+
+```bash
+cd portail/backend && uv run --with 'pycountry==24.6.1' python scripts/generate_countries_migration.py
+cd portail/backend && uv run --with 'pycountry==24.6.1' python scripts/generate_timezones_migration.py
+```
+
+Une liste plus récente passe par une **nouvelle** migration, qui ne touche pas à l'état
+actif de l'existant — la règle des cultures, posée le 20/10. La base IANA change plusieurs
+fois par an ; l'ISO 3166 rarement. Et l'en-tête du script des pays porte un écart ASSUMÉ
+avec la migration 28 déjà jouée : une correction de formulation exigée par le linter, qui
+rendrait un fichier différent si on régénérait.
+
+**Les chiffres au 30/10, pour repérer une régression d'un coup d'œil** : intégration
+**338 + 1 + 7** (portail), **154 + 1** (enrôlement), **116 + 1** (environnement) ;
+unitaires **650** (portail), **297** (socle), **51** (enrôlement), **31** (environnement) ;
+front **232** (portail), **66** (socle web), **62** (enrôlement), **18** (environnement) ;
+frontière et architecture **27**. Schémas **29 / 15 / 14**.
 
 **Neuf racines, neuf environnements.** `socle/python`, les trois `<produit>/backend` et
 `tests` ont chacun leur `pyproject.toml` et leur verrou ; `socle/web` et les trois
