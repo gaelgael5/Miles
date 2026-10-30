@@ -1056,5 +1056,19 @@
     "form": {
       "name": "Nom de ce module de paramétrage"
     }
+  },
+  "confiding": {
+    "loading": "Lecture des connexions confiées…",
+    "unavailable": "L'état du confiage n'a pas pu être lu.",
+    "caption": "Connexions git confiées",
+    "count_one": "{{count}} connexion",
+    "count_other": "{{count}} connexions",
+    "help": "Les connexions git sont saisies ici, une seule fois, et transmises au module d'enrôlement qui les détient pour les environnements. Aucun environnement ne reçoit jamais le jeton lui-même.",
+    "captionTransmitted": "Transmises le",
+    "revision": "révision {{revision}}",
+    "never": "Rien n'a encore été transmis à ce module d'enrôlement.",
+    "stale": "Le module d'enrôlement détient une version plus ancienne : une transmission n'est pas arrivée. Retransmettre ci-dessous.",
+    "transmit": "Retransmettre maintenant",
+    "refused": "La transmission a été refusée ou le module d'enrôlement est injoignable. Rien n'a changé de son côté."
   }
 }

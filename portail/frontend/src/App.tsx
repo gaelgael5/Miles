@@ -21,6 +21,7 @@ import { type WorkspaceSelection, WorkspacesNav } from "./layout/WorkspacesNav";
 import { ConsentScreen } from "./oauth/ConsentScreen";
 import { OAuthClientsScreen } from "./oauth/OAuthClientsScreen";
 import { AUTHORIZE_PATH, restorePendingAuthorize } from "./oauth/pendingAuthorize";
+import { ConnexionsConfiees } from "./pairing/ConnexionsConfiees";
 import { ProfileScreen } from "./profile/ProfileScreen";
 import { SecurityServiceScreen } from "./security/SecurityServiceScreen";
 import { WorkspacesScreen } from "./workspaces/WorkspacesScreen";
@@ -54,10 +55,10 @@ const SECTIONS: Section[] = [
 const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
   security: SecurityServiceScreen,
   gitConnections: GitConnectionsScreen,
-  // L'écran du socle, sans rien en plus : ce module ne reçoit pas de devices, donc aucun
-  // environnement assigné à lire. Ce qu'il recevra — les connexions git — viendra avec
-  // son ticket, et c'est alors que `peerExtra` servira ici aussi.
-  pairing: PairingScreen,
+  // L'écran du socle, plus ce que ce module tient en PLUS d'un pair : les connexions git
+  // qu'il lui confie (ticket edcf78bc). Ce module ne reçoit pas de devices, donc aucun
+  // environnement assigné à lire — c'est l'autre produit qui en a un.
+  pairing: () => <PairingScreen peerExtra={<ConnexionsConfiees />} />,
   oidc: ConnectorsScreen,
   cultures: CulturesScreen,
   secrets: SecretsScreen,

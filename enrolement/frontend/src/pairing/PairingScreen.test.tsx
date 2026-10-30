@@ -98,6 +98,19 @@ function routes(
     "GET /api/pairing/requests": { status: 200, body: demandes },
     "GET /api/pairing/peers": { status: 200, body: apparies },
     "GET /api/environments": { status: 200, body: ENVIRONNEMENTS },
+    // L'écran porte désormais la carte des connexions git confiées : sans cette route,
+    // elle rend une alerte, et les cas qui vérifient « aucune alerte » rougissent pour
+    // une raison qui n'a rien à voir avec eux. Son défaut est l'état le plus neutre —
+    // un module de paramétrage apparié qui n'a encore rien confié.
+    "GET /api/pairing/git-connections": {
+      status: 200,
+      body: {
+        peer_base_url: "https://parametrage.example.org",
+        revision: null,
+        received_at: null,
+        connections: [],
+      },
+    },
     ...autres,
   };
 }

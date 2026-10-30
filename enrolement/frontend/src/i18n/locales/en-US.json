@@ -121,6 +121,26 @@
       "environnementConsequence": "Receives devices from this module.",
       "parametrage": "Configuration module",
       "parametrageConsequence": "Will be entrusted with the git connections. Only one is ever paired."
+    },
+    "confided": {
+      "title": "Confided git connections",
+      "help": "The configuration module enters git connections once and hands them to this module, which holds them on behalf of the environments. No environment module ever receives the token: it will read git through the relay.",
+      "error": "The confided connections could not be read.",
+      "noParametrage": "No configuration module is paired: no git connection has been confided. This is not a forge failure.",
+      "empty": "The configuration module is paired but has not confided any connection yet.",
+      "captionReceived": "Received on",
+      "revision": "revision {{revision}}",
+      "captionWorkspaces": "Workspaces served",
+      "noWorkspace": "No workspace",
+      "noRepo": "Repository not configured",
+      "captionSince": "Confided on",
+      "captionRenewed": "Credential renewed on",
+      "neverRenewed": "Never renewed",
+      "check": "Test the credential",
+      "checking": "Reading the credential…",
+      "checkFailed": "The credential could not be tested.",
+      "readable": "The confided credential opens with this instance's key: it is usable as is.",
+      "unreadable": "The confided credential no longer opens: MILES_SECRETS_KEY changed, or the row was altered. Have it confided again from the configuration module — nothing to look for on the repository side."
     }
   },
   "environments": {

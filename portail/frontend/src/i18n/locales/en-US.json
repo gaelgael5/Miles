@@ -1056,5 +1056,19 @@
     "form": {
       "name": "Name of this configuration module"
     }
+  },
+  "confiding": {
+    "loading": "Loading confided connections…",
+    "unavailable": "The confiding state could not be read.",
+    "caption": "Confided git connections",
+    "count_one": "{{count}} connection",
+    "count_other": "{{count}} connections",
+    "help": "Git connections are entered here, once, and handed to the enrolment module, which holds them on behalf of the environments. No environment ever receives the token itself.",
+    "captionTransmitted": "Handed over on",
+    "revision": "revision {{revision}}",
+    "never": "Nothing has been handed to this enrolment module yet.",
+    "stale": "The enrolment module holds an older version: a transmission did not arrive. Send it again below.",
+    "transmit": "Send again now",
+    "refused": "The transmission was refused, or the enrolment module is unreachable. Nothing changed on its side."
   }
 }

@@ -121,6 +121,26 @@
       "environnementConsequence": "Reçoit des devices de ce module.",
       "parametrage": "Module de paramétrage",
       "parametrageConsequence": "Se verra confier les connexions git. Il n'en est apparié qu'un seul."
+    },
+    "confided": {
+      "title": "Connexions git confiées",
+      "help": "Le module de paramétrage saisit les connexions git une seule fois et les confie à ce module, qui les détient pour le compte des environnements. Aucun module d'environnement ne reçoit jamais le jeton : il lira git par le relais.",
+      "error": "Les connexions confiées n'ont pas pu être lues.",
+      "noParametrage": "Aucun module de paramétrage n'est apparié : aucune connexion git n'a été confiée. Ce n'est pas une panne de la forge.",
+      "empty": "Le module de paramétrage est apparié, mais ne nous a encore confié aucune connexion.",
+      "captionReceived": "Reçues le",
+      "revision": "révision {{revision}}",
+      "captionWorkspaces": "Workspaces servis",
+      "noWorkspace": "Aucun workspace",
+      "noRepo": "Dépôt non configuré",
+      "captionSince": "Confiée le",
+      "captionRenewed": "Credential renouvelé le",
+      "neverRenewed": "Jamais renouvelé",
+      "check": "Éprouver le credential",
+      "checking": "Lecture du credential…",
+      "checkFailed": "Le credential n'a pas pu être éprouvé.",
+      "readable": "Le credential confié s'ouvre avec la clé de cette instance : il est utilisable tel quel.",
+      "unreadable": "Le credential confié ne s'ouvre plus : MILES_SECRETS_KEY a changé, ou la ligne a été altérée. Le faire reconfier depuis le module de paramétrage — rien à chercher du côté du dépôt."
     }
   },
   "environments": {

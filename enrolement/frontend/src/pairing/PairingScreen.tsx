@@ -11,6 +11,7 @@ import {
   useRejectRequest,
 } from "../api/pairing";
 import { ApparieRow } from "./ApparieRow";
+import { ConnexionsConfiees } from "./ConnexionsConfiees";
 import { CodeRevele, Duree, resteJusqua, useTicTac } from "./CodeRevele";
 import { EnvironmentCell } from "./EnvironmentCell";
 import { EspeceBadge } from "./EspeceBadge";
@@ -195,6 +196,9 @@ export function PairingScreen() {
           ))}
         </ul>
       </div>
+      {/* APRÈS les appariés, et c'est l'ordre de lecture : ce qu'on détient découle de
+          l'appariement du module de paramétrage, qui est dans la liste ci-dessus. */}
+      <ConnexionsConfiees />
     </section>
   );
 }
