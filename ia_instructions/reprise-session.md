@@ -477,6 +477,64 @@ l'échec comme un problème de CREDENTIAL, en renvoyant vers le module de param�
 deux autres refus de diagnostic (aucun module de paramétrage apparié, connexion supprimée à
 la source) sont nommés et distincts, parce qu'ils n'appellent pas le même geste.
 
+## Les référentiels donnés du portail : les pays (30/10, story `ccd8703c`)
+
+**Sujet ouvert par Gael le 30/10, et il a bougé deux fois avant de se poser.** Demandé
+d'abord dans le module d'enrôlement, puis « dans configuration », puis « dans la partie
+global » — c'est-à-dire la **section Global du menu du portail**, celle de « ce que
+partagent tous les workspaces », où vivent déjà les cultures. C'est la dernière
+formulation qui vaut.
+
+**Le cadrage avait déjà tranché le dispositif**, et c'est ce qui a évité d'en inventer un :
+« Cultures : un référentiel donné, qu'on active » (Gael, 15/10/2026). La liste est en base,
+complète, chargée par une migration engendrée ; l'administrateur n'y fait qu'**activer**,
+avec un filtre. Les pays reprennent cela à l'identique, pour la même raison : 249 entrées
+ne se choisissent pas dans une liste déroulante.
+
+**Cinq décisions prises avec lui, et elles sont dans la feature `f6e54dee`** : le portail
+(pas l'enrôlement, pas le socle) ; en base pour l'instance (pas dans git) ; les deux listes
+seules, rattachées à rien ; **un libellé par culture active, donné par CLDR et dérivé à la
+lecture** ; et le fuseau portera son pays.
+
+**Ce qui a demandé une question de plus** : « un libellé par culture active » ne dit pas
+d'où vient le libellé. Les charger par migration aurait obligé à choisir POUR QUELLES
+cultures — 249 pays pour les ~800 du référentiel font deux cent mille lignes de SQL, et
+s'en tenir aux langues laisse sans libellé toute culture non prévue. Les faire saisir est
+exclu : personne ne tape 249 noms de pays dans trois langues. D'où la dérivation à la
+lecture, et son prix assumé : **`babel` est une dépendance d'EXÉCUTION du portail**, là où
+elle n'était qu'un outil de génération. Le gain se constate : activer une culture de plus
+donne aussitôt ses libellés, sans migration ni saisie.
+
+**L'alpha-2 voyage sur la ligne à côté du slug alpha-3**, et ce n'est pas un détail
+d'implémentation qui fuit : **CLDR indexe les territoires en alpha-2**. Sans lui, aucun
+libellé n'est dérivable. Le slug reste l'alpha-3, qui est ce que Gael a demandé et ce
+qu'une procédure d'exploitation écrit.
+
+**Le mot « référentiel » n'apparaît ni dans le module, ni dans les routes, ni à l'écran.**
+Il désigne déjà trois autres choses dans ce produit — les référentiels d'objets ingérés,
+ceux de mapping dans git, les storages. L'écran s'appelle « Pays », la route
+`/api/countries`, le module `miles/reference/`.
+
+**La règle de repli des libellés a trois branches**, et elle est éprouvée sans base parce
+que c'est une fonction pure : la culture du visiteur **si elle est active**, puis `en-US`,
+puis le slug. Jamais un vide, jamais le libellé d'une autre culture — « Deutschland »
+affiché à un visiteur français laisserait croire à une donnée mal saisie, alors que rien
+n'est saisi. Mesuré : les 249 pays ont tous un libellé `en-US`, donc la troisième branche
+est inatteignable aujourd'hui ; elle est gardée pour une révision de l'ISO plus rapide que
+CLDR, et pour les fuseaux qui réemploieront la même règle.
+
+**Une garde que la campagne ne mesurait pas**, trouvée en écrivant l'injection : la
+validation de la culture est doublée par la capture d'erreur de `_locale`, donc la retirer
+laissait tout vert. Elle a maintenant son test à elle — ce qu'elle seule apporte est
+d'empêcher une chaîne arbitraire de servir de clé au cache de locales.
+
+**Ce qui reste** : la story `d4fb364a` — les fuseaux horaires, bloquée par celle-ci. Elle
+réemploie la règle de repli (c'est pour ça qu'elle est au socle du module, dans
+`labels.py`), et ajoute le pays de chaque fuseau. Deux vérités du standard y sont déjà
+nommées : certains fuseaux n'ont pas de pays (CLDR rattache `UTC` au monde), et les alias
+(`Europe/Kiev` → `Europe/Kyiv`, 154 chez CLDR) ne doivent pas être chargés comme des
+fuseaux à part entière — ils feraient deux lignes pour un même lieu dans l'écran.
+
 ## L'assainissement des modules d'appariement (29/10, ticket `f85d248e`)
 
 `PairingService` et `IdentityService` restent **une classe chacune**, découpées en
