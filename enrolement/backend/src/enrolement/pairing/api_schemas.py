@@ -9,6 +9,10 @@ from miles_socle.signing.peers import MAX_BASE_URL_LENGTH
 from miles_socle.signing.protocol import PeerSpecies
 from pydantic import BaseModel, ConfigDict, Field
 
+from enrolement.pairing.confided_git_model import (
+    ConfidedConnection,
+    ConfidedGitState,
+)
 from enrolement.pairing.model import (
     EnvironmentPeer,
     EnvironmentRef,
@@ -181,4 +185,87 @@ def identity_out(identity: ModuleIdentity) -> IdentityOut:
         public_key_fingerprint=fingerprint(identity.public_key),
         algorithm=identity.algorithm,
         created_at=identity.created_at,
+    )
+
+
+class ConfidedWorkspaceOut(BaseModel):
+    """Un workspace du module de paramétrage, et le dépôt qu'il travaille."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    repo_url: str | None
+
+
+class ConfidedConnectionOut(BaseModel):
+    """Une connexion git confiée, telle qu'on la montre.
+
+    AUCUN champ ne porte le credential, ni en clair, ni chiffré, ni tronqué — et c'est le
+    critère 2 du ticket edcf78bc. Un fragment de PAT dans une réponse d'API est encore un
+    secret divulgué, et la seule façon de n'en jamais divulguer est qu'il n'y ait pas de
+    champ pour le mettre. `renewed_at` dit QUAND il a changé, ce qui est tout ce qu'on
+    puisse en dire au-dehors.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    label: str
+    base_url: str
+    confided_at: datetime
+    renewed_at: datetime | None
+    workspaces: list[ConfidedWorkspaceOut]
+
+
+class ConfidedGitStateOut(BaseModel):
+    """Ce que ce module détient pour le compte du module de paramétrage.
+
+    `peer_base_url` nul veut dire « aucun module de paramétrage apparié » : un état
+    explicite, et non une liste vide qui se lirait comme une transmission perdue ou une
+    forge en panne (critère 7).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    peer_base_url: str | None
+    revision: int | None
+    received_at: datetime | None
+    connections: list[ConfidedConnectionOut]
+
+
+class ConfidedConnectionDetailOut(BaseModel):
+    """Le détail d'une connexion confiée, et si son credential est lisible ICI.
+
+    `credential_readable` à faux veut dire que le chiffré ne s'ouvre plus — MILES_SECRETS_KEY
+    changée, ligne altérée. C'est exactement le cas que le critère 6 veut distinguer d'une
+    panne de forge : un champ plutôt qu'une erreur, pour que l'écran puisse le DIRE tout en
+    montrant le reste du détail.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    connection: ConfidedConnectionOut
+    credential_readable: bool
+
+
+def confided_connection_out(connexion: ConfidedConnection) -> ConfidedConnectionOut:
+    return ConfidedConnectionOut(
+        id=connexion.id,
+        label=connexion.label,
+        base_url=connexion.base_url,
+        confided_at=connexion.confided_at,
+        renewed_at=connexion.renewed_at,
+        workspaces=[
+            ConfidedWorkspaceOut(id=workspace.id, repo_url=workspace.repo_url)
+            for workspace in connexion.workspaces
+        ],
+    )
+
+
+def confided_git_state_out(etat: ConfidedGitState) -> ConfidedGitStateOut:
+    return ConfidedGitStateOut(
+        peer_base_url=etat.peer_base_url,
+        revision=etat.revision,
+        received_at=etat.received_at,
+        connections=[confided_connection_out(c) for c in etat.connections],
     )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -64,6 +64,20 @@ class SecretsService:
     cipher: SecretCipher
     catalog: EventTypeCatalog
     now: Callable[[], datetime]
+    # Ce qui doit SAVOIR qu'une valeur vient d'être remplacée. Optionnel, nul par défaut,
+    # et le socle ne sait pas ce qu'un produit en fait : il dit « la valeur de ce secret a
+    # changé », rien de plus.
+    #
+    # POURQUOI ÇA EXISTE. Le module de paramétrage confie ses connexions git au module
+    # d'enrôlement, et « on remplace le PAT là où il a été saisi » — c'est-à-dire sur
+    # l'écran des secrets, servi par ce routeur-ci (ticket edcf78bc, critère 4). Sans ce
+    # point d'accroche, le remplacement d'un PAT n'atteindrait jamais l'autre module, et le
+    # renouvellement — raison d'être du ticket — demanderait un geste manuel de plus.
+    #
+    # APPELÉ APRÈS LE COMMIT, et il peut lever : le produit décide de sa politique d'échec,
+    # le socle n'en choisit pas une à sa place. Celui qui pose ce rappel s'engage donc à ne
+    # pas laisser une panne de son côté faire échouer un remplacement déjà acquis.
+    on_value_replaced: Callable[[EventAuthor, str], Awaitable[None]] | None = None
 
     async def resolve_create(
         self, author: EventAuthor, slug: str, label: str, secret_type: str, value: str
@@ -86,6 +100,10 @@ class SecretsService:
             await db_update_sealed(conn, slug, self.cipher.seal(slug, secret), self.now())
             await self._write_event(conn, VALUE_REPLACED_EVENT, slug, author, {})
         log.info("secret_valeur_remplacee", slug=slug)
+        if self.on_value_replaced is not None:
+            # Après le commit : ce qui réagit à un changement de valeur doit réagir à un
+            # changement COMMIS, et un appel réseau n'a rien à faire dans une transaction.
+            await self.on_value_replaced(author, slug)
 
     async def resolve_relabel(self, author: EventAuthor, slug: str, label: str) -> SecretSummary:
         label = validate_label(label)

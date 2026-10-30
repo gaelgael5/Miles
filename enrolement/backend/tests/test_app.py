@@ -17,6 +17,7 @@ from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.probe import HealthReport
 from miles_socle.signing.calls import ORIGIN_HEADER
 from miles_socle.signing.protocol import (
+    GIT_CONNECTIONS_PATH,
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
     PAIRING_STATUS_PATH,
@@ -229,6 +230,10 @@ def test_seules_les_routes_de_pair_echappent_a_la_session() -> None:
         # l'intérêt — elle a rougi à l'ajout de cette route, ce qui est exactement le
         # moment où quelqu'un doit décider qu'un chemin de plus échappe à la session.
         PEER_ENVIRONMENT_PATH,
+        # Ajoutée le 30/10/2026 : le module de paramétrage apparié y confie ses connexions
+        # git. Cette liste a rougi à son ajout, et c'est ce qu'on lui demande — un chemin
+        # qui échappe à la session est une décision, et celle-ci porte des credentials.
+        GIT_CONNECTIONS_PATH,
     }
 
 

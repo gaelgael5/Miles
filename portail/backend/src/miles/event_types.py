@@ -11,6 +11,7 @@ from miles.chains import service as chains_events
 from miles.contracts import models_service as contract_models_events
 from miles.contracts import service as contracts_events
 from miles.datamodels import service as datamodels_events
+from miles.gitaccess import confide_model as confide_events
 from miles.gitaccess import model as gitaccess_events
 from miles.identities import service as identities_events
 from miles.oauth import clients as oauth_events
@@ -38,6 +39,7 @@ def code_event_types() -> frozenset[str]:
         | contract_models_events.EVENT_TYPES
         | cultures_events.EVENT_TYPES
         | datamodels_events.EVENT_TYPES
+        | confide_events.EVENT_TYPES
         | gitaccess_events.EVENT_TYPES
         | identities_events.EVENT_TYPES
         | oauth_events.EVENT_TYPES

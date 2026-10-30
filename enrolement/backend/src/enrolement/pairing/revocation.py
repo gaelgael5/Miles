@@ -19,6 +19,7 @@ from enrolement.pairing.model import (
     EnvironmentPeer,
     PeerNotFoundError,
 )
+from enrolement.pairing.store_confided_git import db_count_confided
 from enrolement.pairing.store_peers import (
     db_delete_peer,
     db_record_revocation,
@@ -50,9 +51,18 @@ class PairingRevocation(PairingBase):
         L'environnement, lui, RESTE au référentiel et redevient libre : la révocation
         porte sur l'appariement, pas sur l'environnement. Deux gestes qui n'ont pas les
         mêmes conséquences ne s'enchaînent pas tout seuls.
+
+        Pour un module de PARAMÉTRAGE, la révocation emporte en plus les connexions git
+        qu'il nous avait confiées — détruites par la cascade, jamais marquées inactives
+        (critère 8 du ticket edcf78bc) : une ligne inactive porte encore le credential, et
+        un jour quelqu'un la relit. Rien à prévenir chez la forge pour autant : le PAT
+        reste valide là-bas, c'est NOTRE copie qui disparaît.
         """
         maintenant = self.now()
         async with self.pool.acquire() as conn, conn.transaction():
+            # Comptées AVANT la suppression, qui les emporte en cascade : après, il n'y a
+            # plus rien à compter, et le journal ne pourrait plus dire ce qui a été détruit.
+            connexions_git = await db_count_confided(conn, base_url)
             revoque = await db_delete_peer(conn, base_url)
             if revoque is None:
                 raise PeerNotFoundError(f"aucun environnement apparié sous {base_url}")
@@ -82,6 +92,12 @@ class PairingRevocation(PairingBase):
                     # n'a été libéré » — et c'est précisément cette ligne qu'on viendra
                     # lire le jour où des devices ne démarrent plus.
                     "devices_released": None,
+                    # Zéro, et non nul : les connexions git confiées existent, et un
+                    # environnement n'en porte jamais — la base le lui interdit. Zéro est
+                    # donc une vérité ici, là où pour les devices il aurait été un mensonge.
+                    # C'est le critère 8 : elles sont DÉTRUITES, par la cascade, et ce
+                    # compte est la trace de ce qui a disparu.
+                    "git_connections_destroyed": connexions_git,
                 },
                 author=author,
             )

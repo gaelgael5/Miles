@@ -14,6 +14,7 @@ from miles_socle.signing.calls import (
 )
 from miles_socle.signing.keys import KeyPair, fingerprint, generate_keypair, parse_public_key
 from miles_socle.signing.protocol import (
+    GIT_CONNECTIONS_PATH,
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
     PAIRING_STATUS_PATH,
@@ -105,6 +106,16 @@ class EnrolmentDouble:
     # Combien de fois la route a été appelée. Un affichage qui ne redemande rien laisserait
     # l'écran sur une valeur périmée sans que rien ne le dise.
     environment_calls: int = 0
+    # Le confiage des connexions git (ticket edcf78bc). Les charges sont gardées DÉCODÉES
+    # pour qu'un test lise ce qui est réellement parti — credential compris : c'est la
+    # seule façon de prouver qu'il voyage, et de prouver qu'il ne voyage plus si quelqu'un
+    # retire la ligne qui le compose.
+    confided: list[dict[str, object]] = field(default_factory=list)
+    # Ce que la contrepartie répondra. Les refus du vrai module d'enrôlement sont nommés
+    # ici — espèce inattendue, révision dépassée —, et c'est ce que le demandeur doit
+    # savoir distinguer sans rien inventer.
+    confide_status: int = 200
+    confide_payload: dict[str, object] | None = None
 
     def app(self) -> FastAPI:
         app = FastAPI()
@@ -203,6 +214,33 @@ class EnrolmentDouble:
             if self.environment_raw is not None:
                 return Response(content=self.environment_raw, media_type="application/json")
             return JSONResponse(content={"environment": self.environment})
+
+        @app.post(GIT_CONNECTIONS_PATH)
+        async def git_connections(request: Request) -> JSONResponse:
+            body = await request.body()
+            self.bodies.append(body)
+            self.dialled.append(request.url.netloc)
+            # La vraie route est vérifiée contre la clé du pair APPARIÉ : la doublure fait
+            # de même, sans quoi elle laisserait passer ce que le vrai refuserait.
+            if not self._verifie(request, body, self.expects_public_key):
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": "signature_refusee"},
+                )
+            if self.confide_status != 200:
+                return JSONResponse(
+                    status_code=self.confide_status,
+                    content=self.confide_payload or {"detail": "appariement_refuse"},
+                )
+            charge = json.loads(body)
+            self.confided.append(charge)
+            return JSONResponse(
+                content={
+                    "revision": charge["revision"],
+                    "held": len(charge["connections"]),
+                    "destroyed": 0,
+                }
+            )
 
         return app
 

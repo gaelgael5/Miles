@@ -21,7 +21,7 @@ from miles_socle.cultures.api_cultures import public_router as login_cultures_ro
 from miles_socle.cultures.api_cultures import router as cultures_router
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.pool import db_create_pool
-from miles_socle.events.model import EventTypeCatalog
+from miles_socle.events.model import EventAuthor, EventTypeCatalog
 from miles_socle.health.api_health import router as health_router
 from miles_socle.log_config import configure_logging
 from miles_socle.oidc.api_connectors import router as oidc_connectors_router
@@ -48,9 +48,12 @@ from miles.event_types import code_event_types
 from miles.git.holdspace import HOLDS_DIR, HoldSpaces
 from miles.git.workdirs import WorkDirs
 from miles.gitaccess.api_gitaccess import connections_router
+from miles.gitaccess.confide import GitConfidingService
+from miles.gitaccess.confide_model import TRIGGER_CREDENTIAL, TRIGGER_PAIRED
 from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.resolver import AccessResolver
+from miles.gitaccess.store_confide import db_connections_using
 from miles.identities.api_identities import router as identities_router
 from miles.identities.service import GitIdentitiesService
 from miles.mcp_api.server import MCP_MOUNT, MCP_PATH, build_server, mcp_app
@@ -121,10 +124,41 @@ def create_app() -> FastAPI:
         # ici parce que c'est l'appelant qui le ferme, et que ce produit le PARTAGE avec ses
         # propres services — le service de sécurité et les identités git s'en servent.
         http = httpx.AsyncClient(timeout=OIDC_HTTP_TIMEOUT_S, follow_redirects=False)
+
         # Les sept services du socle, câblés par le socle : la MÊME fonction que celle
         # qu'appellent les harnais des tests d'intégration des deux autres produits. L'ordre
         # de création — les préférences reçoivent les cultures — n'est plus écrit qu'une
         # fois, pour les trois.
+        # Les deux rappels du confiage des connexions git (ticket edcf78bc). Ils relisent
+        # `app.state.git_confiding` AU MOMENT DE L'APPEL, et c'est ce qui brise le cycle :
+        # le service qui confie a besoin du service d'appariement pour signer, et celui-ci
+        # a besoin d'un rappel qui mène au premier. Capturer l'un des deux à la
+        # construction serait inexprimable ; une fermeture qui le relit ne l'est pas.
+        async def pat_remplace(author: EventAuthor, slug: str) -> None:
+            """Un PAT a été remplacé dans l'écran des secrets : le reconfier (critère 4).
+
+            C'est le cas d'usage principal du ticket — « on remplace le PAT là où il a été
+            saisi, et le module d'enrôlement travaille avec le nouveau ». Filtré sur les
+            connexions qui s'en servent : la plupart des secrets de l'instance n'ont rien
+            à voir avec git, et transmettre à chaque remplacement ferait des révisions que
+            rien ne justifie.
+            """
+            connexions = await db_connections_using(pool, slug)
+            if not connexions:
+                return
+            confiding: GitConfidingService = app.state.git_confiding
+            await confiding.resolve_transmit_after(author, TRIGGER_CREDENTIAL, connexions)
+
+        async def appariement_conclu(author: EventAuthor) -> None:
+            """Appariement tout juste conclu : confier ce qui est déjà saisi.
+
+            Sans ce rappel, les connexions déclarées AVANT l'appariement attendraient un
+            geste humain, et le critère 1 — « disponible sans aucune ressaisie » — ne
+            serait vrai que pour celles déclarées après.
+            """
+            confiding: GitConfidingService = app.state.git_confiding
+            await confiding.resolve_transmit_after(author, TRIGGER_PAIRED)
+
         wire_socle_services(
             app,
             settings=settings,
@@ -134,6 +168,7 @@ def create_app() -> FastAPI:
             catalog=catalog,
             http=http,
             expected_schema_version=expected_version,
+            on_secret_value_replaced=pat_remplace,
         )
         # Puis les services propres au module de paramétrage, qui s'appuient sur ceux du
         # socle : ils lisent `app.state.secrets`, posé juste au-dessus.
@@ -193,7 +228,19 @@ def create_app() -> FastAPI:
         # lecture de ses tables — la paire de clés est engendrée au PREMIER USAGE,
         # parce que `dev-deploy.sh` lance la stack avant de jouer les migrations.
         app.state.identity = PairingService(
-            pool, app.state.secrets, cipher, catalog, utc_now, http, settings.public_url
+            pool,
+            app.state.secrets,
+            cipher,
+            catalog,
+            utc_now,
+            http,
+            settings.public_url,
+            on_paired=appariement_conclu,
+        )
+        # Ce qui confie les connexions git au module d'enrôlement apparié. Posé APRÈS le
+        # service d'appariement, dont il se sert pour signer ses appels.
+        app.state.git_confiding = GitConfidingService(
+            pool, app.state.secrets, app.state.identity, catalog, utc_now
         )
         responder = asyncio.create_task(
             run_responder(

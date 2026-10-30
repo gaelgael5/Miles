@@ -9,52 +9,38 @@ import httpx
 import pytest
 from miles_socle.events.model import EventTypeCatalog
 from miles_socle.secrets.crypto import SecretCipher
-from miles_socle.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles_socle.secrets.service import SecretsService
 
-from miles.apikeys.service import EVENT_TYPES as API_KEY_EVENTS
 from miles.apikeys.service import ApiKeysService
-from miles.chains.service import EVENT_TYPES as CHAIN_EVENTS
 from miles.chains.service import ChainsService
 from miles.config import Settings
-from miles.contracts.models_service import EVENT_TYPES as CONTRACT_MODEL_EVENTS
 from miles.contracts.models_service import ContractModelsService
 from miles.contracts.remote import RemoteContracts
-from miles.contracts.service import EVENT_TYPES as CONTRACT_EVENTS
 from miles.contracts.service import ContractsService
-from miles.datamodels.service import EVENT_TYPES as DATA_MODEL_EVENTS
 from miles.datamodels.service import DataModelsService
+from miles.event_types import code_event_types
 from miles.git.holdspace import HOLDS_DIR, HoldSpaces
 from miles.git.workdirs import WorkDirs
+from miles.gitaccess.confide import GitConfidingService
 from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
-from miles.gitaccess.model import EVENT_TYPES as GITACCESS_EVENTS
 from miles.gitaccess.resolver import AccessResolver
-from miles.identities.service import EVENT_TYPES as IDENTITY_EVENTS
 from miles.identities.service import GitIdentitiesService
 from miles.oauth.access import OAuthAccess
-from miles.oauth.clients import EVENT_TYPES as OAUTH_EVENTS
 from miles.oauth.clients import OAuthClientsService
 from miles.oauth.flow import OAuthFlow
 from miles.obo.service import ActorIdentitiesService
-from miles.sources.service import EVENT_TYPES as SOURCE_EVENTS
+from miles.pairing.service import PairingService
 from miles.sources.service import SourcesService
-from miles.storages.service import EVENT_TYPES as STORAGE_EVENTS
 from miles.storages.service import StoragesService
 from miles.transform.api_catalog import CatalogService
-from miles.workshop.branches import EVENT_TYPES as BRANCH_EVENTS
 from miles.workshop.branches import BranchesService
-from miles.workshop.domains_service import EVENT_TYPES as DOMAIN_EVENTS
 from miles.workshop.domains_service import DomainsService
-from miles.workshop.holds import EVENT_TYPES as HOLD_EVENTS
 from miles.workshop.holds import BranchHoldsService
-from miles.workshop.service import EVENT_TYPES as WORKSHOP_EVENTS
 from miles.workshop.service import WorkshopService
-from miles.workshop.shelving import EVENT_TYPES as SHELF_EVENTS
 from miles.workshop.shelving import ShelvesService
 from miles.workshop.target import WorkBranches
 from miles.workshop.targeted import TargetedReads
-from miles.workspaces.model import EVENT_TYPES as WORKSPACE_EVENTS
 from miles.workspaces.service import WorkspacesService
 from tests.integration.portal_stack import PortalStack, utc_now
 
@@ -70,25 +56,12 @@ def env(name: str) -> str:
 
 def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     """Branche secrets, connexions, workspaces et modèles comme le fait app.py."""
-    catalog = EventTypeCatalog(
-        SECRET_EVENTS
-        | WORKSPACE_EVENTS
-        | GITACCESS_EVENTS
-        | DATA_MODEL_EVENTS
-        | DOMAIN_EVENTS
-        | WORKSHOP_EVENTS
-        | CONTRACT_EVENTS
-        | CONTRACT_MODEL_EVENTS
-        | BRANCH_EVENTS
-        | HOLD_EVENTS
-        | SHELF_EVENTS
-        | IDENTITY_EVENTS
-        | CHAIN_EVENTS
-        | SOURCE_EVENTS
-        | STORAGE_EVENTS
-        | API_KEY_EVENTS
-        | OAUTH_EVENTS
-    )
+    # LE catalogue du produit, et non une union assemblée ici. Mesuré le 29/10/2026 dans
+    # le harnais de l'appariement : assemblé à la main, il contenait des types que
+    # `code_event_types()` avait OUBLIÉS — la suite était verte et la stack déployée rendait
+    # 500. Un harnais plus généreux que la production est complaisant exactement là où il
+    # devait mordre, et c'est la leçon de `LESSONS.md`.
+    catalog = EventTypeCatalog(code_event_types())
     cipher = SecretCipher(os.urandom(32))
     secrets = SecretsService(portal.pool, cipher, catalog, utc_now)
     resolver = AccessResolver(secrets)
@@ -97,6 +70,15 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.secrets = secrets
     state.git_connections = ConnectionsService(
         portal.pool, resolver, verifier, catalog, utc_now, hosts
+    )
+    # Le confiage des connexions git. Posé ici comme dans `app.py` : sans module
+    # d'enrôlement apparié, chacun de ses déclencheurs ne fait rien — c'est l'état des
+    # tests qui n'apparient pas, et c'est ce que `resolve_transmit_after` doit admettre.
+    state.identity = PairingService(
+        portal.pool, secrets, cipher, catalog, utc_now, httpx.AsyncClient(), None
+    )
+    state.git_confiding = GitConfidingService(
+        portal.pool, secrets, state.identity, catalog, utc_now
     )
     # Copies de travail dans un dossier jetable propre à l'exécution, comme le volume en service.
     volume = Path(tempfile.mkdtemp(prefix="miles-it-workdirs-"))

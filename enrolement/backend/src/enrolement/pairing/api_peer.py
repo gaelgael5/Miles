@@ -11,12 +11,15 @@ from miles_socle.signing.identity_model import (
 from miles_socle.signing.keys import fingerprint
 from miles_socle.signing.peers import IdentityError, IdentityInputError
 from miles_socle.signing.protocol import (
+    GIT_CONNECTIONS_PATH,
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
     PAIRING_STATUS_PATH,
     PEER_ENVIRONMENT_PATH,
     PEER_PING_PATH,
     AssignedEnvironment,
+    ConfideGitConnectionsIn,
+    ConfideGitConnectionsOut,
     PairingConfirmIn,
     PairingConfirmOut,
     PairingRequestIn,
@@ -27,6 +30,11 @@ from miles_socle.signing.protocol import (
 )
 from pydantic import BaseModel, ValidationError
 
+from enrolement.pairing.confided_git_model import (
+    ConfidedGitInputError,
+    ConfidedGitSpeciesError,
+    ConfidedGitStaleRevisionError,
+)
 from enrolement.pairing.model import (
     EnvironmentAlreadyPairedError,
     EnvironmentNotDesignatedError,
@@ -103,6 +111,29 @@ def _refus(exc: IdentityError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
             content={"detail": "environnement_non_designe"},
+        )
+    if isinstance(exc, ConfidedGitSpeciesError):
+        # Atteignable seulement avec la signature d'un pair APPARIÉ : il n'apprend donc
+        # rien qu'il ne sache déjà de lui-même. Et sans ce mot, le module qui pousse
+        # chercherait ses clés pendant que la cause est son espèce — celle sous laquelle
+        # un humain, ici, l'a accepté.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "espece_sans_connexions_git"},
+        )
+    if isinstance(exc, ConfidedGitStaleRevisionError):
+        # La révision DÉTENUE part avec le refus : c'est un nombre que l'appelant a
+        # lui-même alloué, donc il n'apprend rien — et sans elle, il afficherait
+        # « confiées » en croyant avoir transmis la dernière photo.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "revision_depassee", "held_revision": exc.held},
+        )
+    if isinstance(exc, ConfidedGitInputError):
+        # Le champ, jamais la valeur : une valeur recopiée dans un refus traverse les
+        # journaux des deux côtés, et l'un de ces champs porte un credential.
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": exc.field}
         )
     if isinstance(exc, IdentityInputError):
         # La clé mal formée est celle de l'APPELANT : lui en cacher la cause ne protège
@@ -297,4 +328,41 @@ async def post_peer_environment(request: Request) -> PeerEnvironmentOut | JSONRe
         return PeerEnvironmentOut(environment=None)
     return PeerEnvironmentOut(
         environment=AssignedEnvironment(slug=pair.environment.slug, label=pair.environment.label)
+    )
+
+
+@router.post(GIT_CONNECTIONS_PATH, response_model=ConfideGitConnectionsOut)
+async def post_git_connections(request: Request) -> ConfideGitConnectionsOut | JSONResponse:
+    """Le module de paramétrage confie ses connexions git (ticket edcf78bc).
+
+    POST et non PUT bien que ce soit un état complet : la chaîne canonique signée porte la
+    méthode, et tout le protocole est en POST — une méthode de plus n'ajouterait qu'un
+    endroit où les deux bouts peuvent se désaccorder.
+
+    Le corps est lu en OCTETS avant d'être interprété, parce que c'est son empreinte qui
+    entre dans la chaîne signée. Il porte des credentials : il n'est journalisé NULLE
+    PART, ni en entier ni tronqué, ni en cas d'erreur — le refus ne nomme que le champ.
+    """
+    raw = await request.body()
+    try:
+        corps = _parse(ConfideGitConnectionsIn, raw)
+    except ValidationError:
+        # Volontairement muet sur ce qui n'allait pas dans la charge : le message de
+        # validation de pydantic recopie la valeur fautive, et l'une d'elles est un
+        # credential. Les refus qui NOMMENT un champ viennent de nos validateurs.
+        return _corps_invalide()
+    try:
+        recu = await _service(request).resolve_receive_git_connections(
+            declared_origin=request.headers.get(ORIGIN_HEADER),
+            signature=request.headers.get(SIGNATURE_HEADER),
+            method=request.method,
+            target=request.url.path,
+            body=raw,
+            revision=corps.revision,
+            connections=corps.connections,
+        )
+    except IdentityError as exc:
+        return _refus(exc)
+    return ConfideGitConnectionsOut(
+        revision=recu.revision, held=recu.held, destroyed=recu.destroyed
     )

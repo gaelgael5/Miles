@@ -30,6 +30,7 @@ from enrolement.config import Settings
 from enrolement.environments.api_environments import router as environments_router
 from enrolement.environments.service import EnvironmentService
 from enrolement.event_types import code_event_types
+from enrolement.pairing.api_confided_git import router as confided_git_router
 from enrolement.pairing.api_pairing import router as pairing_router
 from enrolement.pairing.api_peer import router as peer_router
 from enrolement.pairing.service import PairingService
@@ -131,6 +132,10 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(oidc_login_router)
     app.include_router(preferences_router)
     app.include_router(pairing_router)
+    # Les connexions git confiées par le module de paramétrage : lecture seule, et servie
+    # par le même service d'appariement — c'est l'appariement qui décide de ce qui est
+    # détenu, et la cascade qui le détruit.
+    app.include_router(confided_git_router)
     app.include_router(environments_router)
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée :

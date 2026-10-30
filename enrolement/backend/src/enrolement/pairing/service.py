@@ -12,6 +12,7 @@ from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.service import SecretsService
 from miles_socle.signing.identity import ModuleIdentityService
 
+from enrolement.pairing.confided_git import PairingConfidedGit
 from enrolement.pairing.environment_link import PairingEnvironmentLink
 from enrolement.pairing.events import (
     REQUEST_OBJECT_KIND,
@@ -43,7 +44,9 @@ log = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
-class PairingService(PairingPeerProtocol, PairingEnvironmentLink, PairingRevocation):
+class PairingService(
+    PairingPeerProtocol, PairingEnvironmentLink, PairingRevocation, PairingConfidedGit
+):
     """Le côté module d'enrôlement du protocole d'appariement (ticket 6a0daab6).
 
     Trois voies d'entrée, trois sources de confiance différentes, et les confondre serait
@@ -57,6 +60,11 @@ class PairingService(PairingPeerProtocol, PairingEnvironmentLink, PairingRevocat
       que l'humain a recopié. La signature dit « c'est le même qui revient », le code dit
       « un humain l'a voulu » ; il faut les deux ;
     - les APPELS ORDINAIRES sont signés par la clé d'un environnement déjà apparié.
+
+    Et une quatrième voie depuis le 30/10/2026, qui n'est pas une source de confiance de
+    plus mais une conséquence de la troisième : le module de paramétrage apparié CONFIE ses
+    connexions git (ticket edcf78bc). Son appel est signé comme les autres ; ce qui change,
+    c'est que son ESPÈCE est vérifiée avant d'écrire — et que la base le refuserait aussi.
     """
 
     pool: asyncpg.Pool

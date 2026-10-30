@@ -35,6 +35,14 @@ PAIRING_REVOKED_EVENT = "pairing.revoked"
 # la seule chose que ce module compose vers l'extérieur, et il faut pouvoir dire qui
 # l'a changée le jour où un avis part ailleurs qu'on ne croit.
 PEER_CONTACT_CHANGED_EVENT = "pairing.peer_contact_changed"
+# Les connexions git confiées par le module de paramétrage (ticket edcf78bc, critère 11).
+# Le genre d'objet est la CONNEXION et non le pair pour le renouvellement : « quand le
+# credential de celle-ci a-t-il changé ? » se lit par l'objet, et c'est la question qu'on
+# posera le jour où une lecture de git échoue. La transmission, elle, porte sur le pair :
+# c'est un état complet qui arrive, pas une connexion qui bouge.
+GIT_CONNECTION_OBJECT_KIND = "confided_git_connection"
+GIT_CONNECTIONS_CONFIDED_EVENT = "pairing.git_connections_confided"
+GIT_CREDENTIAL_RENEWED_EVENT = "pairing.git_credential_renewed"
 EVENT_TYPES = frozenset(
     {
         REQUEST_OPENED_EVENT,
@@ -46,5 +54,7 @@ EVENT_TYPES = frozenset(
         ENVIRONMENT_MOVED_EVENT,
         PAIRING_REVOKED_EVENT,
         PEER_CONTACT_CHANGED_EVENT,
+        GIT_CONNECTIONS_CONFIDED_EVENT,
+        GIT_CREDENTIAL_RENEWED_EVENT,
     }
 )

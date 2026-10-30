@@ -16,7 +16,7 @@ client HTTP — dont il garde la fermeture — puis poser SES propres services.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Protocol
@@ -30,7 +30,7 @@ from miles_socle.auth.api_preferences import PreferencesService
 from miles_socle.auth.context import AuthContext, utc_now
 from miles_socle.auth.throttle import LoginThrottle
 from miles_socle.cultures.service import CulturesService
-from miles_socle.events.model import EventTypeCatalog
+from miles_socle.events.model import EventAuthor, EventTypeCatalog
 from miles_socle.health.probe import resolve_health
 from miles_socle.oidc.service import OidcService
 from miles_socle.secrets.crypto import SecretCipher
@@ -73,6 +73,7 @@ def wire_socle_services(
     http: httpx.AsyncClient,
     expected_schema_version: int,
     now: Callable[[], datetime] = utc_now,
+    on_secret_value_replaced: Callable[[EventAuthor, str], Awaitable[None]] | None = None,
 ) -> None:
     """Pose les sept services du socle sur `app.state`. L'ordre n'est pas décoratif.
 
@@ -92,7 +93,10 @@ def wire_socle_services(
         session_ttl=timedelta(seconds=settings.session_ttl_s),
         cookie_secure=settings.cookie_secure,
     )
-    app.state.secrets = SecretsService(pool, cipher, catalog, now)
+    # `on_secret_value_replaced` est nul pour deux produits sur trois, et c'est l'état
+    # normal : seul le module de paramétrage a quelque chose à faire d'un PAT remplacé —
+    # le reconfier au module d'enrôlement (ticket edcf78bc).
+    app.state.secrets = SecretsService(pool, cipher, catalog, now, on_secret_value_replaced)
     app.state.cultures = CulturesService(pool, catalog, now)
     # APRÈS les cultures, et pas avant : les préférences les reçoivent. Les intervertir ne
     # casse pas à la construction, seulement à l'exécution — d'où un seul endroit où

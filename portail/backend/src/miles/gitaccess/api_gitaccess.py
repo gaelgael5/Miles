@@ -8,6 +8,16 @@ from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict
 
+from miles.gitaccess.confide import GitConfidingService
+from miles.gitaccess.confide_model import (
+    TRIGGER_DECLARED,
+    TRIGGER_DELETED,
+    TRIGGER_MANUAL,
+    TRIGGER_UPDATED,
+    ConfidingState,
+    TransmissionRefusedError,
+    TransmissionUnreachableError,
+)
 from miles.gitaccess.connections import ConnectionInput, ConnectionsService
 from miles.gitaccess.model import (
     DependentCheckFailedError,
@@ -31,6 +41,14 @@ def connections_service(request: Request) -> ConnectionsService:
 
 
 Connections = Annotated[ConnectionsService, Depends(connections_service)]
+
+
+def confiding_service(request: Request) -> GitConfidingService:
+    service: GitConfidingService = request.app.state.git_confiding
+    return service
+
+
+Confiding = Annotated[GitConfidingService, Depends(confiding_service)]
 
 
 class ConnectionOut(BaseModel):
@@ -120,6 +138,58 @@ def _replayed(response: Response, existed: bool) -> None:
         response.headers["X-Miles-Already-Exists"] = "true"
 
 
+class ConfidingOut(BaseModel):
+    """Ce que le module d'enrôlement détient de nos connexions git, et depuis quand.
+
+    `up_to_date` à faux avec une date veut dire qu'il détient quelque chose, mais plus ce
+    que nous avons : c'est la divergence, et la dire est tout l'intérêt de cette route.
+    Aucun credential n'a de champ ici, ni ailleurs.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    peer_base_url: str | None
+    revision: int | None
+    transmitted_at: datetime | None
+    up_to_date: bool
+    connections: int
+
+
+def _confiding(state: ConfidingState) -> ConfidingOut:
+    return ConfidingOut(
+        peer_base_url=state.peer_base_url,
+        revision=state.revision,
+        transmitted_at=state.transmitted_at,
+        up_to_date=state.up_to_date,
+        connections=state.connections,
+    )
+
+
+@connections_router.get("/confided", response_model=ConfidingOut)
+async def get_confided(service: Confiding) -> ConfidingOut:
+    """Où en est le confiage. Déclarée AVANT `/{connection_id}` n'est pas nécessaire :
+    aucune route ne lit un identifiant en GET, donc il n'y a pas d'ambiguïté à lever."""
+    return _confiding(await service.resolve_state())
+
+
+@connections_router.post("/confided", response_model=ConfidingOut)
+async def transmit_confided(request: Request, service: Confiding) -> object:
+    """Retransmet l'état complet au module d'enrôlement. Le geste de réparation.
+
+    Les transmissions automatiques avalent leurs pannes — un geste d'administration ne
+    doit pas échouer parce qu'un autre module est injoignable. Celle-ci, non : c'est une
+    personne qui l'a demandée, et elle doit voir pourquoi ça ne passe pas.
+    """
+    try:
+        return _confiding(await service.resolve_transmit(request_author(request), TRIGGER_MANUAL))
+    except TransmissionRefusedError as exc:
+        # Le code du pair, repris tel quel : `espece_sans_connexions_git` et
+        # `revision_depassee` n'appellent pas le même geste, et en inventer un troisième
+        # enverrait chercher ailleurs.
+        return _error(status.HTTP_409_CONFLICT, {"code": "refusee", "peer_detail": exc.detail})
+    except TransmissionUnreachableError:
+        return _error(status.HTTP_503_SERVICE_UNAVAILABLE, {"code": "injoignable"})
+
+
 @connections_router.get("", response_model=list[ConnectionOut])
 async def list_connections(service: Connections) -> list[ConnectionOut]:
     return [_connection(c) for c in await service.resolve_list()]
@@ -127,20 +197,33 @@ async def list_connections(service: Connections) -> list[ConnectionOut]:
 
 @connections_router.post("", status_code=status.HTTP_201_CREATED, response_model=ConnectionOut)
 async def create_connection(
-    body: ConnectionCreate, request: Request, response: Response, service: Connections
+    body: ConnectionCreate,
+    request: Request,
+    response: Response,
+    service: Connections,
+    confiding: Confiding,
 ) -> object:
     data = ConnectionInput(body.id, body.label, body.base_url, body.token_secret_slug)
     try:
         created, existed = await service.resolve_create(request_author(request), data)
     except _REFUSALS as exc:
         return _refusal(exc)
+    if not existed:
+        # Transmise aussitôt : « on ne va pas s'amuser à rentrer plusieurs fois les infos
+        # de connexion git » (Gael, 27/10/2026). Rien à transmettre sur un rejeu à
+        # l'identique — l'état n'a pas changé, et une révision de plus ne dirait rien.
+        await confiding.resolve_transmit_after(request_author(request), TRIGGER_DECLARED)
     _replayed(response, existed)
     return _connection(created)
 
 
 @connections_router.put("/{connection_id}", response_model=ConnectionOut)
 async def update_connection(
-    connection_id: str, body: ConnectionUpdate, request: Request, service: Connections
+    connection_id: str,
+    body: ConnectionUpdate,
+    request: Request,
+    service: Connections,
+    confiding: Confiding,
 ) -> object:
     data = ConnectionInput(connection_id, body.label, body.base_url, body.token_secret_slug)
     try:
@@ -149,13 +232,19 @@ async def update_connection(
         )
     except _REFUSALS as exc:
         return _refusal(exc)
+    await confiding.resolve_transmit_after(request_author(request), TRIGGER_UPDATED)
     return _connection(updated)
 
 
 @connections_router.delete("/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_connection(connection_id: str, request: Request, service: Connections) -> Response:
+async def delete_connection(
+    connection_id: str, request: Request, service: Connections, confiding: Confiding
+) -> Response:
     try:
         await service.resolve_delete(request_author(request), connection_id)
     except _REFUSALS as exc:
         return _refusal(exc)
+    # La suppression n'a pas de message à elle : l'état transmis ne la contient plus, et
+    # c'est son absence qui la détruit chez le destinataire (critère 9 du ticket edcf78bc).
+    await confiding.resolve_transmit_after(request_author(request), TRIGGER_DELETED)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

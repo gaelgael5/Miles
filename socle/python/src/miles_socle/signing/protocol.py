@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from miles_socle.signing.peers import MAX_DECLARED_NAME_LENGTH
 
@@ -215,3 +215,108 @@ class PeerEnvironmentOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     environment: AssignedEnvironment | None
+
+
+# Les connexions git que le module de PARAMÉTRAGE confie au module d'ENRÔLEMENT (ticket
+# edcf78bc). Servie par l'ENRÔLEMENT, appelée par le PARAMÉTRAGE — même sens que les
+# quatre premières routes.
+#
+# POURQUOI LE PARAMÉTRAGE POUSSE, ET NON L'ENRÔLEMENT QUI INTERROGE. Le ticket laissait le
+# sens libre. C'est le module de paramétrage qui SAIT quand une valeur change, et c'est lui
+# qui détient le clair : poussant, il transmet au moment du changement. Si l'enrôlement
+# interrogeait, il faudrait qu'il sache quand demander — donc qu'il demande périodiquement,
+# donc qu'il tienne pour vrai, entre deux interrogations, un credential déjà remplacé —, et
+# toute lecture de git dépendrait de la disponibilité du module de paramétrage. Le sens
+# retenu est aussi celui des rôles déjà posés : l'enrôlement SERT les routes, les autres
+# les APPELLENT.
+GIT_CONNECTIONS_PATH = "/api/peer/git-connections"
+# Bornes GROSSIÈRES de ce qui voyage, volontairement plus larges que les règles de chaque
+# base — qui sont à elles, pas au contrat. Elles existent pour qu'une charge démesurée ne
+# soit ni interprétée ni écrite chez le destinataire, rien de plus.
+MAX_CONFIDED_CONNECTIONS = 500
+MAX_CONFIDED_WORKSPACES = 2000
+MAX_CONNECTION_ID_LENGTH = 200
+MAX_CONNECTION_LABEL_LENGTH = 800
+MAX_FORGE_URL_LENGTH = 400
+MAX_CREDENTIAL_LENGTH = 16 * 1024
+
+
+class ConfidedWorkspace(BaseModel):
+    """Un workspace qui se sert de cette connexion, et le dépôt qu'il travaille.
+
+    Le DÉPÔT est ici et non sur la connexion parce qu'il est au workspace : une connexion
+    porte la forge ou une organisation, et chaque workspace y choisit son dépôt. Les deux
+    voyagent ensemble parce que lire git pour un environnement demande les deux, et que
+    séparer les deux moitiés en deux messages ferait tenir une jointure au destinataire.
+
+    `repo_url` est NUL pour un workspace dont le dépôt n'est pas encore configuré. Il
+    voyage quand même : l'omettre ferait diverger en silence la liste que l'enrôlement
+    affiche de celle que le module de paramétrage montre, et personne ne saurait lequel
+    des deux a raison.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(max_length=MAX_CONNECTION_ID_LENGTH)
+    repo_url: str | None = Field(default=None, max_length=MAX_FORGE_URL_LENGTH)
+
+
+class ConfidedGitConnection(BaseModel):
+    """Une connexion git confiée : la forge, le credential, et qui s'en sert.
+
+    Rien de plus que ces champs, et c'est une décision du ticket : « chaque champ ajouté
+    ici devient un champ à tenir synchronisé entre deux bases que personne ne réconcilie ».
+
+    Le credential est un `SecretStr` : sa représentation textuelle est masquée, donc une
+    charge journalisée par mégarde — ou un modèle affiché dans une trace — ne révèle rien.
+    C'est la même règle que le `Secret` du socle, appliquée au bord du réseau.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(max_length=MAX_CONNECTION_ID_LENGTH)
+    label: str = Field(max_length=MAX_CONNECTION_LABEL_LENGTH)
+    base_url: str = Field(max_length=MAX_FORGE_URL_LENGTH)
+    credential: SecretStr = Field(max_length=MAX_CREDENTIAL_LENGTH)
+    workspaces: tuple[ConfidedWorkspace, ...] = Field(
+        default=(), max_length=MAX_CONFIDED_WORKSPACES
+    )
+
+
+class ConfideGitConnectionsIn(BaseModel):
+    """L'ÉTAT COMPLET des connexions git, pas un écart.
+
+    POURQUOI L'ÉTAT ET NON UN ÉCART. Un écart exige un ordre, un accusé et une file à
+    rejouer : un message perdu laisse les deux bases durablement différentes, et rien ne le
+    dit. L'état converge de lui-même — une transmission manquée est réparée par la
+    suivante — et la SUPPRESSION d'une connexion n'a pas de message à elle : absente de
+    l'état, elle est détruite chez le destinataire (critère 9 du ticket edcf78bc).
+
+    `revision` est strictement croissante, allouée par le module de paramétrage au moment
+    où il lit son état. Elle existe pour qu'une transmission ancienne arrivée en retard —
+    deux administrateurs qui changent deux connexions en même temps — ne vienne pas
+    écraser une plus récente. Le destinataire refuse une révision inférieure à celle qu'il
+    détient, et le dit : accepter silencieusement l'ancienne ferait croire au module de
+    paramétrage que ce qu'il voit est ce que l'autre détient.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    revision: int = Field(ge=1)
+    connections: tuple[ConfidedGitConnection, ...] = Field(max_length=MAX_CONFIDED_CONNECTIONS)
+
+
+class ConfideGitConnectionsOut(BaseModel):
+    """Ce que le destinataire rend : la révision qu'il détient désormais, et ce qu'il a fait.
+
+    Les comptes ne sont pas décoratifs : ils sont ce que l'écran du module de paramétrage
+    affiche pour dire « confiées » sans avoir à croire sa propre intention. `destroyed`
+    compte les connexions qui ont disparu de l'état — c'est la seule trace de la
+    suppression, qui n'a pas de message à elle.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    revision: int
+    held: int
+    destroyed: int
