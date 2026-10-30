@@ -156,6 +156,32 @@ def test_les_libelles_suivent_la_culture_pour_plusieurs_pays() -> None:
         assert country_name(alpha2, "en-US") == en_anglais
 
 
+def test_un_libelle_vide_est_ecarte_comme_un_libelle_absent() -> None:
+    """Le contrat de la fonction : jamais un vide, quoi que rende `derive`.
+
+    Mesuré le 30/10/2026 : CLDR ne rend de chaîne vide ni pour les 249 territoires, ni pour
+    les 312 zones canoniques. Cette branche est donc éprouvée par un `derive` SYNTHÉTIQUE —
+    c'est le contrat de la fonction qui est en jeu, pas un comportement de CLDR, et
+    `resolve_label` accepte n'importe quelle fonction de dérivation.
+    """
+    appels: list[str] = []
+
+    def derive(culture: str) -> str | None:
+        appels.append(culture)
+        return "" if culture == "fr-FR" else "Germany"
+
+    libelle = resolve_label(
+        culture="fr-FR",
+        active_cultures=frozenset({"fr-FR", "en-US"}),
+        derive=derive,
+        fallback="DEU",
+    )
+
+    # Le vide ne passe pas pour un libellé : on continue jusqu'au repli.
+    assert libelle == "Germany"
+    assert appels == ["fr-FR", "en-US"]
+
+
 def test_la_culture_demandee_est_validee_pour_elle_meme() -> None:
     """La validation de la culture, éprouvée SEULE — et il faut le faire exprès.
 

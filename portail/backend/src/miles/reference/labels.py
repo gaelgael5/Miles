@@ -71,8 +71,14 @@ def resolve_label(
 
     JAMAIS un vide, et jamais le libellé d'une autre culture choisie au hasard : « Deutschland »
     affiché à un visiteur français laisserait croire à une donnée mal saisie, alors que rien
-    n'est saisi ici. Et jamais une chaîne vide non plus — d'où le `if label`, qui écarte le
-    libellé vide qu'une donnée CLDR incomplète pourrait rendre.
+    n'est saisi ici.
+
+    Le `if label` — et non `is not None` — écarte aussi la chaîne VIDE. Mesuré le
+    30/10/2026 : CLDR n'en rend jamais, ni pour les 249 territoires ni pour les 312 zones
+    canoniques. Ce n'est donc pas une défense contre un comportement observé, c'est le
+    contrat de cette fonction : elle accepte n'importe quel `derive`, et elle promet de ne
+    jamais rendre de vide — un écran affichant une case vide ferait chercher une donnée
+    manquante là où il n'y en a pas.
     """
     candidates = []
     if culture is not None and culture in active_cultures:
