@@ -293,6 +293,9 @@ async def test_un_module_d_enrolement_qui_refuse_ne_fait_pas_echouer_la_declarat
     double = EnrolmentDouble()
     async with _stack(blank_db, tmp_path, double) as (portail, pair):
         await _secret(portail, "pat-yoops", CREDENTIAL)
+        # Ce que l'appariement a déjà confié : rien, et c'est une transmission réussie.
+        avant = (await portail.client.get("/api/git-connections/confided")).json()
+        assert avant["up_to_date"] is True
         pair.confide_status = 409
         pair.confide_payload = {"detail": "espece_sans_connexions_git"}
 
@@ -300,8 +303,12 @@ async def test_un_module_d_enrolement_qui_refuse_ne_fait_pas_echouer_la_declarat
 
         assert declaree.status_code == 201, declaree.text
         etat = await portail.client.get("/api/git-connections/confided")
+        # La trace N'AVANCE PAS sur un échec : sa révision et sa date sont encore celles
+        # de la dernière transmission réellement arrivée, et l'empreinte ne correspond
+        # plus à ce que nous détenons — c'est ce qui fait dire « à retransmettre ».
+        assert etat.json()["revision"] == avant["revision"]
+        assert etat.json()["transmitted_at"] == avant["transmitted_at"]
         assert etat.json()["up_to_date"] is False
-        assert etat.json()["transmitted_at"] is None
         echec = await _event(portail, TRANSMISSION_FAILED_EVENT)
         assert echec == {"trigger": "connexion_declaree", "reason": "espece_sans_connexions_git"}
 
