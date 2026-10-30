@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { PageHead } from "@miles/socle-web";
 
 import { type Country, useCountries, useSetCountriesActive } from "../api/countries";
+import { CountryTimezones } from "./CountryTimezones";
 
 function CountryRow({
   country,
@@ -15,6 +16,9 @@ function CountryRow({
   onToggle: () => void;
 }) {
   const { t } = useTranslation();
+  // Déplié à la demande, et c'est ce qui tient le coût : le panneau ne se monte que là,
+  // donc les fuseaux d'un pays ne sont lus que si quelqu'un les regarde.
+  const [deplie, setDeplie] = useState(false);
   return (
     <li className="row">
       <label className="field-check row-main">
@@ -25,6 +29,17 @@ function CountryRow({
         <span className="muted">{country.alpha2}</span>
       </label>
       {country.active && <span className="badge badge-success">{t("countries.active")}</span>}
+      <div className="actions row-actions">
+        <button
+          type="button"
+          className="btn btn-secondary"
+          aria-expanded={deplie}
+          onClick={() => setDeplie((ouvert) => !ouvert)}
+        >
+          {t("countries.timezones.open")}
+        </button>
+      </div>
+      {deplie && <CountryTimezones countrySlug={country.slug} />}
     </li>
   );
 }

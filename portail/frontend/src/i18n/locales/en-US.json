@@ -1087,6 +1087,15 @@
     "errors": {
       "unreachable": "The country list could not be read.",
       "change": "The change was refused. Nothing was modified."
+    },
+    "timezones": {
+      "open": "Time zones",
+      "loading": "Loading this country's time zones…",
+      "unreachable": "This country's time zones could not be read.",
+      "help": "The zones the IANA database gives this country. Retaining them here is exactly the same as retaining them from the time zones screen: it is the same state.",
+      "retained": "Retained",
+      "sharedWith": "This zone also serves: {{countries}}. Retaining it here retains it for those countries too.",
+      "changeFailed": "The change was refused. Nothing was modified."
     }
   },
   "timezones": {

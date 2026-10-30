@@ -1087,6 +1087,15 @@
     "errors": {
       "unreachable": "La liste des pays n'a pas pu être lue.",
       "change": "Le changement a été refusé. Rien n'a été modifié."
+    },
+    "timezones": {
+      "open": "Fuseaux horaires",
+      "loading": "Lecture des fuseaux de ce pays…",
+      "unreachable": "Les fuseaux de ce pays n'ont pas pu être lus.",
+      "help": "Les fuseaux que la base IANA donne à ce pays. Les retenir ici revient exactement à les retenir depuis l'écran des fuseaux horaires : c'est le même état.",
+      "retained": "Retenu",
+      "sharedWith": "Ce fuseau sert aussi : {{countries}}. Le retenir ici le retient pour ces pays aussi.",
+      "changeFailed": "Le changement a été refusé. Rien n'a été modifié."
     }
   },
   "timezones": {
