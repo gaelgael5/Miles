@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Direction } from "../api/contracts";
+import { CollapsibleGroup } from "./CollapsibleGroup";
 import { ContractLinks } from "./ContractLinks";
 import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
 
@@ -48,47 +49,73 @@ export function WorkspaceViews({
     <>
       {VIEWS.map((view) => (
         <Fragment key={view}>
-          <button
-            type="button"
-            className="sidebar-link sidebar-sublink"
-            aria-current={
-              here && selection?.view === view && selection.contract === undefined &&
-              selection.chain === undefined &&
-              selection.source === undefined &&
-              selection.model === undefined
-                ? "page"
-                : undefined
-            }
-            onClick={() => onSelect({ id: workspaceId, view, branch })}
-          >
-            {t(`workspaces.card.${view}`)}
-          </button>
-          {view === "dataModels" &&
-            // Modèles dérivés des contrats, par sens (story 47f55d8b).
-            SENSES.map((sens) => (
+          {/* Une vue qui PORTE des entrées est repliable ; une vue seule reste un lien.
+              Un bouton de repli sur une entrée sans enfant promettrait un niveau qui
+              n'existe pas (Gael, 30/10/2026). */}
+          {view === "dataModels" || view === "contracts" ? (
+            <CollapsibleGroup
+              className="sidebar-link sidebar-sublink sidebar-group-link"
+              label={t(`workspaces.card.${view}`)}
+            >
               <button
-                key={sens}
                 type="button"
                 className="sidebar-link sidebar-subsublink"
                 aria-current={
-                  here && selection?.view === "contractModels" && selection.sens === sens &&
-                  selection.contract === undefined
+                  here && selection?.view === view && selection.contract === undefined &&
+                  selection.model === undefined
                     ? "page"
                     : undefined
                 }
-                onClick={() => onSelect({ id: workspaceId, view: "contractModels", branch, sens })}
+                onClick={() => onSelect({ id: workspaceId, view, branch })}
               >
-                {t(`contractModels.nav.${sens}`)}
+                {t(`workspaces.nav.all_${view}`)}
               </button>
-            ))}
-          {view === "contracts" && (
-            <ContractLinks
-              // Des liens qui ne font que lire : aucun geste d'écriture ne part du menu.
-              target={{ workspaceId, branch, readOnly: true, canFreeze: false }}
-              open={open}
-              current={here ? selection?.contract : undefined}
-              onSelect={(contract) => onSelect({ id: workspaceId, view, branch, contract })}
-            />
+              {view === "dataModels" ? (
+                // Modèles dérivés des contrats, par sens (story 47f55d8b).
+                SENSES.map((sens) => (
+                  <button
+                    key={sens}
+                    type="button"
+                    className="sidebar-link sidebar-subsublink"
+                    aria-current={
+                      here && selection?.view === "contractModels" && selection.sens === sens &&
+                      selection.contract === undefined
+                        ? "page"
+                        : undefined
+                    }
+                    onClick={() =>
+                      onSelect({ id: workspaceId, view: "contractModels", branch, sens })
+                    }
+                  >
+                    {t(`contractModels.nav.${sens}`)}
+                  </button>
+                ))
+              ) : (
+                <ContractLinks
+                  // Des liens qui ne font que lire : aucun geste d'écriture ne part du menu.
+                  target={{ workspaceId, branch, readOnly: true, canFreeze: false }}
+                  open={open}
+                  current={here ? selection?.contract : undefined}
+                  onSelect={(contract) => onSelect({ id: workspaceId, view, branch, contract })}
+                />
+              )}
+            </CollapsibleGroup>
+          ) : (
+            <button
+              type="button"
+              className="sidebar-link sidebar-sublink"
+              aria-current={
+                here && selection?.view === view && selection.contract === undefined &&
+                selection.chain === undefined &&
+                selection.source === undefined &&
+                selection.model === undefined
+                  ? "page"
+                  : undefined
+              }
+              onClick={() => onSelect({ id: workspaceId, view, branch })}
+            >
+              {t(`workspaces.card.${view}`)}
+            </button>
           )}
         </Fragment>
       ))}

@@ -64,7 +64,7 @@ describe("TradsKeysScreen", () => {
 
     await screen.findByText("Bonjour");
     const row = screen.getByText("titre").closest("li") as HTMLElement;
-    const codes = [...row.querySelectorAll(".value-head code")].map((e) => e.textContent);
+    const codes = [...row.querySelectorAll(".caption")].map((e) => e.textContent);
     expect(codes).toEqual(["fr-FR", "ar-MA"]);
   });
 

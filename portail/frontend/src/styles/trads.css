@@ -74,9 +74,17 @@ textarea.value-field {
 /* La colonne porte le code de culture, jamais son sens : l'en-tête reste dans le sens de
    celui qui lit l'écran, et seules les cellules suivent leur culture. */
 .value-head {
+  display: block;
   font-size: 0.85em;
   font-weight: 600;
   unicode-bidi: normal;
+}
+
+/* En lecture, la valeur est un bloc sous son code de culture, et reprend la graisse
+   normale : collée derrière son étiquette et en gras, elle se lisait « en-USpassword ». */
+.value-cell {
+  display: block;
+  font-weight: 400;
 }
 
 .value-head .rtl-tag {
@@ -113,4 +121,22 @@ textarea.value-field {
 .trads-values {
   display: grid;
   gap: 0.5rem;
+}
+
+
+/*
+ * Un groupe repliable DANS le menu (Gael, 30/10/2026). Il ressemble à un lien — c'est le
+ * même niveau de lecture — mais porte le chevron des sections pour qu'on sache qu'il
+ * ouvre quelque chose. Sans ce repère, un groupe fermé se lit comme un écran qui ne
+ * répond pas.
+ */
+.sidebar-group-link::after {
+  content: "\203A";
+  display: inline-block;
+  margin-left: 0.4em;
+  transition: transform 0.15s;
+}
+
+.sidebar-group-link[aria-expanded="true"]::after {
+  transform: rotate(90deg);
 }

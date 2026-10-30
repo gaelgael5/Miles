@@ -20,6 +20,9 @@
     "sections": {
       "global": "Global",
       "workspaces": "Workspaces"
+    },
+    "groups": {
+      "globalisation": "Globalisation"
     }
   },
   "security": {
@@ -205,6 +208,10 @@
       "confirm": "Delete “{{name}}” from the back office? The git repository is not touched.",
       "held": "{{by}} holds a branch: their unpublished work would be lost. Have them publish or release it, or unlock them first.",
       "failed": "The deletion failed."
+    },
+    "nav": {
+      "all_dataModels": "All models",
+      "all_contracts": "All contracts"
     }
   },
   "gitConnections": {

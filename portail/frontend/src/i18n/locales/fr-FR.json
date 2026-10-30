@@ -20,6 +20,9 @@
     "sections": {
       "global": "Global",
       "workspaces": "Workspaces"
+    },
+    "groups": {
+      "globalisation": "Globalisation"
     }
   },
   "security": {
@@ -205,6 +208,10 @@
       "confirm": "Supprimer « {{name}} » du back-office ? Le dépôt git n'est pas touché.",
       "held": "{{by}} a la main sur une branche : son travail non publié serait perdu. Qu'il publie ou relâche, ou déverrouillez-le d'abord.",
       "failed": "La suppression a échoué."
+    },
+    "nav": {
+      "all_dataModels": "Tous les modèles",
+      "all_contracts": "Tous les contrats"
     }
   },
   "gitConnections": {

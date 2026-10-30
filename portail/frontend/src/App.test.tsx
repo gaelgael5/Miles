@@ -83,9 +83,11 @@ describe("App", () => {
     // Le menu global d'abord, dans l'ordre voulu, puis les workspaces (21/10/2026).
     expect(Array.from(nav.querySelectorAll(".sidebar-section, .sidebar-link"), (e) => e.textContent)).toEqual([
       "Global",
+      // Les trois référentiels DONNÉS sous leur propre sous-groupe repliable, et dans cet
+      // ordre : le libellé d'un pays comme d'un fuseau dépend des cultures actives
+      // (Gael, 30/10/2026).
+      "Globalisation",
       "Cultures",
-      // Les pays suivent les cultures : deux référentiels donnés du même genre, et le
-      // libellé d'un pays dépend des cultures actives (30/10/2026).
       "Countries",
       "Time zones",
       "Secrets",
@@ -153,12 +155,18 @@ describe("App", () => {
     expect(
       await screen.findByRole("heading", { name: "Storages — Retrait de colis" }),
     ).toBeInTheDocument();
-    fireEvent.click(within(nav).getByRole("button", { name: "Data models" }));
+    // « Data models » PORTE des entrées : depuis le 30/10/2026 son bouton replie le
+    // groupe, et l'écran s'ouvre par l'entrée dédiée — un clic ne fait qu'une chose.
+    expect(within(nav).getByRole("button", { name: "Data models" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    fireEvent.click(within(nav).getByRole("button", { name: "All models" }));
 
     expect(
       await screen.findByRole("heading", { name: "Data models — Retrait de colis" }),
     ).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: "Data models" })).toHaveAttribute(
+    expect(within(nav).getByRole("button", { name: "All models" })).toHaveAttribute(
       "aria-current",
       "page",
     );

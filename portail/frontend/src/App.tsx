@@ -26,6 +26,7 @@ import { ConnexionsConfiees } from "./pairing/ConnexionsConfiees";
 import { ProfileScreen } from "./profile/ProfileScreen";
 import { SecurityServiceScreen } from "./security/SecurityServiceScreen";
 import { TimezonesScreen } from "./timezones/TimezonesScreen";
+import { CollapsibleGroup } from "./layout/CollapsibleGroup";
 import { WorkspacesScreen } from "./workspaces/WorkspacesScreen";
 
 type Page =
@@ -45,19 +46,33 @@ type Page =
 // les workspaces, puis les workspaces. L'ordre des écrans dans le global est voulu.
 // Le menu Workspaces porte ses workspaces en sous-menu, et leurs vues en sous-sous-menu.
 // Seuls figurent les écrans livrés ; parc, comptes et environnements viendront avec leurs tickets.
-type Section = { title: string; pages: Page[] };
+/** Une entrée du menu : un écran, ou un sous-groupe repliable qui en porte plusieurs. */
+type NavItem = Page | { group: string; pages: Page[] };
+type Section = { title: string; items: NavItem[] };
 const SECTIONS: Section[] = [
   {
     title: "global",
     // L'appariement est placé après les connexions git, et c'est voulu : c'est à lui
     // qu'elles seront bientôt confiées (ticket edcf78bc), et les lire dans cet ordre dit
     // ce qui dépend de quoi.
-    // Les pays suivent les cultures : ce sont deux référentiels DONNÉS du même genre, et
-    // le libellé d'un pays dépend des cultures actives. Les lire dans cet ordre dit ce qui
-    // dépend de quoi, comme l'appariement après les connexions git.
-    pages: ["cultures", "countries", "timezones", "secrets", "gitConnections", "pairing", "security", "oidc", "apiKeys", "oauthClients", "health"],
+    items: [
+      // Les trois référentiels DONNÉS sous un même sous-groupe (Gael, 30/10/2026) : ils
+      // sont du même genre — une liste qu'on n'amende pas, dont on active des entrées —
+      // et le libellé d'un pays comme d'un fuseau dépend des cultures actives. Les lire
+      // ensemble dit ce qui dépend de quoi, et les retire du premier niveau, où ils
+      // pesaient trois lignes sur onze.
+      { group: "globalisation", pages: ["cultures", "countries", "timezones"] },
+      "secrets",
+      "gitConnections",
+      "pairing",
+      "security",
+      "oidc",
+      "apiKeys",
+      "oauthClients",
+      "health",
+    ],
   },
-  { title: "workspaces", pages: ["workspaces"] },
+  { title: "workspaces", items: ["workspaces"] },
 ];
 const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
   security: SecurityServiceScreen,
@@ -82,9 +97,6 @@ function AdminPortal({ profile, onLeave }: { profile: ReactNode; onLeave: () => 
   const [page, setPageState] = useState<Page>("workspaces");
   // Tenue ici et non dans l'écran : le menu et l'écran montrent le même workspace.
   const [selection, setSelection] = useState<WorkspaceSelection>(null);
-  // Menus repliés : tous ouverts au départ, pour que chaque écran reste en vue.
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-
   const Screen = page === "workspaces" ? null : SCREENS[page];
 
   // Le profil s'ouvre depuis la barre du haut ; tout choix dans le menu le referme.
@@ -98,57 +110,53 @@ function AdminPortal({ profile, onLeave }: { profile: ReactNode; onLeave: () => 
     setSelection(next);
   }
 
-  function toggle(title: string) {
-    setCollapsed((current) => {
-      const next = new Set(current);
-      if (!next.delete(title)) {
-        next.add(title);
-      }
-      return next;
-    });
+  function navLink(name: Page) {
+    return (
+      <button
+        key={name}
+        type="button"
+        className="sidebar-link"
+        aria-current={page === name ? "page" : undefined}
+        onClick={() => setPage(name)}
+      >
+        {t(`app.nav.${name}`)}
+      </button>
+    );
   }
 
   return (
     <div className="body">
       <nav className="sidebar" aria-label={t("app.navigation")}>
-        {SECTIONS.map((section) => {
-          const open = !collapsed.has(section.title);
-          const listId = `sidebar-${section.title}`;
-          return (
-            <div key={section.title} className="sidebar-group">
-              <button
-                type="button"
-                className="sidebar-section"
-                aria-expanded={open}
-                aria-controls={listId}
-                onClick={() => toggle(section.title)}
-              >
-                {t(`app.sections.${section.title}`)}
-              </button>
-              <div id={listId} hidden={!open}>
-                {section.title === "workspaces" ? (
-                  <WorkspacesNav
-                    active={page === "workspaces"}
-                    selection={selection}
-                    onSelect={openWorkspaces}
-                  />
-                ) : (
-                  section.pages.map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      className="sidebar-link"
-                      aria-current={page === name ? "page" : undefined}
-                      onClick={() => setPage(name)}
+        {SECTIONS.map((section) => (
+          <div key={section.title} className="sidebar-group">
+            <CollapsibleGroup
+              className="sidebar-section"
+              label={t(`app.sections.${section.title}`)}
+            >
+              {section.title === "workspaces" ? (
+                <WorkspacesNav
+                  active={page === "workspaces"}
+                  selection={selection}
+                  onSelect={openWorkspaces}
+                />
+              ) : (
+                section.items.map((item) =>
+                  typeof item === "string" ? (
+                    navLink(item)
+                  ) : (
+                    <CollapsibleGroup
+                      key={item.group}
+                      className="sidebar-link sidebar-group-link"
+                      label={t(`app.groups.${item.group}`)}
                     >
-                      {t(`app.nav.${name}`)}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
+                      {item.pages.map((name) => navLink(name))}
+                    </CollapsibleGroup>
+                  ),
+                )
+              )}
+            </CollapsibleGroup>
+          </div>
+        ))}
       </nav>
       <main className="content">
         {profile ?? (Screen === null ? (

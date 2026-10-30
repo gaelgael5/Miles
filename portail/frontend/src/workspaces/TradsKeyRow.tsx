@@ -136,15 +136,18 @@ export function TradsKeyRow({
       ) : (
         <div className="trads-values">
           {columns.map((culture) => (
-            <div className="field" key={culture}>
-              <span className="value-head">
-                <code>{culture}</code>
-              </span>
-              <ValueCell
-                culture={culture}
-                direction={directionOf(cultures, culture)}
-                value={entry.values[culture]}
-              />
+            // `cell` et non `field` : `.field` est fait pour un libellé SUIVI d'un champ
+            // de saisie, et met tout son contenu en graisse 600 — en lecture, la valeur
+            // sortait en gras et collée à son code de culture.
+            <div className="cell" key={culture}>
+              <div className="caption">{culture}</div>
+              <div className="value">
+                <ValueCell
+                  culture={culture}
+                  direction={directionOf(cultures, culture)}
+                  value={entry.values[culture]}
+                />
+              </div>
             </div>
           ))}
         </div>
