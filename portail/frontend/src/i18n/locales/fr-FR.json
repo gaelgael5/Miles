@@ -6,6 +6,7 @@
       "oidc": "Connecteurs OIDC",
       "cultures": "Cultures",
       "countries": "Pays",
+      "timezones": "Fuseaux horaires",
       "secrets": "Secrets",
       "health": "État du service",
       "gitConnections": "Connexions git",
@@ -1085,6 +1086,23 @@
     "noMatch": "Aucun pays ne correspond à « {{filter}} ».",
     "errors": {
       "unreachable": "La liste des pays n'a pas pu être lue.",
+      "change": "Le changement a été refusé. Rien n'a été modifié."
+    }
+  },
+  "timezones": {
+    "title": "Fuseaux horaires",
+    "intro": "La liste des fuseaux est donnée : elle vient de la base IANA et ne se modifie pas. Activez ceux dont cette installation se sert.",
+    "filter": "Filtrer par identifiant, nom ou pays",
+    "byCountry": "Ne montrer que les fuseaux d'un pays (code ISO3)",
+    "selected": "{{count}} sélectionné(s)",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "active": "Actif",
+    "keepRows": "Désactiver un fuseau ne le supprime pas : il cesse d'être proposé, et le réactiver le retrouve tel quel. Le décalage horaire n'est pas stocké — il dépend de la date et des règles d'heure d'été.",
+    "loading": "Chargement des fuseaux…",
+    "noMatch": "Aucun fuseau ne correspond.",
+    "errors": {
+      "unreachable": "La liste des fuseaux n'a pas pu être lue.",
       "change": "Le changement a été refusé. Rien n'a été modifié."
     }
   }

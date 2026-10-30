@@ -25,6 +25,7 @@ import { AUTHORIZE_PATH, restorePendingAuthorize } from "./oauth/pendingAuthoriz
 import { ConnexionsConfiees } from "./pairing/ConnexionsConfiees";
 import { ProfileScreen } from "./profile/ProfileScreen";
 import { SecurityServiceScreen } from "./security/SecurityServiceScreen";
+import { TimezonesScreen } from "./timezones/TimezonesScreen";
 import { WorkspacesScreen } from "./workspaces/WorkspacesScreen";
 
 type Page =
@@ -38,6 +39,7 @@ type Page =
   | "apiKeys"
   | "oauthClients"
   | "countries"
+  | "timezones"
   | "health";
 // Deux menus, dans cet ordre (Gael, 21/10/2026) : le global d'abord, ce que partagent tous
 // les workspaces, puis les workspaces. L'ordre des écrans dans le global est voulu.
@@ -53,7 +55,7 @@ const SECTIONS: Section[] = [
     // Les pays suivent les cultures : ce sont deux référentiels DONNÉS du même genre, et
     // le libellé d'un pays dépend des cultures actives. Les lire dans cet ordre dit ce qui
     // dépend de quoi, comme l'appariement après les connexions git.
-    pages: ["cultures", "countries", "secrets", "gitConnections", "pairing", "security", "oidc", "apiKeys", "oauthClients", "health"],
+    pages: ["cultures", "countries", "timezones", "secrets", "gitConnections", "pairing", "security", "oidc", "apiKeys", "oauthClients", "health"],
   },
   { title: "workspaces", pages: ["workspaces"] },
 ];
@@ -67,6 +69,7 @@ const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
   oidc: ConnectorsScreen,
   cultures: CulturesScreen,
   countries: CountriesScreen,
+  timezones: TimezonesScreen,
   secrets: SecretsScreen,
   apiKeys: ApiKeysScreen,
   oauthClients: OAuthClientsScreen,

@@ -87,6 +87,7 @@ describe("App", () => {
       // Les pays suivent les cultures : deux référentiels donnés du même genre, et le
       // libellé d'un pays dépend des cultures actives (30/10/2026).
       "Countries",
+      "Time zones",
       "Secrets",
       "Git connections",
       "Pairing",

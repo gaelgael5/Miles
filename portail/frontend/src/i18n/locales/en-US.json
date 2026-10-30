@@ -6,6 +6,7 @@
       "oidc": "OIDC connectors",
       "cultures": "Cultures",
       "countries": "Countries",
+      "timezones": "Time zones",
       "secrets": "Secrets",
       "health": "Service status",
       "gitConnections": "Git connections",
@@ -1085,6 +1086,23 @@
     "noMatch": "No country matches “{{filter}}”.",
     "errors": {
       "unreachable": "The country list could not be read.",
+      "change": "The change was refused. Nothing was modified."
+    }
+  },
+  "timezones": {
+    "title": "Time zones",
+    "intro": "The time zone list is given: it comes from the IANA database and cannot be edited. Activate the ones this installation uses.",
+    "filter": "Filter by identifier, name or country",
+    "byCountry": "Show only the zones of one country (ISO3 code)",
+    "selected": "{{count}} selected",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "active": "Active",
+    "keepRows": "Deactivating a zone does not delete it: it stops being offered, and reactivating it brings it back unchanged. The UTC offset is not stored — it depends on the date and on daylight saving rules.",
+    "loading": "Loading time zones…",
+    "noMatch": "No time zone matches.",
+    "errors": {
+      "unreachable": "The time zone list could not be read.",
       "change": "The change was refused. Nothing was modified."
     }
   }
