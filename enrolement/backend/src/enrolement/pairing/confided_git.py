@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 import structlog
+from miles_socle.secrets.crypto import Sealed
 from miles_socle.secrets.model import Secret, SecretUndecipherableError
 from miles_socle.signing.protocol import ConfidedGitConnection
 
@@ -167,7 +169,12 @@ class PairingConfidedGit(PairingPeerReads):
         return ConfidingOutcome(revision, len(entrees), len(detruites))
 
     async def _ecrit(
-        self, conn: Any, peer_base_url: str, species: str, entrees: list[_Entree], maintenant: Any
+        self,
+        conn: Any,
+        peer_base_url: str,
+        species: str,
+        entrees: list[_Entree],
+        maintenant: datetime,
     ) -> list[str]:
         """Écrit les connexions et rend celles dont le credential a changé."""
         # Toute la liste du pair d'abord, parce qu'un workspace qui PASSE d'une connexion à
@@ -263,7 +270,7 @@ class PairingConfidedGit(PairingPeerReads):
         lisible = self._lisible(peer_base_url, connection_id, scelle)
         return ConfidedConnectionDetail(connexion, lisible)
 
-    def _lisible(self, peer_base_url: str, connection_id: str, scelle: Any) -> bool:
+    def _lisible(self, peer_base_url: str, connection_id: str, scelle: Sealed | None) -> bool:
         if scelle is None:  # pragma: no cover - la ligne et son chiffré naissent ensemble
             return False
         try:
@@ -274,6 +281,7 @@ class PairingConfidedGit(PairingPeerReads):
             )
             return False
         return True
+
 
 def _aad(peer_base_url: str, connection_id: str) -> str:
     """Les données associées du chiffrement : le pair ET la connexion.
