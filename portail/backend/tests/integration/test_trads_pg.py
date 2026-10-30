@@ -38,7 +38,8 @@ async def _paths(forge: Forge) -> list[str]:
     if forge.held:
         await forge.publish()
     listed = await forge.api.get(
-        f"/api/v1/repos/miles/{forge.name}/git/trees/{EDITION}", params={"recursive": "true"}
+        f"/api/v1/repos/miles/{forge.name}/git/trees/{forge.edited}",
+        params={"recursive": "true"},
     )
     assert listed.status_code == 200, listed.text
     return [e["path"] for e in listed.json()["tree"]]
@@ -60,7 +61,7 @@ async def _seed(forge: Forge, files: dict[str, str]) -> None:
             f"/api/v1/repos/miles/{forge.name}/contents/{path}",
             json={
                 "content": base64.b64encode(content.encode()).decode(),
-                "branch": EDITION,
+                "branch": forge.edited,
                 "message": f"semis {path}",
             },
         )
