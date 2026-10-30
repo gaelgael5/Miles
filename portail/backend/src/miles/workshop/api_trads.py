@@ -37,6 +37,9 @@ class ContextOut(BaseModel):
     keys: int
     # Clés traduites par culture du workspace ; rapporté au total, c'est la couverture.
     translated: dict[str, int]
+    # Cultures retirées du workspace dont le dépôt garde encore un fichier, et le nombre
+    # de valeurs de chacune : sans ce compte, personne ne saurait qu'elles existent.
+    obsolete: dict[str, int]
 
 
 class ContextCreate(BaseModel):
@@ -100,6 +103,7 @@ def _out(context: Context) -> ContextOut:
         label=context.label,
         keys=context.keys,
         translated=dict(context.translated),
+        obsolete=dict(context.obsolete),
     )
 
 
@@ -132,7 +136,7 @@ async def add_context(
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    return ContextOut(name=body.name, label=body.label, keys=0, translated={})
+    return ContextOut(name=body.name, label=body.label, keys=0, translated={}, obsolete={})
 
 
 @router.put("/{name}", response_model=ContextOut)
@@ -152,7 +156,7 @@ async def relabel_context(
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    return ContextOut(name=name, label=body.label, keys=0, translated={})
+    return ContextOut(name=name, label=body.label, keys=0, translated={}, obsolete={})
 
 
 @router.get("/{name}/removal", response_model=RemovalOut)
@@ -190,3 +194,26 @@ async def delete_context(
         return _refusal(exc)
     response.status_code = status.HTTP_200_OK
     return _removal_out(removal)
+
+
+@router.delete("/{name}/obsolete/{culture}", response_model=RemovalOut)
+async def delete_obsolete_culture(
+    workspace_id: str,
+    name: str,
+    culture: str,
+    request: Request,
+    service: Service,
+    branch: str | None = None,
+) -> object:
+    """Retire le fichier d'une culture que le workspace ne retient plus.
+
+    Le seul « obsolète » que le produit crée lui-même : un fichier gardé exprès au retrait
+    d'une culture, et que rien ne permettait ensuite d'enlever.
+    """
+    try:
+        _, values = await service.resolve_delete_obsolete(
+            request_author(request), workspace_id, name, culture, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return RemovalOut(keys=0, values=values)

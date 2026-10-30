@@ -168,6 +168,8 @@ async def test_file_contexts_counts_keys_and_coverage_per_workspace_culture() ->
     assert [(c.name, c.keys) for c in contexts] == [("accueil", 2), ("erreurs", 1), ("vide", 0)]
     accueil = contexts[0]
     assert accueil.translated == {"fr-FR": 2, "ar-MA": 1, "th-TH": 0}
+    # Toutes les cultures du dépôt sont au workspace : rien d'obsolète.
+    assert accueil.obsolete == {}
     # Pas de fichier de métadonnées dans le jeu : le nom technique fait office de libellé.
     assert accueil.label == "accueil"
 
@@ -177,6 +179,7 @@ async def test_file_contexts_empty_context_is_zero_on_zero_not_fully_covered() -
     vide = (await file_contexts(_read, PATHS, ["fr-FR"]))[2]
 
     assert (vide.name, vide.keys, vide.translated) == ("vide", 0, {"fr-FR": 0})
+    assert vide.obsolete == {}
 
 
 async def test_file_contexts_ignores_a_culture_of_the_repository_left_out_of_the_workspace() -> (
@@ -187,3 +190,16 @@ async def test_file_contexts_ignores_a_culture_of_the_repository_left_out_of_the
 
     assert accueil.keys == 2
     assert accueil.translated == {"fr-FR": 2}
+    # ar-MA n'est plus du workspace, et son fichier porte encore une valeur : c'est ce
+    # que l'écran doit pouvoir proposer de nettoyer.
+    assert accueil.obsolete == {"ar-MA": 1}
+
+
+async def test_file_contexts_counts_the_values_each_obsolete_culture_still_holds() -> None:
+    """Retirer une culture garde ses fichiers, exprès. Sans ce compte, personne ne saurait
+    qu'ils sont encore là, ni ce qu'ils pèsent."""
+    contexts = await file_contexts(_read, PATHS, ["ar-MA"])
+
+    accueil = contexts[0]
+    assert accueil.obsolete == {"fr-FR": 2}
+    assert accueil.translated == {"ar-MA": 1}

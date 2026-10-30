@@ -1193,9 +1193,18 @@
       "invalidName": "Invalid technical name: lowercase, digits, hyphen and underscore, starting with a letter or a digit.",
       "invalidLabel": "Invalid label: a single line, 120 characters at most.",
       "unreadable": "File {{path}} cannot be read: fix it in the repository.",
-      "unexpected": "The operation could not be completed."
+      "unexpected": "The operation could not be completed.",
+      "culture_du_workspace": "That culture is still one of the workspace's: remove it from the settings before cleaning up.",
+      "culture_sans_fichier": "No translation file for that culture in this context."
     },
-    "openHint": "Open a context to fill in its keys."
+    "openHint": "Open a context to fill in its keys.",
+    "obsolete": {
+      "caption": "Removed cultures",
+      "badge": "{{culture}} — {{count}} value(s)",
+      "clean": "Clean up",
+      "title": "Remove the {{culture}} translations",
+      "confirm": "{{count}} value(s) in {{culture}} will disappear from the repository. That culture is no longer in the workspace settings: its values will not come back if you add it again."
+    }
   },
   "tradsKeys": {
     "title": "Translations — {{context}}",

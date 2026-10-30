@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, ConfirmDialog } from "@miles/socle-web";
+import { ConfirmDialog } from "@miles/socle-web";
 import {
   type TradsContext,
   contextNameFrom,
@@ -12,51 +12,8 @@ import {
   useTradsContexts,
 } from "../api/trads";
 import type { WorkTarget } from "../api/workTarget";
-
-function errorKey(error: unknown): string {
-  if (error instanceof ApiError && error.status === 422) {
-    const detail = error.detail as { code?: string; field?: string } | undefined;
-    if (detail?.code === "trads_illisible") {
-      return "trads.errors.unreadable";
-    }
-    if (detail?.field === "name") {
-      return "trads.errors.invalidName";
-    }
-    if (detail?.field === "label") {
-      return "trads.errors.invalidLabel";
-    }
-  }
-  if (error instanceof ApiError && error.status === 409) {
-    const detail = error.detail;
-    if (typeof detail === "string") {
-      return `trads.errors.${detail}`;
-    }
-  }
-  return "trads.errors.unexpected";
-}
-
-function Refusal({ error }: { error: unknown }) {
-  const { t } = useTranslation();
-  if (error instanceof ApiError && error.status === 409) {
-    const detail = error.detail as { code?: string; label?: string } | undefined;
-    if (detail?.code === "contexte_pris") {
-      return (
-        <p className="alert" role="alert">
-          {t("trads.errors.taken", { label: detail.label })}
-        </p>
-      );
-    }
-  }
-  const path =
-    error instanceof ApiError && error.status === 422
-      ? ((error.detail as { path?: string } | undefined)?.path ?? "")
-      : "";
-  return (
-    <p className="alert" role="alert">
-      {t(errorKey(error), { path })}
-    </p>
-  );
-}
+import { Obsoletes } from "./TradsObsoletes";
+import { Refusal } from "./tradsRefusal";
 
 /** Le contexte est VIDE, pas couvert à cent pour cent : zéro sur zéro n'est pas une
  * bonne nouvelle (critère 8), et l'écran ne doit pas le présenter comme terminé. */
@@ -292,6 +249,7 @@ export function TradsScreen({
               <div className="cell">
                 <Coverage context={context} />
               </div>
+              <Obsoletes target={target} context={context} readOnly={target.readOnly} />
               {!target.readOnly && (
                 <div className="actions">
                   <button

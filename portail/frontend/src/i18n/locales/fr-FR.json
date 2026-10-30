@@ -1193,9 +1193,18 @@
       "invalidName": "Nom technique invalide : minuscules, chiffres, tiret et souligné, en commençant par une lettre ou un chiffre.",
       "invalidLabel": "Libellé invalide : une seule ligne, 120 caractères au plus.",
       "unreadable": "Le fichier {{path}} n'est pas lisible : corrigez-le dans le dépôt.",
-      "unexpected": "L'opération n'a pas pu être effectuée."
+      "unexpected": "L'opération n'a pas pu être effectuée.",
+      "culture_du_workspace": "Cette culture fait encore partie du workspace : retirez-la des réglages avant de faire le ménage.",
+      "culture_sans_fichier": "Aucun fichier de traduction pour cette culture dans ce contexte."
     },
-    "openHint": "Ouvrir un contexte pour saisir ses clés."
+    "openHint": "Ouvrir un contexte pour saisir ses clés.",
+    "obsolete": {
+      "caption": "Cultures retirées",
+      "badge": "{{culture}} — {{count}} valeur(s)",
+      "clean": "Faire le ménage",
+      "title": "Retirer les traductions en {{culture}}",
+      "confirm": "{{count}} valeur(s) en {{culture}} vont disparaître du dépôt. Cette culture n'est plus dans les réglages du workspace : ses valeurs ne reviendront pas si vous la remettez."
+    }
   },
   "tradsKeys": {
     "title": "Traductions — {{context}}",

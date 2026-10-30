@@ -1,19 +1,29 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
-import { contextNameFrom } from "../api/trads";
+import { type TradsContext, contextNameFrom } from "../api/trads";
 import { type Routes, mockApi } from "@miles/socle-web/testing";
 import { CONFIGURED, HELD, SETTINGS, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/trads?branch=edition";
-const ACCUEIL = {
+const ACCUEIL: TradsContext = {
   name: "accueil",
   label: "Écrans d'accueil",
   keys: 2,
   translated: { "en-US": 2, "fr-FR": 1 },
+  obsolete: {},
 };
-const VIDE = { name: "vide", label: "Encore vide", keys: 0, translated: { "en-US": 0 } };
+const VIDE: TradsContext = {
+  name: "vide",
+  label: "Encore vide",
+  keys: 0,
+  translated: { "en-US": 0 },
+  obsolete: {},
+};
+// Une culture retirée du workspace dont le dépôt garde le fichier : c'est le seul
+// « obsolète » que le produit crée lui-même.
+const AVEC_OBSOLETE: TradsContext = { ...ACCUEIL, obsolete: { "ar-MA": 3 } };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -214,7 +224,9 @@ describe("TradsScreen", () => {
   it("names a directory that git carries without a declared label", async () => {
     routes({
       status: 200,
-      body: [{ name: "venu-dailleurs", label: "venu-dailleurs", keys: 1, translated: {} }],
+      body: [
+        { name: "venu-dailleurs", label: "venu-dailleurs", keys: 1, translated: {}, obsolete: {} },
+      ],
     });
     await openTrads();
 
@@ -250,5 +262,63 @@ describe("TradsScreen", () => {
     expect(screen.queryByText("Add a context")).not.toBeInTheDocument();
     expect(screen.queryByText("Delete")).not.toBeInTheDocument();
     expect(screen.queryByText("Rename")).not.toBeInTheDocument();
+  });
+});
+
+describe("TradsScreen — cultures retirées", () => {
+  it("counts what a culture left out of the workspace still holds", async () => {
+    routes({ status: 200, body: [AVEC_OBSOLETE] });
+    await openTrads();
+
+    expect(await screen.findByText("ar-MA — 3 value(s)")).toBeInTheDocument();
+  });
+
+  it("says the values will not come back before cleaning them up", async () => {
+    const calls = routes(
+      [
+        { status: 200, body: [AVEC_OBSOLETE] },
+        { status: 200, body: [ACCUEIL] },
+      ],
+      {
+        [`DELETE /api/workspaces/retrait/trads/accueil/obsolete/ar-MA?branch=edition`]: {
+          status: 200,
+          body: { keys: 0, values: 3 },
+        },
+      },
+    );
+    await openTrads();
+
+    fireEvent.click(await screen.findByText("Clean up"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("3 value(s) in ar-MA will disappear");
+    expect(dialog).toHaveTextContent(/will not come back if you add it again/);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clean up" }));
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.key.includes("/obsolete/ar-MA"))).toBe(true),
+    );
+  });
+
+  it("offers nothing to clean on a context whose cultures are all current", async () => {
+    routes({ status: 200, body: [ACCUEIL] });
+    await openTrads();
+    await screen.findByText("Écrans d'accueil");
+
+    expect(screen.queryByText("Clean up")).not.toBeInTheDocument();
+    expect(screen.queryByText("Removed cultures")).not.toBeInTheDocument();
+  });
+
+  it("offers no cleanup on a read-only branch", async () => {
+    mockApi({
+      ...SETTINGS,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      "GET /api/workspaces/retrait/holds": { status: 200, body: [] },
+      [`GET ${ROUTE}`]: { status: 200, body: [AVEC_OBSOLETE] },
+    });
+    await openTrads();
+
+    // Le compte reste visible — c'est une information, pas un geste.
+    expect(await screen.findByText("ar-MA — 3 value(s)")).toBeInTheDocument();
+    expect(screen.queryByText("Clean up")).not.toBeInTheDocument();
   });
 });

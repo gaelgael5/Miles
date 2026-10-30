@@ -40,6 +40,10 @@ class Context:
     # Clés traduites par culture, pour repérer d'un regard celui qui est en retard
     # (critère 7). Les cultures sont celles du WORKSPACE, pas celles de l'application.
     translated: dict[str, int]
+    # Cultures dont le dépôt porte un fichier alors que le workspace ne les retient plus,
+    # et combien de valeurs chacune garde. Retirer une culture ne détruit rien — c'est
+    # voulu —, mais sans ce compte personne ne saurait que ces fichiers existent encore.
+    obsolete: dict[str, int]
 
 
 class TradsFileError(Exception):
@@ -181,12 +185,19 @@ async def file_contexts(read: Read, paths: list[str], cultures: list[str]) -> li
     """
     contexts = []
     for name in contexts_in(paths):
-        declared = await file_context_keys(read, name, cultures_in(paths, name))
+        known = cultures_in(paths, name)
+        declared = await file_context_keys(read, name, known)
         translated = {}
         for culture in cultures:
             path = culture_file(name, culture)
             translated[culture] = len(declared & keys_of(path, await read(path)))
+        obsolete = {}
+        for culture in known:
+            if culture in cultures:
+                continue
+            path = culture_file(name, culture)
+            obsolete[culture] = len(keys_of(path, await read(path)))
         meta = context_file(name)
         label = label_of(meta, await read(meta), name)
-        contexts.append(Context(name, label, len(declared), translated))
+        contexts.append(Context(name, label, len(declared), translated, obsolete))
     return contexts

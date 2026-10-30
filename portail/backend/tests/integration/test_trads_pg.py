@@ -86,6 +86,7 @@ async def test_creating_a_context_makes_its_directory_in_the_branch(forge: Forge
         "label": "Écrans d'accueil",
         "keys": 0,
         "translated": {},
+        "obsolete": {},
     }
     assert "trads/accueil/contexte.yaml" in await _paths(forge)
     listed = (await forge.client.get(ROUTE, timeout=120)).json()
@@ -195,6 +196,7 @@ async def test_a_directory_present_in_git_without_a_declared_context_is_listed(
             "label": "venu-dailleurs",
             "keys": 1,
             "translated": {"en-US": 1},
+            "obsolete": {},
         }
     ]
 
@@ -354,3 +356,112 @@ async def test_each_gesture_is_journaled_with_the_context_and_the_branch(forge: 
 def _properties(raw: object) -> dict[str, object]:
     # asyncpg rend une colonne `jsonb` en CHAÎNE, pas en dictionnaire (LESSONS.md).
     return json.loads(raw) if isinstance(raw, str) else dict(raw)  # type: ignore[arg-type]
+
+
+# --- Faire le ménage des cultures retirées (Gael, 30/10/2026) ---
+
+
+async def test_a_culture_left_out_of_the_workspace_is_counted_as_obsolete(forge: Forge) -> None:
+    """Retirer une culture garde ses fichiers, exprès. Sans ce compte, personne ne saurait
+    qu'ils sont encore là."""
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(
+        forge,
+        {
+            "trads/accueil/en-US.yaml": "titre: Hello\n",
+            "trads/accueil/fr-FR.yaml": "titre: Bonjour\nadieu: Au revoir\n",
+        },
+    )
+    assert (await forge.client.delete(f"{CULTURES}/fr-FR")).status_code == 200
+
+    listed = (await forge.client.get(ROUTE, timeout=120)).json()
+
+    assert listed[0]["obsolete"] == {"fr-FR": 2}
+    assert "fr-FR" not in listed[0]["translated"]
+
+
+async def test_removing_an_obsolete_culture_takes_its_file_out_of_the_repository(
+    forge: Forge,
+) -> None:
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(
+        forge,
+        {
+            "trads/accueil/en-US.yaml": "titre: Hello\n",
+            "trads/accueil/fr-FR.yaml": "titre: Bonjour\nadieu: Au revoir\n",
+        },
+    )
+    await forge.client.delete(f"{CULTURES}/fr-FR")
+
+    removed = await forge.client.delete(f"{ROUTE}/accueil/obsolete/fr-FR", timeout=120)
+
+    assert removed.status_code == 200, removed.text
+    # Le nombre de valeurs perdues, pour que l'écran ait pu le dire avant de le faire.
+    assert removed.json() == {"keys": 0, "values": 2}
+    assert "trads/accueil/fr-FR.yaml" not in await _paths(forge)
+    # Le fichier de la culture ENCORE au workspace est intact.
+    assert "trads/accueil/en-US.yaml" in await _paths(forge)
+    assert (await forge.client.get(ROUTE, timeout=120)).json()[0]["obsolete"] == {}
+
+
+async def test_a_culture_still_in_the_workspace_cannot_be_cleaned_up(forge: Forge) -> None:
+    """Le geste est un NETTOYAGE : le laisser porter sur une traduction active en ferait
+    une destruction silencieuse."""
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(forge, {"trads/accueil/fr-FR.yaml": "titre: Bonjour\n"})
+
+    refused = await forge.client.delete(f"{ROUTE}/accueil/obsolete/fr-FR", timeout=120)
+
+    assert (refused.status_code, refused.json()["detail"]) == (409, "culture_du_workspace")
+    assert "trads/accueil/fr-FR.yaml" in await _paths(forge)
+
+
+async def test_the_default_culture_cannot_be_cleaned_up_either(forge: Forge) -> None:
+    await _add(forge)
+    await _seed(forge, {"trads/accueil/en-US.yaml": "titre: Hello\n"})
+
+    refused = await forge.client.delete(f"{ROUTE}/accueil/obsolete/en-US", timeout=120)
+
+    assert (refused.status_code, refused.json()["detail"]) == (409, "culture_du_workspace")
+
+
+async def test_cleaning_a_culture_without_any_file_is_a_named_refusal(forge: Forge) -> None:
+    await _add(forge)
+
+    answered = await forge.client.delete(f"{ROUTE}/accueil/obsolete/th-TH", timeout=120)
+
+    assert (answered.status_code, answered.json()["detail"]) == (409, "culture_sans_fichier")
+
+
+@pytest.mark.parametrize("hostile", ["..", "FR", "fr_FR"])
+async def test_cleaning_through_a_hostile_culture_code_is_refused(
+    forge: Forge, hostile: str
+) -> None:
+    """Le code devient un segment de `trads/<contexte>/<culture>.yaml`, et la suppression
+    écrit : il ne doit jamais viser un fichier hors de `trads/`."""
+    answered = await forge.client.delete(f"{ROUTE}/accueil/obsolete/{hostile}", timeout=120)
+
+    assert answered.status_code in (404, 422)
+
+
+async def test_cleaning_an_obsolete_culture_is_journaled(forge: Forge) -> None:
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(forge, {"trads/accueil/fr-FR.yaml": "titre: Bonjour\n"})
+    await forge.client.delete(f"{CULTURES}/fr-FR")
+
+    await forge.client.delete(f"{ROUTE}/accueil/obsolete/fr-FR", timeout=120)
+
+    row = await forge.portal.pool.fetchrow(
+        "SELECT properties FROM events WHERE type = 'trads_context.obsolete_removed'"
+    )
+    assert row is not None
+    properties = _properties(row["properties"])
+    assert (properties["context"], properties["culture"], properties["values"]) == (
+        "accueil",
+        "fr-FR",
+        1,
+    )

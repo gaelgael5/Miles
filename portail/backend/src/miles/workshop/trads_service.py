@@ -26,7 +26,7 @@ from miles.workshop.trads import (
     keys_of,
     label_of,
 )
-from miles.workspaces.cultures import db_cultures
+from miles.workspaces.cultures import checked_culture, db_cultures
 from miles.workspaces.model import WorkspaceConflictError, WorkspaceInputError
 
 log = structlog.get_logger(__name__)
@@ -34,7 +34,8 @@ log = structlog.get_logger(__name__)
 CREATED_EVENT = "trads_context.created"
 RELABELLED_EVENT = "trads_context.relabelled"
 DELETED_EVENT = "trads_context.deleted"
-EVENT_TYPES = frozenset({CREATED_EVENT, RELABELLED_EVENT, DELETED_EVENT})
+OBSOLETE_REMOVED_EVENT = "trads_context.obsolete_removed"
+EVENT_TYPES = frozenset({CREATED_EVENT, RELABELLED_EVENT, DELETED_EVENT, OBSOLETE_REMOVED_EVENT})
 
 
 class ContextTakenError(WorkspaceConflictError):
@@ -163,6 +164,47 @@ class TradsService:
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
             return await _removal(copy, name, await _must_exist(copy, name))
+
+    async def resolve_delete_obsolete(
+        self,
+        author: EventAuthor,
+        workspace_id: str,
+        name: str,
+        culture: str,
+        *,
+        branch: str | None = None,
+    ) -> tuple[str, int]:
+        """Supprime le fichier d'une culture que le workspace ne retient plus.
+
+        C'est le seul « obsolète » que le produit crée lui-même : retirer une culture
+        garde ses fichiers, exprès, pour ne pas détruire un travail de traduction en
+        décochant une case — mais rien ne permettait ensuite de faire le ménage.
+
+        Une culture ENCORE au workspace est refusée : le geste est un nettoyage, et le
+        laisser porter sur une traduction active en ferait une destruction silencieuse.
+        """
+        name, culture = _checked_name(name), checked_culture(culture)
+        cultures = await db_cultures(self.pool, workspace_id)
+        if culture in cultures.all:
+            raise WorkspaceConflictError("culture_du_workspace")
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
+            paths = await _must_exist(copy, name)
+            if culture not in cultures_in(paths, name):
+                raise WorkspaceConflictError("culture_sans_fichier")
+            path = culture_file(name, culture)
+            values = len(keys_of(path, await copy.read(path)))
+            await copy.remove(path)
+            commit = await self.branches.commit(
+                copy, f"Retrait des traductions {name}/{culture}", author
+            )
+            properties = {"context": name, "culture": culture, "values": values}
+            await self._event(OBSOLETE_REMOVED_EVENT, workspace_id, author, copy, properties)
+        log.info(
+            "trads_culture_obsolete_retiree", workspace=workspace_id, context=name, culture=culture
+        )
+        return commit, values
 
     async def _event(
         self,

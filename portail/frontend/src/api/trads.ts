@@ -16,6 +16,12 @@ export interface TradsContext {
   keys: number;
   /** Clés traduites par culture du workspace ; rapporté à `keys`, c'est la couverture. */
   translated: Record<string, number>;
+  /**
+   * Cultures retirées du workspace dont le dépôt garde encore un fichier, et le nombre de
+   * valeurs de chacune. Retirer une culture ne détruit rien — c'est voulu —, mais sans ce
+   * compte personne ne saurait que ces fichiers existent encore.
+   */
+  obsolete: Record<string, number>;
 }
 
 /** Ce qu'une suppression emporterait : la confirmation l'annonce avant de la demander. */
@@ -65,6 +71,18 @@ export function useRelabelTradsContext(target: WorkTarget) {
       request<TradsContext>(atBranch(target, KIND, input.name), {
         method: "PUT",
         body: JSON.stringify({ label: input.label }),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: branchKey(KIND, target) }),
+  });
+}
+
+/** Retire le fichier d'une culture que le workspace ne retient plus. */
+export function useCleanObsoleteCulture(target: WorkTarget) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { context: string; culture: string }) =>
+      request<Removal>(atBranch(target, KIND, input.context, "obsolete", input.culture), {
+        method: "DELETE",
       }),
     onSuccess: () => client.invalidateQueries({ queryKey: branchKey(KIND, target) }),
   });
