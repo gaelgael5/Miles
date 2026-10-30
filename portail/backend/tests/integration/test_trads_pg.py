@@ -14,6 +14,7 @@ pytestmark = pytest.mark.integration
 
 ROUTE = "/api/workspaces/retrait/trads"
 CULTURES = "/api/workspaces/retrait/cultures"
+TRADS_DIR = "trads"
 
 
 @pytest.fixture
@@ -28,8 +29,12 @@ async def _add(
     return await forge.client.post(ROUTE, json={"name": name, "label": label}, timeout=120)
 
 
-async def _paths(forge: Forge) -> list[str]:
-    """Le contenu réel de la branche, lu à la forge : le dépôt fait foi.
+async def _files(forge: Forge, context: str = "accueil") -> list[str]:
+    """Les fichiers que le dépôt porte sous `trads/<context>/`, ou rien s'il n'existe pas.
+
+    Par l'API `contents`, dont le `ref` est en QUERY : `git/trees/{ref}` prend le ref dans
+    le CHEMIN, et les slashes de `back/retrait/edition` y cassaient l'URL — Gitea rendait
+    404 sur l'adresse elle-même, pas sur la branche. Mesuré, pas déduit.
 
     Publie d'abord : l'administrateur a la main sur la branche, et ses commits restent
     locaux jusque-là (story 9def0adc). Lire la forge sans publier mesurerait l'état
@@ -38,11 +43,13 @@ async def _paths(forge: Forge) -> list[str]:
     if forge.held:
         await forge.publish()
     listed = await forge.api.get(
-        f"/api/v1/repos/miles/{forge.name}/git/trees/{forge.edited}",
-        params={"recursive": "true"},
+        f"/api/v1/repos/miles/{forge.name}/contents/{TRADS_DIR}/{context}",
+        params={"ref": forge.edited},
     )
+    if listed.status_code == 404:
+        return []
     assert listed.status_code == 200, listed.text
-    return [e["path"] for e in listed.json()["tree"]]
+    return sorted(entry["name"] for entry in listed.json())
 
 
 async def _seed(forge: Forge, files: dict[str, str]) -> None:
@@ -88,7 +95,7 @@ async def test_creating_a_context_makes_its_directory_in_the_branch(forge: Forge
         "translated": {},
         "obsolete": {},
     }
-    assert "trads/accueil/contexte.yaml" in await _paths(forge)
+    assert await _files(forge) == ["contexte.yaml"]
     listed = (await forge.client.get(ROUTE, timeout=120)).json()
     assert [(c["name"], c["label"]) for c in listed] == [("accueil", "Écrans d'accueil")]
 
@@ -104,7 +111,8 @@ async def test_invalid_technical_name_is_refused_before_touching_the_repository(
 
     assert refused.status_code == 422
     assert refused.json()["detail"] == {"field": "name", "reason": "forme"}
-    assert not [p for p in await _paths(forge) if p.startswith("trads/") and p != "trads"]
+    # Rien n'a été créé : la liste que l'écran voit est toujours vide.
+    assert (await forge.client.get(ROUTE, timeout=120)).json() == []
 
 
 async def test_technical_name_already_taken_names_the_existing_context(forge: Forge) -> None:
@@ -232,7 +240,7 @@ async def test_deleting_an_empty_context_removes_its_directory(forge: Forge) -> 
 
     assert removed.status_code == 200, removed.text
     assert removed.json() == {"keys": 0, "values": 0}
-    assert "trads/vide/contexte.yaml" not in await _paths(forge)
+    assert await _files(forge, "vide") == []
     assert (await forge.client.get(ROUTE, timeout=120)).json() == []
 
 
@@ -271,7 +279,7 @@ async def test_deleting_a_populated_context_takes_every_culture_file_with_it(
     removed = await forge.client.delete(f"{ROUTE}/accueil", timeout=120)
 
     assert removed.json() == {"keys": 2, "values": 3}
-    assert [p for p in await _paths(forge) if p.startswith("trads/accueil")] == []
+    assert await _files(forge) == []
 
 
 async def test_deleting_one_context_leaves_the_others_untouched(forge: Forge) -> None:
@@ -294,11 +302,14 @@ async def test_deleting_an_unknown_context_is_a_named_refusal(forge: Forge) -> N
 
 @pytest.mark.parametrize("hostile", ["..", "a%2Fb"])
 async def test_deleting_through_a_hostile_name_is_refused(forge: Forge, hostile: str) -> None:
+    await _add(forge)
+
     answered = await forge.client.delete(f"{ROUTE}/{hostile}", timeout=120)
 
     # Refus, jamais une suppression hors de `trads/` : 404 si la route ne correspond pas,
-    # 422 si le nom atteint la garde de forme.
+    # 422 si le nom atteint la garde de forme. Et le contexte voisin est intact.
     assert answered.status_code in (404, 422)
+    assert await _files(forge) == ["contexte.yaml"]
 
 
 # --- La branche, les droits, le journal ---
@@ -400,9 +411,7 @@ async def test_removing_an_obsolete_culture_takes_its_file_out_of_the_repository
     assert removed.status_code == 200, removed.text
     # Le nombre de valeurs perdues, pour que l'écran ait pu le dire avant de le faire.
     assert removed.json() == {"keys": 0, "values": 2}
-    assert "trads/accueil/fr-FR.yaml" not in await _paths(forge)
-    # Le fichier de la culture ENCORE au workspace est intact.
-    assert "trads/accueil/en-US.yaml" in await _paths(forge)
+    assert await _files(forge) == ["contexte.yaml", "en-US.yaml"]
     assert (await forge.client.get(ROUTE, timeout=120)).json()[0]["obsolete"] == {}
 
 
@@ -416,7 +425,7 @@ async def test_a_culture_still_in_the_workspace_cannot_be_cleaned_up(forge: Forg
     refused = await forge.client.delete(f"{ROUTE}/accueil/obsolete/fr-FR", timeout=120)
 
     assert (refused.status_code, refused.json()["detail"]) == (409, "culture_du_workspace")
-    assert "trads/accueil/fr-FR.yaml" in await _paths(forge)
+    assert "fr-FR.yaml" in await _files(forge)
 
 
 async def test_the_default_culture_cannot_be_cleaned_up_either(forge: Forge) -> None:
