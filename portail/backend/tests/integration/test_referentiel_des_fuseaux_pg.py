@@ -94,7 +94,9 @@ async def test_chaque_fuseau_porte_tous_ses_pays_dans_l_ordre_d_iana(
 
         assert fuseaux["Asia/Dubai"] == ["ARE", "OMN", "REU", "SYC", "ATF"]
         assert fuseaux["Europe/Brussels"] == ["BEL", "LUX", "NLD"]
-        assert fuseaux["Europe/Paris"] == ["FRA"]
+        # Et Monaco avec la France : lu dans la table IANA (`FR,MC`), pas de mémoire. Ce
+        # test a d'abord affirmé « FRA » seul, et c'est la campagne qui a corrigé l'auteur.
+        assert fuseaux["Europe/Paris"] == ["FRA", "MCO"]
         # Jamais vide : la table IANA donne au moins un pays à chacune de ses zones.
         assert [slug for slug, pays in fuseaux.items() if not pays] == []
 
