@@ -98,7 +98,8 @@
       "transformations": "Transformations",
       "storages": "Storages",
       "sources": "Sources de données",
-      "branchGraph": "Branches"
+      "branchGraph": "Branches",
+      "trads": "Traductions"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -1143,6 +1144,49 @@
       "unreachable": "Les cultures de ce workspace n'ont pas pu être lues.",
       "catalogue": "Le catalogue des cultures n'a pas pu être lu.",
       "unexpected": "Le changement n'a pas pu être enregistré."
+    }
+  },
+  "trads": {
+    "title": "Traductions",
+    "intro": "Les contextes de traduction de cette branche. Un contexte regroupe les clés d'un même usage, et il est le répertoire sous lequel elles vivent.",
+    "add": "Ajouter un contexte",
+    "keys": "Clés",
+    "empty": "Vide",
+    "none": "Aucun contexte de traduction sur cette branche.",
+    "loading": "Lecture des contextes…",
+    "coverageTitle": "Clés traduites en {{culture}}",
+    "fields": {
+      "label": "Libellé",
+      "name": "Nom technique"
+    },
+    "form": {
+      "title": "Nouveau contexte",
+      "submit": "Créer le contexte",
+      "cancel": "Annuler",
+      "nameHelp": "Nom du répertoire dans le dépôt, et ce que le paramétrage référencera : il est figé après création. Minuscules, chiffres, tiret et souligné."
+    },
+    "relabel": {
+      "action": "Renommer",
+      "title": "Libellé de {{name}}",
+      "submit": "Enregistrer le libellé"
+    },
+    "remove": {
+      "action": "Supprimer",
+      "title": "Supprimer « {{label}} »",
+      "submit": "Supprimer le contexte",
+      "counting": "Lecture de ce que la suppression emporte…",
+      "empty": "« {{label}} » ne contient aucune clé.",
+      "populated": "{{keys}} clé(s) et {{values}} valeur(s), toutes cultures confondues, vont disparaître.",
+      "revertible": "C'est un commit sur la branche de travail : la suppression se relit, se revoit et se défait comme toute autre modification du paramétrage."
+    },
+    "errors": {
+      "taken": "Ce nom technique est déjà pris par le contexte « {{label}} ».",
+      "contexte_inconnu": "Ce contexte n'existe pas sur cette branche.",
+      "branche_racine_lecture_seule": "La branche racine est en lecture seule : travaillez dans une branche enfant.",
+      "invalidName": "Nom technique invalide : minuscules, chiffres, tiret et souligné, en commençant par une lettre ou un chiffre.",
+      "invalidLabel": "Libellé invalide : une seule ligne, 120 caractères au plus.",
+      "unreadable": "Le fichier {{path}} n'est pas lisible : corrigez-le dans le dépôt.",
+      "unexpected": "L'opération n'a pas pu être effectuée."
     }
   }
 }

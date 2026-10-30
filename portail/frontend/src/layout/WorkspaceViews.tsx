@@ -17,6 +17,9 @@ const VIEWS: WorkspaceView[] = [
   // comment on le remplit (Gael, 24/10/2026 — deux notions distinctes).
   "storages",
   "sources",
+  // Le référentiel de traductions (story 623898d1) : en dernier, c'est un magasin de
+  // libellés, pas une étape du pipeline de données.
+  "trads",
 ];
 const SENSES: Direction[] = ["interne", "externe"];
 

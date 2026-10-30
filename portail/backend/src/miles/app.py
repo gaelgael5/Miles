@@ -89,6 +89,7 @@ from miles.workshop.api_branches import views_router as branch_views_router
 from miles.workshop.api_domains import router as domains_router
 from miles.workshop.api_holds import me_router as my_shelves_router
 from miles.workshop.api_holds import router as holds_router
+from miles.workshop.api_trads import router as trads_router
 from miles.workshop.api_workshop import router as workshop_router
 from miles.workshop.branches import BranchesService
 from miles.workshop.domains_service import DomainsService
@@ -97,6 +98,7 @@ from miles.workshop.service import WorkshopService
 from miles.workshop.shelving import ShelvesService
 from miles.workshop.target import WorkBranches
 from miles.workshop.targeted import TargetedReads
+from miles.workshop.trads_service import TradsService
 from miles.workspaces.api_workspace_cultures import router as workspace_cultures_router
 from miles.workspaces.api_workspaces import router as workspaces_router
 from miles.workspaces.cultures_service import WorkspaceCulturesService
@@ -226,6 +228,7 @@ def create_app() -> FastAPI:
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
         app.state.storages = StoragesService(pool, branches, catalog, utc_now)
         app.state.workspace_cultures = WorkspaceCulturesService(pool, branches, catalog, utc_now)
+        app.state.trads = TradsService(pool, branches, catalog, utc_now)
         app.state.api_keys = ApiKeysService(pool, catalog, utc_now)
         app.state.public_url = settings.public_url
         app.state.oauth_clients = OAuthClientsService(pool, catalog, utc_now)
@@ -310,6 +313,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(security_router)
     app.include_router(workspaces_router)
     app.include_router(workspace_cultures_router)
+    app.include_router(trads_router)
     app.include_router(connections_router)
     app.include_router(countries_router)
     app.include_router(timezones_router)

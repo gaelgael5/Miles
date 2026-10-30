@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
+
 import yaml
 
 from miles.workshop.reading import Read
+from miles.workspaces.cultures import CULTURE_RE
 
 # Référentiel de traductions du paramétrage (feature 52edade7) : `trads/<contexte>/<culture>.yaml`.
 # Un fichier par contexte ET par culture, décidé à la feature : le diff ne montre alors
@@ -12,6 +16,30 @@ from miles.workshop.reading import Read
 # monde et deux traductions simultanées entreraient en conflit sur chaque clé.
 TRADS = "trads/"
 _SUFFIX = ".yaml"
+# Métadonnées du contexte : son LIBELLÉ, qui n'existe que pour l'humain. Dans le dépôt et
+# non en base, parce que le dépôt fait foi (story 623898d1, critère 9) — une liste de
+# contextes en base pourrait contredire ce qu'une branche contient.
+CONTEXT_FILE = "contexte.yaml"
+# Le nom technique d'un contexte est un nom de RÉPERTOIRE, et il entre dans tout ce qui
+# référencera ses clés. Refusé avant tout usage en chemin : ni `.`, ni `..`, ni séparateur,
+# donc jamais un chemin hors de `trads/`. Même jeu de caractères que le slug d'un domaine.
+CONTEXT_RE = re.compile(r"[a-z0-9][a-z0-9_-]{0,62}")
+LABEL_MAX = 120
+_FORMAT_VERSION = 1
+
+
+@dataclass(frozen=True)
+class Context:
+    """Un contexte tel que la branche le porte."""
+
+    name: str
+    # Le nom technique quand aucun libellé n'est déclaré : un répertoire créé à la main,
+    # ou venu d'une autre branche, apparaît quand même (critère 9).
+    label: str
+    keys: int
+    # Clés traduites par culture, pour repérer d'un regard celui qui est en retard
+    # (critère 7). Les cultures sont celles du WORKSPACE, pas celles de l'application.
+    translated: dict[str, int]
 
 
 class TradsFileError(Exception):
@@ -31,6 +59,50 @@ def culture_file(context: str, culture: str) -> str:
     return f"{TRADS}{context}/{culture}{_SUFFIX}"
 
 
+def context_file(context: str) -> str:
+    return f"{TRADS}{context}/{CONTEXT_FILE}"
+
+
+def checked_context(name: str) -> str:
+    if not CONTEXT_RE.fullmatch(name):
+        raise ValueError("nom de contexte invalide")
+    return name
+
+
+def checked_label(label: str) -> str:
+    """Le libellé est pour l'humain : une ligne, et rien qui fausse un affichage."""
+    label = label.strip()
+    if not label or len(label) > LABEL_MAX or any(c in label for c in "\n\r\x00"):
+        raise ValueError("libellé de contexte invalide")
+    return label
+
+
+def context_text(label: str) -> str:
+    return yaml.safe_dump(
+        {"format_version": _FORMAT_VERSION, "label": label},
+        allow_unicode=True,
+        sort_keys=True,
+    )
+
+
+def label_of(path: str, content: str | None, name: str) -> str:
+    """Le libellé déclaré, ou le nom technique à défaut.
+
+    Repli volontaire sur le nom : un répertoire créé à la main n'a pas ce fichier, et il
+    doit apparaître dans la liste plutôt que disparaître ou faire échouer la lecture.
+    """
+    if content is None:
+        return name
+    try:
+        data = yaml.safe_load(content)
+    except yaml.YAMLError as exc:
+        raise TradsFileError(path, "yaml illisible") from exc
+    if not isinstance(data, dict):
+        raise TradsFileError(path, "une mappe est attendue")
+    label = data.get("label")
+    return label if isinstance(label, str) and label.strip() else name
+
+
 def contexts_in(paths: list[str]) -> list[str]:
     """Les contextes d'une branche : les répertoires de `trads/`, vides compris."""
     return sorted({p.split("/")[1] for p in paths if p.startswith(TRADS) and p.count("/") >= 2})
@@ -43,11 +115,15 @@ def cultures_in(paths: list[str], context: str) -> list[str]:
     à ses valeurs de réapparaître telles quelles si on la remet (critère 8).
     """
     prefix = f"{TRADS}{context}/"
-    return sorted(
+    names = (
         p[len(prefix) : -len(_SUFFIX)]
         for p in paths
         if p.startswith(prefix) and p.endswith(_SUFFIX) and "/" not in p[len(prefix) :]
     )
+    # Filtré sur la FORME d'un code de culture, et non sur une liste de noms à exclure :
+    # c'est ce qui écarte d'un coup `contexte.yaml` et tout fichier parasite, sans qu'un
+    # fichier de métadonnées ajouté plus tard soit compté comme une langue.
+    return sorted(n for n in names if CULTURE_RE.fullmatch(n))
 
 
 def keys_of(path: str, content: str | None) -> set[str]:
@@ -94,3 +170,23 @@ async def file_missing_keys(read: Read, paths: list[str], culture: str) -> int:
         path = culture_file(context, culture)
         missing += len(declared - keys_of(path, await read(path)))
     return missing
+
+
+async def file_contexts(read: Read, paths: list[str], cultures: list[str]) -> list[Context]:
+    """Les contextes de la branche, avec leur libellé, leur nombre de clés et leur couverture.
+
+    `cultures` : celles du workspace. Une culture du dépôt qui n'y est plus n'apparaît pas
+    dans la couverture, mais ses clés comptent toujours parmi celles du contexte — son
+    fichier est resté, et c'est voulu.
+    """
+    contexts = []
+    for name in contexts_in(paths):
+        declared = await file_context_keys(read, name, cultures_in(paths, name))
+        translated = {}
+        for culture in cultures:
+            path = culture_file(name, culture)
+            translated[culture] = len(declared & keys_of(path, await read(path)))
+        meta = context_file(name)
+        label = label_of(meta, await read(meta), name)
+        contexts.append(Context(name, label, len(declared), translated))
+    return contexts

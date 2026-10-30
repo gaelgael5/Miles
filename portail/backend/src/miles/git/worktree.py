@@ -50,6 +50,10 @@ SKELETON = (
     # Storages (story 844f15ad) : les collections d'objets stockés en base. Leur
     # DÉCLARATION est du paramétrage, donc dans git ; les objets, eux, vont en base.
     "storages",
+    # Référentiel de traductions (story 623898d1) : un répertoire par contexte, à la
+    # racine pour la même raison. Le répertoire `trads/` naît avec la branche ; ses
+    # SOUS-répertoires naissent avec chaque contexte.
+    "trads",
 )
 # Fichiers que poussent les forges ou les outils à la création d'un dépôt : un dépôt qui
 # n'a qu'eux est vierge, pas « non conforme ».
@@ -172,8 +176,10 @@ def _allowed(parts: list[str]) -> bool:
         return top == MANIFEST or top in _TOLERATED_ROOT
     if top == ".github":
         return True
-    if top in ("contracts", "transformations", "sources", "storages"):
+    if top in ("contracts", "transformations", "sources", "storages", "trads"):
         # Le contenu d'une chaîne se vérifie avec la chaîne (validation de la branche).
+        # Idem pour `trads/` : sans cette ligne, chaque fichier de traduction serait
+        # rapporté comme un « emplacement inattendu » par la validation de branche.
         return True
     if top == "shared":
         return parts[1] in _SHARED or parts[1] == ".gitkeep"

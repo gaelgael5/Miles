@@ -166,7 +166,8 @@ async def test_child_branch_deleted_outside_miles_is_named(forge: Forge) -> None
 
 
 async def test_workspace_without_base_branch_cannot_have_children(forge: Forge) -> None:
-    created = await forge.client.post("/api/workspaces", json={"id": "caisse", "name": "Caisse"})
+    body = {"id": "caisse", "name": "Caisse", "default_culture": "en-US"}
+    created = await forge.client.post("/api/workspaces", json=body)
     assert created.status_code == 201
 
     refused = await forge.client.post(

@@ -19,6 +19,7 @@ import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
 import { StorageScreen } from "./StorageScreen";
 import { StoragesScreen } from "./StoragesScreen";
+import { TradsScreen } from "./TradsScreen";
 
 /** Une vue de branche s'affiche-t-elle ? Non pour le paramétrage, ni sans branche de base. */
 export function hasBranchScreen(workspace: Workspace, selection: NonNullable<WorkspaceSelection>) {
@@ -176,6 +177,9 @@ function viewScreen(
         onBack={() => onSelect({ id: workspace.id, view: "storages", branch })}
       />
     );
+  }
+  if (selection.view === "trads") {
+    return <TradsScreen key={key} target={target} onBack={back} />;
   }
   if (selection.view === "storages") {
     return (

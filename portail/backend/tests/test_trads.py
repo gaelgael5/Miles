@@ -6,11 +6,16 @@ import pytest
 
 from miles.workshop.trads import (
     TradsFileError,
+    checked_context,
+    checked_label,
+    context_text,
     contexts_in,
     culture_file,
     cultures_in,
+    file_contexts,
     file_missing_keys,
     keys_of,
+    label_of,
 )
 
 PATHS = [
@@ -94,3 +99,91 @@ async def test_file_missing_keys_counts_every_key_for_a_culture_without_any_file
 async def test_file_missing_keys_zero_when_the_branch_has_no_trads_at_all() -> None:
     """État d'un dépôt avant tout contexte : le changement de culture par défaut passe."""
     assert await file_missing_keys(_read, ["manifest.yaml"], "th-TH") == 0
+
+
+# --- Contextes (story 623898d1) ---
+
+
+def test_cultures_in_ignores_the_context_metadata_file() -> None:
+    """Filtré sur la FORME d'un code de culture : `contexte` n'en est pas un."""
+    paths = ["trads/accueil/contexte.yaml", "trads/accueil/fr-FR.yaml", "trads/accueil/notes.yaml"]
+
+    assert cultures_in(paths, "accueil") == ["fr-FR"]
+
+
+@pytest.mark.parametrize("name", ["accueil", "a", "mes-ecrans", "lot_2", "x9"])
+def test_checked_context_accepts_a_directory_slug(name: str) -> None:
+    assert checked_context(name) == name
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    ["../evasion", "accueil/..", "a/b", ".", "..", "Accueil", "mes écrans", "été", "", "ok\n"],
+)
+def test_checked_context_refuses_what_could_leave_the_trads_directory(hostile: str) -> None:
+    with pytest.raises(ValueError, match="nom de contexte invalide"):
+        checked_context(hostile)
+
+
+def test_checked_label_trims_and_keeps_accents_and_non_latin_glyphs() -> None:
+    assert checked_label("  Écrans d'accueil  ") == "Écrans d'accueil"
+    assert checked_label("หน้าแรก") == "หน้าแรก"
+
+
+@pytest.mark.parametrize("hostile", ["", "   ", "sur\ndeux lignes", "x" * 121, "nul\x00"])
+def test_checked_label_refuses_what_would_break_a_display(hostile: str) -> None:
+    with pytest.raises(ValueError, match="libellé de contexte invalide"):
+        checked_label(hostile)
+
+
+def test_context_text_reads_back_the_label_unchanged() -> None:
+    text = context_text("Écrans d'accueil — مرحبا")
+
+    assert label_of("p", text, "accueil") == "Écrans d'accueil — مرحبا"
+
+
+def test_label_of_falls_back_on_the_technical_name_when_no_metadata() -> None:
+    """Un répertoire créé à la main apparaît dans la liste (critère 9)."""
+    assert label_of("p", None, "accueil") == "accueil"
+
+
+@pytest.mark.parametrize("content", ["label: ''\n", "label: '   '\n", "label: 42\n", "autre: x\n"])
+def test_label_of_falls_back_when_the_declared_label_is_unusable(content: str) -> None:
+    assert label_of("p", content, "accueil") == "accueil"
+
+
+def test_label_of_unreadable_metadata_is_named() -> None:
+    with pytest.raises(TradsFileError, match="illisible"):
+        label_of("p", "label: [non fermé\n", "accueil")
+
+
+def test_label_of_non_mapping_metadata_is_named() -> None:
+    with pytest.raises(TradsFileError, match="mappe"):
+        label_of("p", "- accueil\n", "accueil")
+
+
+async def test_file_contexts_counts_keys_and_coverage_per_workspace_culture() -> None:
+    contexts = await file_contexts(_read, PATHS, ["fr-FR", "ar-MA", "th-TH"])
+
+    assert [(c.name, c.keys) for c in contexts] == [("accueil", 2), ("erreurs", 1), ("vide", 0)]
+    accueil = contexts[0]
+    assert accueil.translated == {"fr-FR": 2, "ar-MA": 1, "th-TH": 0}
+    # Pas de fichier de métadonnées dans le jeu : le nom technique fait office de libellé.
+    assert accueil.label == "accueil"
+
+
+async def test_file_contexts_empty_context_is_zero_on_zero_not_fully_covered() -> None:
+    """Zéro clé traduite sur zéro clé n'est pas une bonne nouvelle (critère 8)."""
+    vide = (await file_contexts(_read, PATHS, ["fr-FR"]))[2]
+
+    assert (vide.name, vide.keys, vide.translated) == ("vide", 0, {"fr-FR": 0})
+
+
+async def test_file_contexts_ignores_a_culture_of_the_repository_left_out_of_the_workspace() -> (
+    None
+):
+    """ar-MA a un fichier mais n'est plus du workspace : hors couverture, clés comptées."""
+    accueil = (await file_contexts(_read, PATHS, ["fr-FR"]))[0]
+
+    assert accueil.keys == 2
+    assert accueil.translated == {"fr-FR": 2}

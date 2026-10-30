@@ -98,7 +98,8 @@
       "transformations": "Transformations",
       "storages": "Storages",
       "sources": "Data sources",
-      "branchGraph": "Branches"
+      "branchGraph": "Branches",
+      "trads": "Translations"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -1143,6 +1144,49 @@
       "unreachable": "This workspace's cultures could not be read.",
       "catalogue": "The culture catalogue could not be read.",
       "unexpected": "The change could not be saved."
+    }
+  },
+  "trads": {
+    "title": "Translations",
+    "intro": "The translation contexts of this branch. A context groups the keys of one same use, and it is the directory they live under.",
+    "add": "Add a context",
+    "keys": "Keys",
+    "empty": "Empty",
+    "none": "No translation context on this branch.",
+    "loading": "Reading contexts…",
+    "coverageTitle": "Keys translated into {{culture}}",
+    "fields": {
+      "label": "Label",
+      "name": "Technical name"
+    },
+    "form": {
+      "title": "New context",
+      "submit": "Create the context",
+      "cancel": "Cancel",
+      "nameHelp": "The directory name in the repository, and what the configuration will reference: it is frozen after creation. Lowercase, digits, hyphen and underscore."
+    },
+    "relabel": {
+      "action": "Rename",
+      "title": "Label of {{name}}",
+      "submit": "Save the label"
+    },
+    "remove": {
+      "action": "Delete",
+      "title": "Delete “{{label}}”",
+      "submit": "Delete the context",
+      "counting": "Reading what the deletion takes with it…",
+      "empty": "“{{label}}” holds no key.",
+      "populated": "{{keys}} key(s) and {{values}} value(s), across every culture, will disappear.",
+      "revertible": "This is a commit on the work branch: the deletion is reviewed, read back and undone like any other configuration change."
+    },
+    "errors": {
+      "taken": "That technical name is already taken by the context “{{label}}”.",
+      "contexte_inconnu": "That context does not exist on this branch.",
+      "branche_racine_lecture_seule": "The root branch is read-only: work in a child branch.",
+      "invalidName": "Invalid technical name: lowercase, digits, hyphen and underscore, starting with a letter or a digit.",
+      "invalidLabel": "Invalid label: a single line, 120 characters at most.",
+      "unreadable": "File {{path}} cannot be read: fix it in the repository.",
+      "unexpected": "The operation could not be completed."
     }
   }
 }

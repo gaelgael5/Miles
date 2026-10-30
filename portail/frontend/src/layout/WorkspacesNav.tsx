@@ -15,7 +15,8 @@ export type WorkspaceView =
   | "contracts"
   | "transformations"
   | "storages"
-  | "sources";
+  | "sources"
+  | "trads";
 /**
  * Ce qu'affiche l'écran Workspaces : la liste (null), le paramétrage d'un workspace, ou
  * une vue d'une de ses branches de travail (`branch`, son slug) — l'un de ses contrats
