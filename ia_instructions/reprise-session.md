@@ -401,6 +401,82 @@ déjà écrits — l'historique de chaque appariement se couperait en deux — p
 d'un nom plus juste. C'est dit en commentaire à la table et au modèle, pour que personne ne
 le lise comme un oubli.
 
+## Les connexions git confiées au module d'enrôlement (30/10, ticket `edcf78bc`)
+
+**Ce qui donne enfin un contenu à l'appariement du module de paramétrage.** « On ne va pas
+s'amuser à rentrer plusieurs fois les infos de connexion git » (Gael, 27/10) : elles sont
+saisies une fois dans le portail, et elles arrivent chez l'enrôlement sans que personne ne
+retape rien.
+
+**La décision de sécurité qui porte le ticket : le secret s'arrête au module
+d'enrôlement.** Un module d'environnement n'en reçoit jamais le credential — il lira git
+par un relais, reporté par Gael. Deux propriétés en découlent, et ce sont elles qui
+justifient la chaîne plutôt qu'une distribution : un environnement compromis ne livre pas
+l'accès au dépôt, et un environnement révoqué perd son accès à git sans qu'on révoque quoi
+que ce soit chez la forge.
+
+**Le paramétrage POUSSE, et c'est lui qui a l'information.** Le ticket laissait le sens
+libre. Celui qui sait quand une valeur change est celui qui détient le clair : poussant, il
+transmet au moment du changement. Si l'enrôlement interrogeait, il faudrait qu'il sache
+quand demander — donc qu'il tienne pour vrai, entre deux interrogations, un credential déjà
+remplacé — et toute lecture de git dépendrait de la disponibilité du portail.
+
+**C'est l'ÉTAT COMPLET qui part, jamais un écart.** Un écart exige un ordre, un accusé et
+une file à rejouer ; l'état converge de lui-même, et la **suppression d'une connexion n'a
+pas de message à elle** — absente de l'état, elle est détruite là-bas. Une révision
+strictement croissante, allouée au moment où l'état est lu, fait refuser une photo ancienne
+arrivée en retard.
+
+**Trois verrous pour l'interdit central, et aucun ne remplace les autres :**
+
+1. l'appel est signé par la clé du pair apparié ;
+2. l'**espèce** du pair est vérifiée avant toute écriture, et le refus la nomme
+   (`espece_sans_connexions_git`) ;
+3. la **base** refuse, par une clé étrangère composée vers `(base_url, species)`, qu'une
+   connexion git confiée appartienne à autre chose qu'un module de paramétrage. Un test
+   écrit en SQL ce qu'aucune route n'offre — sans lui, retirer la clé étrangère ne ferait
+   rougir personne.
+
+Plus un **test d'architecture** (`tests/architecture/test_credentials.py`) : aucun nom
+porteur de credential n'est atteint par `environnement/`, backend comme front, avec un
+second test qui vérifie que ces noms existent toujours au contrat — sinon un renommage
+désarmerait la garde en silence.
+
+**Où le credential est rangé, et pourquoi pas dans `secrets`.** Le critère demandait de
+reprendre ce qu'on a fait pour les secrets du workspace : c'est le **chiffrement** qui est
+repris — même AES-GCM, même `MILES_SECRETS_KEY`, données associées liant le chiffré à sa
+ligne. Pas la table, et pour trois raisons : un credential confié n'est pas un secret de
+l'instance, personne ici n'a le droit de le remplacer à la main — l'écran des secrets le
+permettrait, et ce serait la ressaisie que le ticket supprime —, et sa durée de vie est
+celle de l'appariement, alors que `secrets` refuse justement la suppression d'un secret
+utilisé. **La révocation le détruit par cascade**, jamais ne le marque inactif : une ligne
+inactive porte encore le secret.
+
+**Deux rappels après commit, et ils sont tardifs à dessein.** Un PAT remplacé dans l'écran
+des secrets — servi par le socle — et un appariement tout juste conclu doivent déclencher
+une transmission. Le socle a donc un `on_value_replaced` optionnel, et le `PairingService`
+du portail un `on_paired` ; les deux sont câblés par des fermetures qui relisent
+`app.state` **au moment de l'appel**, parce que le service qui confie a besoin du service
+d'appariement pour signer : capturer l'un des deux à la construction serait un cycle.
+
+**La divergence est visible, jamais silencieuse.** Le portail garde l'empreinte de ce qu'il
+a transmis et à QUI — rangée sous l'origine du pair, donc elle cesse de s'appliquer dès que
+l'identité du pair change (même leçon que l'environnement assigné, la veille) — la compare
+à ce qu'il détient, et son écran dit « à retransmettre ». Un geste explicite rejoue la
+transmission, et celui-là **rend le refus** au lieu de l'avaler. **Il n'y a pas de réessai
+automatique** : le retenter en boucle demanderait l'outbox du ticket `7ae31cc0`, qui n'est
+pas fait. C'est une limite assumée, pas un oubli.
+
+**Ce que le ticket ne pouvait pas livrer, et pourquoi.** Le critère 6 — « credential
+invalide ou révoqué chez la forge : l'erreur dit que c'est le credential qui est en cause,
+et où il a été saisi » — suppose qu'un module LISE git avec un credential confié. Aucun ne
+le fait : le relais est hors périmètre, reporté par Gael dans le ticket lui-même. Ce qui est
+livré de ce critère est ce qui existe aujourd'hui : l'écran de l'enrôlement éprouve un
+credential confié — s'ouvre-t-il encore avec la clé de cette instance ? — et nomme
+l'échec comme un problème de CREDENTIAL, en renvoyant vers le module de paramétrage. Les
+deux autres refus de diagnostic (aucun module de paramétrage apparié, connexion supprimée à
+la source) sont nommés et distincts, parce qu'ils n'appellent pas le même geste.
+
 ## L'assainissement des modules d'appariement (29/10, ticket `f85d248e`)
 
 `PairingService` et `IdentityService` restent **une classe chacune**, découpées en
@@ -587,10 +663,14 @@ appariement conclu), `2edf1f3c` (l'environnement assigné) et `ba44914b` (le mod
 paramétrage s'apparie), plus les tickets des jours précédents. Des quatre tickets neufs de
 Gael du 29/10, il ne reste que `c51a732c`, bloqué par le parc.
 
-**Éligible juste après `ba44914b`** : `edcf78bc` — confier les connexions git au module
-d'enrôlement, saisies une seule fois et renouvelables d'un seul geste. Il était bloqué par
-`ba44914b`, qui est fait. C'est lui qui donnera un contenu à l'appariement du module de
-paramétrage, et qui dira ce qu'une révocation emporte.
+**`edcf78bc` est livré le 30/10** — les connexions git sont confiées. Ce qu'il laisse
+ouvert est nommé dans sa section : le **relais de lecture de git**, reporté par Gael, et le
+**credential du registre d'images**, point ouvert de la feature. Aucun des deux n'a de
+ticket éligible à ce jour.
+
+**Ce qui reste des quatre tickets neufs de Gael du 29/10** : `c51a732c` seul, bloqué par le
+parc, lui-même bloqué par `a4f05302`. Le **métier de l'enrôlement** est donc la suite
+naturelle — référentiel des devices d'abord, puisque trois tickets l'attendent.
 
 ## Cinq décisions prises par Gael le 27/10 — les questions sont closes
 

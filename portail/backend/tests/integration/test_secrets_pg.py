@@ -19,13 +19,13 @@ from miles_socle.secrets.model import (
     SecretUndecipherableError,
 )
 from miles_socle.secrets.service import (
-    EVENT_TYPES,
     SecretsService,
     resolve_attach_secret,
     resolve_detach_secret,
 )
 from structlog.testing import capture_logs
 
+from miles.event_types import code_event_types
 from tests.integration.portal_stack import open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration
@@ -52,7 +52,7 @@ class Stack:
 async def stack(blank_db: str, tmp_path: Path) -> AsyncIterator[Stack]:
     async with open_portal_stack(blank_db, tmp_path) as portal:
         service = SecretsService(
-            portal.pool, SecretCipher(os.urandom(32)), EventTypeCatalog(EVENT_TYPES), _now
+            portal.pool, SecretCipher(os.urandom(32)), EventTypeCatalog(code_event_types()), _now
         )
         portal.app.state.secrets = service
         yield Stack(portal.pool, service, portal.client, portal.app)
@@ -183,7 +183,7 @@ async def test_ciphertext_copied_onto_another_secret_does_not_open(stack: Stack)
 async def test_reading_with_another_key_fails_explicitly(stack: Stack) -> None:
     await _create(stack)
     other = SecretsService(
-        stack.pool, SecretCipher(os.urandom(32)), EventTypeCatalog(EVENT_TYPES), _now
+        stack.pool, SecretCipher(os.urandom(32)), EventTypeCatalog(code_event_types()), _now
     )
 
     with pytest.raises(SecretUndecipherableError):

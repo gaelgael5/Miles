@@ -5,12 +5,13 @@ from pathlib import Path
 
 import asyncpg
 import pytest
-from miles_socle.cultures.service import EVENT_TYPES, CulturesService
+from miles_socle.cultures.service import CulturesService
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.migrations import resolve_apply_migrations
 from miles_socle.events.model import EventTypeCatalog
 
 from miles.config import DEFAULT_MIGRATIONS_DIR
+from miles.event_types import code_event_types
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration
@@ -22,7 +23,7 @@ ACTIVATION = "/api/cultures/activation"
 async def stack(blank_db: str, tmp_path: Path) -> AsyncIterator[PortalStack]:
     async with open_portal_stack(blank_db, tmp_path) as portal:
         portal.app.state.cultures = CulturesService(
-            portal.pool, EventTypeCatalog(EVENT_TYPES), utc_now
+            portal.pool, EventTypeCatalog(code_event_types()), utc_now
         )
         yield portal
 

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 from miles_socle.auth.api_preferences import PreferencesService
-from miles_socle.cultures.service import EVENT_TYPES as CULTURE_EVENTS
 from miles_socle.cultures.service import CulturesService
 from miles_socle.events.model import EventAuthor, EventTypeCatalog
 
+from miles.event_types import code_event_types
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration
@@ -19,7 +19,7 @@ ROUTE = "/api/auth/me/preferences"
 @pytest.fixture
 async def stack(blank_db: str, tmp_path: Path) -> AsyncIterator[PortalStack]:
     async with open_portal_stack(blank_db, tmp_path) as opened:
-        cultures = CulturesService(opened.pool, EventTypeCatalog(CULTURE_EVENTS), utc_now)
+        cultures = CulturesService(opened.pool, EventTypeCatalog(code_event_types()), utc_now)
         opened.app.state.cultures = cultures
         opened.app.state.preferences = PreferencesService(opened.pool, cultures, utc_now)
         yield opened

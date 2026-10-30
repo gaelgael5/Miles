@@ -82,6 +82,15 @@ est, et chaque produit ne déclare plus que ce qu'il EST — son nom de module, 
 (`environnement` ou `parametrage`), le libellé de son secret. Ses TABLES restent à lui,
 comme `module_identity` : le socle ne porte aucune migration.
 
+Depuis le 30/10/2026, les **connexions git sont CONFIÉES** au module d'enrôlement par le
+module de paramétrage (`POST /api/peer/git-connections`, contrat au socle) : saisies une
+seule fois, transmises à chaque changement, détruites avec l'appariement révoqué. **Le
+secret s'arrête au module d'enrôlement** — un module d'environnement n'en reçoit jamais le
+credential, il lira git par un relais (reporté). C'est ce qui fait qu'un environnement
+compromis ne livre pas l'accès au dépôt, et qu'un environnement révoqué perd son accès à
+git sans qu'on révoque rien chez la forge. Le CONFIAGE lui-même n'est pas au socle, et ne
+doit pas y aller : c'est une conséquence du portail, pas du protocole.
+
 | Répertoire | Socle partagé | Consommé par |
 |---|---|---|
 | `socle/python` | paquet `miles_socle` — **aucune migration** : il porte les requêtes de SES tables (secrets, sessions, journal, identité du module), le schéma reste l'affaire de chaque produit | `<produit>/backend`, chemin relatif dans `pyproject.toml` |
@@ -112,6 +121,7 @@ déploiement est la seule voie de livraison du projet.
 | `frontend/src/main.tsx`, `setupTests.ts` | le point d'entrée nomme l'`App` du produit, et les doublures de test sont celles de ses écrans |
 | les **migrations** | le socle ne porte aucune migration (décision du 27/10/2026) ; l'écart entre les trois schémas est tenu par la revue humaine. Les tables que le socle interroge — dont `module_identity` — sont donc déclarées par CHAQUE produit, et un test du produit vérifie qu'aucune ne manque |
 | le **côté SERVEUR de l'appariement** | l'enrôlement SERT les routes, les autres les APPELLENT : deux rôles, pas deux copies. Le côté demandeur est au socle depuis le 29/10/2026 — deux produits frappent —, le côté serveur n'a qu'un seul hôte et y reste. Le code TOTP aussi : il est seul à en dériver un. L'ESPÈCE du demandeur, en revanche, est au contrat (`signing/protocol.py`) : elle voyage |
+| le **confiage des connexions git** | une conséquence du PORTAIL, pas du protocole : le module d'environnement n'a rien à confier en s'appariant, et faire porter au socle un dispositif toujours inerte chez l'un des deux demandeurs le rendrait responsable d'une chose qu'il ne sait pas nommer. Seul le CONTRAT de l'échange est au socle |
 
 Est partagé côté front, et c'est tout : `socle/web/tsconfig.base.json`, parce qu'`extends`
 ne traverse aucune résolution de greffon — `strict` et `noUncheckedIndexedAccess` sont des
@@ -273,6 +283,10 @@ quand l'utilisateur te corrige ou qu'une erreur se répète.
   dans le dépôt (`.mcp.json` porte un jeton : il est exclu par `.git/info/exclude`, ne le committe jamais).
 - **Fail closed** : route sans autorisation explicite refusée ; claim de groupe absent = refus.
 - Entrées utilisateur validées avant tout usage en chemin, identifiant, nom d'hôte ou URL de dépôt.
+- **Aucun credential git ne part vers un module d'environnement**, sous quelque forme que ce
+  soit : le secret s'arrête au module d'enrôlement, qui le détient pour leur compte. Tenu
+  par `tests/architecture/test_credentials.py`, parce que c'est la facilité qui se
+  présentera le jour où le relais sera lent.
 - Gardes propres à Miles, **chacune testée** : l'écran d'amorçage se referme définitivement dès
   qu'un administrateur existe ; une liaison d'identités exige deux déclarations ; le secret d'un
   connecteur OIDC ou d'un dépôt n'est jamais restitué ; seuls les profils d'écriture JSLT admis passent.

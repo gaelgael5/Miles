@@ -10,16 +10,14 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 from miles_socle.auth.sessions import SESSION_COOKIE
-from miles_socle.cultures.service import EVENT_TYPES as CULTURE_EVENTS
 from miles_socle.events.model import EventTypeCatalog
 from miles_socle.oidc.api_login import STATE_COOKIE
-from miles_socle.oidc.service import EVENT_TYPES as OIDC_EVENTS
 from miles_socle.oidc.service import OidcService
 from miles_socle.secrets.crypto import SecretCipher
-from miles_socle.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles_socle.secrets.service import SecretsService
 from structlog.testing import capture_logs
 
+from miles.event_types import code_event_types
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration
@@ -50,7 +48,7 @@ class Flow:
 
 @pytest.fixture
 async def flow(blank_db: str, tmp_path: Path) -> AsyncIterator[Flow]:
-    catalog = EventTypeCatalog(SECRET_EVENTS | CULTURE_EVENTS | OIDC_EVENTS)
+    catalog = EventTypeCatalog(code_event_types())
     # L'e-mail du compte d'amorçage est celui que le fournisseur jetable met dans ses
     # jetons (en d'autres capitales) : la reconnaissance ne dépend que de la case.
     async with (

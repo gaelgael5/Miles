@@ -7,15 +7,13 @@ from pathlib import Path
 
 import httpx
 import pytest
-from miles_socle.cultures.service import EVENT_TYPES as CULTURE_EVENTS
 from miles_socle.cultures.service import CulturesService
 from miles_socle.events.model import EventTypeCatalog
-from miles_socle.oidc.service import EVENT_TYPES as OIDC_EVENTS
 from miles_socle.oidc.service import OidcService
 from miles_socle.secrets.crypto import SecretCipher
-from miles_socle.secrets.service import EVENT_TYPES as SECRET_EVENTS
 from miles_socle.secrets.service import SecretsService
 
+from miles.event_types import code_event_types
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration
@@ -34,7 +32,7 @@ def _issuer() -> str:
 
 @pytest.fixture
 async def stack(blank_db: str, tmp_path: Path) -> AsyncIterator[PortalStack]:
-    catalog = EventTypeCatalog(SECRET_EVENTS | CULTURE_EVENTS | OIDC_EVENTS)
+    catalog = EventTypeCatalog(code_event_types())
     async with open_portal_stack(blank_db, tmp_path) as portal, httpx.AsyncClient() as http:
         secrets = SecretsService(portal.pool, SecretCipher(os.urandom(32)), catalog, utc_now)
         portal.app.state.secrets = secrets
