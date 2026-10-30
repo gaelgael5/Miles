@@ -179,36 +179,49 @@ textarea.value-field {
 
 
 /*
- * Le choix d'une culture : un filtre et une liste cliquable dans UN composant (Gael,
- * 30/10/2026). Un champ de recherche au-dessus d'une liste déroulante demandait de viser
- * deux fois, et ne disait jamais combien d'entrées restaient.
+ * Le choix d'une culture : UN champ, et une liste qui se déplie à la frappe (Gael,
+ * 30/10/2026). La liste flotte au-dessus du contenu au lieu de le pousser — sans quoi
+ * le bouton d'ajout descendait hors de l'écran dès qu'on tapait une lettre.
  */
+.culture-picker {
+  position: relative;
+}
+
 .culture-list {
+  background: var(--surface);
   border: 1px solid var(--bordure-champ);
   border-radius: 6px;
-  /* Bornée en hauteur : le catalogue compte plusieurs centaines d'entrées, et la liste
-     ne doit pas pousser le bouton d'ajout hors de l'écran. */
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+  left: 0;
+  /* Bornée en hauteur : le catalogue compte plusieurs centaines d'entrées. */
   max-height: 14rem;
   overflow-y: auto;
+  position: absolute;
+  right: 0;
+  /* Juste sous le champ : `.field` porte 18px de marge basse que la liste recouvre. */
+  top: calc(100% - 14px);
+  z-index: 2;
 }
 
 .culture-option {
-  background: none;
-  border: none;
   cursor: pointer;
-  display: block;
-  font: inherit;
   font-weight: 400;
   padding: 8px 12px;
-  text-align: left;
-  width: 100%;
 }
 
-.culture-option:hover {
+/* Surlignage unique pour la souris ET le clavier : deux apparences différentes feraient
+   chercher laquelle dit ce qui sera choisi. */
+.culture-option.active {
   background: var(--fond);
 }
 
-.culture-option[aria-pressed="true"] {
+.culture-option[aria-selected="true"] {
   background: var(--accent-fond);
   font-weight: 600;
+}
+
+.culture-empty {
+  color: var(--encre-faible);
+  font-size: 13px;
+  padding: 8px 12px;
 }

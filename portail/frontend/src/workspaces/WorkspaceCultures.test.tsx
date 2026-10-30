@@ -24,6 +24,16 @@ function renderCard(routes: Routes = {}) {
   return calls;
 }
 
+
+/**
+ * Choisit une culture dans le combobox : on tape de quoi la filtrer, puis on clique
+ * l'option. C'est le geste réel — la liste est fermée tant qu'on n'a rien écrit.
+ */
+async function pickCulture(label: string, code: string) {
+  fireEvent.change(screen.getByLabelText(label), { target: { value: code } });
+  fireEvent.mouseDown(await screen.findByRole("option", { name: new RegExp(code) }));
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -54,7 +64,7 @@ describe("WorkspaceCulturesCard", () => {
     await screen.findByText("ar-MA");
 
     // th-TH n'est pas active dans l'application, et se propose quand même (critère 9).
-    fireEvent.click(await screen.findByRole("button", { name: /th-TH/ }));
+    await pickCulture("Additional culture", "th-TH");
     fireEvent.click(screen.getByText("Add"));
 
     expect(await screen.findByText("th-TH")).toBeInTheDocument();
@@ -65,9 +75,77 @@ describe("WorkspaceCulturesCard", () => {
     renderCard();
     await screen.findByText("ar-MA");
 
-    await screen.findByRole("button", { name: /th-TH/ });
-    expect(screen.queryByRole("button", { name: /ar-MA/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /fr-FR/ })).not.toBeInTheDocument();
+    // La liste s'ouvre au focus, sans filtre : elle montre alors tout ce qui reste.
+    fireEvent.focus(screen.getByLabelText("Additional culture"));
+
+    expect(await screen.findByRole("option", { name: /th-TH/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /ar-MA/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /fr-FR/ })).not.toBeInTheDocument();
+  });
+
+  it("opens the list on typing, filters it, and closes it on a choice", async () => {
+    renderCard();
+    await screen.findByText("ar-MA");
+    const champ = screen.getByLabelText("Additional culture");
+
+    // Fermée tant qu'on n'a rien fait : c'est UN champ, pas une liste toujours ouverte.
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    fireEvent.change(champ, { target: { value: "th" } });
+
+    expect(await screen.findByRole("option", { name: /th-TH/ })).toBeInTheDocument();
+    // Filtrée sur ce qui est tapé : en-US ne correspond pas à « th ».
+    expect(screen.queryByRole("option", { name: /en-US/ })).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("option", { name: /th-TH/ }));
+
+    // Repliée, et le champ porte le choix.
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(champ).toHaveValue("th-TH — ไทย (ไทย) (Thai (Thailand))");
+  });
+
+  it("is usable from the keyboard alone", async () => {
+    const calls = renderCard({
+      [`POST ${CULTURES}`]: { status: 200, body: { ...WORKSPACE_CULTURES, directions: DIRS } },
+    });
+    await screen.findByText("ar-MA");
+    const champ = screen.getByLabelText("Additional culture");
+
+    fireEvent.change(champ, { target: { value: "th" } });
+    await screen.findByRole("option", { name: /th-TH/ });
+    fireEvent.keyDown(champ, { key: "ArrowDown" });
+    fireEvent.keyDown(champ, { key: "Enter" });
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Add"));
+    await vi.waitFor(() =>
+      expect(calls.find((c) => c.key === `POST ${CULTURES}`)?.body).toEqual({ culture: "th-TH" }),
+    );
+  });
+
+  it("closes the list on Escape without choosing anything", async () => {
+    renderCard();
+    await screen.findByText("ar-MA");
+    const champ = screen.getByLabelText("Additional culture");
+    fireEvent.change(champ, { target: { value: "th" } });
+    await screen.findByRole("option", { name: /th-TH/ });
+
+    fireEvent.keyDown(champ, { key: "Escape" });
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByText("Add")).toBeDisabled();
+  });
+
+  it("says when nothing matches, inside the list rather than under it", async () => {
+    renderCard();
+    await screen.findByText("ar-MA");
+
+    fireEvent.change(screen.getByLabelText("Additional culture"), {
+      target: { value: "zzzz" },
+    });
+
+    expect(await screen.findByText(/No culture matches/)).toBeInTheDocument();
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
 
   it("says how many keys are missing when the default culture cannot change yet", async () => {
@@ -166,7 +244,7 @@ describe("WorkspaceCulturesCard", () => {
       },
     });
     await screen.findByText("ar-MA");
-    fireEvent.click(await screen.findByRole("button", { name: /th-TH/ }));
+    await pickCulture("Additional culture", "th-TH");
 
     fireEvent.click(screen.getByText("Add"));
 

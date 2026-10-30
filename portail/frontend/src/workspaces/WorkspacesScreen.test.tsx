@@ -4,6 +4,16 @@ import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
 import { BARE, CONFIGURED, SETTINGS, fill, renderWorkspaces as renderScreen } from "./workspaceFixtures";
 
+
+/**
+ * Choisit une culture dans le combobox : on tape de quoi la filtrer, puis on clique
+ * l'option. C'est le geste réel — la liste est fermée tant qu'on n'a rien écrit.
+ */
+async function pickCulture(label: string, code: string) {
+  fireEvent.change(screen.getByLabelText(label), { target: { value: code } });
+  fireEvent.mouseDown(await screen.findByRole("option", { name: new RegExp(code) }));
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -32,7 +42,7 @@ describe("WorkspacesScreen", () => {
     expect(screen.getByLabelText("Identifier")).toHaveValue("retrait");
     // L'option, pas seulement le champ : le catalogue se charge après le rendu, et une
     // valeur sans option correspondante est un geste sans effet (LESSONS.md).
-    fireEvent.click(await screen.findByRole("button", { name: /fr-FR/ }));
+    await pickCulture("Default culture", "fr-FR");
     fireEvent.click(screen.getByText("Create the workspace"));
 
     // Juste créé, il n'a pas de dépôt : on enchaîne sur son paramétrage.
@@ -52,7 +62,7 @@ describe("WorkspacesScreen", () => {
 
     expect(screen.getByText("Create the workspace")).toBeDisabled();
 
-    fireEvent.click(await screen.findByRole("button", { name: /th-TH/ }));
+    await pickCulture("Default culture", "th-TH");
 
     expect(screen.getByText("Create the workspace")).toBeEnabled();
   });
@@ -63,8 +73,9 @@ describe("WorkspacesScreen", () => {
     renderScreen();
     fireEvent.click(await screen.findByText("Create a workspace"));
 
-    expect(await screen.findByRole("button", { name: /th-TH/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /ar-MA/ })).toBeInTheDocument();
+    fireEvent.focus(screen.getByLabelText("Default culture"));
+    expect(await screen.findByRole("option", { name: /th-TH/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /ar-MA/ })).toBeInTheDocument();
   });
 
   it("says when the identifier is already taken", async () => {
@@ -76,7 +87,7 @@ describe("WorkspacesScreen", () => {
     renderScreen();
     fireEvent.click(await screen.findByText("Create a workspace"));
     fill("Name", "Retrait");
-    fireEvent.click(await screen.findByRole("button", { name: /fr-FR/ }));
+    await pickCulture("Default culture", "fr-FR");
 
     fireEvent.click(screen.getByText("Create the workspace"));
 
