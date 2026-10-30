@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 from fastapi import FastAPI, Request, Response
@@ -20,6 +22,7 @@ from miles_socle.signing.keys import (
 )
 from miles_socle.signing.protocol import (
     ENVIRONMENT_BODY,
+    GIT_CONNECTIONS_PATH,
     PAIRING_CONFIRM_PATH,
     PAIRING_REQUEST_PATH,
     PAIRING_REVOKED_PATH,
@@ -99,6 +102,16 @@ class RequesterDouble:
         """Demande à quel environnement du référentiel cet appariement est rattaché."""
         return await self.post(client, PEER_ENVIRONMENT_PATH, ENVIRONMENT_BODY)
 
+    async def confide(self, client: httpx.AsyncClient, body: bytes) -> httpx.Response:
+        """Confie des connexions git. Rien ne distingue cet appel d'un autre pour la signature.
+
+        La charge est COMPOSÉE ICI, et c'est une limite connue de cette campagne : elle
+        éprouve le RÉCEPTEUR, et une faute dans la composition du module de paramétrage
+        resterait invisible d'ici. C'est la campagne du portail qui l'éprouve, contre une
+        contrepartie qui garde les corps reçus (leçon du 29/10/2026).
+        """
+        return await self.post(client, GIT_CONNECTIONS_PATH, body)
+
     def knock_body(self) -> bytes:
         # Construit à la main plutôt que par `json.dumps` : ce sont ces OCTETS-LÀ qui sont
         # signés, et un ré-encodage côté client produirait une autre suite d'octets donc
@@ -144,3 +157,26 @@ class RequesterDouble:
 
 def confirm_body(code: str) -> bytes:
     return b'{"code": "%s"}' % code.encode("ascii")
+
+
+def connexion(
+    identifiant: str,
+    credential: str,
+    *,
+    label: str | None = None,
+    base_url: str = "https://github.com/yoops",
+    workspaces: Sequence[tuple[str, str | None]] = (),
+) -> dict[str, Any]:
+    """Une connexion git telle qu'un module de paramétrage la confie."""
+    return {
+        "id": identifiant,
+        "label": label or f"Connexion {identifiant}",
+        "base_url": base_url,
+        "credential": credential,
+        "workspaces": [{"id": w, "repo_url": r} for w, r in workspaces],
+    }
+
+
+def confide_body(revision: int, connections: Sequence[Mapping[str, Any]]) -> bytes:
+    """L'état complet des connexions git, encodé pour la signature."""
+    return json.dumps({"revision": revision, "connections": list(connections)}).encode("utf-8")
