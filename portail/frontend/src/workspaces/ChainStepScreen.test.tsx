@@ -138,6 +138,41 @@ describe("ChainStepScreen — ce que l'écran dit quand il refuse", () => {
   });
 });
 
+describe("ChainStepScreen — la ligne fautive, montrée dans le code", () => {
+  it("numbers the lines of the template", async () => {
+    openStep();
+    await screen.findByLabelText("JSLT template");
+
+    // Le template de l'essai tient sur une ligne ; le numéro est là quand même.
+    expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
+  it("marks the refused line in the gutter and over the code", async () => {
+    openStep({ [`PUT ${ROUTE}/comptes-import${Q}`]: SYNTAX_REFUSAL });
+    await screen.findByLabelText("JSLT template");
+    fireEvent.change(screen.getByLabelText("JSLT template"), {
+      target: { value: "{\n1\n2\n3\n4\n5\n6\n7\n8\n}" },
+    });
+    fireEvent.click(screen.getByText("Save the chain"));
+    await screen.findByText(/line 9, column 2/);
+
+    // La bande porte la ligne qu'elle désigne : sous jsdom aucun rectangle n'est
+    // calculé, donc le test vérifie la ligne visée, pas les pixels où elle est posée.
+    const band = document.querySelector(".template-error-line");
+    expect(band).not.toBeNull();
+    expect(band?.getAttribute("data-line")).toBe("9");
+    expect(screen.getByText("9")).toHaveClass("gutter-error");
+    expect(screen.getByText("8")).not.toHaveClass("gutter-error");
+  });
+
+  it("marks nothing while nothing is refused", async () => {
+    openStep();
+    await screen.findByLabelText("JSLT template");
+
+    expect(document.querySelector(".template-error-line")).toBeNull();
+  });
+});
+
 describe("ChainStepScreen — le document source, au clavier", () => {
   const SAMPLE = { sample: '{"Account": [{"PickupReference": "C-42", "Name": "Acme"}]}' };
 

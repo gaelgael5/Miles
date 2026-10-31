@@ -15,6 +15,7 @@ export default function JsltEditorStub({
   onChange,
   onRun,
   onOpenSource,
+  onReady,
   readOnly,
   ariaLabel,
 }: {
@@ -22,6 +23,7 @@ export default function JsltEditorStub({
   onChange: (value: string) => void;
   onRun?: () => void;
   onOpenSource?: () => void;
+  onReady?: (area: HTMLTextAreaElement | null) => void;
   readOnly: boolean;
   ariaLabel: string;
   // Reçue mais ignorée : le vrai composant la consomme, pas la doublure.
@@ -29,6 +31,7 @@ export default function JsltEditorStub({
 }) {
   return (
     <textarea
+      ref={(element) => onReady?.(element)}
       aria-label={ariaLabel}
       value={value}
       readOnly={readOnly}

@@ -271,3 +271,38 @@ textarea.value-field {
 .sample-kind { color: var(--encre-douce); font-size: 12px; }
 .sample-value { color: var(--accent-fonce); overflow-wrap: anywhere; }
 .sample-copied { color: var(--succes-encre); font-size: 11px; font-weight: 600; }
+
+/* --- Éditeur de template : gouttière et ligne fautive (Gael, 31/10/2026) --- */
+
+/* La gouttière et l'éditeur forment UNE boîte : deux bordures accolées feraient un
+   trait double au milieu du champ. */
+.template-editor { display: flex; align-items: stretch; }
+.template-gutter {
+  flex: 0 0 auto; overflow: hidden; user-select: none;
+  border: 1px solid var(--bordure-champ); border-right: none; border-radius: 8px 0 0 8px;
+  background: var(--surface-alt); color: var(--encre-douce); text-align: right;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 0 8px; min-width: 40px;
+}
+/* Déplacée par `transform` et non par `scrollTop` : la gouttière n'a pas de barre de
+   défilement à elle, elle suit celle de la zone de saisie. */
+.template-gutter-lines { will-change: transform; }
+.gutter-line { white-space: pre; }
+.gutter-error { color: var(--danger); font-weight: 700; background: #fbefef; }
+
+/* `min-width: 0` : sans lui, un élément de flex refuse de rétrécir sous la largeur de
+   son contenu, et un template à longues lignes pousserait la gouttière hors de l'écran. */
+.template-frame { flex: 1 1 auto; position: relative; min-width: 0; overflow: hidden; }
+.template-frame jslt-editor .jslt-editor { border-radius: 0 8px 8px 0; }
+
+/* Par-dessus le texte et SOUS le curseur : `pointer-events: none` laisse passer le clic,
+   sans quoi on ne pourrait plus cliquer dans la ligne qu'il faut corriger. */
+.template-error-line {
+  position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none;
+  background: rgba(200, 60, 60, 0.13);
+  border-top: 1px solid rgba(200, 60, 60, 0.35);
+  border-bottom: 1px solid rgba(200, 60, 60, 0.35);
+}
+@media (prefers-color-scheme: dark) {
+  .gutter-error { background: #3a2626; }
+}

@@ -66,6 +66,7 @@ export default function JsltEditor({
   onChange,
   onRun,
   onOpenSource,
+  onReady,
   readOnly,
   ariaLabel,
   paths,
@@ -76,6 +77,12 @@ export default function JsltEditor({
   onRun?: () => void;
   /** Ctrl+Espace ou ⌘Espace : ouvrir le document source pour y prendre un chemin. */
   onOpenSource?: () => void;
+  /**
+   * La zone de saisie, dès qu'elle existe. Le composant naît après un chargement réseau
+   * : ce qui s'aligne sur elle — la gouttière des numéros de ligne, le surlignement de
+   * la ligne fautive — ne peut pas la chercher au montage, elle n'y est pas encore.
+   */
+  onReady?: (area: HTMLTextAreaElement | null) => void;
   readOnly: boolean;
   ariaLabel: string;
   /** Chemins du modèle source, proposés sur « $ » et « @ » (composant >= 0.2.0). */
@@ -91,6 +98,8 @@ export default function JsltEditor({
   run.current = onRun;
   const openSource = useRef(onOpenSource);
   openSource.current = onOpenSource;
+  const ready = useRef(onReady);
+  ready.current = onReady;
   // Les chemins dans une ref AUSSI : l'élément naît après un chargement réseau, et
   // l'effet qui les pose s'exécute avant lui dès que la requête des chemins répond la
   // première. Il ne se rejouerait plus — `paths` ne change plus ensuite —, et la
@@ -127,6 +136,9 @@ export default function JsltEditor({
       // Posés ICI aussi : si les chemins étaient déjà là, l'effet qui les pose est
       // passé pour rien avant que l'élément n'existe.
       applyPaths(element, known.current);
+      // Le composant pose sa zone de saisie dans le DOM clair, pas dans une ombre : on
+      // la rend à l'hôte, qui aligne sa gouttière dessus.
+      ready.current?.(element.querySelector("textarea"));
     });
     return () => {
       alive = false;

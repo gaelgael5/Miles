@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Chain, type ChainStep, useChainSample, useCheckChain, useSaveChain } from "../api/chains";
@@ -7,12 +7,10 @@ import type { WorkTarget } from "../api/workTarget";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { modelUri, targetOf } from "../dataModels/schemaText";
 import { caretOf, placeCaret, withInsertion } from "../dataModels/caretInsert";
+import { TemplateEditor } from "../dataModels/TemplateEditor";
 import { parsedSample } from "./ChainSample";
 import { SampleExplorer } from "./SampleExplorer";
 import { StepProblems, savedProblems } from "./chainProblems";
-
-// Le Web Component et ses assets ne se chargent qu'ici : le reste du portail ne les paie pas.
-const JsltEditor = lazy(() => import("../dataModels/JsltEditor"));
 
 /**
  * Une étape en page pleine (Gael, 24/10/2026) : c'est ici qu'on travaille la
@@ -243,17 +241,19 @@ export function ChainStepScreen({
         <div className="field">
           {t("chains.fields.template")}
           <div ref={editorHost}>
-            <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
-              <JsltEditor
-                value={template}
-                onChange={setTemplate}
-                onRun={run}
-                onOpenSource={openSource}
-                readOnly={target.readOnly}
-                ariaLabel={t("chains.fields.template")}
-                paths={sourcePaths.data?.paths}
-              />
-            </Suspense>
+            <TemplateEditor
+              value={template}
+              onChange={setTemplate}
+              onRun={run}
+              onOpenSource={openSource}
+              readOnly={target.readOnly}
+              ariaLabel={t("chains.fields.template")}
+              paths={sourcePaths.data?.paths}
+              // La ligne du PREMIER problème de cette étape : plusieurs surlignements
+              // désigneraient plusieurs coupables là où il n'y en a qu'un à corriger.
+              errorLine={problems.find((p) => p.line !== null)?.line ?? null}
+              loading={t("dataModels.loading")}
+            />
           </div>
           {/* Le raccourci se DIT : un geste qui ne s'annonce nulle part n'est connu que
               de celui qui l'a écrit. Le bouton qu'il remplace, lui, se voyait. */}
