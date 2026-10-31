@@ -686,7 +686,7 @@
       "deleteTitle": "Supprimer cette chaîne ?",
       "deleteBody": "Le répertoire transformations/{{slug}} sera retiré de la branche.",
       "unsaved": "Modifications non enregistrées",
-      "saveShortcut": "Ctrl+S",
+      "saveShortcut": "Ctrl+S, ou ⌘S sur Mac",
       "refused": "L'enregistrement a été refusé. Voici ce qui bloque :"
     },
     "problems": {
@@ -723,8 +723,8 @@
       "back": "Retour à la chaîne",
       "fill": "Remplir depuis le modèle de destination",
       "fillHelp": "Remplace le template par le gabarit JSON du modèle de destination : sa structure, avec au moins un élément par tableau.",
-      "run": "Exécuter (F5)",
-      "runHelp": "Exécute ce template seul sur l'échantillon source de test.",
+      "run": "Exécuter (Ctrl+F5)",
+      "runHelp": "Exécute ce template seul sur l'échantillon source de test. Ctrl+F5, ou ⌘F5 sur Mac.",
       "result": "Résultat de l'étape",
       "sampleLoading": "échantillon en cours de lecture",
       "sampleReady": "échantillon enregistré",
@@ -733,16 +733,14 @@
       "cannotRunSample": "L'échantillon source de cette chaîne n'est pas du JSON lisible. Corrigez-le sur l'écran de la chaîne, puis revenez ici."
     },
     "explorer": {
-      "open": "Données source",
-      "openHelp": "Affiche le document source de test. Un clic sur une propriété copie son chemin JSONPath.",
       "title": "Document source de test",
-      "intro": "Cliquez sur une propriété : son chemin JSONPath part dans le presse-papiers, prêt à coller dans le template.",
-      "copyHelp": "Copier {{path}}",
-      "copied": "copié",
-      "clipboardRefused": "Le navigateur a refusé le presse-papiers. Le chemin reste lisible dans l'infobulle de la propriété.",
+      "intro": "Cliquez sur une propriété : son chemin JSONPath s'insère dans le template, là où vous écriviez.",
+      "insertHelp": "Insérer {{path}}",
+      "shortcut": "Ctrl+Espace dans l'éditeur (⌘Espace sur Mac) ouvre le document source : un clic sur une propriété insère son chemin au curseur.",
       "object": "{{count}} propriété(s)",
       "array": "{{count}} élément(s)",
-      "close": "Fermer"
+      "close": "Fermer",
+      "noSample": "L'échantillon source n'est pas du JSON lisible : il n'y a aucun document à parcourir. Corrigez-le sur l'écran de la chaîne."
     }
   },
   "sources": {

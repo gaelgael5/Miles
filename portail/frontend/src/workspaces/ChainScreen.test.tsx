@@ -358,7 +358,7 @@ describe("the step editor (24/10/2026)", () => {
     return calls;
   }
 
-  it("runs the template on the saved sample when F5 is pressed", async () => {
+  it("runs the template on the saved sample when Ctrl+F5 is pressed", async () => {
     const calls = openStep({
       [`GET ${ROUTE}/comptes-import/sample${Q}`]: {
         status: 200,
@@ -370,10 +370,10 @@ describe("the step editor (24/10/2026)", () => {
       },
     });
     await screen.findByLabelText("JSLT template");
-    // On attend que l'échantillon soit là : F5 avant porterait sur rien.
+    // On attend que l'échantillon soit là : exécuter avant porterait sur rien.
     await screen.findByText(/sample saved/);
 
-    fireEvent.keyDown(screen.getByLabelText("JSLT template"), { key: "F5" });
+    fireEvent.keyDown(screen.getByLabelText("JSLT template"), { key: "F5", ctrlKey: true });
 
     expect(await screen.findByText(/"ref": "C-42"/)).toBeInTheDocument();
     // Ce template SEUL, pas la chaîne entière : on éprouve l'étape qu'on travaille.

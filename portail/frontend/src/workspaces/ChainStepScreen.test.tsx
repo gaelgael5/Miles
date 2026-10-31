@@ -128,7 +128,9 @@ describe("ChainStepScreen — ce que l'écran dit quand il refuse", () => {
     // « pas encore lu », ce qui est une autre branche que celle qu'on mesure.
     await screen.findByText(/sample saved/);
 
-    fireEvent.click(screen.getByText("Run (F5)"));
+    // Ctrl+F5 et non F5 seul (Gael, 31/10/2026) : F5 seul est le rechargement du
+    // navigateur, et le capturer privait d'un geste réflexe sur l'écran qui l'appelle.
+    fireEvent.keyDown(screen.getByLabelText("JSLT template"), { key: "F5", ctrlKey: true });
 
     // Avant : `return` muet. Le bouton semblait cassé, et rien ne disait que c'était
     // l'échantillon — pas le template — qui était en cause.
@@ -136,55 +138,82 @@ describe("ChainStepScreen — ce que l'écran dit quand il refuse", () => {
   });
 });
 
-describe("ChainStepScreen — le document source déplié", () => {
+describe("ChainStepScreen — le document source, au clavier", () => {
   const SAMPLE = { sample: '{"Account": [{"PickupReference": "C-42", "Name": "Acme"}]}' };
 
-  it("copies the JSONPath of the property that was clicked", async () => {
-    const written: string[] = [];
-    vi.stubGlobal("navigator", {
-      ...navigator,
-      clipboard: {
-        writeText: (text: string) => {
-          written.push(text);
-          return Promise.resolve();
-        },
-      },
-    });
-    openStep({ [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: SAMPLE } });
-    await screen.findByLabelText("JSLT template");
+  async function openSource(routes = { [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: SAMPLE } }) {
+    openStep(routes);
+    const editor = await screen.findByLabelText("JSLT template");
+    await screen.findByText(/sample saved/);
+    // Ctrl+Espace depuis l'éditeur : le bouton a été retiré le 31/10/2026, on ne
+    // quitte plus l'endroit où l'on écrit pour chercher un chemin.
+    fireEvent.keyDown(editor, { key: " ", ctrlKey: true });
+    return editor as HTMLTextAreaElement;
+  }
 
-    fireEvent.click(screen.getByText("Source data"));
+  it("inserts the JSONPath where the caret was, and closes", async () => {
+    openStep({ [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: SAMPLE } });
+    const editor = (await screen.findByLabelText("JSLT template")) as HTMLTextAreaElement;
+    await screen.findByText(/sample saved/);
+    // Le curseur POSÉ : `{ "ref": ` fait neuf caractères, et c'est là qu'on écrit.
+    editor.setSelectionRange(9, 9);
+    fireEvent.keyDown(editor, { key: " ", ctrlKey: true });
     const dialog = await screen.findByRole("dialog");
+
     // Sous un indice de tableau : c'est là que recopier à la main se trompe.
-    fireEvent.click(within(dialog).getByTitle('Copy $.Account[0].PickupReference'));
+    fireEvent.click(within(dialog).getByTitle("Insert $.Account[0].PickupReference"));
 
-    expect(written).toEqual(["$.Account[0].PickupReference"]);
-    expect(await within(dialog).findByText("copied")).toBeInTheDocument();
+    expect(editor).toHaveValue('{ "ref": $.Account[0].PickupReference$.colis.ref, }');
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("says so when the browser refuses the clipboard", async () => {
-    vi.stubGlobal("navigator", {
-      ...navigator,
-      clipboard: { writeText: () => Promise.reject(new Error("refusé")) },
-    });
-    openStep({ [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: SAMPLE } });
-    await screen.findByLabelText("JSLT template");
+  it("replaces the selection rather than pushing the path next to it", async () => {
+    const editor = await openSource();
+    screen.getByRole("dialog");
+    // Rouvrir après avoir sélectionné `$.colis.ref` : le chemin doit le REMPLACER,
+    // sans emporter la virgule qui suit.
+    fireEvent.keyDown(editor, { key: "Escape" });
+    editor.setSelectionRange(9, 20);
+    fireEvent.keyDown(editor, { key: " ", metaKey: true });
 
-    fireEvent.click(screen.getByText("Source data"));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByTitle('Copy $.Account[0].Name'));
+    fireEvent.click(within(dialog).getByTitle("Insert $.Account[0].Name"));
 
-    // Sans ce message, un clic sans effet laisse croire à une copie : c'est l'ancien
-    // contenu du presse-papiers qui serait collé dans le template.
-    expect(await within(dialog).findByText(/refused the clipboard/)).toBeInTheDocument();
+    expect(editor).toHaveValue('{ "ref": $.Account[0].Name, }');
   });
 
-  it("offers nothing to explore when the sample is not readable", async () => {
+  it("opens on Command+Space too, for a Mac", async () => {
+    openStep({ [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: SAMPLE } });
+    const editor = await screen.findByLabelText("JSLT template");
+    await screen.findByText(/sample saved/);
+
+    fireEvent.keyDown(editor, { key: " ", metaKey: true });
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("stays shut on a bare Space, which is just typing", async () => {
+    openStep({ [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: SAMPLE } });
+    const editor = await screen.findByLabelText("JSLT template");
+    await screen.findByText(/sample saved/);
+
+    fireEvent.keyDown(editor, { key: " " });
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("says why nothing opens when the sample is not readable", async () => {
     openStep({
       [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: "{" } },
     });
+    const editor = await screen.findByLabelText("JSLT template");
     await screen.findByText(/sample saved/);
 
-    expect(screen.getByText("Source data")).toBeDisabled();
+    fireEvent.keyDown(editor, { key: " ", ctrlKey: true });
+
+    // Une touche sans effet est le défaut qu'on vient de corriger sur F5 : on ne le
+    // réintroduit pas en n'armant simplement pas le raccourci.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(await screen.findByText(/no document to browse/)).toBeInTheDocument();
   });
 });

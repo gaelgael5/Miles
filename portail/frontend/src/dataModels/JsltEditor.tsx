@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import { runsOn } from "./jsltKeys";
+import { opensSource, runsOn } from "./jsltKeys";
 
 /** Assets du composant, servis par Miles lui-même (voir app.py), jamais par un CDN. */
 const ASSETS = "/api/jslt-editor";
@@ -53,7 +53,9 @@ function applyPaths(element: EditorElement, paths: unknown[] | undefined): void 
  * synchronisation de `value` à la main, et l'écoute de son événement `input`.
  *
  * Tab est géré par le composant lui-même (deux espaces, ou acceptation de la suggestion
- * quand l'auto-complétion est ouverte). F5 ne l'est pas : on l'ajoute ici.
+ * quand l'auto-complétion est ouverte). Ctrl+F5 et Ctrl+Espace ne le sont pas : on les
+ * ajoute ici, et leurs prédicats vivent dans `jsltKeys` pour que la doublure des tests
+ * applique exactement la même règle.
  *
  * Les chemins du document source sont passés par `setPaths` (composant >= 0.2.0). La
  * garde porte bien sur `setPaths` et non sur la propriété `paths` : en 0.1.1, affecter
@@ -63,14 +65,17 @@ export default function JsltEditor({
   value,
   onChange,
   onRun,
+  onOpenSource,
   readOnly,
   ariaLabel,
   paths,
 }: {
   value: string;
   onChange: (value: string) => void;
-  /** F5 : exécuter le template sans quitter le clavier. */
+  /** Ctrl+F5 ou ⌘F5 : exécuter le template sans quitter le clavier. */
   onRun?: () => void;
+  /** Ctrl+Espace ou ⌘Espace : ouvrir le document source pour y prendre un chemin. */
+  onOpenSource?: () => void;
   readOnly: boolean;
   ariaLabel: string;
   /** Chemins du modèle source, proposés sur « $ » et « @ » (composant >= 0.2.0). */
@@ -84,6 +89,8 @@ export default function JsltEditor({
   changed.current = onChange;
   const run = useRef(onRun);
   run.current = onRun;
+  const openSource = useRef(onOpenSource);
+  openSource.current = onOpenSource;
   // Les chemins dans une ref AUSSI : l'élément naît après un chargement réseau, et
   // l'effet qui les pose s'exécute avant lui dès que la requête des chemins répond la
   // première. Il ne se rejouerait plus — `paths` ne change plus ensuite —, et la
@@ -103,10 +110,16 @@ export default function JsltEditor({
       element.value = value;
       element.addEventListener("input", () => changed.current(element.value));
       element.addEventListener("keydown", (event) => {
-        if (runsOn(event as KeyboardEvent)) {
-          // Sans cela, F5 recharge la page et perd le template en cours.
+        const key = event as KeyboardEvent;
+        if (runsOn(key)) {
+          // Sans cela, Ctrl+F5 recharge la page de force et perd le template en cours.
           event.preventDefault();
           run.current?.();
+        } else if (opensSource(key)) {
+          // Ctrl+Espace est l'appel d'auto-complétion de la plupart des éditeurs : on
+          // reprend le geste connu plutôt que d'en inventer un.
+          event.preventDefault();
+          openSource.current?.();
         }
       });
       host.current.append(element);

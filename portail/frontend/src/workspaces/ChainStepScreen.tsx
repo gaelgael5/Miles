@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Chain, type ChainStep, useChainSample, useCheckChain, useSaveChain } from "../api/chains";
@@ -6,6 +6,7 @@ import { useDataModels, useModelExample, useModelPaths } from "../api/dataModels
 import type { WorkTarget } from "../api/workTarget";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { modelUri, targetOf } from "../dataModels/schemaText";
+import { caretOf, placeCaret, withInsertion } from "../dataModels/caretInsert";
 import { parsedSample } from "./ChainSample";
 import { SampleExplorer } from "./SampleExplorer";
 import { StepProblems, savedProblems } from "./chainProblems";
@@ -44,6 +45,12 @@ export function ChainStepScreen({
   // template rendait null, alors que c'est l'échantillon qui manquait (Gael, 31/10/2026).
   const [blocked, setBlocked] = useState<string | null>(null);
   const [exploring, setExploring] = useState(false);
+  // Le curseur au moment d'ouvrir la fenêtre : l'ouvrir déplace le focus, et c'est là
+  // que l'utilisateur veut voir arriver le chemin.
+  const editorHost = useRef<HTMLDivElement>(null);
+  const caret = useRef<{ start: number; end: number } | null>(null);
+  const [replaced, setReplaced] = useState<number | null>(null);
+  const sampleValue = parsedSample(stored.data?.sample ?? "");
   const [name, setName] = useState(step.name);
   const [template, setTemplate] = useState(step.template);
   const [stepTarget, setStepTarget] = useState(step.target ?? "");
@@ -65,6 +72,32 @@ export function ChainStepScreen({
     // Renommer une étape renomme son fichier de template : on revient à la chaîne, dont
     // la relecture donnera la nouvelle liste. Rester ici pointerait un nom disparu.
     save.mutate({ label: chain.label, steps }, { onSuccess: name === step.name ? undefined : onBack });
+  }
+
+  function openSource() {
+    setBlocked(null);
+    if (stored.isPending) {
+      setBlocked("chains.steps.cannotRunLoading");
+      return;
+    }
+    if (sampleValue === null) {
+      // Dire pourquoi, plutôt que de ne pas armer le raccourci : une touche sans effet
+      // est le défaut qu'on vient de corriger sur F5, on ne le réintroduit pas ici.
+      setBlocked("chains.explorer.noSample");
+      return;
+    }
+    caret.current = caretOf(editorHost.current);
+    setExploring(true);
+  }
+
+  function insertPath(path: string) {
+    // Le chemin remplace la sélection, ou se pose au curseur. On referme : prendre un
+    // chemin est un geste de saisie, pas une consultation — rester ouvert obligerait à
+    // fermer à la main avant de continuer à écrire.
+    const next = withInsertion(template, path, caret.current);
+    setTemplate(next.text);
+    setExploring(false);
+    setReplaced(next.caret);
   }
 
   function fillFromDestination() {
@@ -102,10 +135,19 @@ export function ChainStepScreen({
     check.mutate({ steps: [{ template, target: stepTarget || null }], sample: parsed });
   }
 
+  useEffect(() => {
+    if (replaced === null) {
+      return;
+    }
+    // Après le rendu : l'effet de l'éditeur a déjà réécrit sa valeur, et le curseur se
+    // pose derrière le chemin inséré pour que la frappe continue sans un clic.
+    placeCaret(editorHost.current, replaced);
+    setReplaced(null);
+  }, [replaced]);
+
   // Ce qui bloque, du refus d'enregistrement comme de la compilation à l'exécution :
   // les deux sont des problèmes d'étape et se lisent au même endroit.
   const problems = [...savedProblems(save.error), ...(check.data?.problems ?? [])];
-  const sampleValue = parsedSample(stored.data?.sample ?? "");
 
   // Ctrl+S fait ce que fait le bouton, aux mêmes conditions (story caad743d).
   const canSave = !target.readOnly && dirty && !save.isPending;
@@ -145,15 +187,6 @@ export function ChainStepScreen({
               onClick={fillFromDestination}
             >
               {t("chains.steps.fill")}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              disabled={sampleValue === null}
-              title={t("chains.explorer.openHelp")}
-              onClick={() => setExploring(true)}
-            >
-              {t("chains.explorer.open")}
             </button>
             <button
               type="button"
@@ -209,16 +242,22 @@ export function ChainStepScreen({
         </label>
         <div className="field">
           {t("chains.fields.template")}
-          <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
-            <JsltEditor
-              value={template}
-              onChange={setTemplate}
-              onRun={run}
-              readOnly={target.readOnly}
-              ariaLabel={t("chains.fields.template")}
-              paths={sourcePaths.data?.paths}
-            />
-          </Suspense>
+          <div ref={editorHost}>
+            <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
+              <JsltEditor
+                value={template}
+                onChange={setTemplate}
+                onRun={run}
+                onOpenSource={openSource}
+                readOnly={target.readOnly}
+                ariaLabel={t("chains.fields.template")}
+                paths={sourcePaths.data?.paths}
+              />
+            </Suspense>
+          </div>
+          {/* Le raccourci se DIT : un geste qui ne s'annonce nulle part n'est connu que
+              de celui qui l'a écrit. Le bouton qu'il remplace, lui, se voyait. */}
+          <p className="help">{t("chains.explorer.shortcut")}</p>
         </div>
         <label className="field">
           {t("chains.fields.target")}
@@ -242,7 +281,11 @@ export function ChainStepScreen({
         </p>
       )}
       {exploring && sampleValue !== null && (
-        <SampleExplorer sample={sampleValue.value} onClose={() => setExploring(false)} />
+        <SampleExplorer
+          sample={sampleValue.value}
+          onInsert={insertPath}
+          onClose={() => setExploring(false)}
+        />
       )}
       {check.data?.valid && !check.data.failure && (
         <div className="card">

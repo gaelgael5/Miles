@@ -686,7 +686,7 @@
       "deleteTitle": "Delete this chain?",
       "deleteBody": "The directory transformations/{{slug}} will be removed from the branch.",
       "unsaved": "Unsaved changes",
-      "saveShortcut": "Ctrl+S",
+      "saveShortcut": "Ctrl+S, or ⌘S on a Mac",
       "refused": "Saving was refused. Here is what blocks it:"
     },
     "problems": {
@@ -723,8 +723,8 @@
       "back": "Back to the chain",
       "fill": "Fill from the destination model",
       "fillHelp": "Replaces the template with the destination model's JSON skeleton: its structure, with at least one element per array.",
-      "run": "Run (F5)",
-      "runHelp": "Runs this template alone on the test source sample.",
+      "run": "Run (Ctrl+F5)",
+      "runHelp": "Runs this template alone on the test source sample. Ctrl+F5, or ⌘F5 on a Mac.",
       "result": "Step result",
       "sampleLoading": "reading the sample",
       "sampleReady": "sample saved",
@@ -733,16 +733,14 @@
       "cannotRunSample": "The source sample of this chain is not readable JSON. Fix it on the chain screen, then come back here."
     },
     "explorer": {
-      "open": "Source data",
-      "openHelp": "Shows the test source document. Clicking a property copies its JSONPath.",
       "title": "Test source document",
-      "intro": "Click a property: its JSONPath goes to the clipboard, ready to paste into the template.",
-      "copyHelp": "Copy {{path}}",
-      "copied": "copied",
-      "clipboardRefused": "The browser refused the clipboard. The path stays readable in the property's tooltip.",
+      "intro": "Click a property: its JSONPath is inserted into the template, where you were typing.",
+      "insertHelp": "Insert {{path}}",
+      "shortcut": "Ctrl+Space in the editor (⌘Space on a Mac) opens the source document: clicking a property inserts its path at the caret.",
       "object": "{{count}} propertie(s)",
       "array": "{{count}} item(s)",
-      "close": "Close"
+      "close": "Close",
+      "noSample": "The source sample is not readable JSON: there is no document to browse. Fix it on the chain screen."
     }
   },
   "sources": {

@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 /**
  * Le document source de test, déplié, chaque nœud cliquable (Gael, 31/10/2026).
  *
- * Un clic met le JSONPath du nœud dans le presse-papier. C'est ce qui remplace la
- * recopie à la main d'un chemin lu dans un bloc de JSON : une faute de frappe dans
+ * Un clic INSÈRE le JSONPath du nœud là où l'utilisateur écrivait, et la fenêtre se
+ * referme. Le presse-papiers a été écarté le même jour : il oblige à un second geste,
+ * il écrase ce que l'utilisateur y avait mis, et un navigateur peut le refuser — trois
+ * façons de rendre la fenêtre moins utile que la recopie à la main qu'elle remplace.
+ *
+ * Ce qu'elle remplace, justement : une faute de frappe dans
  * `$.Account[0].PickupReference` ne se voit qu'à l'exécution, et elle rend `null` sans
  * rien dire — le template reste valide.
  *
@@ -34,13 +38,11 @@ function Node({
   path,
   value,
   onPick,
-  copied,
 }: {
   label: string | null;
   path: string;
   value: unknown;
   onPick: (path: string) => void;
-  copied: string | null;
 }) {
   const { t } = useTranslation();
   const branch = typeof value === "object" && value !== null;
@@ -53,8 +55,8 @@ function Node({
     <li className="sample-node">
       <button
         type="button"
-        className={copied === path ? "sample-pick sample-picked" : "sample-pick"}
-        title={t("chains.explorer.copyHelp", { path })}
+        className="sample-pick"
+        title={t("chains.explorer.insertHelp", { path })}
         onClick={() => onPick(path)}
       >
         {label !== null && <span className="sample-key">{label}</span>}
@@ -67,7 +69,6 @@ function Node({
         ) : (
           <span className="sample-value mono">{leafText(value)}</span>
         )}
-        {copied === path && <span className="sample-copied">{t("chains.explorer.copied")}</span>}
       </button>
       {entries.length > 0 && (
         <ul className="plain-list sample-children">
@@ -78,7 +79,6 @@ function Node({
               path={childPath(path, key)}
               value={child}
               onPick={onPick}
-              copied={copied}
             />
           ))}
         </ul>
@@ -87,32 +87,22 @@ function Node({
   );
 }
 
-export function SampleExplorer({ sample, onClose }: { sample: unknown; onClose: () => void }) {
+export function SampleExplorer({
+  sample,
+  onInsert,
+  onClose,
+}: {
+  sample: unknown;
+  /** Pose le chemin dans le template, à l'endroit où l'utilisateur écrivait. */
+  onInsert: (path: string) => void;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
   const close = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     close.current?.focus();
   }, []);
-
-  function pick(path: string) {
-    setFailed(false);
-    // Le presse-papier peut être refusé — page non sécurisée, permission retirée. On le
-    // DIT et on montre le chemin : sans cela, un clic sans effet laisse croire à une
-    // copie réussie, et c'est l'ancien chemin qui serait collé.
-    void navigator.clipboard
-      ?.writeText(path)
-      .then(() => setCopied(path))
-      .catch(() => {
-        setCopied(null);
-        setFailed(true);
-      });
-    if (navigator.clipboard === undefined) {
-      setFailed(true);
-    }
-  }
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -130,13 +120,8 @@ export function SampleExplorer({ sample, onClose }: { sample: unknown; onClose: 
       >
         <h2>{t("chains.explorer.title")}</h2>
         <p className="help">{t("chains.explorer.intro")}</p>
-        {failed && (
-          <p className="alert" role="alert">
-            {t("chains.explorer.clipboardRefused")}
-          </p>
-        )}
         <ul className="plain-list sample-tree">
-          <Node label={null} path="$" value={sample} onPick={pick} copied={copied} />
+          <Node label={null} path="$" value={sample} onPick={onInsert} />
         </ul>
         <div className="actions">
           <button type="button" className="btn btn-secondary" ref={close} onClick={onClose}>
