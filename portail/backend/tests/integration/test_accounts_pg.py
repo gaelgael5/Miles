@@ -27,6 +27,14 @@ COMPTE = normalized(
     "compte",
 )
 MAIL = {"mode": "email", "field": "$.email"}
+# Ce que la réponse porte toujours. En constante et non recopié : les comparaisons de
+# corps ENTIER sont ce qui fait remarquer un champ ajouté — encore faut-il n'avoir qu'un
+# endroit à corriger le jour où il l'est.
+SURFACE: dict[str, Any] = {
+    "delivery": None,
+    "modes": ["whatsapp", "viber", "signal", "sms", "email"],
+    "served_modes": ["email"],
+}
 SITE = normalized("type: object\nproperties:\n  code:\n    type: string\n", "shared", "site")
 COMPTES: dict[str, Any] = {
     "name": "comptes",
@@ -72,7 +80,7 @@ async def test_a_branch_without_a_reference_is_not_an_error(forge: Forge) -> Non
     read = await forge.client.get(REFERENCE, timeout=120)
 
     assert read.status_code == 200, read.text
-    assert read.json() == {"storage": None, "model": None, "problem": None}
+    assert read.json() == {"storage": None, "model": None, "problem": None, **SURFACE}
 
 
 async def test_the_storage_is_designated_and_its_model_comes_back_read_from_it(
@@ -83,7 +91,12 @@ async def test_the_storage_is_designated_and_its_model_comes_back_read_from_it(
     read = await forge.client.get(REFERENCE, timeout=120)
 
     assert set_up.status_code == 200, set_up.text
-    assert set_up.json() == {"storage": "comptes", "model": "shared/compte", "problem": None}
+    assert set_up.json() == {
+        "storage": "comptes",
+        "model": "shared/compte",
+        "problem": None,
+        **SURFACE,
+    }
     assert read.json() == set_up.json()
     # Et dans le dépôt : le storage, et RIEN d'autre. Le modèle n'y est pas écrit, sans
     # quoi il dériverait le jour où le storage change de modèle.
@@ -108,7 +121,12 @@ async def test_the_model_follows_the_storage_without_rewriting_the_reference(
     read = await forge.client.get(REFERENCE, timeout=120)
 
     assert moved.status_code == 200, moved.text
-    assert read.json() == {"storage": "comptes", "model": "shared/site", "problem": None}
+    assert read.json() == {
+        "storage": "comptes",
+        "model": "shared/site",
+        "problem": None,
+        **SURFACE,
+    }
 
 
 async def test_an_unknown_storage_is_refused_and_the_refusal_names_those_that_exist(
@@ -134,7 +152,12 @@ async def test_designating_another_storage_replaces_the_one_reference(forge: For
     await forge.client.put(REFERENCE, json={"storage": "comptes"}, timeout=120)
     again = await forge.client.put(REFERENCE, json={"storage": "sites"}, timeout=120)
 
-    assert again.json() == {"storage": "sites", "model": "shared/site", "problem": None}
+    assert again.json() == {
+        "storage": "sites",
+        "model": "shared/site",
+        "problem": None,
+        **SURFACE,
+    }
     assert await forge.file("comptes/reference.yaml") == 'storage: "sites"\n'
 
 
@@ -183,6 +206,7 @@ async def test_a_file_written_by_hand_that_is_unreadable_is_named(forge: Forge) 
         "storage": None,
         "model": None,
         "problem": {"path": "comptes/reference.yaml", "code": "fichier_illisible", "detail": None},
+        **SURFACE,
     }
 
 
@@ -203,6 +227,7 @@ async def test_a_storage_that_disappears_is_signalled_on_the_existing_reference(
             "code": "storage_inconnu",
             "detail": "comptes",
         },
+        **SURFACE,
     }
     # Toujours là, intact : Miles ne corrige pas le dépôt de lui-même.
     assert await forge.file("comptes/reference.yaml") == 'storage: "comptes"\n'
@@ -231,6 +256,7 @@ async def test_a_storage_broken_outside_miles_is_told_apart_from_a_missing_one(
             "code": "storage_illisible",
             "detail": "casse",
         },
+        **SURFACE,
     }
 
 
@@ -341,10 +367,9 @@ async def test_the_mode_and_the_address_field_are_declared_and_read_back(forge: 
     assert read.json() == {
         "storage": "comptes",
         "model": "shared/compte",
-        "delivery": MAIL,
         "problem": None,
-        "modes": ["whatsapp", "viber", "signal", "sms", "email"],
-        "served_modes": ["email"],
+        **SURFACE,
+        "delivery": MAIL,
     }
     assert await forge.file("comptes/reference.yaml") == (
         'storage: "comptes"\nenvoi:\n  mode: "email"\n  champ: "$.email"\n'
