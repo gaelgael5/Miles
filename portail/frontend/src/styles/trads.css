@@ -276,13 +276,24 @@ textarea.value-field {
 
 /* La gouttière et l'éditeur forment UNE boîte : deux bordures accolées feraient un
    trait double au milieu du champ. */
-.template-editor { display: flex; align-items: stretch; }
+.template-editor { display: flex; align-items: stretch; margin-top: 6px; }
+/* Le retrait de 6px vit sur l'ASSEMBLAGE, pas sur l'hôte du composant. Celui du socle
+   (`.jslt-editor-host { margin-top: 6px }`) espaçait l'éditeur de son libellé quand il
+   était seul ; ici il ne poussait que le cadre, et le texte se retrouvait 6px sous ses
+   numéros — mesuré au pixel sur la capture de Gael (31/10/2026), sur chaque ligne. La
+   règle du socle n'est pas touchée : elle vaut toujours pour un éditeur sans gouttière. */
+.template-frame .jslt-editor-host { margin-top: 0; }
 .template-gutter {
   flex: 0 0 auto; overflow: hidden; user-select: none;
   border: 1px solid var(--bordure-champ); border-right: none; border-radius: 8px 0 0 8px;
   background: var(--surface-alt); color: var(--encre-douce); text-align: right;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   padding: 0 8px; min-width: 40px;
+  /* `content-box` VOLONTAIRE, contre le `* { box-sizing: border-box }` du socle : la
+     hauteur posée par le composant React est celle de la zone de saisie, et les bordures
+     s'ajoutent alors d'elles-mêmes. En `border-box` il faudrait les retrancher en
+     JavaScript, et l'écart reviendrait au premier changement d'épaisseur. */
+  box-sizing: content-box;
 }
 /* Déplacée par `transform` et non par `scrollTop` : la gouttière n'a pas de barre de
    défilement à elle, elle suit celle de la zone de saisie. */

@@ -8,3 +8,12 @@ vi.mock("./dataModels/YamlEditor", () => import("./test/YamlEditorStub"));
 vi.mock("./dataModels/JsltEditor", () => import("./test/JsltEditorStub"));
 // Swagger UI non plus : il mesure et dessine, ce que jsdom ne fait pas.
 vi.mock("./contracts/SwaggerView", () => import("./test/SwaggerViewStub"));
+// jsdom ne calcule aucune mise en page, donc n'implémente pas `ResizeObserver`. La
+// doublure ne mesure rien et n'appelle jamais : c'est exact, il n'y a rien à observer.
+// Le placement de la gouttière, lui, se teste sur `editorMetrics`, où les rectangles
+// sont posés explicitement.
+globalThis.ResizeObserver = class {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+};
