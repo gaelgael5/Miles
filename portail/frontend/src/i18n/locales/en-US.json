@@ -686,7 +686,8 @@
       "deleteTitle": "Delete this chain?",
       "deleteBody": "The directory transformations/{{slug}} will be removed from the branch.",
       "unsaved": "Unsaved changes",
-      "saveShortcut": "Ctrl+S"
+      "saveShortcut": "Ctrl+S",
+      "refused": "Saving was refused. Here is what blocks it:"
     },
     "problems": {
       "syntaxe": "Unreadable template, line {{line}}, column {{column}}: {{detail}}",
@@ -727,7 +728,21 @@
       "result": "Step result",
       "sampleLoading": "reading the sample",
       "sampleReady": "sample saved",
-      "sampleMissing": "no sample"
+      "sampleMissing": "no sample",
+      "cannotRunLoading": "The source sample has not been read yet: running now would run on nothing. Try again in a moment.",
+      "cannotRunSample": "The source sample of this chain is not readable JSON. Fix it on the chain screen, then come back here."
+    },
+    "explorer": {
+      "open": "Source data",
+      "openHelp": "Shows the test source document. Clicking a property copies its JSONPath.",
+      "title": "Test source document",
+      "intro": "Click a property: its JSONPath goes to the clipboard, ready to paste into the template.",
+      "copyHelp": "Copy {{path}}",
+      "copied": "copied",
+      "clipboardRefused": "The browser refused the clipboard. The path stays readable in the property's tooltip.",
+      "object": "{{count}} propertie(s)",
+      "array": "{{count}} item(s)",
+      "close": "Close"
     }
   },
   "sources": {

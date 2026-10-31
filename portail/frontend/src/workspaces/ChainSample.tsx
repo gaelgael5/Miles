@@ -9,6 +9,25 @@ import { useTranslation } from "react-i18next";
  * Il vit en base, pas dans git : c'est un cas d'essai, pas du paramétrage. Revers dit
  * ici même, parce qu'on ne le devine pas : il ne suit ni publication ni retour arrière.
  */
+/**
+ * L'échantillon lu, ou `null` s'il n'est pas du JSON. Rendu dans une enveloppe pour
+ * distinguer « illisible » (null) de « lisible et vaut null » — un échantillon vide est
+ * légitime, la source vaut alors null (Gael, 22/10/2026).
+ *
+ * Partagé par l'écran de la chaîne et celui d'une étape : les deux doivent lire le même
+ * échantillon de la même façon, sans quoi l'un exécute ce que l'autre refuse.
+ */
+export function parsedSample(text: string): { value: unknown } | null {
+  if (!text.trim()) {
+    return { value: null };
+  }
+  try {
+    return { value: JSON.parse(text) };
+  } catch {
+    return null;
+  }
+}
+
 export function ChainSample({
   sample,
   readOnly,

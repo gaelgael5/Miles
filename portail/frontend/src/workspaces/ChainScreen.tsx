@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, ConfirmDialog } from "@miles/socle-web";
+import { ConfirmDialog } from "@miles/socle-web";
 import {
   type Chain,
   type ChainStep,
-  type StepProblem,
   useChain,
   useChainSample,
   useCheckChain,
@@ -15,31 +14,10 @@ import {
 } from "../api/chains";
 import type { WorkTarget } from "../api/workTarget";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
-import { ChainSample } from "./ChainSample";
+import { ChainSample, parsedSample } from "./ChainSample";
+import { savedProblems } from "./chainProblems";
 import { ChainStepScreen } from "./ChainStepScreen";
 import { ChainSteps } from "./ChainSteps";
-
-function savedProblems(error: unknown): StepProblem[] {
-  if (error instanceof ApiError && typeof error.detail === "object" && error.detail !== null) {
-    const detail = error.detail as { code?: string; problems?: StepProblem[] };
-    if (detail.code === "chaine_invalide") {
-      return detail.problems ?? [];
-    }
-  }
-  return [];
-}
-
-function parsedSample(text: string): { value: unknown } | null {
-  if (!text.trim()) {
-    // Pas d'échantillon : la source vaut {} (Gael, 22/10/2026).
-    return { value: null };
-  }
-  try {
-    return { value: JSON.parse(text) };
-  } catch {
-    return null;
-  }
-}
 
 function Editor({
   target,

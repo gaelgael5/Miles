@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { ChainStep, StepProblem } from "../api/chains";
 import { type DataModel, useDataModels } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
+import { StepProblems } from "./chainProblems";
 import { modelUri } from "../dataModels/schemaText";
 
 function moved(steps: ChainStep[], from: number, to: number): ChainStep[] {
@@ -194,19 +195,7 @@ export function ChainSteps({
                 <pre className="mono">{JSON.stringify(trace[index], null, 2)}</pre>
               </div>
             )}
-            {problems
-              .filter((p) => p.step === index)
-              .map((p) => (
-                <div key={`${p.code}-${p.detail ?? ""}`} className="alert row-detail" role="alert">
-                  <p>
-                    {t(`chains.problems.${p.code}`, {
-                      detail: p.detail ?? "",
-                      line: p.line,
-                      column: p.column,
-                    })}
-                  </p>
-                </div>
-              ))}
+            <StepProblems problems={problems.filter((p) => p.step === index)} />
           </li>
         ))}
       </ol>

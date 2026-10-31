@@ -6,6 +6,9 @@ import { useDataModels, useModelExample, useModelPaths } from "../api/dataModels
 import type { WorkTarget } from "../api/workTarget";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { modelUri, targetOf } from "../dataModels/schemaText";
+import { parsedSample } from "./ChainSample";
+import { SampleExplorer } from "./SampleExplorer";
+import { StepProblems, savedProblems } from "./chainProblems";
 
 // Le Web Component et ses assets ne se chargent qu'ici : le reste du portail ne les paie pas.
 const JsltEditor = lazy(() => import("../dataModels/JsltEditor"));
@@ -37,6 +40,10 @@ export function ChainStepScreen({
   // Les chemins du modèle SOURCE : c'est le document que le template lit.
   const source = targetOf(step.source_model ?? "");
   const sourcePaths = useModelPaths(target, source?.[0] ?? null, source?.[1] ?? null);
+  // Pourquoi l'exécution n'a rien donné. Un `return` muet laissait croire que le
+  // template rendait null, alors que c'est l'échantillon qui manquait (Gael, 31/10/2026).
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const [exploring, setExploring] = useState(false);
   const [name, setName] = useState(step.name);
   const [template, setTemplate] = useState(step.template);
   const [stepTarget, setStepTarget] = useState(step.target ?? "");
@@ -73,22 +80,32 @@ export function ChainStepScreen({
   }
 
   function run() {
+    setBlocked(null);
     if (stored.isPending) {
-      // L'échantillon n'est pas encore là : exécuter maintenant porterait sur rien et
-      // ferait croire que le template rend null.
+      // Exécuter maintenant porterait sur rien et ferait croire que le template rend
+      // null. On le DIT : un bouton qui ne fait rien est pire qu'un bouton qui refuse.
+      setBlocked("chains.steps.cannotRunLoading");
       return;
     }
     const sample = stored.data?.sample ?? "";
     let parsed: unknown = null;
     try {
+      // Un échantillon vide est légitime : la source vaut alors null.
       parsed = sample.trim() === "" ? null : JSON.parse(sample);
     } catch {
-      // Échantillon illisible : l'écran de la chaîne le dit déjà, on n'essaie pas.
+      // L'écran de la chaîne le dit, mais pas CELUI-CI : la personne y travaille sans
+      // voir l'autre, et son F5 restait sans effet et sans explication.
+      setBlocked("chains.steps.cannotRunSample");
       return;
     }
     // La seule étape, sur l'échantillon : on éprouve CE template, pas la chaîne entière.
     check.mutate({ steps: [{ template, target: stepTarget || null }], sample: parsed });
   }
+
+  // Ce qui bloque, du refus d'enregistrement comme de la compilation à l'exécution :
+  // les deux sont des problèmes d'étape et se lisent au même endroit.
+  const problems = [...savedProblems(save.error), ...(check.data?.problems ?? [])];
+  const sampleValue = parsedSample(stored.data?.sample ?? "");
 
   // Ctrl+S fait ce que fait le bouton, aux mêmes conditions (story caad743d).
   const canSave = !target.readOnly && dirty && !save.isPending;
@@ -132,6 +149,15 @@ export function ChainStepScreen({
             <button
               type="button"
               className="btn btn-secondary"
+              disabled={sampleValue === null}
+              title={t("chains.explorer.openHelp")}
+              onClick={() => setExploring(true)}
+            >
+              {t("chains.explorer.open")}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
               disabled={check.isPending}
               title={t("chains.steps.runHelp")}
               onClick={run}
@@ -150,11 +176,22 @@ export function ChainStepScreen({
           </div>
         )}
       </div>
-      {save.isError && (
+      {save.isError && problems.length === 0 && (
         <p className="alert" role="alert">
           {t("chains.errors.unexpected")}
         </p>
       )}
+      {save.isError && problems.length > 0 && (
+        <p className="alert" role="alert">
+          {t("chains.editor.refused")}
+        </p>
+      )}
+      {blocked !== null && (
+        <p className="alert" role="alert">
+          {t(blocked)}
+        </p>
+      )}
+      <StepProblems problems={problems} />
       {save.isSuccess && !dirty && (
         <p className="notice" role="status">
           {t("chains.editor.saved")}
@@ -203,6 +240,9 @@ export function ChainStepScreen({
             path: check.data.failure.evaluation.path ?? "",
           })}
         </p>
+      )}
+      {exploring && sampleValue !== null && (
+        <SampleExplorer sample={sampleValue.value} onClose={() => setExploring(false)} />
       )}
       {check.data?.valid && !check.data.failure && (
         <div className="card">

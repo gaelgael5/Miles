@@ -686,7 +686,8 @@
       "deleteTitle": "Supprimer cette chaîne ?",
       "deleteBody": "Le répertoire transformations/{{slug}} sera retiré de la branche.",
       "unsaved": "Modifications non enregistrées",
-      "saveShortcut": "Ctrl+S"
+      "saveShortcut": "Ctrl+S",
+      "refused": "L'enregistrement a été refusé. Voici ce qui bloque :"
     },
     "problems": {
       "syntaxe": "Template illisible, ligne {{line}}, colonne {{column}} : {{detail}}",
@@ -727,7 +728,21 @@
       "result": "Résultat de l'étape",
       "sampleLoading": "échantillon en cours de lecture",
       "sampleReady": "échantillon enregistré",
-      "sampleMissing": "aucun échantillon"
+      "sampleMissing": "aucun échantillon",
+      "cannotRunLoading": "L'échantillon source n'est pas encore lu : l'exécution porterait sur rien. Réessayez dans un instant.",
+      "cannotRunSample": "L'échantillon source de cette chaîne n'est pas du JSON lisible. Corrigez-le sur l'écran de la chaîne, puis revenez ici."
+    },
+    "explorer": {
+      "open": "Données source",
+      "openHelp": "Affiche le document source de test. Un clic sur une propriété copie son chemin JSONPath.",
+      "title": "Document source de test",
+      "intro": "Cliquez sur une propriété : son chemin JSONPath part dans le presse-papiers, prêt à coller dans le template.",
+      "copyHelp": "Copier {{path}}",
+      "copied": "copié",
+      "clipboardRefused": "Le navigateur a refusé le presse-papiers. Le chemin reste lisible dans l'infobulle de la propriété.",
+      "object": "{{count}} propriété(s)",
+      "array": "{{count}} élément(s)",
+      "close": "Fermer"
     }
   },
   "sources": {

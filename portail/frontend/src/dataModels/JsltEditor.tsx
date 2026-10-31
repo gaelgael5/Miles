@@ -31,10 +31,18 @@ function loadComponent(): Promise<void> {
 
 type EditorElement = HTMLElement & {
   value: string;
-  // Présent à partir d'urban-json-editor 0.2.0 seulement : Miles épingle encore la
-  // 0.1.1, d'où la garde à chaque appel.
+  // Présent à partir d'urban-json-editor 0.2.0, que Miles épingle. La garde reste : le
+  // composant est servi par le backend, et une image en retard rendrait la 0.1.1, où
+  // l'appel lèverait et emporterait l'éditeur entier plutôt que la seule complétion.
   setPaths?: (paths: unknown[]) => void;
 };
+
+/** Garde volontaire : sur la 0.1.1, `setPaths` n'existe pas et l'appel lèverait. */
+function applyPaths(element: EditorElement, paths: unknown[] | undefined): void {
+  if (paths !== undefined && typeof element.setPaths === "function") {
+    element.setPaths(paths);
+  }
+}
 
 /**
  * L'éditeur JSLT d'`urban-json-editor` (Gael, 24/10/2026) : coloration et auto-complétion
@@ -76,6 +84,12 @@ export default function JsltEditor({
   changed.current = onChange;
   const run = useRef(onRun);
   run.current = onRun;
+  // Les chemins dans une ref AUSSI : l'élément naît après un chargement réseau, et
+  // l'effet qui les pose s'exécute avant lui dès que la requête des chemins répond la
+  // première. Il ne se rejouerait plus — `paths` ne change plus ensuite —, et la
+  // complétion restait muette sans qu'aucune erreur ne le dise (Gael, 31/10/2026).
+  const known = useRef(paths);
+  known.current = paths;
 
   useEffect(() => {
     let alive = true;
@@ -97,6 +111,9 @@ export default function JsltEditor({
       });
       host.current.append(element);
       editor.current = element;
+      // Posés ICI aussi : si les chemins étaient déjà là, l'effet qui les pose est
+      // passé pour rien avant que l'élément n'existe.
+      applyPaths(element, known.current);
     });
     return () => {
       alive = false;
@@ -118,10 +135,8 @@ export default function JsltEditor({
   }, [readOnly]);
 
   useEffect(() => {
-    // Garde volontaire : sur la 0.1.1, `setPaths` n'existe pas et l'appel lèverait.
-    // L'éditeur reste alors exactement ce qu'il est aujourd'hui.
-    if (paths !== undefined && typeof editor.current?.setPaths === "function") {
-      editor.current.setPaths(paths);
+    if (editor.current !== null) {
+      applyPaths(editor.current, paths);
     }
   }, [paths]);
 

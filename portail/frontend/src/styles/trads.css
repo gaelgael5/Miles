@@ -248,3 +248,26 @@ textarea.value-field {
   color: var(--accent-fonce); font-size: 12px; text-decoration: underline; cursor: pointer;
 }
 .coverage-missing:hover { color: var(--accent); }
+
+/* --- Document source de test, déplié et cliquable (Gael, 31/10/2026) --- */
+
+/* Large : un document source tient rarement dans la largeur d'une confirmation, et un
+   arbre qui se replie à chaque niveau rend la lecture d'un chemin profond pénible. */
+.dialog-wide { max-width: 860px; width: 92vw; }
+.sample-tree { max-height: 60vh; overflow: auto; margin: 12px 0; }
+.sample-children { margin: 0; padding-left: 18px; border-left: 1px solid var(--bordure-champ); }
+.sample-node { list-style: none; }
+
+/* Toute la ligne est la cible du clic : viser une clé de trois caractères à la souris
+   est le genre de détail qui fait renoncer et recopier le chemin à la main. */
+.sample-pick {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 2px 6px; border: none; border-radius: 4px; background: none;
+  text-align: left; font-size: 13px; cursor: pointer;
+}
+.sample-pick:hover { background: var(--accent-fond); }
+.sample-picked { background: var(--succes-fond); }
+.sample-key { font-weight: 600; color: var(--encre); }
+.sample-kind { color: var(--encre-douce); font-size: 12px; }
+.sample-value { color: var(--accent-fonce); overflow-wrap: anywhere; }
+.sample-copied { color: var(--succes-encre); font-size: 11px; font-weight: 600; }
