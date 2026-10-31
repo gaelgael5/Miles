@@ -152,6 +152,23 @@ def keys_of(path: str, content: str | None) -> set[str]:
     return {str(key) for key in data}
 
 
+async def file_context_key_sets(
+    read: Read, context: str, cultures: list[str]
+) -> dict[str, set[str]]:
+    """Les clés de CHAQUE fichier de culture, une seule lecture et une seule analyse par fichier.
+
+    Rendues par culture plutôt que fusionnées : la couverture a besoin du total ET du
+    détail, et les obtenir par deux parcours relisait puis réanalysait chaque fichier une
+    seconde fois. Sur une dizaine de cultures et quelques milliers de clés, c'était la
+    moitié du travail d'un affichage (story 82e60880, critère 10).
+    """
+    sets: dict[str, set[str]] = {}
+    for culture in cultures:
+        path = culture_file(context, culture)
+        sets[culture] = keys_of(path, await read(path))
+    return sets
+
+
 async def file_context_keys(read: Read, context: str, cultures: list[str]) -> set[str]:
     """Toutes les clés déclarées dans ce contexte, toutes cultures du dépôt confondues.
 
@@ -159,20 +176,22 @@ async def file_context_keys(read: Read, context: str, cultures: list[str]) -> se
     liste des clés d'un contexte est donc l'union de celles que ses fichiers portent. Un
     registre parallèle aurait pu contredire le contenu d'une branche.
     """
-    keys: set[str] = set()
-    for culture in cultures:
-        path = culture_file(context, culture)
-        keys |= keys_of(path, await read(path))
-    return keys
+    return _union(await file_context_key_sets(read, context, cultures))
+
+
+def _union(sets: dict[str, set[str]]) -> set[str]:
+    """L'union des clés de tous les fichiers ; vide quand il n'y a aucun fichier."""
+    return set().union(*sets.values())
 
 
 async def file_missing_keys(read: Read, paths: list[str], culture: str) -> int:
     """Combien de clés de la branche n'ont aucune valeur dans cette culture."""
     missing = 0
     for context in contexts_in(paths):
-        declared = await file_context_keys(read, context, cultures_in(paths, context))
-        path = culture_file(context, culture)
-        missing += len(declared - keys_of(path, await read(path)))
+        sets = await file_context_key_sets(read, context, cultures_in(paths, context))
+        # Une culture sans fichier dans ce contexte n'y a aucune valeur : toutes les clés
+        # du contexte lui manquent.
+        missing += len(_union(sets) - sets.get(culture, set()))
     return missing
 
 
@@ -186,17 +205,13 @@ async def file_contexts(read: Read, paths: list[str], cultures: list[str]) -> li
     contexts = []
     for name in contexts_in(paths):
         known = cultures_in(paths, name)
-        declared = await file_context_keys(read, name, known)
-        translated = {}
-        for culture in cultures:
-            path = culture_file(name, culture)
-            translated[culture] = len(declared & keys_of(path, await read(path)))
-        obsolete = {}
-        for culture in known:
-            if culture in cultures:
-                continue
-            path = culture_file(name, culture)
-            obsolete[culture] = len(keys_of(path, await read(path)))
+        sets = await file_context_key_sets(read, name, known)
+        declared = _union(sets)
+        # Pas d'intersection avec `declared` : il EST l'union de ces mêmes jeux, donc les
+        # clés d'un fichier y sont toutes. Une intersection ferait croire à une garde là
+        # où elle ne peut rien retirer.
+        translated = {c: len(sets[c]) if c in sets else 0 for c in cultures}
+        obsolete = {c: len(sets[c]) for c in known if c not in cultures}
         meta = context_file(name)
         label = label_of(meta, await read(meta), name)
         contexts.append(Context(name, label, len(declared), translated, obsolete))

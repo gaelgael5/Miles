@@ -982,6 +982,37 @@
       }
     },
     {
+      "name": "trads_coverage",
+      "description": "Couverture des traductions d'une branche : le total de clés, puis pour chaque culture du workspace le nombre de clés traduites et manquantes, et enfin le détail contexte par contexte. `is_default` marque la culture par défaut du workspace — qu'une clé ne peut pas ne pas porter, et qui n'est PAS forcément en-US. `inconsistent` sur elle veut dire que le DÉPÔT est incohérent, pas qu'il reste à traduire ; `low` marque une culture sous le seuil rendu dans `threshold`. Pour obtenir la liste de travail elle-même, filtrer list_trads_keys sur `untranslated`.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "trads_coverageArguments",
+        "type": "object"
+      }
+    },
+    {
       "name": "create_trads_context",
       "description": "Crée un contexte et son répertoire trads/<nom>/ dans une branche enfant. Le nom technique est FIGÉ après création : il entre dans le chemin sur disque et dans tout ce qui référencera ses clés. Refus : contexte_pris (le refus nomme le libellé du contexte existant).",
       "inputSchema": {

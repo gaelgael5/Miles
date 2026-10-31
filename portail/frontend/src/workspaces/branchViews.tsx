@@ -19,8 +19,7 @@ import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
 import { StorageScreen } from "./StorageScreen";
 import { StoragesScreen } from "./StoragesScreen";
-import { TradsKeysScreen } from "./TradsKeysScreen";
-import { TradsScreen } from "./TradsScreen";
+import { tradsViewScreen } from "./tradsViews";
 
 /** Une vue de branche s'affiche-t-elle ? Non pour le paramétrage, ni sans branche de base. */
 export function hasBranchScreen(workspace: Workspace, selection: NonNullable<WorkspaceSelection>) {
@@ -179,27 +178,12 @@ function viewScreen(
       />
     );
   }
-  if (selection.view === "trads" && selection.tradsContext !== undefined) {
-    return (
-      <TradsKeysScreen
-        key={key}
-        target={target}
-        context={selection.tradsContext}
-        onBack={() => onSelect({ id: workspace.id, view: "trads", branch })}
-      />
-    );
-  }
-  if (selection.view === "trads") {
-    return (
-      <TradsScreen
-        key={key}
-        target={target}
-        onBack={back}
-        onOpen={(tradsContext) =>
-          onSelect({ id: workspace.id, view: "trads", branch, tradsContext })
-        }
-      />
-    );
+  // Les trois écrans de traductions sont à part : ils partagent le même aller-retour
+  // entre la couverture, les contextes et la saisie, et les garder ici faisait dépasser
+  // ce fichier de la taille que le dépôt s'impose.
+  const trads = tradsViewScreen({ workspace, selection, target, onSelect, back, viewKey: key });
+  if (trads !== null) {
+    return trads;
   }
   if (selection.view === "storages") {
     return (

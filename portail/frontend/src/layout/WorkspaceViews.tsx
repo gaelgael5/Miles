@@ -52,7 +52,7 @@ export function WorkspaceViews({
           {/* Une vue qui PORTE des entrées est repliable ; une vue seule reste un lien.
               Un bouton de repli sur une entrée sans enfant promettrait un niveau qui
               n'existe pas (Gael, 30/10/2026). */}
-          {view === "dataModels" || view === "contracts" ? (
+          {view === "dataModels" || view === "contracts" || view === "trads" ? (
             <CollapsibleGroup
               className="sidebar-link sidebar-sublink sidebar-group-link"
               label={t(`workspaces.card.${view}`)}
@@ -70,7 +70,23 @@ export function WorkspaceViews({
               >
                 {t(`workspaces.nav.all_${view}`)}
               </button>
-              {view === "dataModels" ? (
+              {view === "trads" ? (
+                // La COUVERTURE à côté des contextes (story 82e60880) : lire ce qui
+                // manque et gérer les contextes sont deux gestes, pas deux onglets d'un
+                // même écran — celui qui traduit ne crée pas de répertoire.
+                <button
+                  type="button"
+                  className="sidebar-link sidebar-subsublink"
+                  aria-current={
+                    here && selection?.view === "tradsCoverage" ? "page" : undefined
+                  }
+                  onClick={() =>
+                    onSelect({ id: workspaceId, view: "tradsCoverage", branch })
+                  }
+                >
+                  {t("workspaces.card.tradsCoverage")}
+                </button>
+              ) : view === "dataModels" ? (
                 // Modèles dérivés des contrats, par sens (story 47f55d8b).
                 SENSES.map((sens) => (
                   <button

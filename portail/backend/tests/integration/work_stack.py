@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import secrets as random
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -69,6 +70,29 @@ class Forge:
         ref = ref or self.edited
         got = await self.api.get(f"/api/v1/repos/miles/{self.name}/raw/{path}", params={"ref": ref})
         return got.text if got.status_code == 200 else None
+
+    async def seed(self, files: dict[str, str]) -> None:
+        """Pose des fichiers dans la branche enfant, HORS de Miles.
+
+        Hors de Miles exprès : c'est ce qui permet de mesurer qu'une lecture lit bien le
+        DÉPÔT, et non ce que Miles vient d'y écrire par ses propres routes.
+
+        Publie ce qui est en attente avant de semer : sans cela, le semis et les commits
+        locaux de la prise de main partiraient du même parent, et la publication suivante
+        serait refusée.
+        """
+        if self.held:
+            await self.publish()
+        for path, content in files.items():
+            written = await self.api.post(
+                f"/api/v1/repos/miles/{self.name}/contents/{path}",
+                json={
+                    "content": base64.b64encode(content.encode()).decode(),
+                    "branch": self.edited,
+                    "message": f"semis {path}",
+                },
+            )
+            assert written.status_code == 201, written.text
 
     async def commits(self, ref: str | None = None) -> int:
         if self.held and ref is None:

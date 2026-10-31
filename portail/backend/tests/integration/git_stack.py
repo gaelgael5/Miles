@@ -113,7 +113,15 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.sources = SourcesService(portal.pool, branches, catalog, utc_now)
     state.storages = StoragesService(portal.pool, branches, catalog, utc_now)
     state.workspace_cultures = WorkspaceCulturesService(portal.pool, branches, catalog, utc_now)
-    state.trads = TradsService(portal.pool, branches, catalog, utc_now)
+    state.trads = TradsService(
+        portal.pool,
+        branches,
+        catalog,
+        utc_now,
+        # Le seuil de signalement de la configuration par défaut, comme le budget de
+        # transformation : les tests mesurent la borne du produit, pas une valeur à eux.
+        Settings.model_fields["trads_low_coverage_percent"].default,
+    )
     state.trads_keys = TradsKeysService(portal.pool, branches, catalog, utc_now)
     state.api_keys = ApiKeysService(portal.pool, catalog, utc_now)
     # Celui de la configuration par défaut : l'essai d'une chaîne s'évalue sous cette borne.

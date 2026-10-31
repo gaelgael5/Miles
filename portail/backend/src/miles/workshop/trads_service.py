@@ -26,6 +26,7 @@ from miles.workshop.trads import (
     keys_of,
     label_of,
 )
+from miles.workshop.trads_coverage import DEFAULT_LOW_PERCENT, Coverage, rolled_up
 from miles.workspaces.cultures import checked_culture, db_cultures
 from miles.workspaces.model import WorkspaceConflictError, WorkspaceInputError
 
@@ -70,6 +71,10 @@ class TradsService:
     branches: WorkBranches
     catalog: EventTypeCatalog
     now: Callable[[], datetime]
+    # Seuil de signalement d'une couverture très basse, en pour cent (story 82e60880,
+    # critère 8). Porté par le service et non lu au point d'usage : c'est lui qui décide,
+    # et un test peut alors mesurer la décision sans monter une configuration.
+    low_coverage_percent: int = DEFAULT_LOW_PERCENT
 
     async def resolve_list(
         self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
@@ -79,6 +84,32 @@ class TradsService:
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
             return await file_contexts(copy.read, await copy.paths(), list(cultures.all))
+
+    async def resolve_coverage(
+        self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
+    ) -> Coverage:
+        """La couverture de la branche : l'ensemble d'abord, puis contexte par contexte.
+
+        Un SEUL parcours du dépôt pour les deux niveaux : le détail par contexte est
+        exactement ce qu'on somme pour obtenir l'ensemble. Deux lectures auraient refait
+        le travail entier, et auraient pu rendre deux états différents si quelqu'un
+        pousse sur la branche entre les deux.
+        """
+        cultures = await db_cultures(self.pool, workspace_id)
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.READ
+        ) as copy:
+            contexts = await file_contexts(copy.read, await copy.paths(), list(cultures.all))
+            return rolled_up(
+                contexts,
+                cultures.default,
+                cultures.all,
+                # La branche que le dépôt a réellement ouverte, pas celle demandée : sans
+                # branche, `checkout` prend la branche de base, et l'écran doit nommer
+                # celle qu'il montre.
+                branch=copy.branch,
+                threshold=self.low_coverage_percent,
+            )
 
     async def resolve_add(
         self,

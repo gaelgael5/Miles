@@ -103,7 +103,8 @@
       "storages": "Storages",
       "sources": "Sources de données",
       "branchGraph": "Branches",
-      "trads": "Traductions"
+      "trads": "Traductions",
+      "tradsCoverage": "Couverture"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -212,7 +213,8 @@
     },
     "nav": {
       "all_dataModels": "Tous les modèles",
-      "all_contracts": "Tous les contrats"
+      "all_contracts": "Tous les contrats",
+      "all_trads": "Contextes"
     }
   },
   "gitConnections": {
@@ -1207,6 +1209,26 @@
       "title": "Retirer les traductions en {{culture}}",
       "confirm": "{{count}} valeur(s) en {{culture}} vont disparaître du dépôt. Cette culture n'est plus dans les réglages du workspace : ses valeurs ne reviendront pas si vous la remettez."
     }
+  },
+  "tradsCoverage": {
+    "title": "Couverture des traductions",
+    "intro": "Ce qui est traduit, et ce qui manque, sur la branche regardée. Une traduction absente n'est pas une erreur : c'est l'état normal d'une clé qu'on vient d'ajouter.",
+    "branch": "Branche lue : {{branch}}",
+    "keysTotal": "{{count}} clé(s) sur cette branche",
+    "loading": "Lecture de la couverture…",
+    "byCulture": "Par culture",
+    "byContext": "Par contexte",
+    "translated": "Traduites",
+    "contextKeys": "Clés",
+    "emptyContext": "Vide",
+    "percent": "{{percent}} %",
+    "isDefault": "Culture par défaut",
+    "low": "Très peu traduite (moins de {{threshold}} %)",
+    "lowHelp": "Cette culture est déjà visible par des utilisateurs réels, à qui le terminal affiche {{culture}} faute de traduction.",
+    "inconsistent": "{{count}} clé(s) sans valeur dans la culture par défaut : c'est une incohérence du dépôt, pas un travail de traduction.",
+    "inconsistentHelp": "Une clé ne peut pas être créée sans valeur dans la culture par défaut du workspace : ces clés viennent d'une modification faite hors de Miles.",
+    "openUntranslated": "{{count}} à traduire",
+    "openUntranslatedTitle": "Ouvrir « {{context}} » filtré sur les clés sans valeur en {{culture}}"
   },
   "tradsKeys": {
     "title": "Traductions — {{context}}",

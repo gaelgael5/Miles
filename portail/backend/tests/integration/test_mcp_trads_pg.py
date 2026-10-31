@@ -93,6 +93,36 @@ async def test_an_unknown_context_names_the_ones_that_exist(m: McpForge) -> None
     assert refusal["existants"] == ["accueil"]
 
 
+async def test_the_coverage_gives_an_agent_the_state_of_every_culture(m: McpForge) -> None:
+    """La couverture par MCP (story 82e60880) : l'ensemble, puis le détail par contexte.
+
+    Un agent a besoin des deux : le total dit s'il reste du travail, le détail dit où
+    aller. Sans cela il lui faudrait lister les clés de chaque contexte pour les compter.
+    """
+    await _culture(m, "ar-MA")
+    await _context(m)
+    await m.ok("create_trads_key", CTX | {"slug": "titre", "values": {DEFAULT: "Hello"}})
+    await m.ok(
+        "create_trads_key",
+        CTX | {"slug": "adieu", "values": {DEFAULT: "Bye", "ar-MA": "وداعا"}},
+    )
+
+    coverage = await m.ok("trads_coverage", EDIT)
+    rows = {row["culture"]: row for row in coverage["cultures"]}
+
+    assert coverage["keys"] == 2
+    assert coverage["default"] == DEFAULT
+    assert coverage["branch"] == "back/retrait/edition"
+    assert (rows[DEFAULT]["translated"], rows[DEFAULT]["missing"]) == (2, 0)
+    assert (rows["ar-MA"]["translated"], rows["ar-MA"]["missing"]) == (1, 1)
+    # La culture par défaut est MARQUÉE : un agent n'a pas à deviner que `en-US` en est
+    # une — sur un workspace en `fr-FR`, cette déduction serait fausse.
+    assert rows[DEFAULT]["is_default"] is True
+    assert rows["ar-MA"]["is_default"] is False
+    assert rows[DEFAULT]["inconsistent"] is False
+    assert [c["name"] for c in coverage["contexts"]] == ["accueil"]
+
+
 # --- CRUD des clés, et l'écriture par culture ---
 
 

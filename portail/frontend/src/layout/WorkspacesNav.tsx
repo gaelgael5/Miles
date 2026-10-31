@@ -16,7 +16,8 @@ export type WorkspaceView =
   | "transformations"
   | "storages"
   | "sources"
-  | "trads";
+  | "trads"
+  | "tradsCoverage";
 /**
  * Ce qu'affiche l'écran Workspaces : la liste (null), le paramétrage d'un workspace, ou
  * une vue d'une de ses branches de travail (`branch`, son slug) — l'un de ses contrats
@@ -29,6 +30,10 @@ export type WorkspaceSelection = {
   contract?: string;
   // Un contexte de traduction ouvert, avec la vue « trads ».
   tradsContext?: string;
+  // Culture sur laquelle la saisie s'ouvre filtrée, avec un contexte ouvert : le
+  // raccourci « N à traduire » de la couverture (story 82e60880). Porté par la sélection
+  // pour que la vue reste partageable, comme la lecture en Swagger.
+  tradsUntranslated?: string;
   // Une chaîne de transformations ouverte, avec la vue « transformations ».
   chain?: string;
   // Une étape de cette chaîne, ouverte en page pleine (Gael, 24/10/2026) : son nom.

@@ -230,7 +230,9 @@ def create_app() -> FastAPI:
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
         app.state.storages = StoragesService(pool, branches, catalog, utc_now)
         app.state.workspace_cultures = WorkspaceCulturesService(pool, branches, catalog, utc_now)
-        app.state.trads = TradsService(pool, branches, catalog, utc_now)
+        app.state.trads = TradsService(
+            pool, branches, catalog, utc_now, settings.trads_low_coverage_percent
+        )
         app.state.trads_keys = TradsKeysService(pool, branches, catalog, utc_now)
         app.state.api_keys = ApiKeysService(pool, catalog, utc_now)
         app.state.public_url = settings.public_url

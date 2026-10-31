@@ -8,6 +8,7 @@ from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict
 
 from miles.workshop.trads import Context, TradsFileError
+from miles.workshop.trads_coverage import Coverage, CultureCoverage
 from miles.workshop.trads_service import ContextTakenError, Removal, TradsService
 from miles.workspaces.model import (
     BranchNotFoundError,
@@ -40,6 +41,31 @@ class ContextOut(BaseModel):
     # Cultures retirées du workspace dont le dépôt garde encore un fichier, et le nombre
     # de valeurs de chacune : sans ce compte, personne ne saurait qu'elles existent.
     obsolete: dict[str, int]
+
+
+class CultureCoverageOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    culture: str
+    translated: int
+    missing: int
+    # La culture par défaut du WORKSPACE, qu'une clé ne peut pas ne pas porter. Rendue
+    # comme un attribut et non devinée du code : elle n'est `en-US` que par défaut, et
+    # l'écran qui la coderait en dur mentirait sur tout workspace qui en a changé.
+    is_default: bool
+    low: bool
+    # Clés sans valeur dans la culture par défaut : une incohérence du DÉPÔT, pas un
+    # travail de traduction à faire — et l'écran doit le dire ainsi (critère 6).
+    inconsistent: bool
+
+
+class CoverageOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    branch: str
+    default: str
+    keys: int
+    threshold: int
+    cultures: list[CultureCoverageOut]
+    contexts: list[ContextOut]
 
 
 class ContextCreate(BaseModel):
@@ -107,6 +133,28 @@ def _out(context: Context) -> ContextOut:
     )
 
 
+def _culture_out(row: CultureCoverage) -> CultureCoverageOut:
+    return CultureCoverageOut(
+        culture=row.culture,
+        translated=row.translated,
+        missing=row.missing,
+        is_default=row.is_default,
+        low=row.low,
+        inconsistent=row.inconsistent,
+    )
+
+
+def _coverage_out(coverage: Coverage) -> CoverageOut:
+    return CoverageOut(
+        branch=coverage.branch,
+        default=coverage.default,
+        keys=coverage.keys,
+        threshold=coverage.threshold,
+        cultures=[_culture_out(c) for c in coverage.cultures],
+        contexts=[_out(c) for c in coverage.contexts],
+    )
+
+
 def _removal_out(removal: Removal) -> RemovalOut:
     return RemovalOut(keys=removal.keys, values=removal.values)
 
@@ -120,6 +168,25 @@ async def list_contexts(
     except _REFUSALS as exc:
         return _refusal(exc)
     return [_out(c) for c in contexts]
+
+
+@router.get("/coverage", response_model=CoverageOut)
+async def read_coverage(
+    workspace_id: str, request: Request, service: Service, branch: str | None = None
+) -> object:
+    """La couverture des traductions de la branche (story 82e60880).
+
+    Chemin littéral déclaré AVANT toute route à segment variable : `coverage` n'est pas un
+    nom de contexte, et le jour où une route `GET /{name}` existera, l'ordre de
+    déclaration est ce qui empêchera qu'elle l'attrape.
+    """
+    try:
+        coverage = await service.resolve_coverage(
+            request_author(request), workspace_id, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return _coverage_out(coverage)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ContextOut)

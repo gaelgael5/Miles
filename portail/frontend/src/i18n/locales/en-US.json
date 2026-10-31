@@ -103,7 +103,8 @@
       "storages": "Storages",
       "sources": "Data sources",
       "branchGraph": "Branches",
-      "trads": "Translations"
+      "trads": "Translations",
+      "tradsCoverage": "Coverage"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -212,7 +213,8 @@
     },
     "nav": {
       "all_dataModels": "All models",
-      "all_contracts": "All contracts"
+      "all_contracts": "All contracts",
+      "all_trads": "Contexts"
     }
   },
   "gitConnections": {
@@ -1207,6 +1209,26 @@
       "title": "Remove the {{culture}} translations",
       "confirm": "{{count}} value(s) in {{culture}} will disappear from the repository. That culture is no longer in the workspace settings: its values will not come back if you add it again."
     }
+  },
+  "tradsCoverage": {
+    "title": "Translation coverage",
+    "intro": "What is translated, and what is missing, on the branch you are looking at. A missing translation is not an error: it is the normal state of a key that was just added.",
+    "branch": "Branch read: {{branch}}",
+    "keysTotal": "{{count}} key(s) on this branch",
+    "loading": "Reading the coverage…",
+    "byCulture": "By culture",
+    "byContext": "By context",
+    "translated": "Translated",
+    "contextKeys": "Keys",
+    "emptyContext": "Empty",
+    "percent": "{{percent}}%",
+    "isDefault": "Default culture",
+    "low": "Barely translated (under {{threshold}}%)",
+    "lowHelp": "This culture is already visible to real users, who are shown {{culture}} for want of a translation.",
+    "inconsistent": "{{count}} key(s) with no value in the default culture: this is a repository inconsistency, not translation work.",
+    "inconsistentHelp": "A key cannot be created without a value in the workspace default culture: these keys come from a change made outside Miles.",
+    "openUntranslated": "{{count}} to translate",
+    "openUntranslatedTitle": "Open “{{context}}” filtered on the keys with no value in {{culture}}"
   },
   "tradsKeys": {
     "title": "Translations — {{context}}",

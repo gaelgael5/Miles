@@ -10,7 +10,13 @@ from starlette.requests import Request
 from starlette.types import ASGIApp
 
 from miles.apikeys.model import KeyPrincipal
-from miles.mcp_api import tools_chains, tools_models, tools_reads, tools_trads
+from miles.mcp_api import (
+    tools_chains,
+    tools_models,
+    tools_reads,
+    tools_trads,
+    tools_trads_keys,
+)
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE, ApiKeyAuth
 from miles.mcp_api.calls import caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
@@ -166,6 +172,7 @@ def build_server() -> MCPServer:
     tools_chains.register(server)
     tools_reads.register(server)
     tools_trads.register(server)
+    tools_trads_keys.register(server)
     return server
 
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import json
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -61,18 +60,7 @@ async def _seed(forge: Forge, files: dict[str, str]) -> None:
     Publie ce qui est en attente avant de semer : sans cela, le semis et les commits
     locaux partiraient du même parent et la publication suivante serait refusée.
     """
-    if forge.held:
-        await forge.publish()
-    for path, content in files.items():
-        written = await forge.api.post(
-            f"/api/v1/repos/miles/{forge.name}/contents/{path}",
-            json={
-                "content": base64.b64encode(content.encode()).decode(),
-                "branch": forge.edited,
-                "message": f"semis {path}",
-            },
-        )
-        assert written.status_code == 201, written.text
+    await forge.seed(files)
 
 
 async def _cultures(forge: Forge, *codes: str) -> None:

@@ -114,16 +114,22 @@ export function Refusal({ error }: { error: unknown }) {
 export function TradsKeysScreen({
   target,
   context,
+  initialUntranslated,
   onBack,
 }: {
   target: WorkTarget;
   context: string;
+  /** Filtre « non traduit » posé à l'ouverture : le raccourci de l'écran de couverture. */
+  initialUntranslated?: string;
   onBack: () => void;
 }) {
   const { t } = useTranslation();
   const cultures = useWorkspaceCultures(target.workspaceId);
   const [search, setSearch] = useState("");
-  const [untranslated, setUntranslated] = useState<string | null>(null);
+  // Semé une seule fois, au montage : la personne doit pouvoir changer ce filtre, et
+  // un effet qui le recopierait à chaque rendu écraserait son choix. C'est la clé de
+  // l'élément, posée par le routeur, qui remonte l'écran sur un autre raccourci.
+  const [untranslated, setUntranslated] = useState<string | null>(initialUntranslated ?? null);
   const [offset, setOffset] = useState(0);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<TradsKey | null>(null);

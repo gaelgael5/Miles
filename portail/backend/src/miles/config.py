@@ -5,6 +5,8 @@ from pathlib import Path
 from miles_socle.settings import SocleDatabaseSettings, SocleWebSettings
 from pydantic import Field, SecretStr
 
+from miles.workshop.trads_coverage import DEFAULT_LOW_PERCENT
+
 DEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
 
 
@@ -47,3 +49,8 @@ class Settings(SocleWebSettings, DatabaseSettings):
     # Le langage n'a pas de boucle, mais `$source` itère sur les données : la borne
     # interrompt un template lancé sur un document démesuré (ticket 68cae2ff).
     transform_budget: int = Field(default=100_000, gt=0)
+    # Taux au-dessous duquel une culture du paramétrage est signalée comme très peu
+    # traduite (MILES_TRADS_LOW_COVERAGE_PERCENT, story 82e60880, critère 8). Un réglage
+    # et non une constante : une installation qui démarre ses traductions verrait sinon
+    # toutes ses langues en alerte, et apprendrait à ne plus regarder le signalement.
+    trads_low_coverage_percent: int = Field(default=DEFAULT_LOW_PERCENT, ge=0, le=100)
