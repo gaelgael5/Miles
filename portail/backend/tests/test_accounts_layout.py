@@ -5,11 +5,14 @@ from collections.abc import Awaitable, Callable
 from miles.accounts.layout import (
     PATH,
     AccountReference,
+    Delivery,
     ReferenceProblem,
     read_reference,
     reference_text,
 )
 from miles.accounts.service import ReferenceState, file_state
+from miles.datamodels.layout import model_path
+from miles.datamodels.schema import normalized
 
 
 def test_the_file_sits_at_the_root_like_the_storages_it_designates() -> None:
@@ -119,3 +122,106 @@ async def test_a_storage_broken_outside_miles_is_told_apart_from_a_missing_one()
 
     assert state.reference == AccountReference("comptes")
     assert state.problem == ReferenceProblem(PATH, "storage_illisible", "comptes")
+
+
+# --- Le mode d'envoi et le champ de l'adresse (Gael, 31/10/2026) ---
+
+COMPTE = normalized(
+    "type: object\nproperties:\n"
+    "  identifiant:\n    type: string\n"
+    "  email:\n    type: string\n"
+    "  adresses:\n    type: array\n    items:\n      type: string\n"
+    "  postale:\n    type: object\n    properties:\n      ville:\n        type: string\n",
+    "shared",
+    "compte",
+)
+STOCK = 'nom: "comptes"\nlibelle: "Comptes"\nmodele: "shared/compte"\ncle:\n  - "$.identifiant"\n'
+MAIL = Delivery("email", "$.email")
+
+
+def _full(files: dict[str, str] | None = None) -> Callable[[str], Awaitable[str | None]]:
+    """Une branche qui porte le storage « comptes » et son modèle."""
+    base = {"storages/comptes.yaml": STOCK, model_path("shared", "compte"): COMPTE}
+    return _branch(base | (files or {}))
+
+
+def test_the_delivery_is_written_and_read_back_unchanged() -> None:
+    text = reference_text(AccountReference("comptes", MAIL))
+
+    assert text == 'storage: "comptes"\nenvoi:\n  mode: "email"\n  champ: "$.email"\n'
+    assert read_reference(text) == AccountReference("comptes", MAIL)
+
+
+def test_a_reference_without_a_delivery_writes_no_envoi_block() -> None:
+    # L'état normal d'une référence qu'on vient de poser : le stockage seul.
+    assert reference_text(AccountReference("comptes")) == 'storage: "comptes"\n'
+    assert read_reference('storage: "comptes"\n') == AccountReference("comptes")
+
+
+def test_a_mode_outside_the_known_list_makes_the_file_unreadable() -> None:
+    # Pas « réglage incomplet » : un mode que le produit ne connaît pas est un fichier
+    # fautif, et le dire ainsi envoie corriger le fichier plutôt qu'attendre un écran.
+    assert read_reference("storage: comptes\nenvoi:\n  mode: pigeon\n  champ: $.email\n") is None
+
+
+def test_a_half_written_delivery_makes_the_file_unreadable() -> None:
+    assert read_reference("storage: comptes\nenvoi:\n  mode: email\n") is None
+    assert read_reference("storage: comptes\nenvoi:\n  champ: $.email\n") is None
+    assert read_reference("storage: comptes\nenvoi:\n  mode: email\n  champ: ''\n") is None
+    assert read_reference("storage: comptes\nenvoi: email\n") is None
+
+
+def test_a_key_the_delivery_does_not_know_makes_the_file_unreadable() -> None:
+    text = "storage: comptes\nenvoi:\n  mode: email\n  champ: $.email\n  objet: Bonjour\n"
+
+    assert read_reference(text) is None
+
+
+async def test_a_mode_and_a_field_that_hold_up_are_read_without_a_problem() -> None:
+    state = await file_state(_full({PATH: reference_text(AccountReference("comptes", MAIL))}))
+
+    assert state.reference == AccountReference("comptes", MAIL)
+    assert state.model == "shared/compte"
+    assert state.problem is None
+
+
+async def test_a_mode_that_is_not_served_yet_is_named_on_reading() -> None:
+    # Un fichier préparé pour Viber se LIT — la liste des modes est figée —, mais rien
+    # ne laisse croire qu'il sert : « pour le moment on implémentera que le mail ».
+    viber = AccountReference("comptes", Delivery("viber", "$.email"))
+    state = await file_state(_full({PATH: reference_text(viber)}))
+
+    assert state.reference == viber
+    assert state.problem == ReferenceProblem(PATH, "mode_non_servi", "viber")
+
+
+async def test_a_field_absent_from_the_model_is_named_on_reading() -> None:
+    # Le modèle vit dans la branche : il peut perdre la propriété désignée APRÈS le
+    # réglage, et l'écran montrerait sinon un réglage qui a l'air bon.
+    gone = AccountReference("comptes", Delivery("email", "$.disparu"))
+    state = await file_state(_full({PATH: reference_text(gone)}))
+
+    assert state.problem == ReferenceProblem(PATH, "champ_inconnu", "$.disparu")
+
+
+async def test_a_container_is_refused_as_an_address() -> None:
+    # Une adresse d'envoi est une valeur : un tableau ou un objet ne s'envoie pas, et le
+    # découvrir au premier terminal réel coûterait bien plus que de le dire ici.
+    table = AccountReference("comptes", Delivery("email", "$.adresses"))
+    objet = AccountReference("comptes", Delivery("email", "$.postale"))
+
+    tabled = await file_state(_full({PATH: reference_text(table)}))
+    nested = await file_state(_full({PATH: reference_text(objet)}))
+
+    assert tabled.problem == ReferenceProblem(PATH, "tableau_interdit", "$.adresses")
+    assert nested.problem == ReferenceProblem(PATH, "valeur_attendue", "$.postale")
+
+
+async def test_a_vanished_storage_is_named_before_the_delivery_is_even_looked_at() -> None:
+    # Un seul `problem` est rendu, et l'ordre compte : sans storage, son modèle est
+    # inconnu, donc le champ ne PEUT pas être jugé. Dire « champ inconnu » enverrait
+    # corriger la mauvaise chose.
+    orphan = AccountReference("comptes", Delivery("email", "$.disparu"))
+    state = await file_state(_branch({PATH: reference_text(orphan)}))
+
+    assert state.problem == ReferenceProblem(PATH, "storage_inconnu", "comptes")

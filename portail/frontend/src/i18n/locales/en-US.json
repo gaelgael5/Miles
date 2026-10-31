@@ -1024,18 +1024,44 @@
     "removeBody": "The file comptes/reference.yaml will be removed from the branch. It is a commit: the removal can be reviewed and undone.",
     "fields": {
       "storage": "Accounts storage",
-      "model": "Accounts model, declared by the storage"
+      "model": "Accounts model, declared by the storage",
+      "mode": "Code delivery mode",
+      "addressField": "Field holding the delivery address"
     },
     "problems": {
       "fichier_illisible": "The file {{path}} exists but does not have the expected shape. While it stays this way, no account reference holds.",
       "storage_inconnu": "The file {{path}} designates the storage “{{storage}}”, which this branch does not carry. The setting was left untouched: fix it here, or in the repository.",
       "storage_illisible": "The storage “{{storage}}”, designated by {{path}}, has an unreadable declaration. The accounts model cannot be read.",
-      "unexpected": "The file {{path}} has a problem this screen cannot name."
+      "unexpected": "The file {{path}} has a problem this screen cannot name.",
+      "mode_non_servi": "The file {{path}} declares the delivery mode “{{storage}}”, which is not served yet. Nothing will be sent that way.",
+      "champ_inconnu": "The file {{path}} names the address field {{storage}}, which the accounts model does not carry.",
+      "chemin_de_propriete_attendu": "The file {{path}} carries an address field that does not name a property ({{storage}}).",
+      "valeur_attendue": "The address field {{storage}}, declared in {{path}}, names an object. An address is a plain value.",
+      "tableau_interdit": "The address field {{storage}}, declared in {{path}}, names an array. An address is a plain value.",
+      "modele_illisible": "The model {{storage}}, declared by the storage, is unreadable: the address field cannot be checked.",
+      "modele_invalide": "The storage declares a malformed model ({{storage}})."
     },
     "errors": {
       "storage_inconnu": "That storage does not exist on this branch. The ones that do: {{existants}}.",
-      "unexpected": "The account reference could not be read or saved."
-    }
+      "unexpected": "The account reference could not be read or saved.",
+      "mode_non_servi": "That delivery mode is not served yet. The ones that are: {{servis}}.",
+      "champ_inconnu": "The field {{detail}} does not exist in the accounts model.",
+      "chemin_de_propriete_attendu": "{{detail}} does not name a property of the model.",
+      "valeur_attendue": "{{detail}} names an object. A delivery address is a plain value.",
+      "tableau_interdit": "{{detail}} names an array. A delivery address is a plain value.",
+      "modele_illisible": "The storage model {{detail}} is unreadable: the address field cannot be checked.",
+      "modele_invalide": "The storage declares a malformed model ({{detail}})."
+    },
+    "modes": {
+      "whatsapp": "WhatsApp",
+      "viber": "Viber",
+      "signal": "Signal",
+      "sms": "SMS",
+      "email": "Email"
+    },
+    "modeNotServed": "{{mode}} — not served yet",
+    "addressHelp": "The plain properties of the accounts model. The registration code will be sent to this field; an array or an object cannot be sent, so it is not offered.",
+    "noField": "The model {{model}} has no plain property that could hold a delivery address."
   },
   "storages": {
     "title": "Storages — {{name}}",

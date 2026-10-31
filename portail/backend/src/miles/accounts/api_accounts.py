@@ -7,7 +7,13 @@ from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict, Field
 
-from miles.accounts.service import AccountsService, ReferenceState, StorageUnknownError
+from miles.accounts.layout import MODES, SERVED_MODES, Delivery
+from miles.accounts.service import (
+    AccountsService,
+    DeliveryRefusedError,
+    ReferenceState,
+    StorageUnknownError,
+)
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,
@@ -36,6 +42,15 @@ class ProblemOut(BaseModel):
     detail: str | None
 
 
+class DeliveryIO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Un des `MODES`. Validé par le service et non par un `Literal` ici : le refus doit
+    # nommer les modes SERVIS, ce qu'une erreur de schéma pydantic ne sait pas faire.
+    mode: str = Field(max_length=32)
+    # Jpath d'une propriété du modèle du storage, choisi dans une liste et jamais saisi.
+    field: str = Field(max_length=400)
+
+
 class ReferenceOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     # None : aucune référence déclarée sur cette branche. Ce n'est pas une erreur, et
@@ -44,22 +59,36 @@ class ReferenceOut(BaseModel):
     # Le modèle du storage désigné, lu dans sa déclaration — jamais stocké dans le
     # fichier de référence, qui n'aurait aucun moyen de le voir changer.
     model: str | None
+    # None : le stockage est désigné, l'envoi ne l'est pas encore. Pas une erreur.
+    delivery: DeliveryIO | None
     problem: ProblemOut | None
+    # Rendus à CHAQUE lecture plutôt que codés dans l'écran : le jour où un mode de plus
+    # est branché, l'écran suit sans être retouché, et ne peut pas en proposer un que le
+    # serveur refuserait.
+    modes: list[str]
+    served_modes: list[str]
 
 
 class ReferenceIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     storage: str = Field(max_length=63)
+    # Omis : l'envoi est EFFACÉ. Ce PUT pose la référence entière ; fusionner avec
+    # l'existant ferait qu'aucun appel ne saurait retirer un envoi.
+    delivery: DeliveryIO | None = None
 
 
 def _out(state: ReferenceState) -> ReferenceOut:
     problem = state.problem
+    delivery = None if state.reference is None else state.reference.delivery
     return ReferenceOut(
         storage=None if state.reference is None else state.reference.storage,
         model=state.model,
+        delivery=None if delivery is None else DeliveryIO(mode=delivery.mode, field=delivery.field),
         problem=None
         if problem is None
         else ProblemOut(path=problem.path, code=problem.code, detail=problem.detail),
+        modes=list(MODES),
+        served_modes=list(SERVED_MODES),
     )
 
 
@@ -68,6 +97,7 @@ def _error(code: int, detail: object) -> JSONResponse:
 
 
 _REFUSALS = (
+    DeliveryRefusedError,
     StorageUnknownError,
     RepositoryUnavailableError,
     WorkspaceConflictError,
@@ -78,6 +108,17 @@ _REFUSALS = (
 
 def _refusal(exc: Exception) -> JSONResponse:
     unprocessable = status.HTTP_422_UNPROCESSABLE_CONTENT
+    if isinstance(exc, DeliveryRefusedError):
+        return _error(
+            unprocessable,
+            {
+                "code": exc.problem.code,
+                "path": exc.problem.path,
+                "detail": exc.problem.detail,
+                "modes": exc.modes,
+                "servis": exc.served,
+            },
+        )
     if isinstance(exc, StorageUnknownError):
         return _error(
             unprocessable,
@@ -117,7 +158,13 @@ async def set_reference(
     """Désigne le stockage. PUT et non POST : une branche a UNE référence de compte."""
     try:
         saved = await service.resolve_save(
-            request_author(request), workspace_id, body.storage, branch=branch
+            request_author(request),
+            workspace_id,
+            body.storage,
+            None
+            if body.delivery is None
+            else Delivery(body.delivery.mode.strip(), body.delivery.field.strip()),
+            branch=branch,
         )
     except _REFUSALS as exc:
         return _refusal(exc)

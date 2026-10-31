@@ -10,7 +10,7 @@ import pytest
 from miles.datamodels.schema import normalized
 from tests.integration.mcp_stack import McpForge, open_mcp_forge
 from tests.integration.test_datamodels_pg import body_of
-from tests.integration.work_stack import ROOT, Forge, open_work_forge
+from tests.integration.work_stack import EDITED, EDITION, ROOT, Forge, open_work_forge
 
 pytestmark = pytest.mark.integration
 
@@ -20,10 +20,13 @@ MODELS = "/api/workspaces/retrait/data-models"
 EDIT = {"workspace_id": "retrait", "branch": "edition"}
 
 COMPTE = normalized(
-    "type: object\nproperties:\n  identifiant:\n    type: string\n  telephone:\n    type: string\n",
+    "type: object\nproperties:\n  identifiant:\n    type: string\n"
+    "  telephone:\n    type: string\n  email:\n    type: string\n"
+    "  adresses:\n    type: array\n    items:\n      type: string\n",
     "shared",
     "compte",
 )
+MAIL = {"mode": "email", "field": "$.email"}
 SITE = normalized("type: object\nproperties:\n  code:\n    type: string\n", "shared", "site")
 COMPTES: dict[str, Any] = {
     "name": "comptes",
@@ -208,15 +211,26 @@ async def test_a_storage_that_disappears_is_signalled_on_the_existing_reference(
 async def test_a_storage_broken_outside_miles_is_told_apart_from_a_missing_one(
     forge: Forge,
 ) -> None:
-    """Deux causes, deux codes : « disparu » et « illisible » ne se corrigent pas pareil."""
-    await forge.client.put(REFERENCE, json={"storage": "comptes"}, timeout=120)
-    await forge.seed({"storages/comptes.yaml": "modele: [\n"})
+    """Deux causes, deux codes : « disparu » et « illisible » ne se corrigent pas pareil.
+
+    Le storage fautif est SEMÉ, jamais déclaré par Miles : Miles n'écrit pas de
+    déclaration illisible, et le seul moyen d'en avoir une est qu'elle vienne du dépôt.
+    Le réglage l'accepte, puisqu'il ne vérifie que la PRÉSENCE du fichier — c'est
+    précisément ce qui rend ce défaut possible, donc ce qu'il faut savoir dire.
+    """
+    await forge.seed({"storages/casse.yaml": "modele: [\n"})
+    set_up = await forge.client.put(REFERENCE, json={"storage": "casse"}, timeout=120)
     read = await forge.client.get(REFERENCE, timeout=120)
 
-    assert read.json()["problem"] == {
-        "path": "comptes/reference.yaml",
-        "code": "storage_illisible",
-        "detail": "comptes",
+    assert set_up.status_code == 200, set_up.text
+    assert read.json() == {
+        "storage": "casse",
+        "model": None,
+        "problem": {
+            "path": "comptes/reference.yaml",
+            "code": "storage_illisible",
+            "detail": "casse",
+        },
     }
 
 
@@ -243,11 +257,21 @@ async def test_two_branches_carry_two_different_references(forge: Forge) -> None
         timeout=120,
     )
     assert other.status_code == 201, other.text
+    # Une personne ne tient QU'UNE branche à la fois (`deja_une_branche`, story 9def0adc) :
+    # il faut rendre « edition » avant de prendre « essai ». Ce n'est pas un détour du
+    # test, c'est la règle du produit.
+    released = await forge.client.delete(
+        f"/api/workspaces/retrait/branches/{EDITION}/hold", timeout=120
+    )
+    assert released.status_code == 200, released.text
     held = await forge.client.post("/api/workspaces/retrait/branches/essai/hold", timeout=120)
     assert held.status_code == 201, held.text
-    await forge.client.put(REFERENCE, json={"storage": "sites"}, params={"branch": "essai"})
+    written = await forge.client.put(
+        REFERENCE, json={"storage": "sites"}, params={"branch": "essai"}, timeout=120
+    )
+    assert written.status_code == 200, written.text
 
-    here = await forge.client.get(REFERENCE, timeout=120)
+    here = await forge.client.get(REFERENCE, params={"branch": EDITION}, timeout=120)
     there = await forge.client.get(REFERENCE, params={"branch": "essai"}, timeout=120)
 
     assert here.json()["storage"] == "comptes"
@@ -259,14 +283,21 @@ async def test_every_change_is_journalled_with_its_branch(forge: Forge) -> None:
     await forge.client.put(REFERENCE, json={"storage": "comptes"}, timeout=120)
     await forge.client.delete(REFERENCE, timeout=120)
 
+    # Trié par `written_at` et NON par `id` : la clé primaire de `events` est un uuid,
+    # dont l'ordre n'a rien de chronologique. Un `ORDER BY id` passe à l'exécution et
+    # rend les lignes dans un ordre arbitraire — un test vert une fois sur deux.
     rows = await forge.portal.pool.fetch(
-        "SELECT type, properties FROM events WHERE type LIKE 'account_reference.%' ORDER BY id"
+        "SELECT type, properties FROM events WHERE type LIKE 'account_reference.%' "
+        "ORDER BY written_at"
     )
     written = [(r["type"], json.loads(r["properties"])) for r in rows]
 
     assert [t for t, _ in written] == ["account_reference.saved", "account_reference.removed"]
     assert written[0][1]["storage"] == "comptes"
-    assert all(p["branch"] == "edition" and p["commit"] for _, p in written)
+    # La branche journalisée est le nom GIT complet (`copy.branch`), pas le slug : c'est
+    # la convention des autres services, et c'est ce qui permet de retrouver le commit
+    # dans la forge sans reconstruire le préfixe.
+    assert all(p["branch"] == EDITED and p["commit"] for _, p in written)
 
 
 async def test_the_reference_is_read_set_and_removed_through_mcp(m: McpForge) -> None:
@@ -294,3 +325,133 @@ async def test_mcp_names_the_storages_that_exist_when_the_one_asked_for_does_not
 
     assert refused["code"] == "storage_inconnu"
     assert refused["existants"] == ["comptes", "sites"]
+
+
+# --- Le mode d'envoi et le champ de l'adresse (Gael, 31/10/2026) ---
+
+
+async def test_the_mode_and_the_address_field_are_declared_and_read_back(forge: Forge) -> None:
+    """Le cas de Gael : stockage choisi, puis le mode, puis le champ de l'adresse."""
+    set_up = await forge.client.put(
+        REFERENCE, json={"storage": "comptes", "delivery": MAIL}, timeout=120
+    )
+    read = await forge.client.get(REFERENCE, timeout=120)
+
+    assert set_up.status_code == 200, set_up.text
+    assert read.json() == {
+        "storage": "comptes",
+        "model": "shared/compte",
+        "delivery": MAIL,
+        "problem": None,
+        "modes": ["whatsapp", "viber", "signal", "sms", "email"],
+        "served_modes": ["email"],
+    }
+    assert await forge.file("comptes/reference.yaml") == (
+        'storage: "comptes"\nenvoi:\n  mode: "email"\n  champ: "$.email"\n'
+    )
+
+
+async def test_a_mode_that_is_not_served_is_refused_and_names_those_that_are(
+    forge: Forge,
+) -> None:
+    """« Pour le moment on implémentera que le mail » : les autres sont REFUSÉS.
+
+    Refusés plutôt qu'acceptés sans effet : une branche qui porterait « viber » laisserait
+    croire qu'un code part par là.
+    """
+    refused = await forge.client.put(
+        REFERENCE,
+        json={"storage": "comptes", "delivery": {"mode": "viber", "field": "$.telephone"}},
+        timeout=120,
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["detail"]["code"] == "mode_non_servi"
+    assert refused.json()["detail"]["servis"] == ["email"]
+    assert await forge.file("comptes/reference.yaml") is None
+
+
+async def test_a_field_absent_from_the_model_is_refused(forge: Forge) -> None:
+    refused = await forge.client.put(
+        REFERENCE,
+        json={"storage": "comptes", "delivery": {"mode": "email", "field": "$.inconnu"}},
+        timeout=120,
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["detail"]["code"] == "champ_inconnu"
+
+
+async def test_a_container_is_refused_as_an_address(forge: Forge) -> None:
+    # Une adresse d'envoi est une valeur : un tableau ne s'envoie pas, et le découvrir au
+    # premier terminal réel coûterait bien plus que de le refuser ici.
+    refused = await forge.client.put(
+        REFERENCE,
+        json={"storage": "comptes", "delivery": {"mode": "email", "field": "$.adresses"}},
+        timeout=120,
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["detail"]["code"] == "tableau_interdit"
+
+
+async def test_omitting_the_delivery_clears_it(forge: Forge) -> None:
+    """Ce PUT pose la référence ENTIÈRE : sinon aucun appel ne saurait retirer un envoi."""
+    await forge.client.put(REFERENCE, json={"storage": "comptes", "delivery": MAIL}, timeout=120)
+    cleared = await forge.client.put(REFERENCE, json={"storage": "comptes"}, timeout=120)
+
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["delivery"] is None
+    assert await forge.file("comptes/reference.yaml") == 'storage: "comptes"\n'
+
+
+async def test_the_field_is_rechecked_on_reading_after_the_model_loses_it(
+    forge: Forge,
+) -> None:
+    """Le modèle vit dans la branche : il peut perdre la propriété APRÈS le réglage."""
+    await forge.client.put(REFERENCE, json={"storage": "comptes", "delivery": MAIL}, timeout=120)
+    shrunk = await forge.client.put(
+        f"{MODELS}/shared/compte",
+        json=body_of(
+            normalized(
+                "type: object\nproperties:\n  identifiant:\n    type: string\n",
+                "shared",
+                "compte",
+            )
+        ),
+        timeout=120,
+    )
+    read = await forge.client.get(REFERENCE, timeout=120)
+
+    assert shrunk.status_code == 200, shrunk.text
+    assert read.json()["delivery"] == MAIL
+    assert read.json()["problem"] == {
+        "path": "comptes/reference.yaml",
+        "code": "champ_inconnu",
+        "detail": "$.email",
+    }
+
+
+async def test_the_delivery_is_set_and_cleared_through_mcp(m: McpForge) -> None:
+    chosen = await m.ok(
+        "set_account_reference",
+        EDIT | {"storage": "comptes", "mode": "email", "address_field": "$.email"},
+    )
+    read = await m.ok("get_account_reference", EDIT)
+    cleared = await m.ok("set_account_reference", EDIT | {"storage": "comptes"})
+
+    assert chosen["delivery"] == {"mode": "email", "address_field": "$.email"}
+    assert read["served_modes"] == ["email"]
+    assert cleared["delivery"] is None
+
+
+async def test_mcp_refuses_half_a_delivery_and_an_unserved_mode(m: McpForge) -> None:
+    half = await m.refused("set_account_reference", EDIT | {"storage": "comptes", "mode": "email"})
+    unserved = await m.refused(
+        "set_account_reference",
+        EDIT | {"storage": "comptes", "mode": "sms", "address_field": "$.telephone"},
+    )
+
+    assert half["code"] == "envoi_incomplet"
+    assert unserved["code"] == "mode_non_servi"
+    assert unserved["servis"] == ["email"]

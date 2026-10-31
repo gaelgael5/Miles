@@ -65,7 +65,7 @@
     },
     {
       "name": "get_account_reference",
-      "description": "La référence de compte d'une branche : LE storage dont les objets sont les comptes associés aux devices, et le modèle que ce storage déclare. Le modèle est LU dans le storage, il n'est pas stocké avec la référence. `storage` à null veut dire qu'aucune référence n'est déclarée — ce n'est pas une erreur. `problem` non nul veut dire que le dépôt se contredit : fichier illisible, ou storage désigné qui a disparu de la branche. Le réglage est DÉCLARÉ et pas encore servi : rien n'interroge ce storage, et aucun code n'est envoyé.",
+      "description": "La référence de compte d'une branche : LE storage dont les objets sont les comptes associés aux devices, et le modèle que ce storage déclare. Le modèle est LU dans le storage, il n'est pas stocké avec la référence. `storage` à null veut dire qu'aucune référence n'est déclarée — ce n'est pas une erreur. `delivery` à null veut dire que le stockage est désigné mais pas encore l'envoi : ce n'est pas une erreur non plus. `modes` donne les modes connus, `served_modes` ceux qui sont réellement servis. `problem` non nul veut dire que le dépôt se contredit : fichier illisible, ou storage désigné qui a disparu de la branche. Le réglage est DÉCLARÉ et pas encore servi : rien n'interroge ce storage, et aucun code n'est envoyé.",
       "inputSchema": {
         "properties": {
           "workspace_id": {
@@ -96,7 +96,7 @@
     },
     {
       "name": "set_account_reference",
-      "description": "Désigne le storage qui sert de référence de compte sur une branche enfant. Une branche n'en a qu'UNE : appeler de nouveau remplace. Réécrire le même storage ne produit aucun commit et rend `unchanged` à vrai. Refus : storage_inconnu, dont le refus nomme les storages qui existent.",
+      "description": "Désigne le storage qui sert de référence de compte sur une branche enfant. Une branche n'en a qu'UNE : appeler de nouveau remplace. Avec `mode` et `address_field`, déclare aussi par quel moyen et vers quel champ du compte part le code d'enregistrement ; les OMETTRE EFFACE l'envoi déclaré, comme save_chain remplace une chaîne entière. Réécrire à l'identique ne produit aucun commit et rend `unchanged` à vrai. Refus : storage_inconnu (nomme les storages qui existent), mode_non_servi (nomme ceux qui le sont), champ_inconnu, chemin_de_propriete_attendu, valeur_attendue, tableau_interdit, envoi_incomplet.",
       "inputSchema": {
         "properties": {
           "workspace_id": {
@@ -108,6 +108,32 @@
             "description": "Nom d'un storage de la branche : celui dont les objets sont les comptes.",
             "title": "Storage",
             "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Mode d'envoi du code d'enregistrement : whatsapp, viber, signal, sms ou email. SEUL `email` est servi pour l'instant ; les autres sont refusés. Omis avec `address_field` : l'envoi déclaré est EFFACÉ.",
+            "title": "Mode"
+          },
+          "address_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Jpath de la propriété du compte qui porte l'adresse d'envoi (« $.email »). Doit désigner une valeur du modèle que déclare le storage, jamais un objet ni un tableau. Va de pair avec `mode` : l'un sans l'autre est refusé.",
+            "title": "Address Field"
           },
           "branch": {
             "anyOf": [

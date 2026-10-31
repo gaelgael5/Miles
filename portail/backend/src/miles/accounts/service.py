@@ -9,9 +9,13 @@ import structlog
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
+from miles.accounts.checks import delivery_problem
 from miles.accounts.layout import (
+    MODES,
     PATH,
+    SERVED_MODES,
     AccountReference,
+    Delivery,
     ReferenceProblem,
     read_reference,
     reference_text,
@@ -39,6 +43,21 @@ class StorageUnknownError(Exception):
         super().__init__(storage)
         self.storage = storage
         self.known = known
+
+
+class DeliveryRefusedError(Exception):
+    """L'envoi saisi ne tient pas : le mode, ou le champ d'adresse. On dit lequel.
+
+    Distincte de `StorageUnknownError` : ce ne sont pas les mêmes listes à proposer, et
+    un écran qui les confondrait renverrait vers la mauvaise correction.
+    """
+
+    def __init__(self, problem: ReferenceProblem) -> None:
+        super().__init__(problem.code)
+        self.problem = problem
+        # Ce qu'il FALLAIT : sans ces listes, un agent refusé doit tâtonner.
+        self.modes = list(MODES)
+        self.served = list(SERVED_MODES)
 
 
 @dataclass(frozen=True)
@@ -90,10 +109,22 @@ class AccountsService:
             return await file_state(copy.read)
 
     async def resolve_save(
-        self, author: EventAuthor, workspace_id: str, storage: str, *, branch: str | None = None
+        self,
+        author: EventAuthor,
+        workspace_id: str,
+        storage: str,
+        delivery: Delivery | None = None,
+        *,
+        branch: str | None = None,
     ) -> Saved:
-        """Désigne le stockage qui sert de référence de compte sur cette branche."""
+        """Désigne le stockage, et par quel mode et quel champ part le code.
+
+        `delivery` omis EFFACE l'envoi : cet appel pose la référence entière, comme
+        `save_chain` pose une chaîne entière. Fusionner avec l'existant ferait qu'aucun
+        appel ne saurait retirer un envoi.
+        """
         storage = storage.strip()
+        wanted = AccountReference(storage, delivery)
         async with self.branches.checkout(
             workspace_id, branch, by=author, gesture=Gesture.EDIT
         ) as copy:
@@ -103,14 +134,26 @@ class AccountsService:
                 # exactement le défaut que le critère 8 fait signaler à la lecture. On
                 # ne le crée pas soi-même.
                 raise StorageUnknownError(storage, known)
+            if delivery is not None:
+                model = await _storage_model(copy.read, storage)
+                if model is None:
+                    raise StorageUnknownError(storage, known)
+                problem = await delivery_problem(copy.read, model, delivery, "envoi")
+                if problem is not None:
+                    raise DeliveryRefusedError(problem)
             current = await copy.read(PATH)
-            if current is not None and read_reference(current) == AccountReference(storage):
+            if current is not None and read_reference(current) == wanted:
                 return Saved(await file_state(copy.read), True)
-            await copy.write(PATH, reference_text(AccountReference(storage)))
+            await copy.write(PATH, reference_text(wanted))
             commit = await self.branches.commit(copy, f"Référence de compte {storage}", author)
             state = await file_state(copy.read)
         await self._journal(SAVED_EVENT, workspace_id, author, commit, copy.branch, storage)
-        log.info("reference_compte_enregistree", workspace=workspace_id, storage=storage)
+        log.info(
+            "reference_compte_enregistree",
+            workspace=workspace_id,
+            storage=storage,
+            mode=None if delivery is None else delivery.mode,
+        )
         return Saved(state, False)
 
     async def resolve_remove(
@@ -171,4 +214,17 @@ async def file_state(read: Read) -> ReferenceState:
     storage = read_storage(declaration)
     if storage is None:
         return ReferenceState(doc, None, ReferenceProblem(PATH, "storage_illisible", doc.storage))
+    if doc.delivery is not None:
+        # Le champ d'adresse est revérifié À LA LECTURE, et pas seulement à l'écriture :
+        # le modèle du storage vit dans la branche et peut perdre la propriété désignée
+        # après coup. Sans ce contrôle, l'écran montrerait un réglage qui a l'air bon.
+        problem = await delivery_problem(read, storage.model, doc.delivery, PATH)
+        if problem is not None:
+            return ReferenceState(doc, storage.model, problem)
     return ReferenceState(doc, storage.model, None)
+
+
+async def _storage_model(read: Read, name: str) -> str | None:
+    declaration = await read(storage_path(name))
+    doc = None if declaration is None else read_storage(declaration)
+    return None if doc is None else doc.model

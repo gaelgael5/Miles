@@ -1024,18 +1024,44 @@
     "removeBody": "Le fichier comptes/reference.yaml sera retiré de la branche. C'est un commit : la suppression se relit et se défait.",
     "fields": {
       "storage": "Stockage des comptes",
-      "model": "Modèle des comptes, déclaré par le stockage"
+      "model": "Modèle des comptes, déclaré par le stockage",
+      "mode": "Mode d'envoi du code",
+      "addressField": "Champ qui contient l'adresse d'envoi"
     },
     "problems": {
       "fichier_illisible": "Le fichier {{path}} existe mais n'a pas la forme attendue. Tant qu'il est ainsi, aucune référence de compte ne vaut.",
       "storage_inconnu": "Le fichier {{path}} désigne le stockage « {{storage}} », que cette branche ne porte pas. Le réglage est resté tel quel : à corriger ici, ou dans le dépôt.",
       "storage_illisible": "Le stockage « {{storage}} », désigné par {{path}}, a une déclaration illisible. Le modèle des comptes ne peut donc pas être lu.",
-      "unexpected": "Le fichier {{path}} pose un problème que cet écran ne sait pas nommer."
+      "unexpected": "Le fichier {{path}} pose un problème que cet écran ne sait pas nommer.",
+      "mode_non_servi": "Le fichier {{path}} déclare le mode d'envoi « {{storage}} », qui n'est pas encore servi. Rien ne partira par ce mode.",
+      "champ_inconnu": "Le fichier {{path}} désigne le champ d'adresse {{storage}}, que le modèle des comptes ne porte pas.",
+      "chemin_de_propriete_attendu": "Le fichier {{path}} porte un champ d'adresse qui ne désigne pas une propriété ({{storage}}).",
+      "valeur_attendue": "Le champ d'adresse {{storage}}, déclaré dans {{path}}, désigne un objet. Une adresse est une valeur simple.",
+      "tableau_interdit": "Le champ d'adresse {{storage}}, déclaré dans {{path}}, désigne un tableau. Une adresse est une valeur simple.",
+      "modele_illisible": "Le modèle {{storage}}, déclaré par le stockage, est illisible : le champ d'adresse ne peut pas être vérifié.",
+      "modele_invalide": "Le stockage déclare un modèle mal formé ({{storage}})."
     },
     "errors": {
       "storage_inconnu": "Ce stockage n'existe pas sur cette branche. Ceux qui existent : {{existants}}.",
-      "unexpected": "La référence de compte n'a pas pu être lue ou enregistrée."
-    }
+      "unexpected": "La référence de compte n'a pas pu être lue ou enregistrée.",
+      "mode_non_servi": "Ce mode d'envoi n'est pas encore servi. Ceux qui le sont : {{servis}}.",
+      "champ_inconnu": "Le champ {{detail}} n'existe pas dans le modèle des comptes.",
+      "chemin_de_propriete_attendu": "{{detail}} ne désigne pas une propriété du modèle.",
+      "valeur_attendue": "{{detail}} désigne un objet. Une adresse d'envoi est une valeur simple.",
+      "tableau_interdit": "{{detail}} désigne un tableau. Une adresse d'envoi est une valeur simple.",
+      "modele_illisible": "Le modèle {{detail}} du stockage est illisible : le champ d'adresse ne peut pas être vérifié.",
+      "modele_invalide": "Le stockage déclare un modèle mal formé ({{detail}})."
+    },
+    "modes": {
+      "whatsapp": "WhatsApp",
+      "viber": "Viber",
+      "signal": "Signal",
+      "sms": "SMS",
+      "email": "E-mail"
+    },
+    "modeNotServed": "{{mode}} — pas encore servi",
+    "addressHelp": "Les propriétés simples du modèle des comptes. C'est vers ce champ que partira le code d'enregistrement ; un tableau ou un objet ne s'envoie pas, et n'est donc pas proposé.",
+    "noField": "Le modèle {{model}} n'a aucune propriété simple qui puisse porter une adresse d'envoi."
   },
   "storages": {
     "title": "Storages — {{name}}",

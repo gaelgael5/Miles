@@ -4,12 +4,15 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@miles/socle-web";
 import {
   type AccountReference,
+  type Delivery,
+  deliveryRefusal,
   unknownStorages,
   useAccountReference,
   useRemoveAccountReference,
   useSetAccountReference,
 } from "../api/accounts";
 import { useStorages } from "../api/storages";
+import { AccountDelivery } from "./AccountDelivery";
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
 
@@ -60,9 +63,18 @@ export function AccountReferenceScreen({
   // Semé au rendu depuis la réponse, jamais recopié dans un effet : une réponse tardive
   // écraserait sinon un choix en cours de saisie.
   const [picked, setPicked] = useState<string | null>(null);
+  const [delivery, setDelivery] = useState<Delivery | null | undefined>(undefined);
   const current = reference.data?.storage ?? "";
   const chosen = picked ?? current;
+  // `undefined` veut dire « rien touché » : on rend alors ce que le serveur a lu. Un
+  // `null` explicite, lui, est un retrait voulu de l'envoi.
+  const sending = delivery === undefined ? (reference.data?.delivery ?? null) : delivery;
   const known = unknownStorages(save.error);
+  const refused = deliveryRefusal(save.error);
+  // Le modèle du stockage CHOISI, et non celui du réglage enregistré : tant que la
+  // personne n'a pas validé, les champs proposés doivent suivre sa sélection en cours.
+  const storage = storages.data?.find((s) => s.name === chosen);
+  const model = chosen === current ? (reference.data?.model ?? null) : (storage?.model ?? null);
 
   return (
     <section aria-labelledby="account-reference-title">
@@ -106,7 +118,7 @@ export function AccountReferenceScreen({
           onSubmit={(event) => {
             event.preventDefault();
             if (chosen !== "") {
-              save.mutate(chosen);
+              save.mutate({ storage: chosen, delivery: sending });
             }
           }}
         >
@@ -115,7 +127,12 @@ export function AccountReferenceScreen({
             <select
               value={chosen}
               disabled={target.readOnly}
-              onChange={(event) => setPicked(event.target.value)}
+              onChange={(event) => {
+                setPicked(event.target.value);
+                // Changer de stockage change le modèle, donc les champs proposés :
+                // garder l'ancien champ d'adresse le ferait pointer dans le vide.
+                setDelivery(null);
+              }}
             >
               <option value="">{t("accounts.choose")}</option>
               {storages.data.map((s) => (
@@ -131,8 +148,18 @@ export function AccountReferenceScreen({
             <div className="caption">{t("accounts.fields.model")}</div>
             {/* Lu dans le storage, jamais saisi : c'est pourquoi il est rendu ici comme
                 une valeur et non comme un champ. */}
-            <div className="value mono">{reference.data.model ?? t("accounts.noModel")}</div>
+            <div className="value mono">{model ?? t("accounts.noModel")}</div>
           </div>
+
+          <AccountDelivery
+            target={target}
+            model={model}
+            modes={reference.data.modes}
+            served={reference.data.served_modes}
+            value={sending}
+            readOnly={target.readOnly}
+            onChange={setDelivery}
+          />
 
           {reference.data.storage === null && <p className="muted">{t("accounts.none")}</p>}
 
@@ -166,7 +193,16 @@ export function AccountReferenceScreen({
               {t("accounts.errors.storage_inconnu", { existants: known.join(", ") })}
             </p>
           )}
-          {save.isError && known.length === 0 && (
+          {refused !== null && (
+            <p className="alert" role="alert">
+              {t(`accounts.errors.${refused.code}`, {
+                detail: refused.detail ?? "",
+                servis: refused.servis.map((m) => t(`accounts.modes.${m}`)).join(", "),
+                defaultValue: t("accounts.errors.unexpected"),
+              })}
+            </p>
+          )}
+          {save.isError && known.length === 0 && refused === null && (
             <p className="alert" role="alert">
               {t("accounts.errors.unexpected")}
             </p>
@@ -180,7 +216,12 @@ export function AccountReferenceScreen({
           confirmLabel={t("accounts.remove")}
           cancelLabel={t("dataModels.form.cancel")}
           onConfirm={() => {
-            remove.mutate(undefined, { onSuccess: () => setPicked(null) });
+            remove.mutate(undefined, {
+              onSuccess: () => {
+                setPicked(null);
+                setDelivery(undefined);
+              },
+            });
             setConfirming(false);
           }}
           onCancel={() => setConfirming(false)}
