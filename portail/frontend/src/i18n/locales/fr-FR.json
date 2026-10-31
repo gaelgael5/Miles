@@ -693,7 +693,8 @@
       "syntaxe": "Template illisible, ligne {{line}}, colonne {{column}} : {{detail}}",
       "hors_profil": "Constructions hors du profil d'écriture :",
       "cible_invalide": "La cible « {{detail}} » n’est pas un chemin unique ($ suivi de noms et d’indices).",
-      "violation": "{{construction}} {{detail}} (ligne {{line}}, colonne {{column}})"
+      "violation": "{{construction}} {{detail}} (ligne {{line}}, colonne {{column}})",
+      "non_supporte": "Construction lisible mais pas encore prise en charge par le moteur : {{detail}}"
     },
     "errors": {
       "field": {

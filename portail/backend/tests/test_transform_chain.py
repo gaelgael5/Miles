@@ -152,3 +152,19 @@ def test_check_route_shows_the_message_after_each_step_or_where_it_fails() -> No
             "expected": "integer",
         },
     }
+
+
+def test_an_unimplemented_filter_operator_is_a_named_refusal_carried_to_the_screen() -> None:
+    """Le code est DISTINCT de `syntaxe` : le texte n'a rien de fautif, c'est le moteur
+    qui ne sait pas encore le faire. Dire « illisible » enverrait l'utilisateur chercher
+    une faute de frappe qui n'existe pas.
+
+    Avant cette reprise, `NotImplementedError` traversait Miles jusqu'à un 500 et la
+    personne lisait « voir les journaux du back-office » (mesuré sur test1, 31/10/2026).
+    """
+    with pytest.raises(ChainInvalidError) as caught:
+        compile_chain([StepSpec('{ "a": $.liste[?(@.k nin [1, 2])] }', None)])
+
+    problem = caught.value.problems[0]
+    assert problem.code == "non_supporte"
+    assert "nin" in (problem.detail or "")

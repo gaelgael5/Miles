@@ -693,7 +693,8 @@
       "syntaxe": "Unreadable template, line {{line}}, column {{column}}: {{detail}}",
       "hors_profil": "Constructions outside the writing profile:",
       "cible_invalide": "Target “{{detail}}” is not a single path ($ followed by names and indices).",
-      "violation": "{{construction}} {{detail}} (line {{line}}, column {{column}})"
+      "violation": "{{construction}} {{detail}} (line {{line}}, column {{column}})",
+      "non_supporte": "Readable, but the engine does not support it yet: {{detail}}"
     },
     "errors": {
       "field": {

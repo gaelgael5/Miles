@@ -45,6 +45,25 @@ class OutsideProfileError(Exception):
         self.violations = violations
 
 
+class UnsupportedConstructError(Exception):
+    """Lisible par la grammaire du moteur, mais pas encore construite par lui.
+
+    Le cas mesuré le 31/10/2026 : `nin`, `contains`, `size` et `empty` dans un filtre
+    `[?(…)]`. La grammaire les ANNONCE — le message d'erreur du moteur les liste comme
+    attendus — et le constructeur d'AST lève `NotImplementedError` dessus. Sans cette
+    reprise, l'exception traversait Miles jusqu'à un 500 : une saisie de l'utilisateur
+    ne doit jamais produire une erreur serveur, elle produit un refus qui la nomme.
+
+    Distincte de `TemplateSyntaxError` : le texte n'a rien de fautif, c'est le moteur
+    qui ne sait pas encore le faire. Le jour où il saura, le refus disparaîtra de
+    lui-même sans qu'on touche à Miles.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
 class EvaluationError(Exception):
     def __init__(
         self,
@@ -84,6 +103,13 @@ def parse_ast(source: str) -> JsltBase:
         raise TemplateSyntaxError(
             str(exc), getattr(location, "line", None), getattr(location, "column", None)
         ) from None
+    except NotImplementedError as exc:
+        # Attrapée ICI et nulle part ailleurs : le constructeur d'AST du moteur lève
+        # `NotImplementedError` sur ce que sa grammaire accepte mais qu'il ne sait pas
+        # encore bâtir. C'est une saisie de l'utilisateur, donc un REFUS — jamais une
+        # erreur serveur. La portée est étroite exprès : la seule chose enveloppée est
+        # l'analyse d'un texte que la personne vient de taper.
+        raise UnsupportedConstructError(str(exc)) from None
     return ast
 
 

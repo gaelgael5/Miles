@@ -13,6 +13,7 @@ from miles.transform.engine import (
     EvaluationError,
     OutsideProfileError,
     TemplateSyntaxError,
+    UnsupportedConstructError,
     compile_template,
     evaluate,
 )
@@ -49,6 +50,19 @@ def test_unreadable_template_gives_its_position() -> None:
         compile_template('{ "a": $.x,\n  "b": }')
 
     assert (caught.value.line, caught.value.column) == (2, 7)
+
+
+def test_a_grammatical_but_unimplemented_filter_operator_is_a_refusal_not_a_crash() -> None:
+    """`nin`, `contains`, `size` et `empty` sont ANNONCÉS par la grammaire du moteur —
+    son propre message d'erreur les liste comme attendus — mais le constructeur d'AST
+    lève `NotImplementedError` dessus. Sans cette reprise, l'exception traversait Miles
+    jusqu'à un 500, et la personne lisait « voir les journaux du back-office » pour une
+    construction qu'elle venait de taper (mesuré sur test1 le 31/10/2026).
+    """
+    with pytest.raises(UnsupportedConstructError) as caught:
+        compile_template('{ "a": $.liste[?(@.k nin [1, 2])] }')
+
+    assert "nin" in caught.value.message
 
 
 def test_every_construct_outside_the_profile_is_named_and_located() -> None:

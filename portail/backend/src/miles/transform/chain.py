@@ -12,6 +12,7 @@ from miles.transform.engine import (
     OutsideProfileError,
     Template,
     TemplateSyntaxError,
+    UnsupportedConstructError,
     compile_template,
     evaluate,
     parse_ast,
@@ -115,6 +116,11 @@ def _template(rank: int, source: str, problems: list[StepProblem]) -> Template |
         problems.append(StepProblem(rank, "syntaxe", exc.message, line=exc.line, column=exc.column))
     except OutsideProfileError as exc:
         problems.append(StepProblem(rank, "hors_profil", violations=exc.violations))
+    except UnsupportedConstructError as exc:
+        # Code distinct de `syntaxe` : le texte n'a rien de fautif, c'est le moteur qui
+        # ne sait pas encore le faire. Dire « illisible » enverrait chercher une faute
+        # de frappe qui n'existe pas.
+        problems.append(StepProblem(rank, "non_supporte", exc.message))
     return None
 
 
