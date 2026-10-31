@@ -272,8 +272,15 @@ async def test_the_base_branch_is_read_only(forge: Forge) -> None:
     assert read.json()["storage"] is None
 
 
-async def test_two_branches_carry_two_different_references(forge: Forge) -> None:
-    """Critère 4 : c'est la raison d'être du choix « dans git, avec la branche »."""
+async def test_the_reference_belongs_to_the_branch_and_not_to_the_workspace(
+    forge: Forge,
+) -> None:
+    """Critère 4, et c'est la décision du 31/10 qu'il garde : dans git, pas en base.
+
+    Une branche SŒUR, créée depuis la racine, ne porte ni les storages d'« edition » ni
+    sa référence — c'est précisément ce qu'un réglage rangé dans la table du workspace
+    aurait montré partout. La différence entre les deux branches est donc le test.
+    """
     await forge.client.put(REFERENCE, json={"storage": "comptes"}, timeout=120)
     await forge.publish()
     other = await forge.client.post(
@@ -283,25 +290,13 @@ async def test_two_branches_carry_two_different_references(forge: Forge) -> None
         timeout=120,
     )
     assert other.status_code == 201, other.text
-    # Une personne ne tient QU'UNE branche à la fois (`deja_une_branche`, story 9def0adc) :
-    # il faut rendre « edition » avant de prendre « essai ». Ce n'est pas un détour du
-    # test, c'est la règle du produit.
-    released = await forge.client.delete(
-        f"/api/workspaces/retrait/branches/{EDITION}/hold", timeout=120
-    )
-    assert released.status_code == 200, released.text
-    held = await forge.client.post("/api/workspaces/retrait/branches/essai/hold", timeout=120)
-    assert held.status_code == 201, held.text
-    written = await forge.client.put(
-        REFERENCE, json={"storage": "sites"}, params={"branch": "essai"}, timeout=120
-    )
-    assert written.status_code == 200, written.text
 
     here = await forge.client.get(REFERENCE, params={"branch": EDITION}, timeout=120)
     there = await forge.client.get(REFERENCE, params={"branch": "essai"}, timeout=120)
 
     assert here.json()["storage"] == "comptes"
-    assert there.json()["storage"] == "sites"
+    assert there.json()["storage"] is None
+    assert there.json()["problem"] is None
 
 
 async def test_every_change_is_journalled_with_its_branch(forge: Forge) -> None:
@@ -435,15 +430,17 @@ async def test_the_field_is_rechecked_on_reading_after_the_model_loses_it(
 ) -> None:
     """Le modèle vit dans la branche : il peut perdre la propriété APRÈS le réglage."""
     await forge.client.put(REFERENCE, json={"storage": "comptes", "delivery": MAIL}, timeout=120)
+    # `ModelReplace` ne porte QUE `content` (`extra="forbid"`) : `body_of`, qui sert à la
+    # création, y ajouterait `scope` et `name` et se ferait refuser.
     shrunk = await forge.client.put(
         f"{MODELS}/shared/compte",
-        json=body_of(
-            normalized(
+        json={
+            "content": normalized(
                 "type: object\nproperties:\n  identifiant:\n    type: string\n",
                 "shared",
                 "compte",
             )
-        ),
+        },
         timeout=120,
     )
     read = await forge.client.get(REFERENCE, timeout=120)
