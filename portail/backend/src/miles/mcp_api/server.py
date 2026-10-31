@@ -11,6 +11,7 @@ from starlette.types import ASGIApp
 
 from miles.apikeys.model import KeyPrincipal
 from miles.mcp_api import (
+    tools_accounts,
     tools_chains,
     tools_models,
     tools_reads,
@@ -168,6 +169,7 @@ def build_server() -> MCPServer:
             "acting_for": None if actor is None else actor.display_name,
         }
 
+    tools_accounts.register(server)
     tools_models.register(server)
     tools_chains.register(server)
     tools_reads.register(server)

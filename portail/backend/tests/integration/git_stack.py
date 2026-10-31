@@ -11,6 +11,7 @@ from miles_socle.events.model import EventTypeCatalog
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.service import SecretsService
 
+from miles.accounts.service import AccountsService
 from miles.apikeys.service import ApiKeysService
 from miles.chains.service import ChainsService
 from miles.config import Settings
@@ -112,6 +113,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     state.chains = ChainsService(portal.pool, branches, catalog, utc_now)
     state.sources = SourcesService(portal.pool, branches, catalog, utc_now)
     state.storages = StoragesService(portal.pool, branches, catalog, utc_now)
+    state.accounts = AccountsService(portal.pool, branches, catalog, utc_now)
     state.workspace_cultures = WorkspaceCulturesService(portal.pool, branches, catalog, utc_now)
     state.trads = TradsService(
         portal.pool,

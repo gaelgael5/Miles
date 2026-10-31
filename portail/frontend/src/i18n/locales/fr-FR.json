@@ -101,6 +101,7 @@
       "branch": "Versions",
       "transformations": "Transformations",
       "storages": "Storages",
+      "accountReference": "Référence de compte",
       "sources": "Sources de données",
       "branchGraph": "Branches",
       "trads": "Traductions",
@@ -1006,6 +1007,35 @@
     "backToContracts": "← Retour aux contrats",
     "contractTitle": "Modèles du contrat « {{label}} »",
     "noVersion": "Aucune version intégrée : ce contrat n'a pas encore de modèle."
+  },
+  "accounts": {
+    "title": "Référence de compte — {{name}}",
+    "intro": "Le stockage dont les objets sont les comptes que l'on associera aux devices. Une branche n'en désigne qu'un. Le modèle n'est pas à choisir : le stockage le déclare déjà, et il s'affiche ici.",
+    "notServed": "Réglage déclaré, pas encore servi : rien n'interroge ce stockage pour l'instant, et aucun code n'est envoyé.",
+    "choose": "Choisir…",
+    "none": "Aucune référence de compte n'est déclarée sur cette branche.",
+    "noModel": "—",
+    "noStorage": "Aucun stockage sur cette branche : il faut en déclarer un avant de pouvoir le désigner comme référence de compte.",
+    "storageHelp": "Les stockages de cette branche. C'est celui-ci que le back-office interrogera pour reconnaître la personne qui se présente sur le terminal.",
+    "save": "Enregistrer la référence",
+    "saved": "Référence de compte enregistrée.",
+    "remove": "Retirer la référence",
+    "removeTitle": "Retirer la référence de compte ?",
+    "removeBody": "Le fichier comptes/reference.yaml sera retiré de la branche. C'est un commit : la suppression se relit et se défait.",
+    "fields": {
+      "storage": "Stockage des comptes",
+      "model": "Modèle des comptes, déclaré par le stockage"
+    },
+    "problems": {
+      "fichier_illisible": "Le fichier {{path}} existe mais n'a pas la forme attendue. Tant qu'il est ainsi, aucune référence de compte ne vaut.",
+      "storage_inconnu": "Le fichier {{path}} désigne le stockage « {{storage}} », que cette branche ne porte pas. Le réglage est resté tel quel : à corriger ici, ou dans le dépôt.",
+      "storage_illisible": "Le stockage « {{storage}} », désigné par {{path}}, a une déclaration illisible. Le modèle des comptes ne peut donc pas être lu.",
+      "unexpected": "Le fichier {{path}} pose un problème que cet écran ne sait pas nommer."
+    },
+    "errors": {
+      "storage_inconnu": "Ce stockage n'existe pas sur cette branche. Ceux qui existent : {{existants}}.",
+      "unexpected": "La référence de compte n'a pas pu être lue ou enregistrée."
+    }
   },
   "storages": {
     "title": "Storages — {{name}}",

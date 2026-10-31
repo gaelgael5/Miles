@@ -64,6 +64,105 @@
       }
     },
     {
+      "name": "get_account_reference",
+      "description": "La référence de compte d'une branche : LE storage dont les objets sont les comptes associés aux devices, et le modèle que ce storage déclare. Le modèle est LU dans le storage, il n'est pas stocké avec la référence. `storage` à null veut dire qu'aucune référence n'est déclarée — ce n'est pas une erreur. `problem` non nul veut dire que le dépôt se contredit : fichier illisible, ou storage désigné qui a disparu de la branche. Le réglage est DÉCLARÉ et pas encore servi : rien n'interroge ce storage, et aucun code n'est envoyé.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "get_account_referenceArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "set_account_reference",
+      "description": "Désigne le storage qui sert de référence de compte sur une branche enfant. Une branche n'en a qu'UNE : appeler de nouveau remplace. Réécrire le même storage ne produit aucun commit et rend `unchanged` à vrai. Refus : storage_inconnu, dont le refus nomme les storages qui existent.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "storage": {
+            "description": "Nom d'un storage de la branche : celui dont les objets sont les comptes.",
+            "title": "Storage",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "storage"
+        ],
+        "title": "set_account_referenceArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "remove_account_reference",
+      "description": "Retire la référence de compte d'une branche enfant. Sur une branche qui n'en porte aucune : sans effet, `removed` à faux, aucun commit — un rejeu ne doit pas échouer.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "remove_account_referenceArguments",
+        "type": "object"
+      }
+    },
+    {
       "name": "list_data_models",
       "description": "Liste les modèles de données d'une branche, avec leur emplacement.",
       "inputSchema": {

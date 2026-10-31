@@ -32,6 +32,8 @@ from miles_socle.secrets.api_secrets import router as secrets_router
 from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
 
+from miles.accounts.api_accounts import router as accounts_router
+from miles.accounts.service import AccountsService
 from miles.apikeys.api_apikeys import router as api_keys_router
 from miles.apikeys.service import ApiKeysService
 from miles.chains.api_chains import router as chains_api_router
@@ -229,6 +231,7 @@ def create_app() -> FastAPI:
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
         app.state.storages = StoragesService(pool, branches, catalog, utc_now)
+        app.state.accounts = AccountsService(pool, branches, catalog, utc_now)
         app.state.workspace_cultures = WorkspaceCulturesService(pool, branches, catalog, utc_now)
         app.state.trads = TradsService(
             pool, branches, catalog, utc_now, settings.trads_low_coverage_percent
@@ -340,6 +343,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(chains_api_router)
     app.include_router(sources_router)
     app.include_router(storages_router)
+    app.include_router(accounts_router)
     app.include_router(api_keys_router)
     app.include_router(identity_router)
     # L'appariement au module d'enrôlement, servi par le socle sous `/api/identity`.

@@ -4,6 +4,7 @@ import { HoldNotice } from "./HoldNotice";
 import { RootReadOnlyNotice } from "./RootReadOnlyNotice";
 import { useWorkTarget } from "./useWorkTarget";
 import { type WorkspaceSelection, baseBranchOf } from "../layout/WorkspacesNav";
+import { AccountReferenceScreen } from "./AccountReferenceScreen";
 import { BranchScreen } from "./BranchScreen";
 import { BranchGraphScreen } from "./BranchGraphScreen";
 import { ChainScreen } from "./ChainScreen";
@@ -194,6 +195,11 @@ function viewScreen(
         onBack={back}
         onOpen={(storage) => onSelect({ id: workspace.id, view: "storages", branch, storage })}
       />
+    );
+  }
+  if (selection.view === "accountReference") {
+    return (
+      <AccountReferenceScreen key={key} workspace={workspace} target={target} onBack={back} />
     );
   }
   if (selection.view === "sources" && selection.source !== undefined) {

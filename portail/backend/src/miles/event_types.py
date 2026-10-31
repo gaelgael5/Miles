@@ -6,6 +6,7 @@ from miles_socle.pairing import events as pairing_events
 from miles_socle.secrets import service as secrets_events
 from miles_socle.signing import identity_model as module_identity_events
 
+from miles.accounts import service as accounts_events
 from miles.apikeys import service as apikeys_events
 from miles.chains import service as chains_events
 from miles.contracts import models_service as contract_models_events
@@ -37,7 +38,8 @@ def code_event_types() -> frozenset[str]:
     c'est cette union qui fait foi.
     """
     return frozenset(
-        apikeys_events.EVENT_TYPES
+        accounts_events.EVENT_TYPES
+        | apikeys_events.EVENT_TYPES
         | chains_events.EVENT_TYPES
         | contracts_events.EVENT_TYPES
         | contract_models_events.EVENT_TYPES

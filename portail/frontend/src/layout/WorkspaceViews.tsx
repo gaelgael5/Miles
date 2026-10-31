@@ -17,6 +17,9 @@ const VIEWS: WorkspaceView[] = [
   // « storages » avant « sources » : on déclare ce qui est stocké avant de dire
   // comment on le remplit (Gael, 24/10/2026 — deux notions distinctes).
   "storages",
+  // La référence de compte juste après les storages : elle en DÉSIGNE un, et on ne peut
+  // pas la régler avant d'en avoir déclaré (story a3ece1e9).
+  "accountReference",
   "sources",
   // Le référentiel de traductions (story 623898d1) : en dernier, c'est un magasin de
   // libellés, pas une étape du pipeline de données.

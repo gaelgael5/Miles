@@ -101,6 +101,7 @@
       "branch": "Versions",
       "transformations": "Transformations",
       "storages": "Storages",
+      "accountReference": "Account reference",
       "sources": "Data sources",
       "branchGraph": "Branches",
       "trads": "Translations",
@@ -1006,6 +1007,35 @@
     "backToContracts": "← Back to the contracts",
     "contractTitle": "Models of contract “{{label}}”",
     "noVersion": "No version integrated: this contract has no model yet."
+  },
+  "accounts": {
+    "title": "Account reference — {{name}}",
+    "intro": "The storage whose objects are the accounts that will be tied to devices. A branch designates exactly one. The model is not a choice: the storage already declares it, and it is shown here.",
+    "notServed": "Declared, not yet served: nothing queries this storage yet, and no code is sent.",
+    "choose": "Choose…",
+    "none": "No account reference is declared on this branch.",
+    "noModel": "—",
+    "noStorage": "No storage on this branch: declare one before designating it as the account reference.",
+    "storageHelp": "The storages of this branch. This is the one the back-office will query to recognise the person standing at the terminal.",
+    "save": "Save the reference",
+    "saved": "Account reference saved.",
+    "remove": "Remove the reference",
+    "removeTitle": "Remove the account reference?",
+    "removeBody": "The file comptes/reference.yaml will be removed from the branch. It is a commit: the removal can be reviewed and undone.",
+    "fields": {
+      "storage": "Accounts storage",
+      "model": "Accounts model, declared by the storage"
+    },
+    "problems": {
+      "fichier_illisible": "The file {{path}} exists but does not have the expected shape. While it stays this way, no account reference holds.",
+      "storage_inconnu": "The file {{path}} designates the storage “{{storage}}”, which this branch does not carry. The setting was left untouched: fix it here, or in the repository.",
+      "storage_illisible": "The storage “{{storage}}”, designated by {{path}}, has an unreadable declaration. The accounts model cannot be read.",
+      "unexpected": "The file {{path}} has a problem this screen cannot name."
+    },
+    "errors": {
+      "storage_inconnu": "That storage does not exist on this branch. The ones that do: {{existants}}.",
+      "unexpected": "The account reference could not be read or saved."
+    }
   },
   "storages": {
     "title": "Storages — {{name}}",

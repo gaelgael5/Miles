@@ -15,6 +15,7 @@ export type WorkspaceView =
   | "contracts"
   | "transformations"
   | "storages"
+  | "accountReference"
   | "sources"
   | "trads"
   | "tradsCoverage";
