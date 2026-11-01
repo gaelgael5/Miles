@@ -17,6 +17,9 @@ from enrolement.app import build_app
 from enrolement.config import DEFAULT_MIGRATIONS_DIR
 from enrolement.environments.service import EnvironmentService
 from enrolement.event_types import code_event_types
+from enrolement.hosting.gitcache import HostingCache
+from enrolement.hosting.relay import HostingRelay
+from enrolement.hosting.service import HostingService
 from enrolement.pairing.service import PairingService
 from tests.integration.demandeur_double import RequesterDouble
 
@@ -57,6 +60,8 @@ class EnrolementStack:
     cipher: SecretCipher
     pairing: PairingService
     environments: EnvironmentService
+    hosting: HostingService
+    hosting_relay: HostingRelay
 
     def anonymous(self) -> httpx.AsyncClient:
         """Un client SANS session : l'état d'un visiteur, et celui d'un pair qui frappe."""
@@ -72,6 +77,7 @@ async def open_stack(
     public_url: str = PUBLIC_URL,
     request_ttl_s: int = REQUEST_TTL_S,
     peer_app: FastAPI | None = None,
+    git_test_hosts: tuple[str, ...] = (),
 ) -> AsyncIterator[EnrolementStack]:
     """Monte le produit sur une base réelle, sans passer par uvicorn.
 
@@ -83,10 +89,13 @@ async def open_stack(
     `admin_email=None` monte une installation NEUVE, sans administrateur : c'est l'état
     dans lequel l'écran d'amorçage est ouvert, et le seul où il l'est.
 
-    `peer_app` remplace le réseau par une contrepartie EN PROCESSUS pour le seul appel que
-    ce module émette : l'avis de révocation. Sans elle, le client sortant tenterait une
-    vraie connexion et l'avis échouerait — ce qui est un cas à éprouver aussi, et c'est
-    pourquoi le défaut reste « pas de contrepartie ».
+    `peer_app` remplace le réseau par une contrepartie EN PROCESSUS pour les appels que ce
+    module émet : l'avis de révocation, et l'ordre de version depuis le 01/11/2026. Sans
+    elle, le client sortant tenterait une vraie connexion et l'appel échouerait — ce qui
+    est un cas à éprouver aussi, et c'est pourquoi le défaut reste « pas de contrepartie ».
+
+    `git_test_hosts` est l'hôte du dépôt jetable (voir `depot_jetable.py`). Vide, le
+    service refuse toute adresse hors github.com — ce qui est la règle de production.
     """
     async with open_socle_stack(
         dsn=dsn,
@@ -100,11 +109,18 @@ async def open_stack(
     ) as socle:
         transport = None if peer_app is None else httpx.ASGITransport(app=peer_app)
         async with httpx.AsyncClient(transport=transport, timeout=5.0) as peer_http:
-            yield await _monte(socle, peer_http, public_url, request_ttl_s)
+            yield await _monte(
+                socle, peer_http, public_url, request_ttl_s, tmp_path, git_test_hosts
+            )
 
 
 async def _monte(
-    socle: SocleStack, peer_http: httpx.AsyncClient, public_url: str, request_ttl_s: int
+    socle: SocleStack,
+    peer_http: httpx.AsyncClient,
+    public_url: str,
+    request_ttl_s: int,
+    tmp_path: Path,
+    git_test_hosts: tuple[str, ...],
 ) -> EnrolementStack:
     """Ce que CE produit ajoute aux sept services que le socle a déjà câblés.
 
@@ -127,6 +143,22 @@ async def _monte(
     socle.app.state.pairing = pairing
     environments = EnvironmentService(socle.pool, socle.catalog, utc_now)
     socle.app.state.environments = environments
+    # Le miroir git sous `tmp_path` : il part avec le test, comme la base jetable. En
+    # production c'est un volume, et les deux sont des caches — git fait foi.
+    hosting = HostingService(
+        socle.pool,
+        socle.cipher,
+        socle.catalog,
+        utc_now,
+        pairing.module,
+        peer_http,
+        public_url,
+        HostingCache(tmp_path / "hosting"),
+        git_test_hosts,
+    )
+    socle.app.state.hosting = hosting
+    relay = HostingRelay(hosting)
+    socle.app.state.hosting_relay = relay
     # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît au
     # premier USAGE. Un montage qui la créerait d'avance cacherait justement le cas que la
     # machine de test a révélé le 28/10/2026 — un démarrage sur base non migrée.
@@ -139,6 +171,8 @@ async def _monte(
         socle.cipher,
         pairing,
         environments,
+        hosting,
+        relay,
     )
 
 

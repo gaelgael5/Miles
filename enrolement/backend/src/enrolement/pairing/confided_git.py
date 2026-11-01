@@ -30,6 +30,7 @@ from enrolement.pairing.events import (
 )
 from enrolement.pairing.peer_reads import PairingPeerReads
 from enrolement.pairing.store_confided_git import (
+    credential_aad,
     db_delete_absent_connections,
     db_delete_workspaces,
     db_get_confided,
@@ -192,7 +193,7 @@ class PairingConfidedGit(PairingPeerReads):
                 entree.base_url,
                 # Données associées = le pair ET la connexion : recopié sur une autre
                 # ligne, le chiffré ne s'ouvre plus.
-                self.cipher.seal(_aad(peer_base_url, entree.id), entree.credential),
+                self.cipher.seal(credential_aad(peer_base_url, entree.id), entree.credential),
                 maintenant,
                 renouvele,
             )
@@ -216,7 +217,7 @@ class PairingConfidedGit(PairingPeerReads):
             # Connexion neuve : ce n'est pas un renouvellement, c'est un premier confiage.
             return False
         try:
-            ancien = self.cipher.open(_aad(peer_base_url, entree.id), scelle)
+            ancien = self.cipher.open(credential_aad(peer_base_url, entree.id), scelle)
         except SecretUndecipherableError:
             log.warning(
                 "credential_confie_illisible_remplace",
@@ -274,23 +275,13 @@ class PairingConfidedGit(PairingPeerReads):
         if scelle is None:  # pragma: no cover - la ligne et son chiffré naissent ensemble
             return False
         try:
-            self.cipher.open(_aad(peer_base_url, connection_id), scelle)
+            self.cipher.open(credential_aad(peer_base_url, connection_id), scelle)
         except SecretUndecipherableError:
             log.warning(
                 "credential_confie_illisible", base_url=peer_base_url, connection=connection_id
             )
             return False
         return True
-
-
-def _aad(peer_base_url: str, connection_id: str) -> str:
-    """Les données associées du chiffrement : le pair ET la connexion.
-
-    Elles lient le chiffré à sa ligne. Recopié sur une autre connexion — ou sur la ligne
-    d'un autre pair après un ré-appariement — il ne s'ouvre plus, et c'est préférable à une
-    valeur qui s'ouvrirait là où elle n'a rien à faire.
-    """
-    return f"{peer_base_url}/git-connection/{connection_id}"
 
 
 def _valide(connexion: ConfidedGitConnection) -> _Entree:

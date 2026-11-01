@@ -30,6 +30,11 @@ from enrolement.config import Settings
 from enrolement.environments.api_environments import router as environments_router
 from enrolement.environments.service import EnvironmentService
 from enrolement.event_types import code_event_types
+from enrolement.hosting.api_hosting import router as hosting_router
+from enrolement.hosting.api_peer_hosting import router as peer_hosting_router
+from enrolement.hosting.gitcache import HostingCache
+from enrolement.hosting.relay import HostingRelay
+from enrolement.hosting.service import HostingService
 from enrolement.pairing.api_confided_git import router as confided_git_router
 from enrolement.pairing.api_pairing import router as pairing_router
 from enrolement.pairing.api_peer import router as peer_router
@@ -94,6 +99,22 @@ def create_app() -> FastAPI:
             settings.pairing_request_ttl_s,
         )
         app.state.environments = EnvironmentService(pool, catalog, utc_now)
+        app.state.hosting = HostingService(
+            pool,
+            cipher,
+            catalog,
+            utc_now,
+            # La MÊME identité de module que l'appariement : c'est la clé privée de ce
+            # module qui signe l'ordre poussé à l'environnement, et il n'en a qu'une.
+            app.state.pairing.module,
+            http,
+            settings.public_url,
+            HostingCache(settings.hosting_cache_dir),
+            tuple(settings.git_test_hosts),
+        )
+        # Le relais tient le service plutôt que de l'étendre : il SERT du contenu là où
+        # l'autre ORDONNE, et ce qui arrive chez lui est la demande d'un tiers.
+        app.state.hosting_relay = HostingRelay(app.state.hosting)
         log.info(
             "demarrage",
             expected_schema_version=expected_version,
@@ -137,12 +158,21 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     # détenu, et la cascade qui le détruit.
     app.include_router(confided_git_router)
     app.include_router(environments_router)
+    app.include_router(hosting_router)
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée :
     # un chemin ouvert à côté de sa vérification serait ouvert à tous, et c'est
     # exactement l'erreur que cette dérivation rend inexprimable.
     app.include_router(peer_router)
+    # Le relais de contenu est authentifié par signature lui aussi, et son routeur est à
+    # part — l'autre est à sa limite de 300 lignes. Les DEUX entrent dans la liste
+    # blanche, dérivée de ce que les routeurs portent : un chemin ouvert à côté de sa
+    # vérification serait ouvert à tous, et cette dérivation rend l'oubli inexprimable.
+    app.include_router(peer_hosting_router)
     app.state.signed_api_paths = frozenset(
-        route.path for route in peer_router.routes if isinstance(route, APIRoute)
+        route.path
+        for routeur in (peer_router, peer_hosting_router)
+        for route in routeur.routes
+        if isinstance(route, APIRoute)
     )
     return app

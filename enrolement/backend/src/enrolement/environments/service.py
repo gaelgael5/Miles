@@ -36,6 +36,8 @@ from enrolement.environments.store import (
     db_place_workspace,
     db_update_environment,
 )
+from enrolement.hosting.model import VERSION_RELEASED_EVENT
+from enrolement.hosting.store import db_delete_hosted_version
 from enrolement.pairing.store_confided_git import db_exposed_workspace_ids
 
 log = structlog.get_logger(__name__)
@@ -156,6 +158,25 @@ class EnvironmentService:
                 {"workspace_id": chosen, "previous_workspace_id": avant.workspace_id},
                 author,
             )
+            # La version ordonnée visait le workspace PRÉCÉDENT : elle ne veut plus rien
+            # dire, et la laisser ferait servir au relais le contenu d'un dépôt que cet
+            # environnement n'héberge plus. Dans la MÊME transaction que le placement,
+            # sans quoi un incident entre les deux laisserait une version orpheline
+            # autorisée par le relais. Même quand on replace le MÊME identifiant : il n'y
+            # a pas de « même workspace » qui garantisse le même dépôt, celui-ci pouvant
+            # avoir changé chez le paramétrage entre-temps.
+            if chosen != avant.workspace_id and await db_delete_hosted_version(
+                conn, environment_id
+            ):
+                # Personne ne l'a demandée : c'est la conséquence d'un autre geste, et
+                # sans trace on chercherait qui a retiré la version.
+                await self._write_event(
+                    conn,
+                    VERSION_RELEASED_EVENT,
+                    apres,
+                    {"previous_workspace_id": avant.workspace_id},
+                    author,
+                )
             log.info(
                 "workspace_place_sur_environnement",
                 environment_id=str(environment_id),

@@ -248,3 +248,18 @@ def _connection(
         row["renewed_at"],
         par_connexion.get(row["id"], ()),
     )
+
+
+def credential_aad(peer_base_url: str, connection_id: str) -> str:
+    """Les données associées du chiffrement : le pair ET la connexion.
+
+    Avec le stockage de la ligne qu'elles lient, et publique, depuis le 01/11/2026 : le
+    service d'hébergement ouvre ce même chiffré pour lire les versions d'un workspace. La
+    convention ne peut pas être écrite deux fois — le second l'aurait écrite légèrement
+    autrement, et le chiffré ne se serait plus ouvert sans que rien ne dise pourquoi.
+
+    Elles lient le chiffré à sa ligne. Recopié sur une autre connexion — ou sur la ligne
+    d'un autre pair après un ré-appariement — il ne s'ouvre plus, et c'est préférable à une
+    valeur qui s'ouvrirait là où elle n'a rien à faire.
+    """
+    return f"{peer_base_url}/git-connection/{connection_id}"

@@ -16,6 +16,7 @@ from miles_socle.auth.throttle import LoginThrottle
 from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.probe import HealthReport
 from miles_socle.signing.calls import ORIGIN_HEADER
+from miles_socle.signing.hosting import HOSTING_BUNDLE_PATH
 from miles_socle.signing.protocol import (
     GIT_CONNECTIONS_PATH,
     PAIRING_CONFIRM_PATH,
@@ -27,6 +28,7 @@ from miles_socle.signing.protocol import (
 
 from enrolement.app import build_app
 from enrolement.event_types import code_event_types
+from enrolement.hosting.api_peer_hosting import router as peer_hosting_router
 from enrolement.pairing.api_peer import router as peer_router
 from enrolement.pairing.service import PairingService
 
@@ -218,7 +220,10 @@ def test_seules_les_routes_de_pair_echappent_a_la_session() -> None:
     app = build_app()
 
     assert app.state.signed_api_paths == frozenset(
-        route.path for route in peer_router.routes if isinstance(route, APIRoute)
+        route.path
+        for routeur in (peer_router, peer_hosting_router)
+        for route in routeur.routes
+        if isinstance(route, APIRoute)
     )
     assert app.state.signed_api_paths == {
         PEER_PING_PATH,
@@ -234,6 +239,12 @@ def test_seules_les_routes_de_pair_echappent_a_la_session() -> None:
         # git. Cette liste a rougi à son ajout, et c'est ce qu'on lui demande — un chemin
         # qui échappe à la session est une décision, et celle-ci porte des credentials.
         GIT_CONNECTIONS_PATH,
+        # Ajoutée le 01/11/2026 : l'environnement apparié y vient CHERCHER le contenu de
+        # la version qu'on lui a ordonnée (story 3bbd4f87). Cette liste a rougi à son
+        # ajout, et c'est ce qu'on lui demande. La décision que ce rouge force à prendre :
+        # ce chemin sert du contenu de dépôt sans session, et ce qu'il sert est borné par
+        # l'ordre en base — SON workspace, au commit qu'on lui a ordonné, rien d'autre.
+        HOSTING_BUNDLE_PATH,
     }
 
 

@@ -92,6 +92,12 @@ touch "$BACKUP_ENV_FILE"
 chmod 600 "$ENV_FILE" "$BACKUP_ENV_FILE"
 chown "$RUNTIME_UID:$RUNTIME_UID" "$ENV_FILE" "$BACKUP_ENV_FILE" \
   || socle_fail "chown de .env impossible : lancer dev-deploy.sh en root (machine de test)"
+# Miroirs git des workspaces hébergés (volume mappé du backend, story 3bbd4f87). Créé ici :
+# absent, docker le créerait au nom de root et le runtime, non root, ne pourrait pas y
+# écrire. Jamais vidé par le déploiement ; git fait foi, le supprimer ne perd rien.
+mkdir -p "$STATE_DIR/hosting"
+chown "$RUNTIME_UID:$RUNTIME_UID" "$STATE_DIR/hosting" \
+  || socle_fail "chown du volume des miroirs git impossible : lancer dev-deploy.sh en root"
 
 # --- Mode destructif isolé : drapeau explicite, confirmation, court-circuit -------------
 if [[ "$RESET_DB" -eq 1 ]]; then

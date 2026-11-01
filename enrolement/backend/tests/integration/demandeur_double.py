@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import httpx
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from miles_socle.signing.calls import (
     ORIGIN_HEADER,
     SIGNATURE_HEADER,
@@ -14,6 +16,7 @@ from miles_socle.signing.calls import (
     sign_call,
     verify_call,
 )
+from miles_socle.signing.hosting import HOSTED_VERSION_PATH, HostedVersionIn, HostedVersionOut
 from miles_socle.signing.keys import (
     KeyPair,
     generate_keypair,
@@ -31,6 +34,8 @@ from miles_socle.signing.protocol import (
     PEER_PING_PATH,
     PING_BODY,
 )
+
+from tests.integration.bundle_recu import applique_bundle
 
 
 @dataclass
@@ -68,6 +73,17 @@ class RequesterDouble:
     revoked: list[str] = field(default_factory=list)
     refused: list[str] = field(default_factory=list)
     dialled: list[str] = field(default_factory=list)
+    # Les ordres de version reçus, dans l'ordre. Les tests y lisent ce qui est
+    # RÉELLEMENT arrivé plutôt que de s'en remettre à l'intention du code appelant.
+    ordered: list[HostedVersionIn] = field(default_factory=list)
+    # Le commit que cette contrepartie SERT, et la raison quand elle n'a pas pu.
+    served_commit: str | None = None
+    reason: str | None = None
+    # Comment elle revient CHERCHER le contenu, et où elle le matérialise. Nuls, elle
+    # accuse l'ordre sans l'appliquer — et c'est un cas à éprouver pour lui-même :
+    # « reçu » et « servi » sont deux faits distincts, et l'écran ne les confond pas.
+    back: httpx.AsyncClient | None = None
+    hosts: Path | None = None
 
     def headers(self, path: str, body: bytes, *, method: str = "POST") -> dict[str, str]:
         entete = sign_call(
@@ -151,6 +167,47 @@ class RequesterDouble:
                 return Response(status_code=401)
             self.revoked.append(origine)
             return Response(status_code=204)
+
+        @app.post(HOSTED_VERSION_PATH)
+        async def hosted_version(request: Request) -> Response:
+            """L'ordre de servir une version, et le trajet COMPLET qu'il déclenche.
+
+            Cette contrepartie fait ce que fera le vrai module d'environnement : elle
+            vérifie la signature de l'ordre, puis elle revient CHERCHER le contenu chez
+            l'enrôlement, et elle l'applique avec un vrai git. C'est ce qui rend la
+            campagne concluante — une doublure qui répondrait « servi » sans aller
+            chercher prouverait seulement qu'on sait écrire une doublure complaisante, et
+            laisserait le relais, son autorisation et le bundle entièrement non éprouvés.
+            """
+            body = await request.body()
+            origine = request.headers.get(ORIGIN_HEADER) or ""
+            try:
+                verify_call(
+                    parse_public_key(self.expects_public_key),
+                    request.headers.get(SIGNATURE_HEADER),
+                    origin=origine,
+                    method=request.method,
+                    target=request.url.path,
+                    body=body,
+                )
+            except CallSignatureError:
+                self.refused.append(origine)
+                return Response(status_code=401)
+            ordre = HostedVersionIn.model_validate_json(body)
+            self.ordered.append(ordre)
+            if self.back is not None and self.hosts is not None:
+                self.served_commit, self.reason = await applique_bundle(
+                    self, ordre, self.back, self.hosts
+                )
+            return JSONResponse(
+                HostedVersionOut(
+                    workspace_id=ordre.workspace_id,
+                    ordered_number=ordre.number,
+                    ordered_commit=ordre.commit,
+                    served_commit=self.served_commit,
+                    reason=self.reason,
+                ).model_dump()
+            )
 
         return app
 
