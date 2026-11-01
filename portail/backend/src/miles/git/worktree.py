@@ -58,6 +58,12 @@ SKELETON = (
 # Fichiers que poussent les forges ou les outils à la création d'un dépôt : un dépôt qui
 # n'a qu'eux est vierge, pas « non conforme ».
 _TOLERATED_ROOT = {"README", "README.md", "LICENSE", "LICENSE.md", ".gitignore", ".gitattributes"}
+# La référence de compte d'une branche (story a3ece1e9), écrite par le produit sous ce
+# nom. Recopiée ici et non importée de `miles.accounts.layout` : la couche git ne
+# dépend d'aucun module métier. C'est `test_tree_layout.py` qui refuse que les deux
+# divergent — et il aurait trouvé l'oubli du 31/10/2026 le jour même.
+ACCOUNTS_ROOT = "comptes"
+ACCOUNTS_FILE = "reference.yaml"
 # Noms qui trahissent un dossier par environnement : l'environnement est une branche.
 _ENVIRONMENT_NAMES = re.compile(
     r"^(env|envs|environments?|environnements?|prod.*|preprod.*|recette.*|staging|dev|test|qa)$",
@@ -181,6 +187,17 @@ def _allowed(parts: list[str]) -> bool:
         # Idem pour `trads/` : sans cette ligne, chaque fichier de traduction serait
         # rapporté comme un « emplacement inattendu » par la validation de branche.
         return True
+    if top == ACCOUNTS_ROOT:
+        # UN seul fichier, et c'est la règle de la référence de compte : une branche en a
+        # une, pas une liste. Admis à part des racines ci-dessus pour cette raison.
+        #
+        # ABSENT jusqu'au 01/11/2026, et c'était un DÉFAUT, pas une rigueur : le produit
+        # écrit lui-même `comptes/reference.yaml` (story a3ece1e9), et sa propre
+        # validation le rapportait en « emplacement inattendu » — ce qui empêchait
+        # d'enregistrer la moindre version sur une branche ayant une référence de compte.
+        # Le nom vient d'ici plutôt que de `miles.accounts.layout` : la couche git ne
+        # dépend d'aucun module métier, et c'est un test qui tient les deux d'accord.
+        return len(parts) == 2 and parts[1] in (ACCOUNTS_FILE, ".gitkeep")
     if top == "shared":
         return parts[1] in _SHARED or parts[1] == ".gitkeep"
     if top == "domains":

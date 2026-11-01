@@ -152,6 +152,56 @@ describe("VersionsPanel", () => {
 });
 
 describe("the version button knows what the server will refuse (25/10/2026)", () => {
+  async function refusAvec(problems: { path: string; code: string; detail?: string }[]) {
+    mockApi({
+      ...BRANCH_SCREEN,
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...BRANCHES,
+      ...FREEZABLE,
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
+      [`POST ${VERSIONS}?branch=edition`]: {
+        status: 422,
+        body: {
+          detail: {
+            code: "parametrage_invalide",
+            reports: [{ path: "storages/accounts.yaml", problems }],
+          },
+        },
+      },
+    });
+    const panel = await openWorkshop();
+    fireEvent.click(within(panel).getByText("Save a version"));
+    fill("Label", "update site");
+    fireEvent.click(within(panel).getByText("Save the version"));
+    return panel;
+  }
+
+  it("describes an unknown property by naming it, instead of showing a raw key", async () => {
+    // La copie d'écran du 01/11/2026 affichait « dataModels.problems.propriete_inconnue ».
+    const panel = await refusAvec([
+      { path: "index[0].colonnes[0]", code: "propriete_inconnue", detail: "$.site" },
+    ]);
+
+    expect(
+      await within(panel).findByText(/property “\$\.site” does not exist in this storage/),
+    ).toBeInTheDocument();
+    expect(within(panel).queryByText(/dataModels\.problems/)).not.toBeInTheDocument();
+  });
+
+  it("falls back on a readable sentence when a code has no label at all", async () => {
+    // La garde du backend l'empêche, mais si elle était un jour contournée, l'écran doit
+    // rester diagnosticable : le code et son détail, jamais une clef de traduction.
+    const panel = await refusAvec([
+      { path: "quelque.part", code: "venu_d_ailleurs", detail: "$.x" },
+    ]);
+
+    const message = await within(panel).findByText(/venu_d_ailleurs/);
+    expect(message).toHaveTextContent("$.x");
+    expect(within(panel).queryByText(/dataModels\.problems/)).not.toBeInTheDocument();
+  });
+
   function panelWith(freezable: { ok: boolean; reason: string | null }) {
     mockApi({
       ...BRANCH_SCREEN,

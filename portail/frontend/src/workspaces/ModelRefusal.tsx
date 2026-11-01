@@ -69,7 +69,18 @@ export function ModelRefusal({
           {problems.map((p) => (
             <li key={`${p.path}-${p.code}`}>
               <span className="mono">{p.path || "/"}</span> —{" "}
-              {t(`dataModels.problems.${p.code}`, { detail: p.detail ?? "" })}
+              {t(`dataModels.problems.${p.code}`, {
+                  detail: p.detail ?? "",
+                  // Un code sans libellé affichait sa CLEF BRUTE — relevé par Gael sur
+                  // une copie d'écran le 01/11/2026. Le repli dit le code et son détail,
+                  // ce qui reste diagnosticable ; la clef, non. La garde du backend
+                  // (`test_problem_labels.py`) empêche d'en arriver là, et ce repli est
+                  // ce qui se passe si elle est un jour contournée.
+                  defaultValue: t("dataModels.problems._sans_message", {
+                    code: p.code,
+                    detail: p.detail ? ` (${p.detail})` : "",
+                  }),
+                })}
             </li>
           ))}
         </ul>
