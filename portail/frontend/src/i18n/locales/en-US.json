@@ -738,7 +738,7 @@
       "title": "Test source document",
       "intro": "Click a property: its JSONPath is inserted into the template, where you were typing.",
       "insertHelp": "Insert {{path}}",
-      "shortcut": "Ctrl+Space in the editor (⌘Space on a Mac) opens the source document: clicking a property inserts its path at the caret.",
+      "shortcut": "Ctrl+. in the editor (⌘. on a Mac) opens the source document: clicking a property inserts its path at the caret.",
       "object": "{{count}} propertie(s)",
       "array": "{{count}} item(s)",
       "close": "Close",

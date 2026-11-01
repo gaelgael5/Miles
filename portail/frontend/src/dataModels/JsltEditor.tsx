@@ -53,7 +53,7 @@ function applyPaths(element: EditorElement, paths: unknown[] | undefined): void 
  * synchronisation de `value` à la main, et l'écoute de son événement `input`.
  *
  * Tab est géré par le composant lui-même (deux espaces, ou acceptation de la suggestion
- * quand l'auto-complétion est ouverte). Ctrl+F5 et Ctrl+Espace ne le sont pas : on les
+ * quand l'auto-complétion est ouverte). Ctrl+F5 et Ctrl+point ne le sont pas : on les
  * ajoute ici, et leurs prédicats vivent dans `jsltKeys` pour que la doublure des tests
  * applique exactement la même règle.
  *
@@ -75,7 +75,7 @@ export default function JsltEditor({
   onChange: (value: string) => void;
   /** Ctrl+F5 ou ⌘F5 : exécuter le template sans quitter le clavier. */
   onRun?: () => void;
-  /** Ctrl+Espace ou ⌘Espace : ouvrir le document source pour y prendre un chemin. */
+  /** Ctrl+point ou ⌘point : ouvrir le document source pour y prendre un chemin. */
   onOpenSource?: () => void;
   /**
    * La zone de saisie, dès qu'elle existe. Le composant naît après un chargement réseau
@@ -125,8 +125,8 @@ export default function JsltEditor({
           event.preventDefault();
           run.current?.();
         } else if (opensSource(key)) {
-          // Ctrl+Espace est l'appel d'auto-complétion de la plupart des éditeurs : on
-          // reprend le geste connu plutôt que d'en inventer un.
+          // Ctrl+point, et non Ctrl+Espace : macOS prend l'Espace avant le navigateur.
+          // Le détail de la mesure est sur `opensSource`, qui porte la règle.
           event.preventDefault();
           openSource.current?.();
         }

@@ -35,16 +35,25 @@ export function runsOn(event: Shortcut): boolean {
 }
 
 /**
- * Faut-il ouvrir le document source sur cette frappe ? Ctrl+Espace ou ⌘Espace.
+ * Faut-il ouvrir le document source sur cette frappe ? Ctrl+point ou ⌘point.
  *
  * Remplace un bouton, retiré à la demande de Gael (31/10/2026) : on cherche un chemin
- * sans quitter le clavier ni l'endroit où l'on écrit, comme une auto-complétion. Le
- * `code` autant que la `key` : sur une disposition où Espace produit autre chose,
- * `key` ne vaut plus " ".
+ * sans quitter le clavier ni l'endroit où l'on écrit, comme une auto-complétion.
+ *
+ * L'Espace, posé le même jour, ne peut pas être tenu : macOS prend ⌘Espace pour
+ * Spotlight AVANT le navigateur — la frappe n'atteint jamais la page, et aucun code de
+ * l'hôte ne la rattrape —, et Ctrl+Espace y change la source de saisie dès qu'il y en a
+ * deux. Le point le remplace (Gael, 01/11/2026) : c'est le geste « action rapide » des
+ * éditeurs, et le système le laisse passer.
+ *
+ * Le `code` autant que la `key`, et ici pour une raison précise : sur un clavier AZERTY
+ * le point demande Maj, et c'est la MÊME touche physique (`Period`) qui donne « ; »
+ * sans Maj. L'accepter par son code sert les deux dispositions sans exiger une Maj qui
+ * n'a de sens sur aucune des deux.
  */
 export function opensSource(event: Shortcut & { code?: string }): boolean {
   if (event.defaultPrevented === true || !commanded(event)) {
     return false;
   }
-  return event.key === " " || event.code === "Space";
+  return event.key === "." || event.code === "Period";
 }

@@ -31,20 +31,34 @@ describe("runsOn", () => {
 });
 
 describe("opensSource", () => {
-  it("opens the source document on Ctrl+Space and on Command+Space", () => {
-    expect(opensSource({ key: " ", ctrlKey: true })).toBe(true);
-    expect(opensSource({ key: " ", metaKey: true })).toBe(true);
+  it("opens the source document on Ctrl+point and on Command+point", () => {
+    expect(opensSource({ key: ".", ctrlKey: true })).toBe(true);
+    expect(opensSource({ key: ".", metaKey: true })).toBe(true);
   });
 
-  it("reads the physical key too, for a layout where Space produces something else", () => {
-    expect(opensSource({ key: "Unidentified", code: "Space", ctrlKey: true })).toBe(true);
+  it("reads the physical key too, for AZERTY where the point needs Shift", () => {
+    // La touche `Period` sans Maj donne « ; » sur AZERTY : c'est la même touche, et
+    // elle ouvre le document sans qu'on ait à presser Maj pour rien.
+    expect(opensSource({ key: ";", code: "Period", ctrlKey: true })).toBe(true);
   });
 
-  it("leaves a bare Space alone, which is just typing", () => {
-    expect(opensSource({ key: " " })).toBe(false);
+  it("no longer answers Space, which macOS takes before the browser", () => {
+    // ⌘Espace est Spotlight : la frappe n'atteint jamais la page. Garder le prédicat
+    // dessus laissait croire à un raccourci qui ne pouvait pas marcher (Gael, 01/11/2026).
+    expect(opensSource({ key: " ", ctrlKey: true })).toBe(false);
+    expect(opensSource({ key: " ", metaKey: true })).toBe(false);
+    expect(opensSource({ key: "Unidentified", code: "Space", ctrlKey: true })).toBe(false);
+  });
+
+  it("leaves a bare point alone, which is just typing", () => {
+    expect(opensSource({ key: "." })).toBe(false);
+  });
+
+  it("ignores Alt, which is another shortcut entirely", () => {
+    expect(opensSource({ key: ".", ctrlKey: true, altKey: true })).toBe(false);
   });
 
   it("ignores a key the editor has already handled", () => {
-    expect(opensSource({ key: " ", ctrlKey: true, defaultPrevented: true })).toBe(false);
+    expect(opensSource({ key: ".", ctrlKey: true, defaultPrevented: true })).toBe(false);
   });
 });

@@ -738,7 +738,7 @@
       "title": "Document source de test",
       "intro": "Cliquez sur une propriété : son chemin JSONPath s'insère dans le template, là où vous écriviez.",
       "insertHelp": "Insérer {{path}}",
-      "shortcut": "Ctrl+Espace dans l'éditeur (⌘Espace sur Mac) ouvre le document source : un clic sur une propriété insère son chemin au curseur.",
+      "shortcut": "Ctrl+. dans l'éditeur (⌘. sur Mac) ouvre le document source : un clic sur une propriété insère son chemin au curseur.",
       "object": "{{count}} propriété(s)",
       "array": "{{count}} élément(s)",
       "close": "Fermer",

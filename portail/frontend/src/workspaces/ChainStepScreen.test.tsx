@@ -180,9 +180,9 @@ describe("ChainStepScreen — le document source, au clavier", () => {
     openStep(routes);
     const editor = await screen.findByLabelText("JSLT template");
     await screen.findByText(/sample saved/);
-    // Ctrl+Espace depuis l'éditeur : le bouton a été retiré le 31/10/2026, on ne
+    // Ctrl+point depuis l'éditeur : le bouton a été retiré le 31/10/2026, on ne
     // quitte plus l'endroit où l'on écrit pour chercher un chemin.
-    fireEvent.keyDown(editor, { key: " ", ctrlKey: true });
+    fireEvent.keyDown(editor, { key: ".", ctrlKey: true });
     return editor as HTMLTextAreaElement;
   }
 
@@ -192,7 +192,7 @@ describe("ChainStepScreen — le document source, au clavier", () => {
     await screen.findByText(/sample saved/);
     // Le curseur POSÉ : `{ "ref": ` fait neuf caractères, et c'est là qu'on écrit.
     editor.setSelectionRange(9, 9);
-    fireEvent.keyDown(editor, { key: " ", ctrlKey: true });
+    fireEvent.keyDown(editor, { key: ".", ctrlKey: true });
     const dialog = await screen.findByRole("dialog");
 
     // Sous un indice de tableau : c'est là que recopier à la main se trompe.
@@ -209,7 +209,7 @@ describe("ChainStepScreen — le document source, au clavier", () => {
     // sans emporter la virgule qui suit.
     fireEvent.keyDown(editor, { key: "Escape" });
     editor.setSelectionRange(9, 20);
-    fireEvent.keyDown(editor, { key: " ", metaKey: true });
+    fireEvent.keyDown(editor, { key: ".", metaKey: true });
 
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByTitle("Insert $.Account[0].Name"));
@@ -222,17 +222,17 @@ describe("ChainStepScreen — le document source, au clavier", () => {
     const editor = await screen.findByLabelText("JSLT template");
     await screen.findByText(/sample saved/);
 
-    fireEvent.keyDown(editor, { key: " ", metaKey: true });
+    fireEvent.keyDown(editor, { key: ".", metaKey: true });
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
-  it("stays shut on a bare Space, which is just typing", async () => {
+  it("stays shut on a bare point, which is just typing", async () => {
     openStep({ [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: SAMPLE } });
     const editor = await screen.findByLabelText("JSLT template");
     await screen.findByText(/sample saved/);
 
-    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "." });
 
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -244,7 +244,7 @@ describe("ChainStepScreen — le document source, au clavier", () => {
     const editor = await screen.findByLabelText("JSLT template");
     await screen.findByText(/sample saved/);
 
-    fireEvent.keyDown(editor, { key: " ", ctrlKey: true });
+    fireEvent.keyDown(editor, { key: ".", ctrlKey: true });
 
     // Une touche sans effet est le défaut qu'on vient de corriger sur F5 : on ne le
     // réintroduit pas en n'armant simplement pas le raccourci.
