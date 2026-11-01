@@ -68,8 +68,15 @@ class RequesterPeerCalls(RequesterBase):
     jamais, et chacune appelle un geste différent.
     """
 
-    async def post_signed(self, contact_url: str, path: str, body: bytes) -> httpx.Response:
+    async def post_signed(
+        self, contact_url: str, path: str, body: bytes, http_timeout_s: float | None = None
+    ) -> httpx.Response:
         """POST signé par la clé privée du module. Délègue au socle depuis le 29/10/2026.
+
+        `http_timeout_s` remplace la borne du client POUR CET APPEL. Elle existe pour la
+        récupération d'un dépôt, qui ne tient pas dans les cinq secondes réglées pour
+        l'administration — et élargir le client ferait attendre autant sur un appel de
+        vivacité vers un pair éteint.
 
         La composition elle-même est au socle (`miles_socle.signing.calls.post_signed`)
         parce qu'un DEUXIÈME produit en a besoin : le module d'enrôlement, qui prévient
@@ -86,6 +93,7 @@ class RequesterPeerCalls(RequesterBase):
             contact_url=contact_url,
             path=path,
             body=body,
+            http_timeout_s=http_timeout_s,
         )
 
     async def resolve_ping_peer(self) -> PeerPong:

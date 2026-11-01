@@ -52,6 +52,11 @@ services:
       # l'administrateur du portail n'ouvre rien ici.
       - ./.env:/run/miles/.env
       - ./.env.bak:/run/miles/.env.bak
+      # L'arbre du paramétrage servi. Volume mappé sur l'hôte, préparé par
+      # dev-deploy.sh au nom de l'utilisateur du runtime : absent, docker le créerait
+      # au nom de root et le backend, non root, ne pourrait pas y écrire. Git fait foi
+      # — le supprimer coûte un ordre à renvoyer depuis l'enrôlement, rien de plus.
+      - ./.deploy/parametrage:/var/lib/miles/parametrage
     depends_on:
       db:
         condition: service_healthy

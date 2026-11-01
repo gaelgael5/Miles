@@ -38,8 +38,15 @@ class GitResult:
         return self.returncode == 0
 
 
-async def run_git(args: list[str], cwd: Path, access: GitAccess) -> GitResult:
-    """Lance git sans terminal, sans configuration de la machine, jeton par l'environnement."""
+async def run_git(args: list[str], cwd: Path, access: GitAccess | None = None) -> GitResult:
+    """Lance git sans terminal, sans configuration de la machine, jeton par l'environnement.
+
+    `access` NUL n'est pas un repli : c'est le cas du module d'environnement, qui lance
+    git pour ouvrir un bundle et poser un arbre, et qui ne détient AUCUN credential —
+    c'est l'interdit central du ticket edcf78bc. Aucun assistant d'identifiants n'est
+    alors posé, et aucune variable ne porte de jeton : un git qui serait malgré tout
+    envoyé vers une forge échouerait faute d'identifiants, au lieu d'en trouver un.
+    """
     env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": str(cwd),
@@ -48,10 +55,14 @@ async def run_git(args: list[str], cwd: Path, access: GitAccess) -> GitResult:
         "GIT_CONFIG_GLOBAL": os.devnull,
         "LC_ALL": "C",
     }
-    # Point d'injection du jeton : déballé ici seulement.
-    env["MILES_GIT_TOKEN"] = access.token.reveal()
-    # Vide d'abord tout helper hérité, puis pose le seul qui lit le jeton.
-    options = ["-c", "credential.helper=", "-c", f"credential.helper={_CREDENTIAL_HELPER}"]
+    # Vide d'abord tout helper hérité — dans les DEUX cas, et c'est ce qui garantit
+    # qu'un git lancé sans credential n'en trouve pas un dans la configuration de la
+    # machine. Le helper qui lit le jeton n'est posé que s'il y a un jeton.
+    options = ["-c", "credential.helper="]
+    if access is not None:
+        # Point d'injection du jeton : déballé ici seulement.
+        env["MILES_GIT_TOKEN"] = access.token.reveal()
+        options += ["-c", f"credential.helper={_CREDENTIAL_HELPER}"]
     command = [
         "git",
         *options,
@@ -81,9 +92,13 @@ async def run_git(args: list[str], cwd: Path, access: GitAccess) -> GitResult:
     return GitResult(process.returncode or 0, _scrub(stdout, access), _scrub(stderr, access))
 
 
-def _scrub(output: bytes, access: GitAccess) -> str:
+def _scrub(output: bytes, access: GitAccess | None) -> str:
     # git ne recopie pas le mot de passe, mais une forge pourrait le renvoyer en écho :
-    # il ne doit jamais remonter vers un message ou un journal.
+    # il ne doit jamais remonter vers un message ou un journal. Sans jeton, il n'y a rien
+    # à masquer — et surtout rien à masquer par erreur : remplacer la chaîne vide
+    # découperait toute la sortie.
     text = output.decode("utf-8", "replace")
+    if access is None:
+        return text
     secret = access.token.reveal()
     return text.replace(secret, "********") if secret else text

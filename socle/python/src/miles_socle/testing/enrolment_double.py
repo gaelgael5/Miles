@@ -12,6 +12,7 @@ from miles_socle.signing.calls import (
     CallSignatureError,
     verify_call,
 )
+from miles_socle.signing.hosting import HostingBundleIn
 from miles_socle.signing.keys import KeyPair, fingerprint, generate_keypair, parse_public_key
 from miles_socle.signing.protocol import (
     GIT_CONNECTIONS_PATH,
@@ -21,6 +22,7 @@ from miles_socle.signing.protocol import (
     PEER_ENVIRONMENT_PATH,
     PEER_PING_PATH,
 )
+from miles_socle.testing.enrolment_relay import mount_hosting_relay
 
 PEER_ORIGIN = "http://enrolement.test"
 # Le code que cette contrepartie attend. Figé, parce que ce qui est éprouvé ici est le
@@ -54,6 +56,11 @@ class EnrolmentDouble:
     # appariement rompu : elle doit alors refuser nos appels.
     expects_public_key: str = ""
     received: list[str] = field(default_factory=list)
+    # Les bundles que cette contrepartie SERT, par commit, et ce qu'on lui a demandé.
+    # Fournis par le test et fabriqués avec un vrai git : le socle n'en lance pas, et
+    # ce qu'on éprouve est que le destinataire VÉRIFIE le commit avant de poser.
+    bundles: dict[str, bytes] = field(default_factory=dict)
+    bundle_requests: list[HostingBundleIn] = field(default_factory=list)
     # Ce que la contrepartie répondra à la confirmation. Les refus du vrai module
     # d'enrôlement sont OPAQUES (401) sauf la dérive d'horloge (409), et c'est ce que ce
     # module doit savoir traduire sans rien inventer de ce que le pair n'a pas dit.
@@ -242,6 +249,10 @@ class EnrolmentDouble:
                 }
             )
 
+        # Le relais de contenu, dans son fichier : ce fichier-ci est à sa limite de
+        # 300 lignes, et la coupure suit une frontière réelle — ici l'appariement,
+        # là-bas le contenu de dépôt.
+        mount_hosting_relay(app, self)
         return app
 
     def _verifie(self, request: Request, body: bytes, public_key: str) -> bool:

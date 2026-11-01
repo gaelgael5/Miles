@@ -20,9 +20,16 @@ class DatabaseSettings(SocleDatabaseSettings):
 
 
 class Settings(SocleWebSettings, DatabaseSettings):
-    """Configuration du service web : la base, plus l'authentification.
+    """Configuration du service web : la base, l'authentification, et l'arbre servi.
 
-    Ce produit n'ajoute **aucun champ propre** : sa configuration est celle du socle. La
-    classe existe quand même, parce que c'est elle que `create_app` lit et que le jour où
-    le métier de ce produit aura besoin d'un réglage, il s'ajoutera ici — pas au socle.
+    Tout vient du socle sauf le volume de l'arbre, qui n'a de sens que pour ce produit :
+    lui seul SERT un paramétrage.
     """
+
+    # Où vit l'arbre du paramétrage servi (story 3bbd4f87). AVEC UN DÉFAUT, et non exigé :
+    # le paramétrage est dans git et l'enrôlement peut le repousser à tout moment, donc ce
+    # répertoire se reconstitue. Refuser de démarrer toute la stack — appariement et
+    # identité comprises — parce qu'un volume n'est pas déclaré rendrait indisponible ce
+    # qui n'a pas besoin de lui. Volume non monté : l'arbre vit dans le conteneur et part
+    # au redéploiement, et il suffit alors de renvoyer l'ordre.
+    hosting_tree_dir: Path = Path("/var/lib/miles/parametrage")

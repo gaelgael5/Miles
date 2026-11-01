@@ -92,6 +92,12 @@ touch "$BACKUP_ENV_FILE"
 chmod 600 "$ENV_FILE" "$BACKUP_ENV_FILE"
 chown "$RUNTIME_UID:$RUNTIME_UID" "$ENV_FILE" "$BACKUP_ENV_FILE" \
   || socle_fail "chown de .env impossible : lancer dev-deploy.sh en root (machine de test)"
+# Arbre du paramétrage servi (volume mappé du backend, story 3bbd4f87). Créé ici : absent,
+# docker le créerait au nom de root et le runtime, non root, ne pourrait pas y écrire.
+# Jamais vidé par le déploiement ; git fait foi, et le supprimer coûte un ordre à renvoyer.
+mkdir -p "$STATE_DIR/parametrage"
+chown "$RUNTIME_UID:$RUNTIME_UID" "$STATE_DIR/parametrage" \
+  || socle_fail "chown du volume du paramétrage impossible : lancer dev-deploy.sh en root"
 
 # --- Mode destructif isolé : drapeau explicite, confirmation, court-circuit -------------
 if [[ "$RESET_DB" -eq 1 ]]; then

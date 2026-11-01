@@ -14,6 +14,8 @@ from miles_socle.testing.stack import open_socle_stack, utc_now
 from environnement.app import build_app
 from environnement.config import DEFAULT_MIGRATIONS_DIR
 from environnement.event_types import code_event_types
+from environnement.hosting.gitstore import HostedTree
+from environnement.hosting.service import HostingService
 from environnement.identity.service import IdentityService
 
 # Réexportés : les tests d'intégration du produit s'en servent, et ils viennent du socle
@@ -44,6 +46,7 @@ class EnvironnementStack:
     env_file: Path
     http: httpx.AsyncClient
     identity: IdentityService
+    hosting: HostingService
 
     def anonymous(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url=BASE_URL)
@@ -96,9 +99,19 @@ async def open_stack(
                 public_url,
             )
             socle.app.state.identity = identity
+            # L'arbre servi sous `tmp_path` : il part avec le test, comme la base jetable.
+            # En production c'est un volume, et git fait foi dans les deux cas.
+            hosting = HostingService(identity, HostedTree(tmp_path / "parametrage"))
+            socle.app.state.hosting = hosting
             # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît
             # au premier USAGE. Un montage qui la créerait d'avance cacherait justement le
             # cas que la machine de test a révélé.
             yield EnvironnementStack(
-                socle.pool, socle.app, socle.client, socle.env_file, socle.http, identity
+                socle.pool,
+                socle.app,
+                socle.client,
+                socle.env_file,
+                socle.http,
+                identity,
+                hosting,
             )

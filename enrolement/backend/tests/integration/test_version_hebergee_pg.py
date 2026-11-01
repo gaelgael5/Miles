@@ -70,7 +70,8 @@ async def _environnement_apparie(
     assert demande["base_url"] == double.origin
     designe = await stack.client.put(
         "/api/pairing/requests/environment",
-        json={"base_url": double.origin, "environment_id": environnement},
+        params={"base_url": double.origin},
+        json={"environment_id": environnement},
     )
     assert designe.status_code == 200, designe.text
     await conclut_appariement(stack, double)

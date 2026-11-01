@@ -30,6 +30,10 @@ from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
 
 from environnement.config import Settings
 from environnement.event_types import code_event_types
+from environnement.hosting.api_hosting import router as hosting_router
+from environnement.hosting.api_peer_hosting import router as peer_hosting_router
+from environnement.hosting.gitstore import HostedTree
+from environnement.hosting.service import HostingService
 from environnement.identity.api_identity import router as environment_router
 from environnement.identity.service import IdentityService
 
@@ -88,6 +92,11 @@ def create_app() -> FastAPI:
             http,
             settings.public_url,
         )
+        # Le service d'hébergement TIENT celui d'identité plutôt que de l'étendre : ce
+        # qu'il lui emprunte est l'appel signé et le pair apparié, pas son métier.
+        app.state.hosting = HostingService(
+            app.state.identity, HostedTree(settings.hosting_tree_dir)
+        )
         log.info(
             "demarrage",
             expected_schema_version=expected_version,
@@ -130,12 +139,22 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     # préfixe, et c'est voulu : il nomme ce que les routes servent, pas qui les porte.
     app.include_router(pairing_router)
     app.include_router(environment_router)
+    app.include_router(hosting_router)
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée :
     # un chemin ouvert à côté de sa vérification serait ouvert à tous, et c'est
     # exactement l'erreur que cette dérivation rend inexprimable.
     app.include_router(peer_router)
+    # L'ordre de version vient de l'enrôlement, authentifié par signature lui aussi, et
+    # son routeur est à part : celui du socle sert l'appariement — le même pour les deux
+    # demandeurs — tandis que l'hébergement n'est l'affaire que de cette espèce-ci. Les
+    # DEUX entrent dans la liste blanche, par dérivation de ce que les routeurs portent :
+    # un chemin ouvert à côté de sa vérification serait ouvert à tous.
+    app.include_router(peer_hosting_router)
     app.state.signed_api_paths = frozenset(
-        route.path for route in peer_router.routes if isinstance(route, APIRoute)
+        route.path
+        for routeur in (peer_router, peer_hosting_router)
+        for route in routeur.routes
+        if isinstance(route, APIRoute)
     )
     return app

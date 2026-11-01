@@ -1,6 +1,10 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim AS base
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+# git : cette stack SERT un paramétrage versionné, et le pose depuis le bundle que
+# l'enrôlement lui relaie (story 3bbd4f87). Elle ne parle JAMAIS à la forge et ne
+# détient aucun credential — `run_git` est appelé ici sans `GitAccess`. Dans `base`
+# autant que dans `runtime` : la cible des tests en hérite, et la campagne éprouve git.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PROJECT_ENVIRONMENT=/opt/venv
@@ -31,7 +35,8 @@ RUN uv sync --frozen
 ENTRYPOINT ["uv", "run", "--frozen", "pytest"]
 
 FROM python:3.12-slim AS runtime
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+# git : voir `base`. Le runtime le lance pour de vrai, à chaque ordre de version.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 miles
 COPY --from=base /opt/venv /opt/venv
