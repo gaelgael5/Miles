@@ -442,7 +442,7 @@
         "rien_a_figer": "Nothing changed since the last version: nothing to freeze.",
         "version_concurrente": "Another version was saved at the same time: nothing was frozen. Try again.",
         "deja_a_cette_version": "The work branch already has this content.",
-        "publication_requise": "Some changes are not published yet: publish them in “All workspaces”, then save the version.",
+        "publication_requise": "Some changes are not published yet: publish them, then save the version.",
         "prise_de_main_requise": "Take over this branch in “All workspaces” to change it."
       },
       "unexpected": "The operation failed. See the back-office logs."

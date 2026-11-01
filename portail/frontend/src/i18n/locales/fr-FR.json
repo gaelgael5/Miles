@@ -442,7 +442,7 @@
         "rien_a_figer": "Rien n'a changé depuis la dernière version : rien à figer.",
         "version_concurrente": "Une autre version a été enregistrée au même moment : rien n'a été figé. Réessayez.",
         "deja_a_cette_version": "La branche de travail a déjà ce contenu.",
-        "publication_requise": "Des modifications ne sont pas encore publiées : publiez-les dans « Tous les workspaces », puis enregistrez la version.",
+        "publication_requise": "Des modifications ne sont pas encore publiées : publiez-les, puis enregistrez la version.",
         "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier."
       },
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."

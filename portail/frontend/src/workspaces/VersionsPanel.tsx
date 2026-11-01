@@ -2,7 +2,9 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ApiError, ConfirmDialog } from "@miles/socle-web";
+import { usePublishHold } from "../api/holds";
 import type { WorkTarget } from "../api/workTarget";
+import { HoldRefusal } from "./HoldRefusal";
 
 import {
   type ModelProblem,
@@ -145,6 +147,11 @@ export function VersionsPanel({ target }: { target: WorkTarget }) {
   const [saving, setSaving] = useState(false);
   // Interrogé seulement si la personne peut figer : inutile sinon, le bouton n'est pas là.
   const freezable = useFreezable(target, target.canFreeze);
+  // `target.branch` EST le slug de la prise de main — c'est ce que `useWorkTarget`
+  // compare à `hold.slug`. Aucune dérivation ici : elle divergerait de celle-là.
+  // Déclaré inconditionnellement, et sans effet tant qu'on ne l'appelle pas : un hook
+  // ne peut pas vivre sous une condition, et la racine n'a de toute façon pas de main.
+  const publish = usePublishHold(target.workspaceId, target.branch);
 
   return (
     <section className="card" aria-labelledby="versions-title">
@@ -165,10 +172,42 @@ export function VersionsPanel({ target }: { target: WorkTarget }) {
         )}
       </div>
       {/* La raison est dite à côté du bouton grisé : un bouton éteint sans explication
-          se lit comme une panne. */}
+          se lit comme une panne. Et quand le geste qui débloque est à portée, il est
+          offert ICI — renvoyer vers un autre écran pour un clic est un détour que rien
+          ne justifie (Gael, 01/11/2026). */}
       {!saving && target.canFreeze && freezable.data?.reason != null && (
         <p className="muted">{t(`versions.errors.conflict.${freezable.data.reason}`)}</p>
       )}
+      {/* **Offert sur la SEULE raison « publication_requise », et c'est ce qui garantit
+          que le geste est permis** : le serveur ne rend cette raison que pour une copie
+          TENUE par la personne qui regarde et portant des commits locaux. Qui lit ce
+          message a donc la main, et peut publier. L'offrir sur les autres raisons
+          proposerait un geste que le serveur refuserait.
+
+          Les mêmes mots que dans « Tous les workspaces » (`holds.publish`), et
+          volontairement : c'est le même geste, et deux vocabulaires pour une seule action
+          en feraient deux dans la tête de qui les lit. */}
+      {!saving && target.canFreeze && freezable.data?.reason === "publication_requise" && (
+        <div className="actions">
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={publish.isPending}
+            onClick={() => publish.mutate()}
+          >
+            {t("holds.publish")}
+          </button>
+        </div>
+      )}
+      {/* L'accusé est HORS de la condition ci-dessus, et c'est tout l'intérêt : la
+          publication réussie efface la raison qui portait le bouton, donc un accusé rangé
+          dedans disparaîtrait à l'instant précis où il sert. Trouvé par son test. */}
+      {publish.isSuccess && (
+        <p className="notice" role="status">
+          {t("holds.published", { count: publish.data.published })}
+        </p>
+      )}
+      {publish.isError && <HoldRefusal error={publish.error} />}
       {saving && target.canFreeze && <SaveForm target={target} onDone={() => setSaving(false)} />}
       {versions.isError && <VersionRefusal error={versions.error} />}
       {versions.isSuccess && versions.data.length === 0 && (

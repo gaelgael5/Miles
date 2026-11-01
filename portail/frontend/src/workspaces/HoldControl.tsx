@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, ConfirmDialog } from "@miles/socle-web";
+import { ConfirmDialog } from "@miles/socle-web";
 import { useBranchViews } from "../api/branches";
 import {
   type Shelf,
@@ -14,40 +14,8 @@ import {
   useUnlockHold,
 } from "../api/holds";
 import type { Workspace } from "../api/workspaces";
+import { HoldRefusal } from "./HoldRefusal";
 import { baseBranchOf, viewedBranchOf } from "../layout/WorkspacesNav";
-
-type Detail = {
-  code?: string;
-  by?: string;
-  workspace_id?: string;
-  branch?: string;
-  files?: string[];
-};
-
-/** Le refus dit pourquoi, et nomme qui ou quoi bloque (critères 2, 3, 4, 8). */
-function HoldRefusal({ error }: { error: unknown }) {
-  const { t } = useTranslation();
-  let message = t("holds.errors.unexpected");
-  if (error instanceof ApiError && error.status === 409) {
-    const detail = error.detail;
-    if (typeof detail === "string") {
-      message = t(`holds.errors.${detail}`, { defaultValue: t("holds.errors.unexpected") });
-    } else if (typeof detail === "object" && detail !== null) {
-      const { code, by, workspace_id, branch, files } = detail as Detail;
-      message = t(`holds.errors.${code ?? "unexpected"}`, {
-        by,
-        workspace: workspace_id,
-        branch,
-        files: files?.join(", "),
-      });
-    }
-  }
-  return (
-    <p className="alert" role="alert">
-      {message}
-    </p>
-  );
-}
 
 /**
  * Déverrouiller qui tient la branche (story fd1eb7da) : son travail non publié est rangé

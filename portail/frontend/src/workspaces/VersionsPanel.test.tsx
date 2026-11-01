@@ -6,6 +6,7 @@ import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const VERSIONS = "/api/workspaces/retrait/versions";
+const PUBLISH = "POST /api/workspaces/retrait/branches/edition/hold/publish";
 const MODELS = "GET /api/workspaces/retrait/data-models?branch=edition";
 const FREEZABLE = {
   [`GET ${VERSIONS}/freezable?branch=edition`]: { status: 200, body: { ok: true, reason: null } },
@@ -166,11 +167,63 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
     expect(within(panel).getByText("Save a version")).toBeDisabled();
   });
 
+  it("offers to publish right here, and re-reads what blocks once it is done", async () => {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...BRANCHES,
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
+      // La seconde lecture est celle d'après la publication : plus rien n'empêche.
+      [`GET ${VERSIONS}/freezable?branch=edition`]: [
+        { status: 200, body: { ok: false, reason: "publication_requise" } },
+        { status: 200, body: { ok: true, reason: null } },
+      ],
+      [PUBLISH]: { status: 200, body: { published: 2 } },
+    });
+    const panel = await openWorkshop();
+
+    fireEvent.click(await within(panel).findByText("Publish"));
+
+    expect(await within(panel).findByText("2 changes published.")).toBeInTheDocument();
+    expect(calls.some((c) => c.key === PUBLISH)).toBe(true);
+    // Le bouton se rallume SANS geste : la clé de cache des versions porte le même slug
+    // que la prise de main, donc l'invalidation de la publication l'atteint.
+    expect(await within(panel).findByText("Save a version")).toBeEnabled();
+  });
+
+  it("names the refusal of a publication instead of showing a version error", async () => {
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...BRANCHES,
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${VERSIONS}/freezable?branch=edition`]: {
+        status: 200,
+        body: { ok: false, reason: "publication_requise" },
+      },
+      [PUBLISH]: { status: 409, body: { detail: { code: "branche_bougee" } } },
+    });
+    const panel = await openWorkshop();
+
+    fireEvent.click(await within(panel).findByText("Publish"));
+
+    // Le vocabulaire des refus de prise de main, et pas celui des versions : ce sont deux
+    // familles de codes, et les confondre rendrait « erreur inattendue » sur un refus qui
+    // a un nom.
+    expect(await within(panel).findByRole("alert")).toBeInTheDocument();
+    expect(within(panel).queryByText(/unexpected/i)).not.toBeInTheDocument();
+  });
+
   it("greys it out when nothing changed since the last version", async () => {
     const panel = await panelWith({ ok: false, reason: "rien_a_figer" });
 
     expect(await within(panel).findByText(/Nothing changed since the last version/)).toBeInTheDocument();
     expect(within(panel).getByText("Save a version")).toBeDisabled();
+    // Pas de bouton de publication ici : rien n'est en attente de l'être, et l'offrir
+    // proposerait un geste que le serveur refuserait.
+    expect(within(panel).queryByText("Publish")).not.toBeInTheDocument();
   });
 
   it("leaves it usable when there is something to freeze", async () => {
@@ -178,5 +231,6 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
 
     expect(await within(panel).findByText("No version saved yet.")).toBeInTheDocument();
     expect(within(panel).getByText("Save a version")).toBeEnabled();
+    expect(within(panel).queryByText("Publish")).not.toBeInTheDocument();
   });
 });
