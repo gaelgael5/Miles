@@ -60,3 +60,26 @@ def fabrique(tmp_path: Path) -> dict[int, VersionFabriquee]:
         commit = git("rev-parse", f"version/{number}^{{commit}}", cwd=depot).strip()
         fabriquees[number] = VersionFabriquee(number, commit, paquet.read_bytes(), fichiers)
     return fabriquees
+
+
+def bundle_substitue(tmp_path: Path, number: int, sur_commit: str) -> bytes:
+    """Un bundle dont `version/<number>` EXISTE mais pointe sur `sur_commit`.
+
+    C'est la SUBSTITUTION RÉELLE, et elle ne se confond pas avec un bundle qui ne porte
+    pas la bonne étiquette : celui-là échoue dès la récupération, sur « couldn't find
+    remote ref », et n'atteint jamais la comparaison de commit. Mesuré le 01/11/2026 — un
+    premier essai de ce test construisait le cas faible et validait donc le mauvais refus.
+
+    Ce qu'un intermédiaire ferait, lui, c'est servir un contenu qui a l'air du bon : la
+    bonne étiquette, un autre arbre. Seul le commit, qui voyage dans l'ordre SIGNÉ, permet
+    de le refuser.
+
+    Travaille sur le dépôt que `fabrique` a laissé dans `tmp_path` : les deux vont
+    ensemble, et appeler celui-ci sans celle-là n'a pas de sens.
+    """
+    depot = tmp_path / "depot"
+    git("tag", "-d", f"version/{number}", cwd=depot)
+    git(*AUTHOR, "tag", "-a", f"version/{number}", sur_commit, "-m", "Substituée", cwd=depot)
+    paquet = tmp_path / f"substitue-{number}.bundle"
+    git("bundle", "create", str(paquet), f"version/{number}", cwd=depot)
+    return paquet.read_bytes()

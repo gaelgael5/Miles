@@ -28,7 +28,7 @@ from environnement.hosting.model import (
     VERSION_REFUSED_EVENT,
     VERSION_SERVED_EVENT,
 )
-from tests.integration.bundles import VersionFabriquee, fabrique
+from tests.integration.bundles import VersionFabriquee, bundle_substitue, fabrique
 from tests.integration.environnement_stack import EnvironnementStack, open_stack
 
 pytestmark = pytest.mark.integration
@@ -143,9 +143,38 @@ async def test_un_bundle_qui_porte_un_autre_commit_est_refuse_sans_rien_poser(
     """LE contrôle d'intégrité de tout l'échange.
 
     La réponse du relais n'est pas signée : seul le commit, qui voyage dans l'ordre signé,
-    dit quel contenu est le bon. Ici le relais sert le bundle de la version 1 sous le
-    commit de la version 2 — exactement ce qu'un intermédiaire ferait — et rien ne doit
-    être posé.
+    dit quel contenu est le bon. Ici le bundle porte BIEN l'étiquette `version/2` — il a
+    l'air du bon contenu — mais elle pointe sur l'arbre de la version 1. C'est la
+    substitution qu'un intermédiaire ferait, et c'est le seul cas qui exerce la
+    comparaison : un bundle sans la bonne étiquette échoue dès la récupération et n'y
+    arrive jamais (test suivant).
+    """
+    versions = fabrique(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack, double)
+        double.bundles[versions[2].commit] = bundle_substitue(tmp_path, 2, versions[1].commit)
+
+        recu = await _ordonne(stack, double, number=2, commit=versions[2].commit)
+
+        assert recu.status_code == 200, recu.text
+        assert recu.json()["served_commit"] is None
+        assert recu.json()["reason"] == REFUSAL_WRONG_COMMIT
+        # Rien n'est posé : un arbre venu d'un contenu non vérifié servirait un
+        # paramétrage que personne n'a choisi, et serait indiscernable du bon.
+        assert await _arbre(stack) == []
+        assert await _types(stack) == [VERSION_REFUSED_EVENT]
+
+
+async def test_un_bundle_sans_l_etiquette_ordonnee_est_refuse_a_la_recuperation(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Le cas FAIBLE, distingué du précédent parce qu'il échoue plus tôt.
+
+    git refuse sur « couldn't find remote ref » avant toute comparaison de commit. Les
+    deux refus protègent, mais ils ne passent pas par la même ligne — et confondre les
+    deux ferait croire la comparaison éprouvée alors qu'elle ne le serait pas. C'est
+    exactement l'erreur que la campagne du 01/11/2026 a corrigée.
     """
     versions = fabrique(tmp_path)
     double = EnrolmentDouble()
@@ -155,11 +184,8 @@ async def test_un_bundle_qui_porte_un_autre_commit_est_refuse_sans_rien_poser(
 
         recu = await _ordonne(stack, double, number=2, commit=versions[2].commit)
 
-        assert recu.status_code == 200, recu.text
-        assert recu.json()["served_commit"] is None
-        assert recu.json()["reason"] == REFUSAL_WRONG_COMMIT
+        assert recu.json()["reason"] == REFUSAL_BUNDLE_UNREADABLE
         assert await _arbre(stack) == []
-        assert await _types(stack) == [VERSION_REFUSED_EVENT]
 
 
 async def test_un_bundle_tronque_est_refuse_sans_rien_poser(blank_db: str, tmp_path: Path) -> None:
