@@ -1187,12 +1187,13 @@
     }
   },
   "paths": {
+    "absent": "n'est plus dans le modèle — décochez-le",
     "chooseModelFirst": "Choisis d'abord le modèle des objets : l'arbre de ses propriétés s'affichera ici.",
-    "unreadable": "Les propriétés de ce modèle n'ont pas pu être lues.",
+    "collapse": "Replier {{name}}",
+    "done": "Terminé",
     "empty": "Ce modèle ne déclare aucune propriété.",
     "expand": "Déplier {{name}}",
-    "collapse": "Replier {{name}}",
-    "done": "Terminé"
+    "unreadable": "Les propriétés de ce modèle n'ont pas pu être lues."
   },
   "swagger": {
     "back": "Retour",

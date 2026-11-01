@@ -83,6 +83,14 @@ describe("columnsSummary", () => {
     expect(columnsSummary(["$.adresse.ville", "$.code"], "vide")).toBe("ville · code");
   });
 
+  it("montre le chemin entier des feuilles en collision, et elles seules", () => {
+    // Le cas relevé par Gael le 01/11/2026 : « $.Email » et « $.Contact.Email » se
+    // lisaient « Email · Email », ce qui fait croire qu'on a choisi deux fois la même.
+    expect(columnsSummary(["$.Email", "$.Contact.Email", "$.code"], "vide")).toBe(
+      "$.Email · $.Contact.Email · code",
+    );
+  });
+
   it("says plainly when an index has no column yet", () => {
     expect(columnsSummary([], "Aucune colonne")).toBe("Aucune colonne");
   });

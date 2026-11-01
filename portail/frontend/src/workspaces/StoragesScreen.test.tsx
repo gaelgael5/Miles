@@ -351,6 +351,57 @@ describe("additional indexes (24/10/2026)", () => {
     }
   });
 
+  it("lets a column the model no longer offers be unticked, instead of trapping it", async () => {
+    // Reproduit la copie d'écran du 01/11/2026 : « $.PhoneNumber » ne désignait rien dans
+    // le modèle, la validation le refusait, et l'arbre ne le montrait pas — puisqu'il ne
+    // rend que ce que le modèle offre. Rien ne permettait donc de l'enlever, et le seul
+    // recours était de supprimer l'index entier.
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS,
+      [`GET ${ROUTE}/sites${Q}`]: {
+        status: 200,
+        body: {
+          ...STORAGE,
+          indexes: [{ name: "par-ville", columns: ["$.disparu", "$.adresse.ville"] }],
+        },
+      },
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition", storage: "sites" });
+    fireEvent.click(await screen.findByRole("button", { name: "Columns of index par-ville" }));
+    const tree = await screen.findByRole("list", { name: "Columns of index par-ville" });
+
+    const orphelin = within(tree).getByRole("checkbox", { name: /disparu/ });
+
+    // Montré COCHÉ, et avec son chemin entier : c'est le chemin qui est fautif, et son
+    // dernier segment seul ne permettrait pas de le reconnaître.
+    expect(orphelin).toBeChecked();
+    fireEvent.click(orphelin);
+    expect(
+      screen.getByRole("button", { name: "Columns of index par-ville" }),
+    ).not.toHaveTextContent("disparu");
+  });
+
+  it("lets a functional key the model no longer offers be unticked too", async () => {
+    // Même piège sur l'autre sélecteur : il n'y a pas de raison que la clé s'en sorte.
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS,
+      [`GET ${ROUTE}/sites${Q}`]: { status: 200, body: { ...STORAGE, keys: ["$.parti"] } },
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition", storage: "sites" });
+    fireEvent.click(await screen.findByRole("button", { name: "Functional key" }));
+    const tree = await screen.findByRole("list", { name: "Functional key" });
+
+    fireEvent.click(within(tree).getByRole("checkbox", { name: /parti/ }));
+
+    expect(screen.getByRole("button", { name: "Functional key" })).not.toHaveTextContent("parti");
+  });
+
   it("removes an index with its columns", async () => {
     open();
     expect(await screen.findByLabelText("Name of index 1")).toHaveValue("par-ville");

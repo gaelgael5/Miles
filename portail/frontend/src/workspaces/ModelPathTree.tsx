@@ -131,6 +131,45 @@ function Branch({
 }
 
 /**
+ * Un chemin CHOISI que le modèle n'offre plus : montré pour pouvoir être retiré.
+ *
+ * Sans lui, l'arbre ne rendait que ce que le modèle offre — donc un chemin devenu absent
+ * n'avait aucune case, et **rien ne permettait de le décocher**. La validation le
+ * refusait, l'écran le montrait dans le résumé, et le seul recours était de supprimer
+ * l'index entier. Relevé par Gael le 01/11/2026 sur « $.PhoneNumber ».
+ *
+ * Le chemin ENTIER est affiché, pas son dernier segment : c'est le chemin qui est
+ * fautif, et « PhoneNumber » seul ne dirait pas lequel retirer quand deux branches du
+ * modèle portent le même nom de feuille.
+ *
+ * Jamais grisé par `atMax` : on peut toujours décocher, et c'est précisément ce qu'il
+ * faut faire ici.
+ */
+function Orphan({
+  path,
+  disabled,
+  onToggle,
+}: {
+  path: string;
+  disabled: boolean;
+  onToggle: (path: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <li>
+      <span className="tree-row">
+        <span className="tree-twist" aria-hidden="true" />
+        <label className="tree-pick" title={path}>
+          <input type="checkbox" disabled={disabled} checked onChange={() => onToggle(path)} />
+          <span className="mono">{path}</span>{" "}
+          <span className="caption">{t("paths.absent")}</span>
+        </label>
+      </span>
+    </li>
+  );
+}
+
+/**
  * Choisir des propriétés d'un modèle dans un arbre plutôt que les taper (Gael, 24/10/2026).
  * Taper un jpath à la main, c'est se le faire refuser après coup pour une faute de frappe
  * ou un tableau traversé ; ici on ne peut cocher que ce que le modèle offre vraiment.
@@ -177,11 +216,19 @@ export function ModelPathTree({
     );
   }
   const roots = treeOf(paths.data.paths);
-  if (roots.length === 0) {
+  // Ce qui est choisi mais que le modèle n'offre plus : en TÊTE, et jamais caché. Un
+  // modèle évolue sous une déclaration déjà enregistrée, et ces chemins-là sont
+  // exactement ceux qu'il faut retirer.
+  const offerts = new Set(paths.data.paths.map((entry) => entry.path));
+  const orphelins = selected.filter((path) => !offerts.has(path));
+  if (roots.length === 0 && orphelins.length === 0) {
     return <p className="help">{t("paths.empty")}</p>;
   }
   return (
     <ul className="plain-list tree" aria-label={label}>
+      {orphelins.map((path) => (
+        <Orphan key={path} path={path} disabled={disabled} onToggle={onToggle} />
+      ))}
       {roots.map((node) => (
         <Branch
           key={node.path}

@@ -1187,12 +1187,13 @@
     }
   },
   "paths": {
+    "absent": "no longer in the model — untick it",
     "chooseModelFirst": "Choose the object model first: the tree of its properties will appear here.",
-    "unreadable": "The properties of this model could not be read.",
+    "collapse": "Collapse {{name}}",
+    "done": "Done",
     "empty": "This model declares no property.",
     "expand": "Expand {{name}}",
-    "collapse": "Collapse {{name}}",
-    "done": "Done"
+    "unreadable": "The properties of this model could not be read."
   },
   "swagger": {
     "back": "Back",

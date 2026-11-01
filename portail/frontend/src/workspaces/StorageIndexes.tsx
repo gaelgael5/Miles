@@ -14,9 +14,28 @@ export function indexName(taken: string[]): string {
   return "index";
 }
 
-/** Ce que le champ d'un index affiche fermé : ses colonnes, dans l'ordre. */
+/**
+ * Ce que le champ d'un index affiche fermé : ses colonnes, dans l'ordre.
+ *
+ * Le dernier segment suffit d'ordinaire — le chemin entier allonge le champ sans rien
+ * apprendre. Mais deux colonnes peuvent finir par le MÊME mot : « $.Email » et
+ * « $.Contact.Email » s'affichaient tous deux « Email », et le résumé disait alors
+ * « Email · Email » — illisible, et trompeur, puisqu'on croit avoir choisi deux fois la
+ * même chose. Relevé par Gael le 01/11/2026, sur ce cas exact.
+ *
+ * On ne montre donc le chemin entier que pour les feuilles en collision : les autres
+ * restent courtes.
+ */
 export function columnsSummary(columns: string[], empty: string): string {
-  return columns.length === 0 ? empty : columns.map(lastSegment).join(" · ");
+  if (columns.length === 0) {
+    return empty;
+  }
+  const feuilles = columns.map(lastSegment);
+  return columns
+    .map((path, rank) =>
+      feuilles.filter((f) => f === feuilles[rank]).length > 1 ? path : feuilles[rank],
+    )
+    .join(" · ");
 }
 
 /**
