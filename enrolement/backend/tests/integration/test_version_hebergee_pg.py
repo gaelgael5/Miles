@@ -348,7 +348,8 @@ async def test_un_parametrage_revoque_laisse_le_placement_sans_source_git(
             revoque = await stack.client.request(
                 "DELETE", "/api/pairing/peers", params={"base_url": parametrage.origin}
             )
-            assert revoque.status_code == 200, revoque.text
+            # 204 : la révocation est une DESTRUCTION, et il n'y a rien à rendre.
+            assert revoque.status_code == 204, revoque.text
 
             lues = await stack.client.get(f"/api/environments/{environnement}/versions")
 
