@@ -197,7 +197,50 @@
     },
     "version": {
       "title": "Version hébergée",
-      "unavailable": "Les versions d'un workspace ne sont pas encore lisibles depuis ce module : le module de paramétrage ne les sert à aucune route de pair. Rien ne peut donc être choisi ici pour le moment."
+      "none": "Aucune version n'est ordonnée à cet environnement. Choisissez-en une ci-dessous : elle sera poussée à la stack, qui viendra chercher son contenu.",
+      "nonePublished": "Ce workspace n'a aucune version enregistrée dans son dépôt. Les versions s'enregistrent depuis le module de paramétrage.",
+      "numbered": "Version {{number}}",
+      "captionOrdered": "Version ordonnée",
+      "captionServed": "Ce que la stack a répondu",
+      "upToDate": "servie",
+      "notApplied": "ordre reçu, version pas encore servie",
+      "asOf": "au {{instant}}",
+      "resend": "Renvoyer l'ordre",
+      "choose": "Associer",
+      "current": "ordonnée",
+      "refusals": {
+        "pair_non_apparie": "aucune stack n'est appariée à cet environnement",
+        "pair_injoignable": "la stack n'a pas répondu",
+        "pair_refuse": "la stack a refusé notre appel signé",
+        "reponse_illisible": "la stack a répondu autre chose que ce qu'on attendait",
+        "origine_absente": "ce module n'a pas d'adresse publique configurée : il ne peut rien signer",
+        "non_applique": "ordre reçu, version pas encore servie",
+        "aucun_pair": "la stack ne se dit appariée à personne",
+        "relais_injoignable": "la stack n'a pas pu venir chercher le contenu",
+        "relais_refuse": "le contenu lui a été refusé",
+        "commit_inattendu": "le contenu reçu ne portait pas la version ordonnée : la stack l'a rejeté",
+        "bundle_illisible": "le contenu reçu n'a pas pu être ouvert",
+        "bundle_trop_volumineux": "le contenu dépasse ce qui peut voyager",
+        "unknown": "la stack a refusé en disant « {{code}} »"
+      },
+      "errors": {
+        "noWorkspace": "Aucun workspace n'est placé sur cet environnement : il n'y a pas de version à choisir.",
+        "notConfided": "Aucun module de paramétrage apparié n'expose ce workspace. Son dépôt nous a été retiré avec l'appariement : réappariez le module de paramétrage.",
+        "noRepo": "Le dépôt de ce workspace n'est pas encore configuré dans le module de paramétrage.",
+        "unknownVersion": "Cette version n'existe plus dans le dépôt. Rafraîchissez la liste et choisissez-en une autre.",
+        "repository": "Le dépôt n'a pas pu être lu.",
+        "unexpected": "La demande n'a pas abouti."
+      },
+      "reasons": {
+        "identifiants": "Le credential confié a été refusé par la forge.",
+        "depot_inexistant": "La forge ne connaît pas ce dépôt.",
+        "injoignable": "La forge n'a pas répondu.",
+        "protection": "La forge a refusé au nom d'une règle de protection.",
+        "droit_refuse": "Le credential confié n'a pas le droit de lire ce dépôt.",
+        "echec": "git a échoué sans dire pourquoi.",
+        "credential_illisible": "Le credential confié ne s'ouvre plus ici : faites-le reconfier depuis le module de paramétrage.",
+        "unknown": "git a dit « {{code}} »."
+      }
     },
     "accounts": {
       "title": "Comptes",

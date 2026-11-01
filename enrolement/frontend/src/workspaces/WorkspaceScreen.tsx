@@ -4,16 +4,16 @@ import { PageHead } from "@miles/socle-web";
 
 import { useExposedWorkspaces } from "../api/confiedGit";
 import type { Environment } from "../api/environments";
+import { HostedVersion } from "./HostedVersion";
 
 /**
  * Un workspace hébergé par un environnement : d'où il vient, et la version qu'il sert.
  *
- * L'écran existe dès qu'un workspace est placé (Gael, 01/11/2026). Ce qu'il peut montrer
- * aujourd'hui s'arrête à ce que ce module SAIT : l'environnement qui l'héberge et le
- * dépôt que le module de paramétrage nous a confié. La version, elle, n'est connue de
- * personne ici — aucune route de pair ne la demande au module de paramétrage —, et c'est
- * dit plutôt que remplacé par une liste vide, qui se lirait comme un paramétrage sans
- * version publiée.
+ * L'écran existe dès qu'un workspace est placé (Gael, 01/11/2026). Les versions sont
+ * lisibles depuis le 01/11/2026 au soir (story 3bbd4f87) : ce module lit le dépôt
+ * lui-même, avec le credential que le module de paramétrage lui confie. Aucune route de
+ * pair ne les lui demande, et c'est le choix qui a été fait — en passer par le
+ * paramétrage ferait dépendre toute lecture de git de sa disponibilité.
  */
 export function WorkspaceScreen({ environnement }: { environnement: Environment }) {
   const { t } = useTranslation();
@@ -50,17 +50,7 @@ export function WorkspaceScreen({ environnement }: { environnement: Environment 
           </div>
         </dl>
       </div>
-      <div className="card">
-        <div className="card-head">
-          <h2>{t("workspaces.version.title")}</h2>
-        </div>
-        {/* Une liste vide se lirait « ce workspace n'a aucune version publiée », ce qui
-            serait une affirmation sur l'état du paramétrage — que ce module ne connaît
-            pas. On dit donc ce qui manque, et où il manque. */}
-        <p className="alert" role="status">
-          {t("workspaces.version.unavailable")}
-        </p>
-      </div>
+      <HostedVersion environmentId={environnement.id} />
     </section>
   );
 }

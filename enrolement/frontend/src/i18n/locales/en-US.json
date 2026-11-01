@@ -197,7 +197,50 @@
     },
     "version": {
       "title": "Hosted version",
-      "unavailable": "A workspace's versions cannot be read from this module yet: the configuration module serves them on no peer route. Nothing can be chosen here for now."
+      "none": "No version is ordered for this environment. Pick one below: it will be pushed to the stack, which then comes and fetches its content.",
+      "nonePublished": "This workspace has no version saved in its repository. Versions are saved from the configuration module.",
+      "numbered": "Version {{number}}",
+      "captionOrdered": "Ordered version",
+      "captionServed": "What the stack answered",
+      "upToDate": "served",
+      "notApplied": "order received, version not served yet",
+      "asOf": "as of {{instant}}",
+      "resend": "Resend the order",
+      "choose": "Associate",
+      "current": "ordered",
+      "refusals": {
+        "pair_non_apparie": "no stack is paired with this environment",
+        "pair_injoignable": "the stack did not answer",
+        "pair_refuse": "the stack refused our signed call",
+        "reponse_illisible": "the stack answered something other than expected",
+        "origine_absente": "this module has no public address configured: it cannot sign anything",
+        "non_applique": "order received, version not served yet",
+        "aucun_pair": "the stack says it is paired with nobody",
+        "relais_injoignable": "the stack could not come and fetch the content",
+        "relais_refuse": "the content was refused to it",
+        "commit_inattendu": "the content received did not carry the ordered version: the stack rejected it",
+        "bundle_illisible": "the content received could not be opened",
+        "bundle_trop_volumineux": "the content exceeds what can travel",
+        "unknown": "the stack refused, saying “{{code}}”"
+      },
+      "errors": {
+        "noWorkspace": "No workspace is placed on this environment: there is no version to choose.",
+        "notConfided": "No paired configuration module exposes this workspace. Its repository was removed along with the pairing: pair the configuration module again.",
+        "noRepo": "This workspace's repository is not configured yet in the configuration module.",
+        "unknownVersion": "This version no longer exists in the repository. Refresh the list and pick another one.",
+        "repository": "The repository could not be read.",
+        "unexpected": "The request did not go through."
+      },
+      "reasons": {
+        "identifiants": "The confided credential was refused by the forge.",
+        "depot_inexistant": "The forge does not know this repository.",
+        "injoignable": "The forge did not answer.",
+        "protection": "The forge refused on a protection rule.",
+        "droit_refuse": "The confided credential may not read this repository.",
+        "echec": "git failed without saying why.",
+        "credential_illisible": "The confided credential no longer opens here: have it confided again from the configuration module.",
+        "unknown": "git said “{{code}}”."
+      }
     },
     "accounts": {
       "title": "Accounts",
