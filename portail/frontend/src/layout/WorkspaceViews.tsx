@@ -7,10 +7,10 @@ import type { Direction } from "../api/contracts";
 import { ContractLinks } from "./ContractLinks";
 import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
 
-// « branchGraph » en tête : c'est la vue d'ensemble des branches, celle qui situe où
+// « branch » en tête : c'est l'écran de la branche qu'on regarde — ses versions et le
+// graphe de toutes les branches du workspace, fondus le 01/11/2026 (Gael). Il situe où
 // l'on travaille avant d'ouvrir quoi que ce soit.
 const VIEWS: WorkspaceView[] = [
-  "branchGraph",
   "branch",
   "dataModels",
   "contracts",

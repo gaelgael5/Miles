@@ -6,7 +6,6 @@ import { useWorkTarget } from "./useWorkTarget";
 import { type WorkspaceSelection, baseBranchOf } from "../layout/WorkspacesNav";
 import { AccountReferenceScreen } from "./AccountReferenceScreen";
 import { BranchScreen } from "./BranchScreen";
-import { BranchGraphScreen } from "./BranchGraphScreen";
 import { ChainScreen } from "./ChainScreen";
 import { ChainsScreen } from "./ChainsScreen";
 import { ContractModelsScreen } from "./ContractModelsScreen";
@@ -126,15 +125,6 @@ function viewScreen(
         target={target}
         onBack={back}
         onOpen={(contract) => onSelect({ id: workspace.id, view: "contracts", branch, contract })}
-      />
-    );
-  }
-  if (selection.view === "branchGraph") {
-    return (
-      <BranchGraphScreen
-        key={key}
-        workspace={workspace}
-        onBack={() => onSelect({ id: workspace.id, view: "settings", branch })}
       />
     );
   }

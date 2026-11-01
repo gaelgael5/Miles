@@ -161,6 +161,23 @@ describe("App", () => {
       "GET /api/workspaces/retrait/data-models?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/contracts?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/storages?branch=essai": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/versions?branch=essai": { status: 200, body: [] },
+      // Simulée, et avec du CONTENU : sans elle la carte du graphe s'afficherait
+      // quand même — sur son chemin d'erreur — et l'assertion ne distinguerait pas
+      // « le graphe est là » de « le graphe n'a pas pu être lu » (LESSONS.md).
+      "GET /api/workspaces/retrait/branches/graph": {
+        status: 200,
+        body: [
+          {
+            sha: "aaaaaaa1111",
+            parents: [],
+            author: "Gaël",
+            written_at: "2026-10-24T10:00:00Z",
+            subject: "premier commit",
+            refs: [],
+          },
+        ],
+      },
     });
     renderApp();
     const nav = await screen.findByRole("navigation");
@@ -173,9 +190,31 @@ describe("App", () => {
     // Les branches ne sont pas listées : seules les vues de la branche regardée.
     expect(within(nav).queryByRole("button", { name: "atelier" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
-    // La vue ferroviaire s'atteint d'ici : un écran qu'on ne peut pas ouvrir n'existe
-    // pas, et le menu a sa PROPRE liste de vues (relevé par Gael le 24/10/2026).
-    expect(within(nav).getByRole("button", { name: "Branches" })).toBeInTheDocument();
+    // UNE SEULE entrée pour la branche depuis la fusion du 01/11/2026 (Gael) : ses
+    // versions et le graphe de toutes les branches sont le même écran, et l'ancienne
+    // entrée « Branches » n'existe plus. Un écran qu'on ne peut pas ouvrir n'existe pas,
+    // et le menu a sa PROPRE liste de vues (relevé par Gael le 24/10/2026) : on l'OUVRE
+    // donc, et on vérifie que les DEUX contenus y sont — une entrée qui n'en servirait
+    // qu'un aurait fondu les menus sans fondre les écrans.
+    expect(within(nav).queryByRole("button", { name: "Branches" })).not.toBeInTheDocument();
+    // Et AUCUNE entrée n'affiche une clef de traduction brute. La ligne au-dessus ne
+    // suffit pas : remettre « branchGraph » dans la liste des vues la laisse verte,
+    // puisque le libellé a disparu avec la fusion et que le bouton montre alors sa clef.
+    // Mesuré en sabotant le 01/11/2026. Cette garde-ci attrape toute la famille — une
+    // vue ajoutée sans son libellé dans les deux langues.
+    const clef = /^[a-z][a-zA-Z]*(\.[a-zA-Z_]+)+$/;
+    expect(
+      within(nav)
+        .getAllByRole("button")
+        .map((b) => b.textContent ?? "")
+        .filter((libelle) => clef.test(libelle)),
+    ).toEqual([]);
+    fireEvent.click(within(nav).getByRole("button", { name: "Branches and versions" }));
+    expect(
+      await screen.findByRole("region", { name: "Versions of the work branch" }),
+    ).toBeInTheDocument();
+    const graphe = await screen.findByRole("region", { name: "Branches" });
+    expect(within(graphe).getByText("premier commit")).toBeInTheDocument();
     // Même garde pour « Storages » (24/10/2026) : la vue est déclarée dans la liste du
     // menu, pas seulement dans le routage — sans quoi l'écran serait inatteignable.
     fireEvent.click(within(nav).getByRole("button", { name: "Storages" }));

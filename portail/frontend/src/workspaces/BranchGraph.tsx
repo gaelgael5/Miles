@@ -53,30 +53,25 @@ function Edges({ placed, rows }: { placed: PlacedCommit; rows: number }) {
  * Le dessin est en SVG à côté des lignes, sur la MÊME grille : une ligne de texte vaut
  * une ligne de graphe, sinon les pastilles ne tombent pas en face de leur commit.
  *
+ * **Une CARTE et non un écran depuis le 01/11/2026** (Gael : « fusionne l'écran branche
+ * et l'écran Version »). Elle n'a donc ni bouton de retour ni titre de page : elle vit
+ * dans l'écran de la branche, sous ses versions. La portée des deux diffère — le graphe
+ * montre TOUTES les branches du workspace, les versions ne concernent que celle qu'on
+ * regarde — et c'est justement ce qui en fait le contexte de l'autre.
+ *
  * Le bouton de fusion viendra ici.
  */
-export function BranchGraphScreen({
-  workspace,
-  onBack,
-}: {
-  workspace: Workspace;
-  onBack: () => void;
-}) {
+export function BranchGraph({ workspace }: { workspace: Workspace }) {
   const { t } = useTranslation();
   const graph = useBranchGraph(workspace.id);
   const { placed, width } = layout(graph.data ?? []);
 
   return (
-    <section aria-labelledby="branch-graph-title">
-      <button type="button" className="btn btn-secondary back" onClick={onBack}>
-        {t("branches.graph.back")}
-      </button>
-      <div className="page-head">
-        <div>
-          <h1 id="branch-graph-title">{t("branches.graph.title", { name: workspace.name })}</h1>
-          <p className="lead muted">{t("branches.graph.lead")}</p>
-        </div>
+    <section className="card" aria-labelledby="branch-graph-title">
+      <div className="card-head">
+        <h2 id="branch-graph-title">{t("branches.graph.title")}</h2>
       </div>
+      <p className="muted">{t("branches.graph.lead")}</p>
       {graph.isPending && (
         <p className="muted" role="status">
           {t("dataModels.loading")}
@@ -91,7 +86,7 @@ export function BranchGraphScreen({
         <p className="muted">{t("branches.graph.empty")}</p>
       )}
       {placed.length > 0 && (
-        <div className="card graph">
+        <div className="graph">
           <svg
             className="graph-rails"
             width={MARGIN * 2 + (width - 1) * LANE}

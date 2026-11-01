@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
+import { BRANCH_SCREEN, CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const VERSIONS = "/api/workspaces/retrait/versions";
@@ -41,6 +41,7 @@ async function openWorkshop() {
 describe("VersionsPanel", () => {
   it("saves a version with its label, then lists it", async () => {
     const calls = mockApi({
+      ...BRANCH_SCREEN,
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
@@ -68,6 +69,7 @@ describe("VersionsPanel", () => {
 
   it("shows, file by file, why the configuration cannot be frozen", async () => {
     mockApi({
+      ...BRANCH_SCREEN,
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
@@ -105,6 +107,7 @@ describe("VersionsPanel", () => {
 
   it("says there is nothing to freeze", async () => {
     mockApi({
+      ...BRANCH_SCREEN,
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
@@ -125,6 +128,7 @@ describe("VersionsPanel", () => {
 
   it("returns to a version after confirmation, by a new commit", async () => {
     const calls = mockApi({
+      ...BRANCH_SCREEN,
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
@@ -150,6 +154,7 @@ describe("VersionsPanel", () => {
 describe("the version button knows what the server will refuse (25/10/2026)", () => {
   function panelWith(freezable: { ok: boolean; reason: string | null }) {
     mockApi({
+      ...BRANCH_SCREEN,
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
@@ -169,6 +174,7 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
 
   it("offers to publish right here, and re-reads what blocks once it is done", async () => {
     const calls = mockApi({
+      ...BRANCH_SCREEN,
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
@@ -194,6 +200,7 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
 
   it("names the refusal of a publication instead of showing a version error", async () => {
     mockApi({
+      ...BRANCH_SCREEN,
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,

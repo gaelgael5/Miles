@@ -3,7 +3,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import "../i18n/i18n";
 import type { Routes } from "@miles/socle-web/testing";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, SETTINGS, renderWorkspaces } from "./workspaceFixtures";
+import { BRANCH_SCREEN, CONFIGURED, SETTINGS, renderWorkspaces } from "./workspaceFixtures";
 
 // Prise de main d'une branche enfant (story 9def0adc) : une personne par branche, les
 // autres lisent ce qui est publié sans rien pouvoir modifier.
@@ -197,6 +197,7 @@ describe("a child branch someone else holds", () => {
 
   it("does not offer to save a version without the hold", async () => {
     mockApi({
+      ...BRANCH_SCREEN,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${WS}/holds`]: { status: 200, body: [] },
       [`GET ${WS}/versions?branch=edition`]: { status: 200, body: [] },

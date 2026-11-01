@@ -3,7 +3,7 @@ import { screen } from "@testing-library/react";
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
 import type { WorkspaceSelection } from "../layout/WorkspacesNav";
-import { CONFIGURED, renderWorkspaces } from "./workspaceFixtures";
+import { BRANCH_SCREEN, CONFIGURED, renderWorkspaces } from "./workspaceFixtures";
 
 // La racine est en lecture seule (story dca0eb0e) : on la lit, on y fige une version,
 // mais l'écran n'y offre aucun bouton qui en changerait le contenu.
@@ -50,6 +50,7 @@ afterEach(() => {
 
 function onRoot(selection: Omit<NonNullable<WorkspaceSelection>, "id" | "branch">) {
   mockApi({
+    ...BRANCH_SCREEN,
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     "GET /api/workspaces/retrait/branches": {
       status: 200,

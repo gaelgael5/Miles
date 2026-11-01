@@ -2,7 +2,7 @@ import { screen } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, renderWorkspaces } from "./workspaceFixtures";
+import { BRANCH_SCREEN, CONFIGURED, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/root" };
 const GRAPH = "/api/workspaces/retrait/branches/graph?limit=100";
@@ -17,13 +17,16 @@ afterEach(() => {
 
 function open(body: unknown, status = 200) {
   mockApi({
+    ...BRANCH_SCREEN,
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     [`GET ${GRAPH}`]: { status, body },
   });
-  renderWorkspaces({ id: "retrait", view: "branchGraph", branch: "root" });
+  // Le graphe n'a plus d'écran à lui : il est une carte de l'écran de la branche, fondu
+  // avec ses versions le 01/11/2026.
+  renderWorkspaces({ id: "retrait", view: "branch", branch: "root" });
 }
 
-describe("branch graph (24/10/2026)", () => {
+describe("branch graph, card of the branch screen (24/10/2026, fondu le 01/11/2026)", () => {
   it("shows each commit with its branch and short sha", async () => {
     open([
       commit("aaaaaaa1111", ["bbbbbbb2222"], "sur essai", ["back/retrait/essai"]),

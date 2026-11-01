@@ -83,6 +83,28 @@ export const SETTINGS: Routes = {
 };
 
 /**
+ * L'écran de branche porte DEUX cartes depuis la fusion du 01/11/2026 : ses versions, et
+ * le graphe de toutes les branches du workspace.
+ *
+ * Leurs routes sont dans le jeu COMMUN, et non dans les seuls tests qui les regardent :
+ * un écran qui interroge une route absente des doublures n'échoue pas, il affiche son
+ * chemin d'erreur, et les tests restent verts en l'exerçant en silence (LESSONS.md).
+ * C'est précisément ce que la fusion risquait de produire dans quatre fichiers d'un coup.
+ *
+ * Clés SANS chaîne de requête : `mockApi` y retombe quelle que soit la branche visée, et
+ * un test qui veut une réponse précise pose une clé exacte, qui prime.
+ */
+export const BRANCH_SCREEN: Routes = {
+  "GET /api/workspaces/retrait/branches": { status: 200, body: [] },
+  "GET /api/workspaces/retrait/branches/graph": { status: 200, body: [] },
+  "GET /api/workspaces/retrait/versions": { status: 200, body: [] },
+  "GET /api/workspaces/retrait/versions/freezable": {
+    status: 200,
+    body: { ok: true, reason: null },
+  },
+};
+
+/**
  * La personne connectée a la main sur la branche enfant « edition » (story 9def0adc) :
  * sans elle, les écrans n'offrent aucun bouton de modification.
  */

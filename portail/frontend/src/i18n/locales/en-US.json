@@ -98,12 +98,11 @@
       "settings": "Settings",
       "dataModels": "Data models",
       "contracts": "Contracts",
-      "branch": "Versions",
+      "branch": "Branches and versions",
       "transformations": "Transformations",
       "storages": "Storages",
       "accountReference": "Account reference",
       "sources": "Data sources",
-      "branchGraph": "Branches",
       "trads": "Translations",
       "tradsCoverage": "Coverage"
     },
@@ -579,9 +578,8 @@
     "viewed": "Branch viewed",
     "rootReadOnly": "This is the workspace root branch: it is read-only. To change models, contracts, chains or sources, create or choose a child branch in “All workspaces”. Versions can still be saved here.",
     "graph": {
-      "title": "Branches — {{name}}",
-      "lead": "The commits of this workspace's branches, newest first.",
-      "back": "Back to settings",
+      "title": "Branches",
+      "lead": "The commits of every branch in this workspace, newest first.",
       "empty": "Nothing to show: this workspace has no branch yet.",
       "unreadable": "The repository did not answer: the graph cannot be read."
     }

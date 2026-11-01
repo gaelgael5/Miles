@@ -9,7 +9,6 @@ import { WorkspaceViews } from "./WorkspaceViews";
 export type WorkspaceView =
   | "settings"
   | "branch"
-  | "branchGraph"
   | "dataModels"
   | "contractModels"
   | "contracts"
