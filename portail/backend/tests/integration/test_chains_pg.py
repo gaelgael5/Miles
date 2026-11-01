@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 import pytest
 
+from miles.datamodels.schema import normalized
 from tests.integration.work_stack import Forge, open_work_forge
 
 pytestmark = pytest.mark.integration
@@ -21,7 +22,7 @@ STEPS = [
 ]
 # Ce que l'API rend : une étape porte toujours ses deux modèles, nuls tant qu'on ne les
 # a pas choisis (24/10/2026). Envoyer sans eux reste admis, d'où les deux formes.
-READ_STEPS = [s | {"source_model": None, "destination_model": None} for s in STEPS]
+READ_STEPS = [s | {"source_model": None, "destination_model": None, "alerts": []} for s in STEPS]
 
 
 @pytest.fixture
@@ -181,3 +182,68 @@ async def test_saving_nothing_clears_the_sample(forge: Forge) -> None:
     read = await forge.client.get(f"{ROUTE}/comptes-import/sample", timeout=120)
 
     assert read.json()["sample"] is None
+
+
+# --- L'écart entre ce que le template écrit et le modèle de destination (01/11/2026) ---
+
+MODELS = "/api/workspaces/retrait/data-models"
+CIBLE = normalized(
+    "title: Cible\ntype: object\nrequired: [ref]\nproperties:\n  ref:\n    type: string\n",
+    "shared",
+    "cible",
+)
+
+
+async def _declare_cible(forge: Forge) -> None:
+    created = await forge.client.post(
+        MODELS, json={"scope": "shared", "name": "cible", "content": CIBLE}, timeout=120
+    )
+    assert created.status_code in (200, 201), created.text
+
+
+def _step(template: str) -> dict[str, Any]:
+    return {
+        "name": "normaliser",
+        "template": template,
+        "target": None,
+        "source_model": None,
+        "destination_model": "miles:/shared/cible",
+    }
+
+
+async def test_a_step_that_writes_beside_its_model_is_flagged_without_being_refused(
+    forge: Forge,
+) -> None:
+    await _declare_cible(forge)
+
+    saved = await _save(forge, [_step('{ "reference": $.colis.ref }')])
+    read = await forge.client.get(f"{ROUTE}/comptes-import", timeout=120)
+
+    # Une ALERTE, jamais un refus (Gael, 01/11/2026) : la chaîne s'enregistre.
+    assert saved.status_code in (200, 201), saved.text
+    expected = [
+        {"path": "$.reference", "code": "propriete_hors_modele", "detail": None},
+        {"path": "$.ref", "code": "propriete_obligatoire_absente", "detail": None},
+    ]
+    # À l'enregistrement ET à la lecture : l'alerte doit survivre au rechargement.
+    assert saved.json()["steps"][0]["alerts"] == expected
+    assert read.json()["steps"][0]["alerts"] == expected
+
+
+async def test_a_step_that_writes_exactly_its_model_carries_no_alert(forge: Forge) -> None:
+    await _declare_cible(forge)
+
+    saved = await _save(forge, [_step('{ "ref": $.colis.ref }')])
+
+    assert saved.status_code in (200, 201), saved.text
+    assert saved.json()["steps"][0]["alerts"] == []
+
+
+async def test_a_destination_model_that_does_not_exist_yet_is_not_a_reproach(
+    forge: Forge,
+) -> None:
+    """Une absence n'est pas une contradiction : le modèle peut venir après la chaîne."""
+    saved = await _save(forge, [_step('{ "n_importe_quoi": $.colis.ref }')])
+
+    assert saved.status_code in (200, 201), saved.text
+    assert saved.json()["steps"][0]["alerts"] == []

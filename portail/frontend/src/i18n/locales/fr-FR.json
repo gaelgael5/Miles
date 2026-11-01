@@ -697,6 +697,17 @@
       "violation": "{{construction}} {{detail}} (ligne {{line}}, colonne {{column}})",
       "non_supporte": "Construction lisible mais pas encore prise en charge par le moteur : {{detail}}"
     },
+    "alerts": {
+      "flag": "Écart",
+      "flagHelp": "Le template de cette étape n'écrit pas ce que son modèle de destination déclare.",
+      "title_one": "{{count}} écart avec le modèle de destination :",
+      "title_other": "{{count}} écarts avec le modèle de destination :",
+      "propriete_hors_modele": "{{path}} : le template écrit cette propriété, le modèle de destination ne la déclare pas.",
+      "propriete_obligatoire_absente": "{{path}} : le modèle la déclare obligatoire, le template ne l'écrit pas.",
+      "objet_inattendu": "{{path}} : le template écrit un objet, le modèle annonce « {{detail}} ».",
+      "tableau_inattendu": "{{path}} : le template écrit un tableau, le modèle annonce « {{detail}} ».",
+      "unknown": "{{path}} : {{code}}"
+    },
     "errors": {
       "field": {
         "label": "Label : obligatoire, 120 caractères au plus, sur une ligne.",

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from miles.datamodels.schema import normalized
 from tests.integration.mcp_stack import McpForge, open_mcp_forge
 from tests.integration.test_datamodels_pg import body_of
 from tests.integration.test_sources_pg import BRUT, COMPTE, SOURCE, STORAGE
@@ -17,7 +18,7 @@ STEPS = [
     {"name": "statut", "template": '"ok"', "target": "$.statut"},
 ]
 # Rendues par l'outil : une étape porte toujours ses deux modèles (24/10/2026).
-READ_STEPS = [s | {"source_model": None, "destination_model": None} for s in STEPS]
+READ_STEPS = [s | {"source_model": None, "destination_model": None, "alerts": []} for s in STEPS]
 
 
 @pytest.fixture
@@ -112,3 +113,24 @@ async def test_saving_through_mcp_keeps_the_models_the_screen_had_set(m: McpForg
     read = await m.ok("get_chain", EDIT | {"slug": "import"})
 
     assert read["steps"][0]["source_model"] == "miles:/shared/brut"
+
+
+async def test_mcp_names_what_a_step_writes_beside_its_destination_model(m: McpForge) -> None:
+    """L'agent voit ce que l'écran voit : sinon l'une des deux surfaces décide seule."""
+    cible = normalized(
+        "title: Cible\ntype: object\nrequired: [ref]\nproperties:\n  ref:\n    type: string\n",
+        "shared",
+        "cible",
+    )
+    await m.ok("create_data_model", EDIT | body_of(cible))
+    steps = [STEPS[0] | {"destination_model": "miles:/shared/cible"}]
+
+    saved = await m.ok("save_chain", EDIT | {"slug": "import", "label": "Import", "steps": steps})
+    read = await m.ok("get_chain", EDIT | {"slug": "import"})
+
+    expected = [
+        {"path": "$.code", "code": "propriete_hors_modele", "detail": None},
+        {"path": "$.ref", "code": "propriete_obligatoire_absente", "detail": None},
+    ]
+    assert saved["steps"][0]["alerts"] == expected
+    assert read["steps"][0]["alerts"] == expected

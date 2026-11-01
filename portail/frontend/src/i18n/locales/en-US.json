@@ -697,6 +697,17 @@
       "violation": "{{construction}} {{detail}} (line {{line}}, column {{column}})",
       "non_supporte": "Readable, but the engine does not support it yet: {{detail}}"
     },
+    "alerts": {
+      "flag": "Mismatch",
+      "flagHelp": "This step's template does not write what its destination model declares.",
+      "title_one": "{{count}} mismatch with the destination model:",
+      "title_other": "{{count}} mismatches with the destination model:",
+      "propriete_hors_modele": "{{path}}: the template writes this property, the destination model does not declare it.",
+      "propriete_obligatoire_absente": "{{path}}: the model declares it required, the template does not write it.",
+      "objet_inattendu": "{{path}}: the template writes an object, the model announces “{{detail}}”.",
+      "tableau_inattendu": "{{path}}: the template writes an array, the model announces “{{detail}}”.",
+      "unknown": "{{path}}: {{code}}"
+    },
     "errors": {
       "field": {
         "label": "Label: required, at most 120 characters, on one line.",

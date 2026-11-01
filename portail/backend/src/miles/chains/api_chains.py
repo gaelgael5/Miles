@@ -8,13 +8,8 @@ from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict, Field
 
 from miles.chains.layout import MAX_STEPS
-from miles.chains.service import (
-    ChainInUseError,
-    ChainNotFoundError,
-    ChainsService,
-    StoredChain,
-    StoredStep,
-)
+from miles.chains.service import ChainInUseError, ChainNotFoundError, ChainsService
+from miles.chains.store import CheckedChain, StoredStep
 from miles.transform.api_transform import MAX_TEMPLATE_LENGTH, StepProblemOut, step_problem_out
 from miles.transform.chain import ChainInvalidError
 from miles.workspaces.model import (
@@ -57,11 +52,31 @@ class ChainIn(BaseModel):
     steps: list[StepIO] = Field(max_length=MAX_STEPS)
 
 
+class AlertOut(BaseModel):
+    """Un écart entre ce que le template écrit et le modèle de destination annoncé."""
+
+    model_config = ConfigDict(extra="forbid")
+    # Chemin dans le RÉSULTAT de l'étape, pas dans le template.
+    path: str
+    code: str
+    detail: str | None = None
+
+
+class StepOut(StepIO):
+    """L'étape telle qu'on la rend : ce qui a été écrit, plus ce qui la met en défaut.
+
+    À part de `StepIO`, qui sert aussi d'entrée : les alertes se CALCULENT, et une
+    entrée qui les accepterait laisserait croire qu'on peut les poser soi-même.
+    """
+
+    alerts: list[AlertOut] = Field(default_factory=list)
+
+
 class ChainOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     slug: str
     label: str
-    steps: list[StepIO]
+    steps: list[StepOut]
 
 
 class ChainSummaryOut(BaseModel):
@@ -72,16 +87,18 @@ class ChainSummaryOut(BaseModel):
     steps: int | None
 
 
-def _out(chain: StoredChain) -> ChainOut:
+def _out(checked: CheckedChain) -> ChainOut:
+    chain = checked.chain
     steps = [
-        StepIO(
+        StepOut(
             name=s.name,
             template=s.template,
             target=s.target,
             source_model=s.source_model,
             destination_model=s.destination_model,
+            alerts=[AlertOut(path=d.path, code=d.code, detail=d.detail) for d in found],
         )
-        for s in chain.steps
+        for s, found in zip(chain.steps, checked.divergences, strict=True)
     ]
     return ChainOut(slug=chain.slug, label=chain.label, steps=steps)
 

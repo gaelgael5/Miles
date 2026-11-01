@@ -27,7 +27,7 @@ def _pointer(root: Any, ref: str) -> Any:
     return node
 
 
-async def _resolved(read: Read, node: Any, root: Any, scope: str) -> tuple[Any, Any, str] | None:
+async def resolved(read: Read, node: Any, root: Any, scope: str) -> tuple[Any, Any, str] | None:
     """Suit les `$ref` (internes ou vers un modèle visible) jusqu'au schéma qu'ils désignent."""
     for _ in range(MAX_HOPS):
         ref = node.get("$ref") if isinstance(node, dict) else None
@@ -50,7 +50,7 @@ async def _resolved(read: Read, node: Any, root: Any, scope: str) -> tuple[Any, 
     return None
 
 
-def _kind(node: Any) -> str | None:
+def kind_of(node: Any) -> str | None:
     kind = node.get("type") if isinstance(node, dict) else None
     if isinstance(kind, list):
         # `[string, "null"]` : une valeur facultative reste de son type.
@@ -65,7 +65,7 @@ async def kind_at(read: Read, scope: str, root: Any, keys: list[str]) -> str | N
     """Le type JSON Schema de la propriété au bout de `keys`, en traversant objets et `$ref`."""
     node: Any = root
     for key in keys:
-        found = await _resolved(read, node, root, scope)
+        found = await resolved(read, node, root, scope)
         if found is None:
             return None
         node, root, scope = found
@@ -73,5 +73,5 @@ async def kind_at(read: Read, scope: str, root: Any, keys: list[str]) -> str | N
         if not isinstance(child, dict):
             return None
         node = child
-    found = await _resolved(read, node, root, scope)
-    return None if found is None else _kind(found[0])
+    found = await resolved(read, node, root, scope)
+    return None if found is None else kind_of(found[0])

@@ -113,6 +113,7 @@ function Editor({
       <ChainSteps
         target={target}
         steps={steps}
+        saved={chain.steps}
         problems={problems}
         trace={check.data?.valid && !check.data.failure ? check.data.trace : undefined}
         failure={check.data?.failure ?? undefined}

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from miles.chains.service import stored_chain
+from miles.chains.store import stored_chain
 from miles.datamodels.layout import MODEL_RE, model_path
 from miles.datamodels.schema import model_id
 from miles.git.workcopy import WorkCopy

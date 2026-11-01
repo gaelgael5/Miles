@@ -3,6 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "@miles/socle-web";
 import { type WorkTarget, atBranch, branchKey } from "./workTarget";
 
+/** Un écart entre ce que le template ÉCRIT et le modèle de destination qu'il annonce. */
+export interface StepAlert {
+  /** Chemin dans le RÉSULTAT de l'étape, pas dans le template. */
+  path: string;
+  code: string;
+  detail: string | null;
+}
+
 /** Une étape : un template, et la cible où poser son résultat (vide : il devient le message). */
 export interface ChainStep {
   name: string;
@@ -11,6 +19,11 @@ export interface ChainStep {
   /** URI des modèles que l'étape lit et produit ; null tant qu'ils ne sont pas choisis. */
   source_model: string | null;
   destination_model: string | null;
+  /**
+   * Calculées par le serveur à chaque lecture, jamais écrites. Absentes d'une étape que
+   * l'écran vient d'ajouter : elle n'a pas encore été confrontée à quoi que ce soit.
+   */
+  alerts?: StepAlert[];
 }
 
 export interface Chain {
@@ -95,13 +108,30 @@ export function useChain(target: WorkTarget, slug: string) {
   });
 }
 
+/**
+ * Ce qui s'ÉCRIT d'une étape, et rien d'autre.
+ *
+ * L'API refuse tout champ qu'elle ne connaît pas, et les alertes lues avec la chaîne
+ * voyagent dans les mêmes objets que l'écran garde en état : les renvoyer telles quelles
+ * ferait refuser l'enregistrement d'une étape pourtant intacte.
+ */
+function written(step: ChainStep) {
+  return {
+    name: step.name,
+    template: step.template,
+    target: step.target,
+    source_model: step.source_model,
+    destination_model: step.destination_model,
+  };
+}
+
 export function useSaveChain(target: WorkTarget, slug: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: { label: string; steps: ChainStep[] }) =>
       request<Chain>(atBranch(target, "transformations", slug), {
         method: "PUT",
-        body: JSON.stringify(input),
+        body: JSON.stringify({ label: input.label, steps: input.steps.map(written) }),
       }),
     onSuccess: () => client.invalidateQueries({ queryKey: key(target) }),
   });

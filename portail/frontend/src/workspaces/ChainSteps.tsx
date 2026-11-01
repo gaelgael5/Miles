@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import type { ChainStep, StepProblem } from "../api/chains";
+import type { ChainStep, StepAlert, StepProblem } from "../api/chains";
 import { type DataModel, useDataModels } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
 import { StepProblems } from "./chainProblems";
@@ -22,6 +22,51 @@ function labelOf(models: DataModel[], uri: string | null): string | null {
   }
   const found = models.find((m) => modelUri(m.scope, m.name) === uri);
   return found ? (found.label ?? found.name) : uri;
+}
+
+/**
+ * Les alertes de cette étape — et seulement si elles parlent encore d'elle.
+ *
+ * Elles viennent de la chaîne ENREGISTRÉE, que le serveur confronte à son modèle de
+ * destination. Dès que le template ou le modèle change à l'écran, elles décrivent un
+ * état qui n'existe plus : les laisser affichées reprocherait à l'auteur ce qu'il est
+ * en train de corriger. On se tait jusqu'au prochain enregistrement, qui les refera.
+ *
+ * Appariement par NOM et non par rang : déplacer une étape ne change pas ce qu'elle dit.
+ */
+export function freshAlerts(saved: ChainStep[], step: ChainStep): StepAlert[] {
+  const stored = saved.find((s) => s.name === step.name);
+  if (stored === undefined) {
+    return [];
+  }
+  const same =
+    stored.template === step.template && stored.destination_model === step.destination_model;
+  return same ? (stored.alerts ?? []) : [];
+}
+
+function StepAlerts({ alerts }: { alerts: StepAlert[] }) {
+  const { t } = useTranslation();
+  if (alerts.length === 0) {
+    return null;
+  }
+  return (
+    <div className="alert row-detail" role="status">
+      <p>{t("chains.alerts.title", { count: alerts.length })}</p>
+      <ul className="plain-list">
+        {alerts.map((alert) => (
+          <li key={`${alert.code}-${alert.path}`}>
+            {/* Un code que cet écran ne connaît pas encore se lit quand même : le
+                serveur peut en ajouter avant que le front ne soit redéployé. */}
+            {t([`chains.alerts.${alert.code}`, "chains.alerts.unknown"], {
+              path: alert.path,
+              detail: alert.detail ?? "",
+              code: alert.code,
+            })}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function ModelPicker({
@@ -68,6 +113,7 @@ function ModelPicker({
 export function ChainSteps({
   target,
   steps,
+  saved,
   problems,
   trace,
   failure,
@@ -77,6 +123,8 @@ export function ChainSteps({
 }: {
   target: WorkTarget;
   steps: ChainStep[];
+  /** La chaîne telle qu'elle est ENREGISTRÉE : c'est elle qui porte les alertes. */
+  saved: ChainStep[];
   problems: StepProblem[];
   /** Message après chaque étape, à son rang ; absent tant qu'on n'a pas lancé l'essai. */
   trace?: unknown[];
@@ -125,6 +173,14 @@ export function ChainSteps({
               <button type="button" className="row-open" onClick={() => onOpen(step.name)}>
                 {step.name}
               </button>
+              {freshAlerts(saved, step).length > 0 && (
+                <>
+                  {" "}
+                  <span className="badge badge-warning" title={t("chains.alerts.flagHelp")}>
+                    {t("chains.alerts.flag")}
+                  </span>
+                </>
+              )}
               <div className="row-sub">
                 {t("chains.steps.summary", {
                   source: labelOf(known, step.source_model) ?? t("chains.steps.noModel"),
@@ -196,6 +252,7 @@ export function ChainSteps({
               </div>
             )}
             <StepProblems problems={problems.filter((p) => p.step === index)} />
+            <StepAlerts alerts={freshAlerts(saved, step)} />
           </li>
         ))}
       </ol>

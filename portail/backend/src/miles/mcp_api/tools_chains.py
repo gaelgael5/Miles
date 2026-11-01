@@ -7,7 +7,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
 
-from miles.chains.service import ChainNotFoundError, ChainsService, StoredChain, StoredStep
+from miles.chains.service import ChainNotFoundError, ChainsService
+from miles.chains.store import CheckedChain, StoredStep
 from miles.mcp_api.calls import Caller, caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
 from miles.mcp_api.tools_models import ReadBranch, Workspace, WriteBranch
@@ -47,7 +48,8 @@ class StepArg(BaseModel):
 Steps = Annotated[list[StepArg], Field(description="Les étapes, dans l'ordre d'application.")]
 
 
-def _chain(chain: StoredChain) -> dict[str, Any]:
+def _chain(checked: CheckedChain) -> dict[str, Any]:
+    chain = checked.chain
     steps = [
         {
             "name": s.name,
@@ -55,8 +57,11 @@ def _chain(chain: StoredChain) -> dict[str, Any]:
             "target": s.target,
             "source_model": s.source_model,
             "destination_model": s.destination_model,
+            # Calculées à chaque lecture, jamais écrites : l'agent voit ce que l'écran
+            # voit, et aucune des deux surfaces ne devient la seule à savoir.
+            "alerts": [{"path": d.path, "code": d.code, "detail": d.detail} for d in divergences],
         }
-        for s in chain.steps
+        for s, divergences in zip(chain.steps, checked.divergences, strict=True)
     ]
     path = f"transformations/{chain.slug}/"
     return {"slug": chain.slug, "label": chain.label, "path": path, "steps": steps}

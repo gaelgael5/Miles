@@ -478,3 +478,86 @@ describe("the step editor (24/10/2026)", () => {
     expect(calls.some((c) => c.key.includes("/example"))).toBe(false);
   });
 });
+
+describe("ChainScreen — l'écart entre le template et le modèle de destination", () => {
+  const MODELS = `GET /api/workspaces/retrait/data-models${Q}`;
+  const FLAGGED = {
+    slug: "comptes-import",
+    label: "Import des comptes",
+    steps: [
+      {
+        name: "normaliser",
+        template: '{ "poid": $.colis.poids }',
+        target: null,
+        source_model: null,
+        destination_model: "miles:/shared/colis",
+        alerts: [
+          { path: "$.poid", code: "propriete_hors_modele", detail: null },
+          { path: "$.ref", code: "propriete_obligatoire_absente", detail: null },
+        ],
+      },
+      {
+        name: "statut",
+        template: '"ok"',
+        target: "$.statut",
+        source_model: null,
+        destination_model: null,
+        alerts: [],
+      },
+    ],
+  };
+
+  function openFlagged() {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: FLAGGED },
+      [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
+      [`PUT ${ROUTE}/comptes-import${Q}`]: { status: 200, body: FLAGGED },
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    openChain();
+    return calls;
+  }
+
+  it("flags the step and names every gap, on the step that carries it", async () => {
+    openFlagged();
+    const first = await screen.findByRole("listitem", { name: "Step 1" });
+
+    expect(within(first).getByText("Mismatch")).toBeInTheDocument();
+    expect(
+      within(first).getByText(/\$\.poid: the template writes this property/),
+    ).toBeInTheDocument();
+    expect(within(first).getByText(/\$\.ref: the model declares it required/)).toBeInTheDocument();
+    // L'étape d'à côté n'en porte pas : le signe est sur l'étape, pas sur la chaîne.
+    const second = screen.getByRole("listitem", { name: "Step 2" });
+    expect(within(second).queryByText("Mismatch")).toBeNull();
+  });
+
+  it("stops showing the gap as soon as the destination model changes", async () => {
+    openFlagged();
+    const first = await screen.findByRole("listitem", { name: "Step 1" });
+    expect(within(first).getByText("Mismatch")).toBeInTheDocument();
+
+    // L'alerte parle du modèle ENREGISTRÉ : elle ne vaut plus rien dès qu'on en change.
+    fireEvent.change(within(first).getByLabelText("Destination model"), {
+      target: { value: "" },
+    });
+
+    expect(within(first).queryByText("Mismatch")).toBeNull();
+  });
+
+  it("never sends the alerts back when saving, the API refusing an unknown field", async () => {
+    const calls = openFlagged();
+    await screen.findByRole("listitem", { name: "Step 1" });
+
+    fireEvent.click(screen.getByText("Save the chain"));
+
+    expect(await screen.findByText("Chain saved.")).toBeInTheDocument();
+    const body = calls.find((c) => c.key === `PUT ${ROUTE}/comptes-import${Q}`)?.body as {
+      steps: Record<string, unknown>[];
+    };
+    expect(body.steps.every((step) => !("alerts" in step))).toBe(true);
+  });
+});

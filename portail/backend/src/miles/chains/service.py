@@ -10,25 +10,27 @@ from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
 from miles.chains.layout import (
-    CHAIN_FILE,
     ChainDoc,
     StepDoc,
     chain_dir,
-    chain_path,
-    chain_text,
     checked_slug,
     checked_steps,
     files_of,
-    read_chain,
     slugs_in,
-    template_path,
 )
-from miles.datamodels.schema import target_of
-from miles.git.workcopy import WorkCopy
+from miles.chains.store import (
+    CheckedChain,
+    StoredChain,
+    StoredStep,
+    checked,
+    model_ref,
+    stored_chain,
+    write_chain,
+)
 from miles.sources.layout import names_in, read_source, source_path
 from miles.transform.chain import StepSpec, compile_chain
 from miles.workshop.target import Gesture, WorkBranches, base_slug
-from miles.workspaces.model import WorkspaceInputError, checked_label
+from miles.workspaces.model import checked_label
 
 log = structlog.get_logger(__name__)
 
@@ -47,25 +49,6 @@ class ChainInUseError(Exception):
     def __init__(self, users: list[str]) -> None:
         super().__init__(", ".join(users))
         self.users = users
-
-
-@dataclass(frozen=True)
-class StoredStep:
-    name: str
-    template: str
-    target: str | None
-    # URI des modèles que l'étape lit et produit (24/10/2026) ; None tant qu'ils ne
-    # sont pas choisis. Ils ne changent rien à l'exécution : ils servent à l'écran, qui
-    # en tire le gabarit du résultat et ce que l'étape transforme.
-    source_model: str | None = None
-    destination_model: str | None = None
-
-
-@dataclass(frozen=True)
-class StoredChain:
-    slug: str
-    label: str
-    steps: tuple[StoredStep, ...]
 
 
 @dataclass(frozen=True)
@@ -98,15 +81,15 @@ class ChainsService:
 
     async def resolve_get(
         self, viewer: EventAuthor, workspace_id: str, slug: str, *, branch: str | None = None
-    ) -> StoredChain:
+    ) -> CheckedChain:
         slug = checked_slug(slug)
         async with self.branches.checkout(
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
             stored = await stored_chain(copy, slug)
-        if stored is None:
-            raise ChainNotFoundError(slug)
-        return stored
+            if stored is None:
+                raise ChainNotFoundError(slug)
+            return await checked(copy, stored)
 
     async def resolve_save(
         self,
@@ -117,15 +100,15 @@ class ChainsService:
         steps: list[StoredStep],
         *,
         branch: str | None = None,
-    ) -> tuple[StoredChain, str | None]:
+    ) -> tuple[CheckedChain, str | None]:
         """Crée ou remplace la chaîne ; rend (chaîne, commit). Rejeu à l'identique : None."""
         slug, label = checked_slug(slug), checked_label(label)
         docs = [
             StepDoc(
                 s.name.strip(),
                 (s.target or "").strip() or None,
-                _model_ref(s.source_model),
-                _model_ref(s.destination_model),
+                model_ref(s.source_model),
+                model_ref(s.destination_model),
             )
             for s in steps
         ]
@@ -144,15 +127,18 @@ class ChainsService:
         async with self.branches.checkout(
             workspace_id, branch, by=author, gesture=Gesture.EDIT
         ) as copy:
-            await _write(copy, doc, stored)
+            await write_chain(copy, doc, stored)
+            # Les écarts se mesurent sur la copie de travail, donc après l'écriture :
+            # un modèle retouché dans le même commit doit être celui qu'on confronte.
+            verdict = await checked(copy, stored)
             changed = await copy.git("status", "--porcelain", "--", chain_dir(slug))
             if not changed.stdout.strip():
-                return stored, None
+                return verdict, None
             message = f"Chaîne de transformations {slug}"
             commit = await self.branches.commit(copy, message, author)
         await self._journal(SAVED_EVENT, workspace_id, author, slug, commit, copy.branch)
         log.info("chaine_enregistree", workspace=workspace_id, slug=slug, steps=len(docs))
-        return stored, commit
+        return verdict, commit
 
     async def resolve_delete(
         self, author: EventAuthor, workspace_id: str, slug: str, *, branch: str | None = None
@@ -264,44 +250,3 @@ class ChainsService:
         # L'existence de la chaîne n'est pas vérifiée : il faudrait un clone pour une
         # donnée qui ne vit qu'en base, et un échantillon orphelin ne nuit à personne.
         return workspace.id, chosen, checked_slug(slug)
-
-
-async def _write(copy: WorkCopy, doc: ChainDoc, stored: StoredChain) -> None:
-    kept = {CHAIN_FILE, *(s.template_file for s in doc.steps)}
-    # Les templates d'étapes retirées partent avec l'enchaînement qui ne les cite plus.
-    for name in files_of(await copy.paths(), doc.slug):
-        if name not in kept:
-            await copy.remove(f"{chain_dir(doc.slug)}/{name}")
-    await copy.write(chain_path(doc.slug), chain_text(doc))
-    for step_doc, step in zip(doc.steps, stored.steps, strict=True):
-        await copy.write(template_path(doc.slug, step_doc), step.template)
-    await copy.git("add", "-A", "--", chain_dir(doc.slug))
-
-
-def _model_ref(raw: str | None) -> str | None:
-    """Le modèle choisi, ou None ; une référence qui ne désigne rien est refusée ici.
-
-    Refusée à l'écriture plutôt qu'à la relecture : une chaîne écrite avec une référence
-    cassée deviendrait illisible, et le refus arriverait trop tard pour dire quoi faire.
-    """
-    value = (raw or "").strip()
-    if not value:
-        return None
-    if target_of(value) is None:
-        raise WorkspaceInputError("modele", "inconnu")
-    return value
-
-
-async def stored_chain(copy: WorkCopy, slug: str) -> StoredChain | None:
-    doc = read_chain(await copy.read(chain_path(slug)))
-    if doc is None or doc.slug != slug:
-        return None
-    steps = []
-    for step in doc.steps:
-        template = await copy.read(template_path(slug, step))
-        if template is None:
-            return None
-        steps.append(
-            StoredStep(step.name, template, step.target, step.source_model, step.destination_model)
-        )
-    return StoredChain(doc.slug, doc.label, tuple(steps))
