@@ -8,9 +8,9 @@ import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.git.failures import classify
 
 from miles.git.graph import CommitNode, read_graph
-from miles.git.rights import classify
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import WORK_NAME_RE, work_branch_name
 from miles.workshop.target import Gesture, WorkBranches, base_slug

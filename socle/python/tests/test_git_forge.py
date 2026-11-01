@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from miles.git.forge import (
+from miles_socle.git.forge import (
     RepositoryUrlError,
     parse_base_url,
     parse_repository,

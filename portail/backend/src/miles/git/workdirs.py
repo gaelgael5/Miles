@@ -8,10 +8,11 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from miles.git.access import GitAccess
-from miles.git.forge import Repository
-from miles.git.rights import classify
-from miles.git.runner import run_git
+from miles_socle.git.access import GitAccess
+from miles_socle.git.failures import classify
+from miles_socle.git.forge import Repository
+from miles_socle.git.runner import run_git
+
 from miles.git.workcopy import BranchMissingError, WorkCopy
 from miles.git.worktree import WORK_BRANCH_ROOT, RepositoryAccessError
 

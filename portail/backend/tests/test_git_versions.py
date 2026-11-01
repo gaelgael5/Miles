@@ -5,11 +5,11 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from miles_socle.git.access import GitAccess
+from miles_socle.git.forge import Repository
 from miles_socle.secrets.model import Secret
 
 from miles.datamodels.grammar import Problem
-from miles.git.access import GitAccess
-from miles.git.forge import Repository
 from miles.git.versions import (
     VersionTakenError,
     fetch_versions,

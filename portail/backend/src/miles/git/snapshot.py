@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from miles.git.rights import classify
+from miles_socle.git.failures import classify
+
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import RepositoryAccessError
 

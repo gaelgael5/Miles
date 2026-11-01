@@ -1,3 +1,11 @@
+"""Lancer git sans terminal et sans jamais exposer le jeton, au socle depuis le 01/11/2026.
+
+Deuxième usage avec le module d'enrôlement. C'est la pièce qu'il fallait le moins
+réécrire : le jeton n'apparaît ni dans les arguments — `ps auxww` les voit —, ni sur
+disque, ni dans la sortie rendue, et chacune de ces trois garanties tient à une ligne
+précise ci-dessous. Une seconde implémentation en aurait perdu une sans le dire.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -5,8 +13,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from miles.git.access import GitAccess
-from miles.git.forge import TOKEN_USERNAME
+from miles_socle.git.access import GitAccess
+from miles_socle.git.forge import TOKEN_USERNAME
 
 # Une forge lente ne doit pas retenir l'administrateur indéfiniment sur le test.
 GIT_TIMEOUT_S = 60.0

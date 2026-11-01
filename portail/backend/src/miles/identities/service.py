@@ -10,10 +10,10 @@ import httpx
 import structlog
 from miles_socle.events.journal import EventDb, db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.git.forge import RepositoryUrlError, parse_repository
 from miles_socle.secrets.crypto import Sealed, SecretCipher
 from miles_socle.secrets.model import Secret
 
-from miles.git.forge import RepositoryUrlError, parse_repository
 from miles.identities.forge_api import (
     EmailOrigin,
     ForgeAccount,

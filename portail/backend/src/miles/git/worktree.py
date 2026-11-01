@@ -9,10 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from miles.git.access import GitAccess
-from miles.git.forge import Repository
-from miles.git.rights import Reason, classify
-from miles.git.runner import GitResult, run_git
+from miles_socle.git.access import GitAccess
+from miles_socle.git.failures import Reason, classify
+from miles_socle.git.forge import Repository
+from miles_socle.git.runner import GitResult, run_git
 
 # Les branches de Miles vivent sous « back/<workspace>/ » (Gael, 24/10/2026) : « back/ »
 # les sépare des branches humaines du dépôt, et le workspace les isole les unes des autres.

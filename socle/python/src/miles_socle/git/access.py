@@ -1,3 +1,10 @@
+"""Moyen d'accès à un dépôt git, au socle depuis le 01/11/2026.
+
+Deuxième usage : le module d'enrôlement lit les versions d'un workspace hébergé avec
+le credential que le module de paramétrage lui a confié (story 3bbd4f87), après le
+portail qui lit et écrit les dépôts de ses workspaces.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

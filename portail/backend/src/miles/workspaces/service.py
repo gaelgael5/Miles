@@ -10,10 +10,10 @@ import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.git.access import GitAccess
+from miles_socle.git.forge import Repository, RepositoryUrlError, parse_repository, repository_under
 from miles_socle.oidc.model import CONNECTOR_ID_RE
 
-from miles.git.access import GitAccess
-from miles.git.forge import Repository, RepositoryUrlError, parse_repository, repository_under
 from miles.git.holdspace import HoldSpaces
 from miles.git.rights import SUFFIX_RE, AccessReport, run_access_check
 from miles.git.workdirs import WorkDirs

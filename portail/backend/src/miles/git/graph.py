@@ -21,10 +21,11 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from miles.git.access import GitAccess
-from miles.git.forge import Repository
-from miles.git.rights import classify
-from miles.git.runner import run_git
+from miles_socle.git.access import GitAccess
+from miles_socle.git.failures import classify
+from miles_socle.git.forge import Repository
+from miles_socle.git.runner import run_git
+
 from miles.git.worktree import RepositoryAccessError, work_branch_prefix
 
 # Plafond dur : au-delà, un graphe n'est plus lisible et la lecture coûte pour rien.

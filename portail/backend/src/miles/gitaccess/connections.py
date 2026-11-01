@@ -9,11 +9,11 @@ import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.git.access import GitAccess
+from miles_socle.git.forge import RepositoryUrlError, parse_base_url
 from miles_socle.secrets.model import Consumer, SecretError
 from miles_socle.secrets.service import resolve_attach_secret, resolve_detach_secret
 
-from miles.git.access import GitAccess
-from miles.git.forge import RepositoryUrlError, parse_base_url
 from miles.git.rights import SUFFIX_RE
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.model import (

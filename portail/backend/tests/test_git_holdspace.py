@@ -4,10 +4,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from miles_socle.git.access import GitAccess
+from miles_socle.git.forge import Repository
 from miles_socle.secrets.model import Secret
 
-from miles.git.access import GitAccess
-from miles.git.forge import Repository
 from miles.git.holdspace import HoldSpaces
 from miles.git.workcopy import BranchMovedError
 

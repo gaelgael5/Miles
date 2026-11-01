@@ -1,3 +1,12 @@
+"""La forge et l'adresse d'un dépôt, au socle depuis le 01/11/2026.
+
+Deuxième usage avec le module d'enrôlement, et pas pour la commodité : l'adresse qu'il
+emploie lui arrive PAR LE RÉSEAU, du module de paramétrage, et elle entre ensuite dans
+une commande git. Elle doit donc être validée avec exactement les mêmes règles que
+chez celui qui l'a saisie — deux validations écrites séparément auraient divergé, et
+c'est du côté le moins strict que serait passé ce que l'autre refuse.
+"""
+
 from __future__ import annotations
 
 import re

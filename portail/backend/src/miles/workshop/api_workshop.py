@@ -6,10 +6,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
+from miles_socle.git.versions import SavedVersion
 from pydantic import BaseModel, ConfigDict
 
 from miles.datamodels.grammar import Problem
-from miles.git.versions import SavedVersion
 from miles.workshop.service import (
     InvalidConfigurationError,
     VersionNotFoundError,

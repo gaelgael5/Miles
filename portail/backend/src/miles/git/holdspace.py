@@ -7,9 +7,10 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from miles.git.access import GitAccess
-from miles.git.forge import Repository
-from miles.git.rights import classify
+from miles_socle.git.access import GitAccess
+from miles_socle.git.failures import classify
+from miles_socle.git.forge import Repository
+
 from miles.git.workcopy import BranchMissingError, BranchMovedError, WorkCopy, author_parts
 from miles.git.workdirs import SEGMENT_RE
 from miles.git.worktree import RepositoryAccessError, work_branch_name

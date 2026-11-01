@@ -7,9 +7,9 @@ from enum import Enum
 
 import asyncpg
 from miles_socle.events.model import DelegatedAuthor, EventAuthor
+from miles_socle.git.access import GitAccess
+from miles_socle.git.forge import Repository, RepositoryUrlError, parse_repository
 
-from miles.git.access import GitAccess
-from miles.git.forge import Repository, RepositoryUrlError, parse_repository
 from miles.git.holdspace import HeldCopy, HoldSpaces
 from miles.git.workcopy import BranchMissingError, WorkCopy
 from miles.git.workdirs import WorkDirs

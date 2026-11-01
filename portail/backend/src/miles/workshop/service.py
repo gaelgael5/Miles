@@ -9,16 +9,10 @@ import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.git.versions import SavedVersion
 
 from miles.git.holdspace import HeldCopy
-from miles.git.versions import (
-    SavedVersion,
-    VersionTakenError,
-    fetch_versions,
-    restore_tree,
-    same_tree,
-    tag_head,
-)
+from miles.git.versions import VersionTakenError, fetch_versions, restore_tree, same_tree, tag_head
 from miles.git.workcopy import WorkCopy
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workshop.validation import FileReport, validate_branch

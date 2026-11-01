@@ -8,9 +8,10 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
-from miles.git.access import GitAccess
-from miles.git.forge import Repository
-from miles.git.runner import GitResult, run_git
+from miles_socle.git.access import GitAccess
+from miles_socle.git.failures import Reason, classify
+from miles_socle.git.forge import Repository
+from miles_socle.git.runner import GitResult, run_git
 
 VERIFICATION_PREFIX = "miles-verification-"
 # Branche posée d'abord sur un dépôt vide (décision du 20/10/2026) : la première branche
@@ -27,15 +28,6 @@ class Right(StrEnum):
     PUSH = "pousser"
     TAG = "poser_tag"
     DELETE_BRANCH = "supprimer_branche"
-
-
-class Reason(StrEnum):
-    CREDENTIALS = "identifiants"
-    REPOSITORY_NOT_FOUND = "depot_inexistant"
-    UNREACHABLE = "injoignable"
-    PROTECTED = "protection"
-    FORBIDDEN = "droit_refuse"
-    FAILED = "echec"
 
 
 @dataclass(frozen=True)
@@ -64,43 +56,6 @@ class AccessReport:
 
     def failed(self) -> Check | None:
         return next((c for c in self.checks if not c.ok), None)
-
-
-# Ordre significatif : une protection se lit aussi comme un refus d'écriture ; on la
-# reconnaît d'abord, pour orienter vers la règle de protection (critère 13).
-_REASONS: tuple[tuple[Reason, re.Pattern[str]], ...] = (
-    (
-        Reason.PROTECTED,
-        re.compile(r"protected branch|GH006|GH013|pre-receive hook declined|rule viol", re.I),
-    ),
-    (Reason.REPOSITORY_NOT_FOUND, re.compile(r"repository not found|' not found", re.I)),
-    (
-        Reason.CREDENTIALS,
-        re.compile(
-            r"authentication failed|invalid username or password|could not read username"
-            r"|returned error: 401",
-            re.I,
-        ),
-    ),
-    (
-        Reason.FORBIDDEN,
-        re.compile(r"permission to .* denied|write access|returned error: 403|denied", re.I),
-    ),
-    (
-        Reason.UNREACHABLE,
-        re.compile(
-            r"could not resolve host|failed to connect|timed out|délai dépassé|unable to access",
-            re.I,
-        ),
-    ),
-)
-
-
-def classify(result: GitResult) -> Reason:
-    for reason, pattern in _REASONS:
-        if pattern.search(result.stderr):
-            return reason
-    return Reason.FAILED
 
 
 def verification_name(suffix: str) -> str:

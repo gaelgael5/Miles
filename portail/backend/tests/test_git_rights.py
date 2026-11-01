@@ -4,12 +4,12 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from miles_socle.git.access import GitAccess
+from miles_socle.git.failures import Reason
+from miles_socle.git.forge import Repository
 from miles_socle.secrets.model import Secret
 
-from miles.git.access import GitAccess
-from miles.git.forge import Repository
-from miles.git.rights import Reason, Right, classify, run_access_check, verification_name
-from miles.git.runner import GitResult
+from miles.git.rights import Right, run_access_check, verification_name
 
 TOKEN = GitAccess(token=Secret("jeton-sans-usage-en-local"))
 SUFFIX = "0a1b2c3d"
@@ -106,24 +106,6 @@ async def test_existing_branches_are_counted_not_overwritten(tmp_path: Path) -> 
     assert report.existing_branches == 1
     assert report.initialized_branch is None
     assert "refs/heads/main" in _refs(repo) and BRANCH not in _refs(repo)
-
-
-@pytest.mark.parametrize(
-    ("stderr", "reason"),
-    [
-        ("remote: error: GH006: Protected branch update failed", Reason.PROTECTED),
-        ("! [remote rejected] x -> x (pre-receive hook declined)", Reason.PROTECTED),
-        ("remote: Repository not found.", Reason.REPOSITORY_NOT_FOUND),
-        ("fatal: Authentication failed for 'https://github.com/a/b.git/'", Reason.CREDENTIALS),
-        ("remote: Permission to a/b.git denied to bot.", Reason.FORBIDDEN),
-        ("The requested URL returned error: 403", Reason.FORBIDDEN),
-        ("fatal: unable to access 'x': Could not resolve host: github.com", Reason.UNREACHABLE),
-        ("The requested URL returned error: 400", Reason.FAILED),
-        ("quelque chose d'imprévu", Reason.FAILED),
-    ],
-)
-def test_git_errors_are_classified(stderr: str, reason: Reason) -> None:
-    assert classify(GitResult(1, "", stderr)) is reason
 
 
 def test_verification_name_refuses_free_suffixes() -> None:

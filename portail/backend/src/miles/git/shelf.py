@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from miles_socle.git.failures import Reason, classify
+
 from miles.git.holdspace import HeldCopy
-from miles.git.rights import Reason, classify
 from miles.git.workcopy import author_parts
 from miles.git.worktree import RepositoryAccessError
 
