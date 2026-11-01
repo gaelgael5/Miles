@@ -167,15 +167,76 @@ async def test_a_source_at_the_root_stays_an_object() -> None:
 
 @pytest.mark.asyncio
 async def test_a_value_the_template_computes_is_never_a_reproach() -> None:
-    """Chemin, constante, fonction : leur résultat dépend des données, on se tait."""
+    """Chemin et fonction : leur résultat dépend des données, on se tait.
+
+    Une CONSTANTE, elle, se lit : elle est jugée par les tests de type ci-dessous.
+    """
     models = {
         "shared/colis": {
             "type": "object",
             "properties": {"client": {"type": "object", "properties": {"nom": {"type": "string"}}}},
         },
     }
-    for value in ("$.Client", '"fixe"', "concat($.A, $.B)"):
+    for value in ("$.Client", "concat($.A, $.B)"):
         assert await _found(models, f'{{ "client": {value} }}') == []
+
+
+# --- Le type écrit, confronté au type annoncé (Gael, 01/11/2026) ---
+
+
+def _typed(kind: object) -> dict[str, Any]:
+    return {"shared/colis": {"type": "object", "properties": {"v": {"type": kind}}}}
+
+
+@pytest.mark.asyncio
+async def test_a_constant_of_the_wrong_type_is_named() -> None:
+    assert await _found(_typed("number"), '{ "v": "douze" }') == [("$.v", "texte_inattendu")]
+    assert await _found(_typed("string"), '{ "v": 12 }') == [("$.v", "nombre_inattendu")]
+    assert await _found(_typed("string"), '{ "v": true }') == [("$.v", "booleen_inattendu")]
+
+
+@pytest.mark.asyncio
+async def test_a_constant_of_the_announced_type_says_nothing() -> None:
+    assert await _found(_typed("string"), '{ "v": "douze" }') == []
+    assert await _found(_typed("boolean"), '{ "v": false }') == []
+
+
+@pytest.mark.asyncio
+async def test_an_integer_satisfies_a_number_but_a_decimal_does_not_satisfy_an_integer() -> None:
+    """Le modèle qui annonce `number` accepte les deux ; l'inverse n'est pas vrai."""
+    assert await _found(_typed("number"), '{ "v": 12 }') == []
+    assert await _found(_typed("integer"), '{ "v": 1.5 }') == [("$.v", "nombre_inattendu")]
+    assert await _found(_typed("integer"), '{ "v": 12 }') == []
+
+
+@pytest.mark.asyncio
+async def test_null_is_an_error_only_where_the_model_refuses_it() -> None:
+    assert await _found(_typed("string"), '{ "v": null }') == [("$.v", "nul_inattendu")]
+    assert await _found(_typed(["string", "null"]), '{ "v": null }') == []
+
+
+@pytest.mark.asyncio
+async def test_a_cast_says_the_type_it_produces() -> None:
+    """`#decimal` rend un nombre quoi qu'il arrive : le type est sûr sans exécuter."""
+    assert await _found(_typed("string"), '{ "v": $.x#decimal }') == [("$.v", "nombre_inattendu")]
+    assert await _found(_typed("number"), '{ "v": $.x#decimal }') == []
+    assert await _found(_typed("string"), '{ "v": $.x#string }') == []
+
+
+@pytest.mark.asyncio
+async def test_a_type_the_model_leaves_open_is_never_a_reproach() -> None:
+    models = {"shared/colis": {"type": "object", "properties": {"v": {"title": "Libre"}}}}
+
+    assert await _found(models, '{ "v": "douze" }') == []
+
+
+@pytest.mark.asyncio
+async def test_the_alert_names_the_type_the_model_announced() -> None:
+    found = await divergences(
+        _read(_typed(["string", "null"])), "miles:/shared/colis", ast_of('{ "v": 12 }')
+    )
+
+    assert found == (Divergence("$.v", "nombre_inattendu", "string|null"),)
 
 
 @pytest.mark.asyncio

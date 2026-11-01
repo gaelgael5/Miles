@@ -50,7 +50,7 @@ async def resolved(read: Read, node: Any, root: Any, scope: str) -> tuple[Any, A
     return None
 
 
-def kind_of(node: Any) -> str | None:
+def _kind(node: Any) -> str | None:
     kind = node.get("type") if isinstance(node, dict) else None
     if isinstance(kind, list):
         # `[string, "null"]` : une valeur facultative reste de son type.
@@ -74,4 +74,4 @@ async def kind_at(read: Read, scope: str, root: Any, keys: list[str]) -> str | N
             return None
         node = child
     found = await resolved(read, node, root, scope)
-    return None if found is None else kind_of(found[0])
+    return None if found is None else _kind(found[0])

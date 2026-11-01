@@ -706,6 +706,10 @@
       "propriete_obligatoire_absente": "{{path}}: the model declares it required, the template does not write it.",
       "objet_inattendu": "{{path}}: the template writes an object, the model announces “{{detail}}”.",
       "tableau_inattendu": "{{path}}: the template writes an array, the model announces “{{detail}}”.",
+      "texte_inattendu": "{{path}}: the template writes a string, the model announces “{{detail}}”.",
+      "nombre_inattendu": "{{path}}: the template writes a number the model does not accept here — it announces “{{detail}}”.",
+      "booleen_inattendu": "{{path}}: the template writes a boolean, the model announces “{{detail}}”.",
+      "nul_inattendu": "{{path}}: the template writes null, the model announces “{{detail}}” and does not accept it.",
       "unknown": "{{path}}: {{code}}"
     },
     "errors": {

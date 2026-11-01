@@ -706,6 +706,10 @@
       "propriete_obligatoire_absente": "{{path}} : le modèle la déclare obligatoire, le template ne l'écrit pas.",
       "objet_inattendu": "{{path}} : le template écrit un objet, le modèle annonce « {{detail}} ».",
       "tableau_inattendu": "{{path}} : le template écrit un tableau, le modèle annonce « {{detail}} ».",
+      "texte_inattendu": "{{path}} : le template écrit un texte, le modèle annonce « {{detail}} ».",
+      "nombre_inattendu": "{{path}} : le template écrit un nombre que le modèle n'accepte pas ici — il annonce « {{detail}} ».",
+      "booleen_inattendu": "{{path}} : le template écrit un booléen, le modèle annonce « {{detail}} ».",
+      "nul_inattendu": "{{path}} : le template écrit null, le modèle annonce « {{detail}} » et ne l'accepte pas.",
       "unknown": "{{path}} : {{code}}"
     },
     "errors": {

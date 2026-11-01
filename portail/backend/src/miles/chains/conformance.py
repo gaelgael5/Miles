@@ -21,15 +21,40 @@ from dataclasses import dataclass
 from typing import Any
 
 from urban_json.ast import JsltBase
-from urban_json.ast.nodes import JsltArray, JsltObject
+from urban_json.ast.kind import JsltKind
+from urban_json.ast.nodes import JsltArray, JsltConstant, JsltFunctionCall, JsltObject
 
 from miles.datamodels.example import MAX_DEPTH
 from miles.datamodels.grammar import load_yaml
 from miles.datamodels.layout import model_path
-from miles.datamodels.navigate import Read, kind_of, resolved
+from miles.datamodels.navigate import Read, resolved
 from miles.datamodels.paths import ROOT
 from miles.datamodels.schema import target_of
 from miles.transform.engine import TemplateSyntaxError, UnsupportedConstructError, parse_ast
+
+# Ce qu'une valeur écrite en clair produit, à coup sûr : son type JSON, et le code qui
+# le nomme. Demandé par Gael le 01/11/2026 — « propriétés manquantes, propriétés non
+# déclarées, mauvais type ». Le type d'une valeur tirée d'un CHEMIN, lui, reste inconnu
+# sans exécuter : il n'y a que les constantes et les conversions qui se lisent.
+_CONSTANTS = {
+    JsltKind.STRING: ("string", "texte_inattendu"),
+    JsltKind.INTEGER: ("integer", "nombre_inattendu"),
+    JsltKind.FLOAT: ("number", "nombre_inattendu"),
+    JsltKind.BOOLEAN: ("boolean", "booleen_inattendu"),
+    JsltKind.NULL: ("null", "nul_inattendu"),
+}
+# Cibles du cast `#type`, telles que le moteur les rend (`functions/builtins.convert`) :
+# les types temporels et les identifiants sortent en texte.
+_CASTS = {
+    "integer": ("integer", "nombre_inattendu"),
+    "decimal": ("number", "nombre_inattendu"),
+    "boolean": ("boolean", "booleen_inattendu"),
+    "string": ("string", "texte_inattendu"),
+    "uri": ("string", "texte_inattendu"),
+    "uuid": ("string", "texte_inattendu"),
+    "datetime": ("string", "texte_inattendu"),
+    "time": ("string", "texte_inattendu"),
+}
 
 
 @dataclass(frozen=True)
@@ -100,10 +125,61 @@ async def _check(
     if seen is None or not isinstance(seen[0], dict):
         return
     schema, root, scope = seen
-    if isinstance(node, JsltObject):
+    written = _written(node)
+    if written is not None:
+        _typed(schema, written, path, found)
+    elif isinstance(node, JsltObject):
         await _object(read, scope, root, schema, node, path, found, depth)
     elif isinstance(node, JsltArray):
         await _array(read, scope, root, schema, node, path, found, depth)
+
+
+def _written(node: JsltBase) -> tuple[str, str] | None:
+    """Le type que cette valeur produit à coup sûr, et le code qui le nomme ; None sinon."""
+    if isinstance(node, JsltConstant):
+        return None if node.kind is None else _CONSTANTS.get(node.kind)
+    # Un cast `#type` : le deuxième argument de `convert` porte le type visé.
+    if isinstance(node, JsltFunctionCall) and node.name == "convert" and len(node.arguments) > 1:
+        target = node.arguments[1]
+        if isinstance(target, JsltConstant) and isinstance(target.value, str):
+            return _CASTS.get(target.value)
+    return None
+
+
+def _typed(
+    schema: dict[str, Any], written: tuple[str, str], path: str, found: list[Divergence]
+) -> None:
+    declared = _types(schema)
+    if declared is not None and written[0] not in declared:
+        found.append(Divergence(path, written[1], _announced(schema)))
+
+
+def _types(schema: dict[str, Any]) -> set[str] | None:
+    """Les types que le modèle accepte ici ; None quand il ne le dit pas."""
+    declared = schema.get("type")
+    if isinstance(declared, str):
+        kinds = {declared}
+    elif isinstance(declared, list):
+        kinds = {k for k in declared if isinstance(k, str)}
+    elif isinstance(schema.get("properties"), dict):
+        # Pas de `type`, mais des propriétés : c'est un objet, et le dire sert mieux
+        # que de ne rien savoir.
+        return {"object"}
+    else:
+        return None
+    # Un entier satisfait `number` : le modèle qui l'annonce accepte les deux, et le
+    # contraire — un décimal pour un `integer` — reste un écart.
+    return (kinds | {"integer"} if "number" in kinds else kinds) or None
+
+
+def _announced(schema: dict[str, Any]) -> str:
+    """Le type TEL QUE DÉCLARÉ, pour le dire dans l'alerte sans l'avoir élargi."""
+    declared = schema.get("type")
+    if isinstance(declared, str):
+        return declared
+    if isinstance(declared, list):
+        return "|".join(str(k) for k in declared)
+    return "object"
 
 
 async def _object(
@@ -116,9 +192,9 @@ async def _object(
     found: list[Divergence],
     depth: int,
 ) -> None:
-    kind = kind_of(schema)
-    if kind is not None and kind != "object":
-        found.append(Divergence(path, "objet_inattendu", kind))
+    declared = _types(schema)
+    if declared is not None and "object" not in declared:
+        found.append(Divergence(path, "objet_inattendu", _announced(schema)))
         return
     declared = schema.get("properties")
     if not isinstance(declared, dict):
@@ -155,9 +231,9 @@ async def _array(
     found: list[Divergence],
     depth: int,
 ) -> None:
-    kind = kind_of(schema)
-    if kind is not None and kind != "array":
-        found.append(Divergence(path, "tableau_inattendu", kind))
+    declared = _types(schema)
+    if declared is not None and "array" not in declared:
+        found.append(Divergence(path, "tableau_inattendu", _announced(schema)))
         return
     items = schema.get("items")
     if not isinstance(items, dict):

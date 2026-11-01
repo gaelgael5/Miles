@@ -247,3 +247,15 @@ async def test_a_destination_model_that_does_not_exist_yet_is_not_a_reproach(
 
     assert saved.status_code in (200, 201), saved.text
     assert saved.json()["steps"][0]["alerts"] == []
+
+
+async def test_a_value_written_in_the_wrong_type_is_flagged_too(forge: Forge) -> None:
+    """« propriétés manquantes, propriétés non déclarées, mauvais type » (Gael, 01/11/2026)."""
+    await _declare_cible(forge)
+
+    saved = await _save(forge, [_step('{ "ref": 12 }')])
+
+    assert saved.status_code in (200, 201), saved.text
+    assert saved.json()["steps"][0]["alerts"] == [
+        {"path": "$.ref", "code": "nombre_inattendu", "detail": "string"}
+    ]
