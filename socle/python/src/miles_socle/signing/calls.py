@@ -134,6 +134,7 @@ async def post_signed(
     contact_url: str,
     path: str,
     body: bytes,
+    http_timeout_s: float | None = None,
 ) -> httpx.Response:
     """L'appel sortant signé : le seul endroit du projet qui en compose un.
 
@@ -152,8 +153,18 @@ async def post_signed(
 
     `contact_url` est une origine SANS chemin : la cible signée et le chemin de la requête
     coïncident donc, condition pour que le pair vérifie exactement la chaîne qu'on a signée.
+
+    `http_timeout_s` remplace la borne du client POUR CET APPEL. Nommé ainsi et non
+    `timeout` : c'est la borne de httpx — connexion, lecture, écriture —, pas une échéance
+    de tâche, et ruff a raison de refuser le second nom sur une fonction asynchrone. Elle
+    existe parce que le client est
+    partagé et réglé pour l'administration (5 s) : récupérer le contenu d'un dépôt n'y
+    tient pas, et élargir le client ferait attendre une minute et demie sur un appel de
+    vivacité vers un pair éteint. La borne reste donc à l'appelant, qui sait ce qu'il
+    demande.
     """
     entete = sign_call(private_key, origin=origin, method="POST", target=path, body=body)
+    borne = {} if http_timeout_s is None else {"timeout": http_timeout_s}
     return await http.post(
         f"{contact_url}{path}",
         content=body,
@@ -162,4 +173,5 @@ async def post_signed(
             SIGNATURE_HEADER: entete,
             "Content-Type": "application/json",
         },
+        **borne,  # type: ignore[arg-type]  # httpx attend un USE_CLIENT_DEFAULT sinon
     )

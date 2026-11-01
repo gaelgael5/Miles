@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
@@ -9,6 +10,7 @@ from miles_socle.signing.calls import (
     CallSignatureError,
     canonical_bytes,
     origin_for_log,
+    post_signed,
     sign_call,
     validate_origin,
     verify_call,
@@ -207,3 +209,27 @@ def test_l_origine_journalisee_est_validee_avant_d_etre_ecrite(
     # retrouver qui frappe. Mais avant vérification, cette origine est une entrée
     # ANONYME : la recopier telle quelle écrirait dans nos journaux ce qu'un inconnu y met.
     assert origin_for_log(declaree) == journalisee
+
+
+async def test_la_borne_d_un_appel_remplace_celle_du_client_partage() -> None:
+    """La borne par appel existe pour le relais de dépôt, et il faut qu'elle ARRIVE.
+
+    Sans ce test, `http_timeout_s` pourrait être accepté puis ignoré : l'appel passerait,
+    la signature serait bonne, et la récupération d'un dépôt serait coupée à cinq secondes
+    par le client partagé — un échec qui ressemblerait à un pair injoignable.
+    """
+    bornes: list[object] = []
+
+    def repond(requete: httpx.Request) -> httpx.Response:
+        bornes.append(requete.extensions.get("timeout"))
+        return httpx.Response(204)
+
+    cle = Ed25519PrivateKey.generate()
+    transport = httpx.MockTransport(repond)
+    async with httpx.AsyncClient(transport=transport, timeout=5.0) as http:
+        commun = {"origin": ORIGINE, "contact_url": "https://pair.example.org", "body": b"{}"}
+        await post_signed(http, cle, path=CIBLE, **commun)  # type: ignore[arg-type]
+        await post_signed(http, cle, path=CIBLE, http_timeout_s=90.0, **commun)  # type: ignore[arg-type]
+
+    assert bornes[0] == {"connect": 5.0, "read": 5.0, "write": 5.0, "pool": 5.0}
+    assert bornes[1] == {"connect": 90.0, "read": 90.0, "write": 90.0, "pool": 90.0}
