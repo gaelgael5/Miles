@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from enrolement.environments.model import (
     MAX_LABEL_LENGTH,
     MAX_SLUG_LENGTH,
+    MAX_WORKSPACE_ID_LENGTH,
     Environment,
     EnvironmentDesignatedError,
     EnvironmentError,
@@ -18,6 +19,7 @@ from enrolement.environments.model import (
     EnvironmentNotFoundError,
     EnvironmentPairedError,
     EnvironmentSlugTakenError,
+    WorkspaceNotExposedError,
 )
 from enrolement.environments.service import EnvironmentService
 
@@ -38,6 +40,15 @@ class EnvironmentIn(BaseModel):
     slug: str = Field(max_length=MAX_SLUG_LENGTH * 4)
 
 
+class WorkspaceIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Nul RETIRE le workspace. Un corps vide aurait voulu dire la même chose, mais sans
+    # le dire : une route qui retire sur omission retire aussi sur une faute de frappe
+    # dans le nom du champ.
+    workspace_id: str | None = Field(default=None, max_length=MAX_WORKSPACE_ID_LENGTH * 4)
+
+
 class EnvironmentOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -55,6 +66,9 @@ class EnvironmentOut(BaseModel):
     # elle retient sa suppression : l'écran doit pouvoir dire laquelle, sans quoi « il est
     # encore référencé » envoie chercher un appariement qui n'existe pas.
     designated_base_url: str | None
+    # Le workspace dont cet environnement héberge le paramétrage ; nul tant qu'on ne lui
+    # en a pas placé.
+    workspace_id: str | None
 
 
 def _service(request: Request) -> EnvironmentService:
@@ -71,6 +85,7 @@ def _out(environnement: Environment) -> EnvironmentOut:
         updated_at=environnement.updated_at,
         paired_base_url=environnement.paired_base_url,
         designated_base_url=environnement.designated_base_url,
+        workspace_id=environnement.workspace_id,
     )
 
 
@@ -94,6 +109,13 @@ def _error(exc: EnvironmentError) -> JSONResponse:
         # révocation qui n'a pas lieu d'être.
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT, content={"detail": "environnement_designe"}
+        )
+    if isinstance(exc, WorkspaceNotExposedError):
+        # 409 et non 422 : l'identifiant peut être parfaitement écrit et simplement ne
+        # venir de personne. Ceux qui existent sont nommés, sans quoi l'appelant devine.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": {"code": "workspace_non_expose", "exposes": exc.exposed}},
         )
     if isinstance(exc, EnvironmentNotFoundError):
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "absent"})
@@ -124,6 +146,21 @@ async def put_environment(
         return _out(
             await _service(request).resolve_rename(
                 request_author(request), environment_id, body.label, body.slug
+            )
+        )
+    except EnvironmentError as exc:
+        return _error(exc)
+
+
+@router.put("/{environment_id}/workspace", response_model=EnvironmentOut)
+async def put_environment_workspace(
+    request: Request, environment_id: UUID, body: WorkspaceIn
+) -> EnvironmentOut | JSONResponse:
+    """Place le workspace que cet environnement hébergera, ou le retire (workspace nul)."""
+    try:
+        return _out(
+            await _service(request).resolve_place_workspace(
+                request_author(request), environment_id, body.workspace_id
             )
         )
     except EnvironmentError as exc:

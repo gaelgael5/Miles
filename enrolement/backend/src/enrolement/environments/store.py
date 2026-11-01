@@ -26,6 +26,7 @@ def _environment(row: Any) -> Environment:
         row["updated_at"],
         row["paired_base_url"],
         row["designated_base_url"],
+        row["workspace_id"],
     )
 
 
@@ -41,7 +42,8 @@ async def db_insert_environment(
         "INSERT INTO environment (id, slug, label, created_at, updated_at)"
         " VALUES ($1, $2, $3, $4, $4)"
         " RETURNING id, slug, label, created_at, updated_at,"
-        " NULL::text AS paired_base_url, NULL::text AS designated_base_url",
+        " NULL::text AS paired_base_url, NULL::text AS designated_base_url,"
+        " workspace_id",
         environment_id,
         slug,
         label,
@@ -56,7 +58,7 @@ async def db_update_environment(
     """Renomme. Rend nul si l'environnement n'existe plus — l'unicité reste à la base."""
     row = await db.fetchrow(
         "UPDATE environment e SET slug = $2, label = $3, updated_at = $4 WHERE e.id = $1"
-        " RETURNING e.id, e.slug, e.label, e.created_at, e.updated_at,"
+        " RETURNING e.id, e.slug, e.label, e.created_at, e.updated_at, e.workspace_id,"
         " (SELECT p.base_url FROM environment_peer p WHERE p.environment_id = e.id)"
         " AS paired_base_url,"
         " (SELECT r.base_url FROM pairing_request r WHERE r.environment_id = e.id LIMIT 1)"
@@ -71,7 +73,7 @@ async def db_update_environment(
 
 async def db_get_environment(db: EnvironmentDb, environment_id: UUID) -> Environment | None:
     row = await db.fetchrow(
-        "SELECT e.id, e.slug, e.label, e.created_at, e.updated_at,"
+        "SELECT e.id, e.slug, e.label, e.created_at, e.updated_at, e.workspace_id,"
         " (SELECT p.base_url FROM environment_peer p WHERE p.environment_id = e.id)"
         " AS paired_base_url,"
         " (SELECT r.base_url FROM pairing_request r WHERE r.environment_id = e.id LIMIT 1)"
@@ -86,7 +88,7 @@ async def db_list_environments(db: EnvironmentDb, /) -> list[Environment]:
     # Trié par libellé : c'est ce que l'humain lit, et l'ordre de création ne veut rien
     # dire dans une liste qu'on parcourt pour reconnaître un nom.
     rows = await db.fetch(
-        "SELECT e.id, e.slug, e.label, e.created_at, e.updated_at,"
+        "SELECT e.id, e.slug, e.label, e.created_at, e.updated_at, e.workspace_id,"
         " (SELECT p.base_url FROM environment_peer p WHERE p.environment_id = e.id)"
         " AS paired_base_url,"
         " (SELECT r.base_url FROM pairing_request r WHERE r.environment_id = e.id LIMIT 1)"
@@ -94,6 +96,24 @@ async def db_list_environments(db: EnvironmentDb, /) -> list[Environment]:
         " FROM environment e ORDER BY e.label, e.slug"
     )
     return [_environment(row) for row in rows]
+
+
+async def db_place_workspace(
+    db: EnvironmentDb, environment_id: UUID, workspace_id: str | None, now: datetime
+) -> Environment | None:
+    """Place le workspace sur l'environnement, ou le retire quand il est nul."""
+    row = await db.fetchrow(
+        "UPDATE environment e SET workspace_id = $2, updated_at = $3 WHERE e.id = $1"
+        " RETURNING e.id, e.slug, e.label, e.created_at, e.updated_at, e.workspace_id,"
+        " (SELECT p.base_url FROM environment_peer p WHERE p.environment_id = e.id)"
+        " AS paired_base_url,"
+        " (SELECT r.base_url FROM pairing_request r WHERE r.environment_id = e.id LIMIT 1)"
+        " AS designated_base_url",
+        environment_id,
+        workspace_id,
+        now,
+    )
+    return None if row is None else _environment(row)
 
 
 async def db_delete_environment(db: EnvironmentDb, environment_id: UUID) -> bool:

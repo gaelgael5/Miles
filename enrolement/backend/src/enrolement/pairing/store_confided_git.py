@@ -170,6 +170,21 @@ async def db_parametrage_peer(db: PairingDb) -> str | None:
     return None if row is None else str(row["base_url"])
 
 
+async def db_exposed_workspace_ids(db: PairingDb) -> list[str]:
+    """Les workspaces que le module de paramétrage apparié nous expose, triés.
+
+    Lu depuis la table plutôt que reconstruit à partir des connexions : ce qu'on cherche
+    ici est la LISTE des workspaces, pas la connexion git de chacun — et passer par les
+    connexions ferait dépendre ce choix d'un détail qui n'y est pour rien.
+    """
+    rows = await db.fetch(
+        "SELECT w.id FROM confided_git_workspace w"
+        " JOIN environment_peer p ON p.base_url = w.peer_base_url AND p.species = 'parametrage'"
+        " ORDER BY w.id"
+    )
+    return [str(row["id"]) for row in rows]
+
+
 async def db_count_confided(db: PairingDb, peer_base_url: str) -> int:
     row = await db.fetchrow(
         "SELECT count(*) AS n FROM confided_git_connection WHERE peer_base_url = $1",

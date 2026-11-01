@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, PageHead } from "@miles/socle-web";
@@ -12,11 +12,11 @@ import {
   useRejectRequest,
 } from "../api/pairing";
 import { ApparieRow } from "./ApparieRow";
-import { ConnexionsConfiees } from "./ConnexionsConfiees";
 import { CodeRevele, Duree, resteJusqua, useTicTac } from "./CodeRevele";
 import { EnvironmentCell } from "./EnvironmentCell";
 import { EspeceBadge } from "./EspeceBadge";
 import { EnvironmentPicker } from "./EnvironmentPicker";
+import { WorkspacesExposes } from "./WorkspacesExposes";
 
 function DemandeRow({ demande }: { demande: PairingRequest }) {
   const { t } = useTranslation();
@@ -160,12 +160,15 @@ function ApparieBloc({
   vide,
   apparies,
   chargement,
+  children,
 }: {
   titre: string;
   aide: string;
   vide: string;
   apparies: PairedEnvironment[] | undefined;
   chargement: boolean;
+  /** Ce que ce bloc montre EN PLUS de ses appariés — les workspaces, pour le paramétrage. */
+  children?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -187,6 +190,7 @@ function ApparieBloc({
           <ApparieRow key={environnement.base_url} environnement={environnement} />
         ))}
       </ul>
+      {children}
     </div>
   );
 }
@@ -232,16 +236,19 @@ export function PairingScreen() {
           confie n'a rien à voir avec les devices qu'un environnement reçoit. Séparés, le
           titre du bloc porte l'espèce et sa conséquence une seule fois, au lieu de les
           répéter sur chaque ligne. */}
+      {/* Les workspaces sont DANS ce bloc, et c'est tout le propos (Gael, 01/11/2026) :
+          c'est ce serveur-là qui nous les expose. Le bloc des connexions git a quitté
+          l'écran avec ce déplacement — la forge, le dépôt et le credential sont
+          l'affaire du module de paramétrage, qui les a saisis. */}
       <ApparieBloc
         titre={t("pairing.paired.parametrageTitle")}
         aide={t("pairing.species.parametrageConsequence")}
         vide={t("pairing.paired.parametrageEmpty")}
         apparies={apparies.data?.filter((a) => a.species === "parametrage")}
         chargement={apparies.isPending}
-      />
-      {/* Juste sous le module de paramétrage : ce qu'on détient découle de SON
-          appariement, et le bloc qui le porte est maintenant celui du dessus. */}
-      <ConnexionsConfiees />
+      >
+        <WorkspacesExposes />
+      </ApparieBloc>
       <ApparieBloc
         titre={t("pairing.paired.environnementsTitle")}
         aide={t("pairing.species.environnementConsequence")}

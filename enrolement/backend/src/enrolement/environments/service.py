@@ -16,21 +16,27 @@ from enrolement.environments.model import (
     ENVIRONMENT_DELETED_EVENT,
     ENVIRONMENT_OBJECT_KIND,
     ENVIRONMENT_RENAMED_EVENT,
+    ENVIRONMENT_WORKSPACE_CLEARED_EVENT,
+    ENVIRONMENT_WORKSPACE_PLACED_EVENT,
     Environment,
     EnvironmentDesignatedError,
     EnvironmentNotFoundError,
     EnvironmentPairedError,
     EnvironmentSlugTakenError,
+    WorkspaceNotExposedError,
     validate_label,
     validate_slug,
+    validate_workspace_id,
 )
 from enrolement.environments.store import (
     db_delete_environment,
     db_get_environment,
     db_insert_environment,
     db_list_environments,
+    db_place_workspace,
     db_update_environment,
 )
+from enrolement.pairing.store_confided_git import db_exposed_workspace_ids
 
 log = structlog.get_logger(__name__)
 
@@ -111,6 +117,52 @@ class EnvironmentService:
                 return apres
         except asyncpg.UniqueViolationError as exc:
             raise EnvironmentSlugTakenError(slug) from exc
+
+    async def resolve_place_workspace(
+        self, author: EventAuthor, environment_id: UUID, workspace_id: str | None
+    ) -> Environment:
+        """Place sur l'environnement le workspace dont il hébergera le paramétrage.
+
+        Le workspace doit être EXPOSÉ par le module de paramétrage apparié : c'est lui
+        qui nous confie la liste, et placer un identifiant qu'il ne connaît pas
+        produirait un environnement qui n'hébergerait jamais rien, sans qu'aucun écran ne
+        puisse dire pourquoi. Le refus NOMME ceux qui existent.
+
+        Retirer (workspace nul) ne vérifie rien : on doit pouvoir défaire un placement
+        même après la révocation du module de paramétrage, qui a emporté la liste.
+        """
+        chosen = None if workspace_id is None else validate_workspace_id(workspace_id)
+        async with self.pool.acquire() as conn, conn.transaction():
+            if chosen is not None:
+                exposed = await db_exposed_workspace_ids(conn)
+                if chosen not in exposed:
+                    raise WorkspaceNotExposedError(chosen, exposed)
+            avant = await db_get_environment(conn, environment_id)
+            apres = (
+                None
+                if avant is None
+                else await db_place_workspace(conn, environment_id, chosen, self.now())
+            )
+            if avant is None or apres is None:
+                raise EnvironmentNotFoundError(f"aucun environnement sous {environment_id}")
+            # Deux faits, deux types d'event : « depuis quand n'héberge-t-il plus rien ? »
+            # doit se lire sans interpréter l'absence d'une propriété.
+            await self._write_event(
+                conn,
+                ENVIRONMENT_WORKSPACE_PLACED_EVENT
+                if chosen is not None
+                else ENVIRONMENT_WORKSPACE_CLEARED_EVENT,
+                apres,
+                {"workspace_id": chosen, "previous_workspace_id": avant.workspace_id},
+                author,
+            )
+            log.info(
+                "workspace_place_sur_environnement",
+                environment_id=str(environment_id),
+                slug=apres.slug,
+                workspace_id=chosen,
+            )
+            return apres
 
     async def resolve_delete(self, author: EventAuthor, environment_id: UUID) -> None:
         """Supprime un environnement que rien ne retient.

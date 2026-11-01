@@ -31,6 +31,12 @@ export interface Environment {
    * et c'est à ce titre qu'il reste ici. Le refus de supprimer, lui, le nomme.
    */
   designated_base_url: string | null;
+  /**
+   * Le workspace dont cet environnement héberge le paramétrage, nul tant qu'on ne lui en
+   * a pas placé. Il SURVIT à la révocation de la stack : c'est l'environnement qui
+   * héberge, pas l'appariement du moment.
+   */
+  workspace_id: string | null;
 }
 
 export interface EnvironmentInput {
@@ -87,6 +93,38 @@ export function refusKey(error: unknown): string {
     return "environments.errors.absent";
   }
   return "environments.errors.unexpected";
+}
+
+/**
+ * Les workspaces que le serveur dit exposés, quand il refuse celui qu'on lui a donné.
+ *
+ * Lus du refus plutôt que redemandés : c'est la liste que le serveur avait sous les yeux
+ * au moment de refuser, et une seconde lecture pourrait en montrer une autre.
+ */
+export function exposedInRefusal(error: unknown): string[] | null {
+  if (!(error instanceof ApiError) || error.status !== 409) {
+    return null;
+  }
+  const detail = error.detail as { code?: string; exposes?: string[] } | null;
+  if (detail === null || typeof detail !== "object" || detail.code !== "workspace_non_expose") {
+    return null;
+  }
+  return detail.exposes ?? [];
+}
+
+export function usePlaceWorkspace() {
+  const client = useQueryClient();
+  return useMutation({
+    // `workspaceId` nul RETIRE le workspace. Le serveur ne vérifie alors rien : on doit
+    // pouvoir défaire un placement même après la révocation du module de paramétrage,
+    // qui a emporté la liste des workspaces exposés.
+    mutationFn: ({ id, workspaceId }: { id: string; workspaceId: string | null }) =>
+      request<Environment>(`/api/environments/${encodeURIComponent(id)}/workspace`, {
+        method: "PUT",
+        body: JSON.stringify({ workspace_id: workspaceId }),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ENVIRONMENTS_KEY }),
+  });
 }
 
 export function useEnvironments() {

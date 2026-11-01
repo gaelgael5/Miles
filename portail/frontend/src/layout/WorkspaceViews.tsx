@@ -1,8 +1,9 @@
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CollapsibleGroup } from "@miles/socle-web";
+
 import type { Direction } from "../api/contracts";
-import { CollapsibleGroup } from "./CollapsibleGroup";
 import { ContractLinks } from "./ContractLinks";
 import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
 

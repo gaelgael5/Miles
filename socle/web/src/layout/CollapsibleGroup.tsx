@@ -3,6 +3,11 @@ import { type ReactNode, useId, useState } from "react";
 /**
  * Un groupe du menu qu'on peut replier (Gael, 30/10/2026).
  *
+ * Au socle depuis le 01/11/2026, au deuxième usage : le module d'enrôlement affichait un
+ * chevron — la feuille de style du socle en dessine un sur `.sidebar-section` — devant
+ * des sections qui ne se repliaient pas. Un menu qui montre le geste sans le servir se
+ * lit comme une panne, et c'en était une.
+ *
  * TOUS les niveaux du menu le sont désormais, et pas seulement les deux sections du
  * haut : la barre compte une vingtaine d'entrées, et un niveau qu'on ne peut pas fermer
  * oblige à faire défiler pour atteindre ce qu'on cherche.

@@ -61,6 +61,23 @@ export function useConfidedGitConnections() {
 }
 
 /**
+ * Les workspaces que le module de paramétrage apparié nous expose, à plat et triés.
+ *
+ * À plat : ce qu'on place sur un environnement est un WORKSPACE, et la connexion git qui
+ * le sert n'y est pour rien. Depuis l'écran d'appariement du 01/11/2026, c'est aussi la
+ * seule chose que ce bloc montre du confiage — le reste est l'affaire du module de
+ * paramétrage, qui l'a saisi.
+ */
+export function useExposedWorkspaces() {
+  const etat = useConfidedGitConnections();
+  const workspaces = etat.data?.connections.flatMap((connexion) => connexion.workspaces) ?? [];
+  return {
+    ...etat,
+    workspaces: [...workspaces].sort((a, b) => a.id.localeCompare(b.id)),
+  };
+}
+
+/**
  * Le détail d'une connexion, demandé seulement quand un humain le réclame.
  *
  * `enabled` plutôt qu'un appel systématique : la lecture OUVRE le chiffré pour savoir

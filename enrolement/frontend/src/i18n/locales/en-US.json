@@ -7,10 +7,16 @@
       "oidc": "OIDC connectors",
       "health": "Service status",
       "pairing": "Pairing",
-      "environments": "Environments"
+      "environments": "Environments",
+      "accounts": "Accounts"
     },
     "sections": {
-      "global": "Global"
+      "global": "Global",
+      "workspaces": "Workspaces"
+    },
+    "workspaces": {
+      "none": "No workspace hosted.",
+      "gone": "This workspace is no longer hosted by this environment."
     }
   },
   "pairing": {
@@ -124,25 +130,20 @@
       "parametrage": "Configuration module",
       "parametrageConsequence": "Will be entrusted with the git connections. Only one is ever paired."
     },
-    "confided": {
-      "title": "Confided git connections",
-      "help": "The configuration module enters git connections once and hands them to this module, which holds them on behalf of the environments. No environment module ever receives the token: it will read git through the relay.",
-      "error": "The confided connections could not be read.",
-      "noParametrage": "No configuration module is paired: no git connection has been confided. This is not a forge failure.",
-      "empty": "The configuration module is paired but has not confided any connection yet.",
-      "captionReceived": "Received on",
-      "revision": "revision {{revision}}",
-      "captionWorkspaces": "Workspaces served",
-      "noWorkspace": "No workspace",
-      "noRepo": "Repository not configured",
-      "captionSince": "Confided on",
-      "captionRenewed": "Credential renewed on",
-      "neverRenewed": "Never renewed",
-      "check": "Test the credential",
-      "checking": "Reading the credential…",
-      "checkFailed": "The credential could not be tested.",
-      "readable": "The confided credential opens with this instance's key: it is usable as is.",
-      "unreadable": "The confided credential no longer opens: MILES_SECRETS_KEY changed, or the row was altered. Have it confided again from the configuration module — nothing to look for on the repository side."
+    "workspaces": {
+      "caption": "Exposed workspaces",
+      "noRepo": "Repository not configured yet",
+      "empty": "This configuration module has not entrusted us with any workspace yet.",
+      "error": "The exposed workspaces could not be read."
+    },
+    "workspacePlacement": {
+      "caption": "Hosted workspace",
+      "none": "None",
+      "submit": "Place",
+      "noneExposed": "No workspace exposed: have them entrusted from the configuration module.",
+      "notExposed": "No paired configuration module exposes this workspace. Exposed: {{exposed}}.",
+      "nothing": "none",
+      "error": "The workspace could not be placed."
     }
   },
   "environments": {
@@ -183,6 +184,25 @@
       "absent": "This environment no longer exists.",
       "unexpected": "The server refused, without saying why.",
       "designated": "A pending pairing request points at this environment. Reject it, or choose a different environment, before deleting it."
+    }
+  },
+  "workspaces": {
+    "title": "{{workspace}}",
+    "lead": "Hosted by the {{label}} ({{slug}}) environment.",
+    "source": {
+      "title": "Where this configuration comes from",
+      "captionEnvironment": "Hosting environment",
+      "captionRepo": "Repository entrusted by the configuration module",
+      "noRepo": "Repository not configured yet"
+    },
+    "version": {
+      "title": "Hosted version",
+      "unavailable": "A workspace's versions cannot be read from this module yet: the configuration module serves them on no peer route. Nothing can be chosen here for now."
+    },
+    "accounts": {
+      "title": "Accounts",
+      "lead": "Accounts of workspace {{workspace}}, hosted by {{label}}.",
+      "pending": "Accounts are stored on the environment stack, which will expose their search and pagination. This page will show them as soon as those routes exist."
     }
   }
 }

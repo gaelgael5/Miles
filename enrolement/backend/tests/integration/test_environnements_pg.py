@@ -267,6 +267,7 @@ async def test_aucune_route_du_referentiel_n_est_atteignable_sans_session(
             visiteur.post("/api/environments", json=RECETTE),
             visiteur.put(f"/api/environments/{uuid4()}", json=RECETTE),
             visiteur.delete(f"/api/environments/{uuid4()}"),
+            visiteur.put(f"/api/environments/{uuid4()}/workspace", json={"workspace_id": "ams"}),
         )
         for reponse in await asyncio.gather(*appels):
             assert reponse.status_code == 401, reponse.text

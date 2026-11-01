@@ -27,6 +27,7 @@ export * from "./layout/Topbar";
 export * from "./layout/PageHead";
 export * from "./layout/ConfirmDialog";
 export * from "./layout/CopyButton";
+export * from "./layout/CollapsibleGroup";
 export * from "./cultures/CulturesScreen";
 export * from "./oidc/ConnectorsScreen";
 export * from "./oidc/ConnectorForm";

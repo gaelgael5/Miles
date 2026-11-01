@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import {
   AuthGate,
+  CollapsibleGroup,
   ConnectorsScreen,
   CulturesScreen,
   HealthStatus,
@@ -26,7 +27,6 @@ import { ConnexionsConfiees } from "./pairing/ConnexionsConfiees";
 import { ProfileScreen } from "./profile/ProfileScreen";
 import { SecurityServiceScreen } from "./security/SecurityServiceScreen";
 import { TimezonesScreen } from "./timezones/TimezonesScreen";
-import { CollapsibleGroup } from "./layout/CollapsibleGroup";
 import { WorkspacesScreen } from "./workspaces/WorkspacesScreen";
 
 type Page =

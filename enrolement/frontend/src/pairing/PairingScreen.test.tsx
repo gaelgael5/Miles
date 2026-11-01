@@ -98,10 +98,10 @@ function routes(
     "GET /api/pairing/requests": { status: 200, body: demandes },
     "GET /api/pairing/peers": { status: 200, body: apparies },
     "GET /api/environments": { status: 200, body: ENVIRONNEMENTS },
-    // L'écran porte désormais la carte des connexions git confiées : sans cette route,
-    // elle rend une alerte, et les cas qui vérifient « aucune alerte » rougissent pour
-    // une raison qui n'a rien à voir avec eux. Son défaut est l'état le plus neutre —
-    // un module de paramétrage apparié qui n'a encore rien confié.
+    // Les workspaces exposés se lisent de cette route, DANS le bloc du module de
+    // paramétrage (01/11/2026) : sans elle, le bloc rend une alerte, et les cas qui
+    // vérifient « aucune alerte » rougissent pour une raison qui n'a rien à voir avec
+    // eux. Son défaut est l'état le plus neutre — un module apparié qui n'a rien confié.
     "GET /api/pairing/git-connections": {
       status: 200,
       body: {
@@ -641,10 +641,12 @@ describe("écran d'appariement du module d'enrôlement", () => {
 
     await screen.findByText("Portail de configuration");
     const titres = [...document.querySelectorAll(".card-head h2")].map((e) => e.textContent);
+    // Le bloc des connexions git a quitté l'écran le 01/11/2026 : la forge, le dépôt et
+    // le credential sont l'affaire du module de paramétrage, qui les a saisis. Ce qu'il
+    // en reste ici — les workspaces exposés — est DANS le bloc du paramétrage.
     expect(titres).toEqual([
       "Pending requests",
       "Paired configuration module",
-      "Confided git connections",
       "Paired environments",
     ]);
   });
@@ -694,5 +696,91 @@ describe("écran d'appariement du module d'enrôlement", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/ceases to be/i)).toBeInTheDocument();
     expect(screen.queryByText(/device registry does not exist yet/i)).toBeNull();
+  });
+});
+
+
+describe("les workspaces exposés et leur placement", () => {
+  const CONFIE = {
+    "GET /api/pairing/git-connections": {
+      status: 200,
+      body: {
+        peer_base_url: "https://parametrage.example.org",
+        revision: 5,
+        received_at: "2026-10-30T07:48:00+00:00",
+        connections: [
+          {
+            id: "github",
+            label: "github",
+            base_url: "https://github.com/gaelgael5",
+            confided_at: "2026-10-30T07:48:00+00:00",
+            renewed_at: null,
+            workspaces: [{ id: "ams", repo_url: "https://github.com/gaelgael5/test-ams.git" }],
+          },
+        ],
+      },
+    },
+  };
+
+  it("montre les workspaces DANS le bloc du module de paramétrage", async () => {
+    monte(routes([], [APPARIE_PARAMETRAGE], CONFIE));
+
+    await screen.findByText("ams");
+    const bloc = screen
+      .getByRole("heading", { name: "Paired configuration module" })
+      .closest(".card") as HTMLElement;
+
+    // C'est CE serveur qui nous les expose : les montrer ailleurs laissait croire
+    // qu'ils venaient d'ici (Gael, 01/11/2026).
+    expect(within(bloc).getByText("ams")).toBeInTheDocument();
+    expect(
+      within(bloc).getByText("https://github.com/gaelgael5/test-ams.git"),
+    ).toBeInTheDocument();
+  });
+
+  it("ne montre plus rien du credential ni de la connexion git", async () => {
+    monte(routes([], [APPARIE_PARAMETRAGE], CONFIE));
+    await screen.findByText("ams");
+
+    // Le bloc des connexions git a quitté l'écran : ce qui reste est le workspace, pas
+    // la forge qui le sert.
+    expect(screen.queryByText("Confided git connections")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Check the credential" })).toBeNull();
+  });
+
+  it("place sur l'environnement le workspace choisi", async () => {
+    const calls = monte(
+      routes([], [APPARIE], {
+        ...CONFIE,
+        "PUT /api/environments/5e1b3a0c-0000-4000-8000-000000000002/workspace": {
+          status: 200,
+          body: {},
+        },
+      }),
+    );
+    const ligne = await screen.findByText("Environnement de production");
+    const bloc = ligne.closest("li") as HTMLElement;
+
+    fireEvent.change(within(bloc).getByLabelText("Hosted workspace"), {
+      target: { value: "ams" },
+    });
+    fireEvent.click(within(bloc).getByRole("button", { name: "Place" }));
+
+    await waitFor(() => {
+      expect(
+        calls.find(
+          (c) => c.key === "PUT /api/environments/5e1b3a0c-0000-4000-8000-000000000002/workspace",
+        )?.body,
+      ).toEqual({ workspace_id: "ams" });
+    });
+  });
+
+  it("n'offre pas de placer un workspace sur un module de paramétrage", async () => {
+    // Il n'héberge rien : il EXPOSE. Lui proposer un placement serait proposer un geste
+    // que le serveur n'a pas de sujet pour exécuter.
+    monte(routes([], [APPARIE_PARAMETRAGE], CONFIE));
+    await screen.findByText("ams");
+
+    expect(screen.queryByLabelText("Hosted workspace")).toBeNull();
   });
 });

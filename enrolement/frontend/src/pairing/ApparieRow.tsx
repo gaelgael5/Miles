@@ -7,6 +7,7 @@ import { type PairedEnvironment, useRevokePeer } from "../api/pairing";
 import { ContactUrlForm } from "./ContactUrlForm";
 import { EnvironmentAssign } from "./EnvironmentAssign";
 import { EnvironmentCell } from "./EnvironmentCell";
+import { WorkspacePlacement } from "./WorkspacePlacement";
 
 /**
  * Ce que la révocation va provoquer sur le parc, écrit AVANT qu'on la provoque.
@@ -74,6 +75,9 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
           <span className="badge">{environnement.public_key_fingerprint}</span>
         </div>
       </div>
+      {/* Le workspace que cet environnement hébergera : ici parce que c'est l'écran où
+          la stack et l'environnement qu'elle sert se lisent ensemble. */}
+      {rattachable && <WorkspacePlacement environnement={environnement} />}
       <ContactUrlForm environnement={environnement} />
       {rattachable && <EnvironmentAssign environnement={environnement} />}
       <div className="actions row-actions">

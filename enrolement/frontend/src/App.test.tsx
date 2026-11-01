@@ -29,6 +29,17 @@ const ECRANS: { nom: string; libelle: string; appel: string }[] = [
   { nom: "health", libelle: "Service status", appel: "GET /api/health" },
 ];
 
+const ENVIRONNEMENT = {
+  id: "env-1",
+  slug: "recette-nord",
+  label: "Recette nord",
+  created_at: "2026-11-01T08:00:00Z",
+  updated_at: "2026-11-01T08:00:00Z",
+  paired_base_url: null,
+  designated_base_url: null,
+  workspace_id: null,
+};
+
 function monte(routes: Routes) {
   const calls = mockApi(routes);
   render(
@@ -106,12 +117,76 @@ describe("App du module d'enrôlement", () => {
 
   it("n'a aucune entrée de menu de plus que d'écrans déclarés", async () => {
     monte(CONNECTE);
-    const menu = within(await screen.findByRole("navigation"));
+    const nav = await screen.findByRole("navigation");
 
     // La garde du ticket : un écran déclaré mais absent du menu est inatteignable, et
     // une entrée de menu sans écran mène dans le vide. Ici les deux viennent de la même
-    // déclaration, et ce test interdit qu'on les redouble.
-    expect(menu.getAllByRole("button")).toHaveLength(ECRANS.length);
+    // déclaration, et ce test interdit qu'on les redouble. Les deux en-têtes de section
+    // sont des boutons depuis qu'elles se replient : on compte donc les LIENS, qui sont
+    // seuls à mener quelque part.
+    expect(nav.querySelectorAll("button.sidebar-link")).toHaveLength(ECRANS.length);
+    expect(nav.querySelectorAll("button.sidebar-section")).toHaveLength(2);
+  });
+
+  it("replie une section du menu, et la rouvre", async () => {
+    // Le défaut corrigé le 01/11/2026 : la feuille de style du socle dessine un chevron
+    // sur une section, et celles-ci ne se repliaient pas — le menu montrait un geste
+    // qu'il ne servait pas.
+    monte(CONNECTE);
+    const nav = await screen.findByRole("navigation");
+    const section = within(nav).getByRole("button", { name: "Global" });
+
+    fireEvent.click(section);
+
+    expect(section).toHaveAttribute("aria-expanded", "false");
+    expect(within(nav).queryByRole("button", { name: "Pairing" })).toBeNull();
+
+    fireEvent.click(section);
+
+    expect(within(nav).getByRole("button", { name: "Pairing" })).toBeInTheDocument();
+  });
+
+  it("ne liste sous Workspaces que ceux qu'un environnement héberge", async () => {
+    monte({
+      ...CONNECTE,
+      "GET /api/environments": {
+        status: 200,
+        body: [
+          { ...ENVIRONNEMENT, workspace_id: "ams" },
+          { ...ENVIRONNEMENT, id: "env-2", slug: "sans-workspace", workspace_id: null },
+        ],
+      },
+    });
+    const nav = within(await screen.findByRole("navigation"));
+
+    expect(await nav.findByRole("button", { name: /ams/ })).toBeInTheDocument();
+    // Un environnement sans workspace n'a rien à héberger : il n'a pas de page.
+    expect(nav.queryByRole("button", { name: /sans-workspace/ })).toBeNull();
+  });
+
+  it("ouvre la page du workspace hébergé, puis ses comptes", async () => {
+    monte({
+      ...CONNECTE,
+      "GET /api/environments": {
+        status: 200,
+        body: [{ ...ENVIRONNEMENT, workspace_id: "ams" }],
+      },
+    });
+    const nav = within(await screen.findByRole("navigation"));
+
+    fireEvent.click(await nav.findByRole("button", { name: /ams/ }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "ams" })).toBeInTheDocument();
+    // L'environnement qui l'héberge est nommé sur la page, pas seulement dans le menu.
+    expect(
+      within(screen.getByRole("main")).getAllByText(/Recette nord/).length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.click(nav.getByRole("button", { name: "Accounts" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Accounts" }),
+    ).toBeInTheDocument();
   });
 
   it("ouvre le profil depuis la barre du haut", async () => {

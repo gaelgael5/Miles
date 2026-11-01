@@ -10,12 +10,27 @@ ENVIRONMENT_OBJECT_KIND = "environment"
 ENVIRONMENT_CREATED_EVENT = "environment.created"
 ENVIRONMENT_RENAMED_EVENT = "environment.renamed"
 ENVIRONMENT_DELETED_EVENT = "environment.deleted"
+# Placer un workspace et le retirer sont DEUX faits, et non un seul portant une valeur
+# nulle : « depuis quand cet environnement n'héberge-t-il plus rien ? » doit se lire au
+# journal sans avoir à interpréter l'absence d'une propriété.
+ENVIRONMENT_WORKSPACE_PLACED_EVENT = "environment.workspace_placed"
+ENVIRONMENT_WORKSPACE_CLEARED_EVENT = "environment.workspace_cleared"
 EVENT_TYPES = frozenset(
-    {ENVIRONMENT_CREATED_EVENT, ENVIRONMENT_RENAMED_EVENT, ENVIRONMENT_DELETED_EVENT}
+    {
+        ENVIRONMENT_CREATED_EVENT,
+        ENVIRONMENT_RENAMED_EVENT,
+        ENVIRONMENT_DELETED_EVENT,
+        ENVIRONMENT_WORKSPACE_PLACED_EVENT,
+        ENVIRONMENT_WORKSPACE_CLEARED_EVENT,
+    }
 )
 
 MAX_LABEL_LENGTH = 80
 MAX_SLUG_LENGTH = 48
+# La borne de `confided_git_workspace.id` : la seule source de cette valeur est la liste
+# que le module de paramétrage confie, et une borne plus courte ici refuserait un
+# identifiant qu'il nous a pourtant transmis.
+MAX_WORKSPACE_ID_LENGTH = 200
 # La MÊME forme que le CHECK de la migration : minuscules, chiffres, traits d'union
 # séparateurs. Écrite aux deux endroits parce que la base est la seule à tenir l'invariant
 # pour de bon, et que le code est le seul à pouvoir refuser en NOMMANT le champ fautif.
@@ -56,6 +71,22 @@ class EnvironmentNotFoundError(EnvironmentError):
     """Aucun environnement sous cet identifiant."""
 
 
+class WorkspaceNotExposedError(EnvironmentError):
+    """Aucun module de paramétrage apparié n'expose ce workspace.
+
+    Refus distinct d'une saisie mal formée : l'identifiant peut être parfaitement écrit
+    et simplement ne venir de personne. Le geste à faire n'est pas de le corriger, c'est
+    de le faire confier depuis le module de paramétrage — ou d'apparier celui-ci.
+    """
+
+    def __init__(self, workspace_id: str, exposed: list[str]) -> None:
+        super().__init__(f"workspace non exposé : {workspace_id}")
+        self.workspace_id = workspace_id
+        # Ceux qui existent sont NOMMÉS dans le refus : sans eux, l'appelant ne peut que
+        # deviner, et un agent réessaierait indéfiniment la même valeur.
+        self.exposed = exposed
+
+
 class EnvironmentPairedError(EnvironmentError):
     """L'environnement porte un appariement : il ne se supprime pas tant qu'il le porte.
 
@@ -93,6 +124,10 @@ class Environment:
     # consomme pas l'environnement — une demande refusée ou expirée le laisse libre —
     # mais elle retient sa suppression, et l'écran doit pouvoir dire laquelle.
     designated_base_url: str | None
+    # Le workspace dont cet environnement héberge le paramétrage, nul tant qu'on ne lui
+    # en a pas placé (01/11/2026). Il survit à une révocation de la stack : c'est
+    # l'environnement qui héberge, pas l'appariement du moment.
+    workspace_id: str | None = None
 
 
 def validate_label(raw: str) -> str:
@@ -106,6 +141,24 @@ def validate_label(raw: str) -> str:
     if not label or len(label) > MAX_LABEL_LENGTH or not label.isprintable():
         raise EnvironmentInputError("label")
     return label
+
+
+def validate_workspace_id(raw: str) -> str:
+    """L'identifiant du workspace, borné et débarrassé de rien.
+
+    Il vient d'une liste que le PAIR nous a confiée : sa forme est décidée là-bas, et la
+    contraindre davantage ici refuserait un identifiant pourtant légitime. On vérifie donc
+    ce que la base vérifie, et rien de plus — l'existence, elle, se vérifie contre la
+    liste exposée, qui est la vraie garde.
+    """
+    workspace_id = raw.strip()
+    if (
+        not workspace_id
+        or len(workspace_id) > MAX_WORKSPACE_ID_LENGTH
+        or not workspace_id.isprintable()
+    ):
+        raise EnvironmentInputError("workspace_id")
+    return workspace_id
 
 
 def validate_slug(raw: str) -> str:
