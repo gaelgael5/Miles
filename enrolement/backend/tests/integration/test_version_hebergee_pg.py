@@ -51,12 +51,23 @@ async def _parametrage(stack: EnrolementStack, repo_url: str | None) -> Requeste
     return double
 
 
-async def _environnement_apparie(
-    stack: EnrolementStack, *, applique: bool, hosts: Path | None = None
-) -> tuple[str, RequesterDouble]:
-    """Un environnement du référentiel, apparié à une contrepartie, workspace placé.
+def _contrepartie() -> RequesterDouble:
+    """La contrepartie de l'environnement, créée AVANT la stack.
 
-    `applique=False` monte une contrepartie qui ACCUSE l'ordre sans aller chercher le
+    Son application est le transport du client SORTANT du module : c'est par là que part
+    l'ordre de version. Sans elle, l'appel tenterait une vraie connexion vers
+    « environnement.test » et tous les tests retomberaient sur « pair injoignable » — un
+    échec qui ressemble à une panne du produit et n'en est pas une.
+    """
+    return RequesterDouble(origin="http://environnement.test", species="environnement")
+
+
+async def _environnement_apparie(
+    stack: EnrolementStack, double: RequesterDouble, *, applique: bool, hosts: Path | None = None
+) -> str:
+    """Un environnement du référentiel, apparié à la contrepartie, workspace placé.
+
+    `applique=False` laisse une contrepartie qui ACCUSE l'ordre sans aller chercher le
     contenu : « reçu » et « servi » sont deux faits distincts, et c'est l'un des cas que
     cette campagne doit couvrir pour lui-même.
     """
@@ -65,7 +76,6 @@ async def _environnement_apparie(
     )
     assert cree.status_code == 201, cree.text
     environnement = str(cree.json()["id"])
-    double = RequesterDouble(origin="http://environnement.test", species="environnement")
     demande = await demande_appariement(stack, double)
     assert demande["base_url"] == double.origin
     designe = await stack.client.put(
@@ -80,7 +90,7 @@ async def _environnement_apparie(
         double.hosts = hosts
     place = await _place(stack, environnement, WORKSPACE)
     assert place.status_code == 200, place.text
-    return environnement, double
+    return environnement
 
 
 async def _place(stack: EnrolementStack, environment_id: str, workspace_id: str | None) -> Any:
@@ -105,11 +115,14 @@ async def test_la_version_choisie_traverse_jusqu_a_l_arbre_que_l_environnement_s
     valeur, qui prouve que le paramétrage a traversé le relais.
     """
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
             heberge = tmp_path / "heberge"
-            environnement, double = await _environnement_apparie(
-                stack, applique=True, hosts=heberge
+            environnement = await _environnement_apparie(
+                stack, double, applique=True, hosts=heberge
             )
 
             ordonne = await stack.client.put(
@@ -132,9 +145,12 @@ async def test_les_versions_du_depot_se_lisent_depuis_le_module_d_enrolement(
 ) -> None:
     """Lues dans git avec le credential confié : aucune route de pair ne les demande."""
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
-            environnement, _ = await _environnement_apparie(stack, applique=False)
+            environnement = await _environnement_apparie(stack, double, applique=False)
 
             lues = await stack.client.get(f"/api/environments/{environnement}/versions")
 
@@ -151,9 +167,12 @@ async def test_un_ordre_recu_sans_etre_applique_n_est_pas_dit_a_jour(
 ) -> None:
     """« Reçu » et « servi » sont deux faits : les confondre afficherait à jour pour rien."""
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
-            environnement, double = await _environnement_apparie(stack, applique=False)
+            environnement = await _environnement_apparie(stack, double, applique=False)
 
             ordonne = await stack.client.put(
                 f"/api/environments/{environnement}/version", json={"number": 1}
@@ -174,11 +193,14 @@ async def test_l_ordre_se_renvoie_a_un_environnement_qui_a_tout_perdu(
 ) -> None:
     """Le geste de réparation : un environnement au volume neuf ne sait rien de son ordre."""
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
             heberge = tmp_path / "heberge"
-            environnement, double = await _environnement_apparie(
-                stack, applique=True, hosts=heberge
+            environnement = await _environnement_apparie(
+                stack, double, applique=True, hosts=heberge
             )
             await stack.client.put(f"/api/environments/{environnement}/version", json={"number": 2})
 
@@ -208,9 +230,12 @@ async def test_le_relais_sert_le_contenu_ordonne_et_rien_d_autre(
     lesquels sont placés ailleurs.
     """
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
-            environnement, double = await _environnement_apparie(stack, applique=False)
+            environnement = await _environnement_apparie(stack, double, applique=False)
             commits = depot.commits_des_versions()
             await stack.client.put(f"/api/environments/{environnement}/version", json={"number": 2})
 
@@ -231,9 +256,12 @@ async def test_le_relais_sert_le_contenu_ordonne_et_rien_d_autre(
 async def test_le_relais_refuse_une_demande_non_signee(blank_db: str, tmp_path: Path) -> None:
     """La signature AVANT toute lecture du corps : c'est le point d'application du fail closed."""
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
-            environnement, _ = await _environnement_apparie(stack, applique=False)
+            environnement = await _environnement_apparie(stack, double, applique=False)
             await stack.client.put(f"/api/environments/{environnement}/version", json={"number": 2})
             corps = HostingBundleIn(
                 workspace_id=WORKSPACE, commit=depot.commits_des_versions()[2]
@@ -250,9 +278,12 @@ async def test_le_relais_refuse_un_pair_a_qui_rien_n_est_ordonne(
 ) -> None:
     """Apparié, workspace placé, mais aucune version choisie : il n'y a rien à servir."""
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
-            _, double = await _environnement_apparie(stack, applique=False)
+            await _environnement_apparie(stack, double, applique=False)
 
             refuse = await _demande_bundle(
                 stack, double, WORKSPACE, depot.commits_des_versions()[2]
@@ -267,9 +298,12 @@ async def test_sans_workspace_place_il_n_y_a_pas_de_version_a_choisir(
     """Le geste à faire est ailleurs — placer un workspace — et aucun message sur les
     versions ne le ferait deviner."""
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
-            environnement, _ = await _environnement_apparie(stack, applique=False)
+            environnement = await _environnement_apparie(stack, double, applique=False)
             await _place(stack, environnement, None)
 
             lues = await stack.client.get(f"/api/environments/{environnement}/versions")
@@ -285,9 +319,10 @@ async def test_un_depot_non_configure_chez_le_parametrage_se_dit(
 
     Une liste vide affirmerait qu'il n'a aucune version publiée, ce que personne ici ne sait.
     """
-    async with open_stack(blank_db, tmp_path) as stack:
+    double = _contrepartie()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _parametrage(stack, None)
-        environnement, _ = await _environnement_apparie(stack, applique=False)
+        environnement = await _environnement_apparie(stack, double, applique=False)
 
         lues = await stack.client.get(f"/api/environments/{environnement}/versions")
 
@@ -304,11 +339,14 @@ async def test_un_parametrage_revoque_laisse_le_placement_sans_source_git(
     à l'environnement ni au dépôt.
     """
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             parametrage = await _parametrage(stack, depot.url)
-            environnement, _ = await _environnement_apparie(stack, applique=False)
+            environnement = await _environnement_apparie(stack, double, applique=False)
             revoque = await stack.client.request(
-                "DELETE", "/api/pairing/peers", json={"base_url": parametrage.origin}
+                "DELETE", "/api/pairing/peers", params={"base_url": parametrage.origin}
             )
             assert revoque.status_code == 200, revoque.text
 
@@ -323,9 +361,12 @@ async def test_un_numero_qui_n_est_pas_une_version_est_refuse_sans_rien_ordonner
 ) -> None:
     """Course normale : la version a pu disparaître entre l'affichage et le clic."""
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
-            environnement, double = await _environnement_apparie(stack, applique=False)
+            environnement = await _environnement_apparie(stack, double, applique=False)
 
             ordonne = await stack.client.put(
                 f"/api/environments/{environnement}/version", json={"number": 99}
@@ -346,9 +387,12 @@ async def test_changer_le_workspace_libere_la_version_ordonnee(
     a retiré la version.
     """
     with depot_jetable(tmp_path, VERSIONS) as depot:
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, depot.url)
-            environnement, _ = await _environnement_apparie(stack, applique=False)
+            environnement = await _environnement_apparie(stack, double, applique=False)
             await stack.client.put(f"/api/environments/{environnement}/version", json={"number": 2})
 
             retire = await _place(stack, environnement, None)
@@ -372,9 +416,12 @@ async def test_un_depot_injoignable_est_refuse_en_nommant_ce_que_git_a_dit(
         # Le même hôte, un dépôt qui n'y existe pas : l'adresse passe la validation, et
         # c'est git qui refuse — exactement le cas qu'on veut voir traverser.
         absent = f"http://{depot.host}/proprio/inexistant.git"
-        async with open_stack(blank_db, tmp_path, git_test_hosts=(depot.host,)) as stack:
+        double = _contrepartie()
+        async with open_stack(
+            blank_db, tmp_path, git_test_hosts=(depot.host,), peer_app=double.app()
+        ) as stack:
             await _parametrage(stack, absent)
-            environnement, _ = await _environnement_apparie(stack, applique=False)
+            environnement = await _environnement_apparie(stack, double, applique=False)
 
             lues = await stack.client.get(f"/api/environments/{environnement}/versions")
 
