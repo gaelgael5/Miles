@@ -489,7 +489,8 @@
         "version_concurrente": "Une autre version a été enregistrée au même moment : rien n'a été figé. Réessayez.",
         "deja_a_cette_version": "La branche de travail a déjà ce contenu.",
         "publication_requise": "Des modifications ne sont pas encore publiées : publiez-les, puis enregistrez la version.",
-        "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier."
+        "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier.",
+        "parametrage_invalide": "Le paramétrage ne passe pas les règles : corrigez-les avant d'enregistrer une version."
       },
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     }

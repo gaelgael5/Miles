@@ -124,12 +124,29 @@ async def list_versions(
         return _refusal(exc)
 
 
+class ReportOut(BaseModel):
+    """Les manquements d'un fichier, de la même forme que dans le refus d'enregistrement.
+
+    La MÊME forme, et c'est voulu : l'écran les rend avec le même composant, qu'ils
+    arrivent à l'ouverture ou dans le refus d'un clic. Deux formes auraient donné deux
+    rendus, et l'un des deux aurait fini par dire les choses moins bien que l'autre.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    path: str
+    problems: list[dict[str, str | None]]
+
+
 class FreezableOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     ok: bool
-    # Ce qui empêche, repris tel quel des refus de l'enregistrement : « publication_requise »
-    # ou « rien_a_figer ». None quand rien n'empêche.
+    # Ce qui empêche, repris tel quel des refus de l'enregistrement : « publication_requise »,
+    # « rien_a_figer » ou « parametrage_invalide ». None quand rien n'empêche.
     reason: str | None
+    # Ce que la validation du paramétrage a trouvé, DÈS L'OUVERTURE de l'écran (Gael,
+    # 01/11/2026). Rendus même quand la raison est autre : celui qui doit d'abord publier
+    # a le droit de savoir que le figement échouera ensuite.
+    reports: list[ReportOut]
 
 
 @router.get("/freezable", response_model=FreezableOut)
@@ -138,16 +155,27 @@ async def freezable(
 ) -> object:
     """Peut-on enregistrer une version ici, et sinon qu'est-ce qui l'empêche ?
 
-    L'écran s'en sert pour griser le bouton AVANT le clic. Déclaré avant la route
-    « /{number} » : sans cela, « freezable » serait lu comme un numéro de version.
+    L'écran s'en sert pour griser le bouton AVANT le clic, et depuis le 01/11/2026 pour
+    AFFICHER ce qui ne passe pas les règles sans qu'on ait eu à essayer — « il faudrait
+    que le message d'erreur arrive avant que j'aie envie de commiter » (Gael).
+
+    Déclaré avant la route « /{number} » : sans cela, « freezable » serait lu comme un
+    numéro de version.
     """
     try:
-        reason = await service.resolve_freezable(
+        bloque = await service.resolve_freezable(
             request_author(request), workspace_id, branch=branch
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    return FreezableOut(ok=reason is None, reason=reason)
+    return FreezableOut(
+        ok=bloque.reason is None,
+        reason=bloque.reason,
+        reports=[
+            ReportOut(path=r.path, problems=[_problem(p) for p in r.problems])
+            for r in bloque.reports
+        ],
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=VersionOut)

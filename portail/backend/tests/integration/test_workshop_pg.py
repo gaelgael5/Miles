@@ -77,9 +77,9 @@ async def test_the_screen_can_ask_whether_anything_is_left_to_freeze(forge: Forg
     await _save(forge, "Initiale")
     after = await forge.client.get(f"{VERSIONS}/freezable", timeout=120)
 
-    assert before.json() == {"ok": True, "reason": None}
+    assert before.json() == {"ok": True, "reason": None, "reports": []}
     # La même raison que le refus de l'enregistrement, calculée par le même code.
-    assert after.json() == {"ok": False, "reason": "rien_a_figer"}
+    assert after.json() == {"ok": False, "reason": "rien_a_figer", "reports": []}
 
 
 async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
@@ -95,8 +95,17 @@ async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
     )
     assert written.status_code == 201, written.text
 
+    # DEMANDÉ AVANT D'ESSAYER (Gael, 01/11/2026 : « il faudrait que le message d'erreur
+    # arrive avant que j'aie envie de commiter »). L'écran pose cette question en
+    # s'ouvrant, et reçoit le même détail que le refus ci-dessous.
+    avant = await forge.client.get(f"{VERSIONS}/freezable", timeout=120)
     refused = await _save(forge, "Ne doit pas passer")
 
+    assert avant.json()["ok"] is False
+    assert avant.json()["reason"] == "parametrage_invalide"
+    # Le MÊME contenu que le refus : deux formes auraient donné deux rendus, et l'un des
+    # deux aurait fini par dire les choses moins bien que l'autre.
+    assert avant.json()["reports"] == refused.json()["detail"]["reports"]
     assert refused.status_code == 422
     assert refused.json()["detail"] == {
         "code": "parametrage_invalide",

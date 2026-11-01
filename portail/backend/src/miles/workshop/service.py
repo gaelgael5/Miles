@@ -39,6 +39,21 @@ class VersionNotFoundError(Exception):
 
 
 @dataclass(frozen=True)
+class FreezeBlock:
+    """Ce qui empêche d'enregistrer une version ici, et le DÉTAIL quand c'est le paramétrage.
+
+    Les rapports sont rendus AVEC la raison, et pas à sa place : « publiez d'abord » et
+    « ces trois fichiers ne passent pas les règles » sont deux choses, et celui qui
+    publiera veut savoir tout de suite que le figement échouera ensuite. C'est la demande
+    de Gael du 01/11/2026 — « il faudrait que le message d'erreur arrive avant que j'aie
+    envie de commiter ».
+    """
+
+    reason: str | None
+    reports: tuple[FileReport, ...] = ()
+
+
+@dataclass(frozen=True)
 class WorkshopService:
     """Enregistrement explicite d'une version sur la branche de travail (story 94b06105).
 
@@ -62,24 +77,37 @@ class WorkshopService:
 
     async def resolve_freezable(
         self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
-    ) -> str | None:
-        """Ce qui empêche d'enregistrer une version, ou None si rien n'empêche.
+    ) -> FreezeBlock:
+        """Ce qui empêche d'enregistrer une version, et pourquoi, SANS avoir à l'essayer.
 
         Demandé par Gael le 25/10/2026 : l'écran grisait le bouton sur les seuls droits,
-        et laissait cliquer ce que le serveur allait refuser. Les deux raisons de refus
-        sont celles de `resolve_save`, lues ici par le MÊME code — une règle recopiée
-        dans l'écran dériverait de celle qui refuse vraiment.
+        et laissait cliquer ce que le serveur allait refuser. Les raisons de refus sont
+        celles de `resolve_save`, lues ici par le MÊME code — une règle recopiée dans
+        l'écran dériverait de celle qui refuse vraiment.
+
+        **Le paramétrage est VALIDÉ ici depuis le 01/11/2026** (Gael : « il faudrait que
+        le message d'erreur arrive avant que j'aie envie de commiter »). Jusque-là, la
+        validation n'avait lieu qu'à l'enregistrement : on apprenait qu'un fichier ne
+        passait pas les règles après avoir voulu figer, parfois après avoir publié pour
+        rien. Elle lit la copie DÉJÀ sur disque — le coût cher, le `checkout`, est payé
+        de toute façon par cette route.
+
+        L'ordre des raisons est celui de `resolve_save`, et c'est volontaire : la raison
+        rendue est celle que l'enregistrement opposerait VRAIMENT. Les rapports, eux,
+        partent dans tous les cas — celui qui doit d'abord publier a le droit de savoir
+        que le figement échouera ensuite.
         """
         async with self.branches.checkout(
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
+            reports = tuple(await validate_branch(copy))
             if isinstance(copy, HeldCopy) and await copy.unpublished():
-                return "publication_requise"
+                return FreezeBlock("publication_requise", reports)
             mine, _ = await self._branch_versions(workspace_id, copy)
             last = mine[0] if mine else None
             if last is not None and await same_tree(copy, last.commit):
-                return "rien_a_figer"
-        return None
+                return FreezeBlock("rien_a_figer", reports)
+        return FreezeBlock("parametrage_invalide" if reports else None, reports)
 
     async def resolve_save(
         self, author: EventAuthor, workspace_id: str, label: str, *, branch: str | None = None

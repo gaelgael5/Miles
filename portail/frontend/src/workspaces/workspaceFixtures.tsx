@@ -100,7 +100,7 @@ export const BRANCH_SCREEN: Routes = {
   "GET /api/workspaces/retrait/versions": { status: 200, body: [] },
   "GET /api/workspaces/retrait/versions/freezable": {
     status: 200,
-    body: { ok: true, reason: null },
+    body: { ok: true, reason: null, reports: [] },
   },
 };
 

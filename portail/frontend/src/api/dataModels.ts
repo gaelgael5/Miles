@@ -165,11 +165,28 @@ export function useVersions(target: WorkTarget) {
   });
 }
 
+/** Les manquements d'un fichier ; `path` vide : l'arborescence elle-même. */
+export interface FileReport {
+  path: string;
+  problems: ModelProblem[];
+}
+
 /** Ce qui empêche d'enregistrer une version ici, ou rien. */
 export interface Freezable {
   ok: boolean;
-  /** « publication_requise » ou « rien_a_figer » ; null quand rien n'empêche. */
+  /**
+   * « publication_requise », « rien_a_figer » ou « parametrage_invalide » ; null quand
+   * rien n'empêche. C'est la raison que l'enregistrement opposerait VRAIMENT, calculée
+   * par le même code que lui.
+   */
   reason: string | null;
+  /**
+   * Ce que la validation du paramétrage a trouvé, DÈS L'OUVERTURE de l'écran (Gael,
+   * 01/11/2026 : « il faudrait que le message d'erreur arrive avant que j'aie envie de
+   * commiter »). Rendus même quand la raison est autre : celui qui doit d'abord publier
+   * a le droit de savoir que le figement échouera ensuite.
+   */
+  reports: FileReport[];
 }
 
 /**

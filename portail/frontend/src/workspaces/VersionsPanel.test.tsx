@@ -9,7 +9,7 @@ const VERSIONS = "/api/workspaces/retrait/versions";
 const PUBLISH = "POST /api/workspaces/retrait/branches/edition/hold/publish";
 const MODELS = "GET /api/workspaces/retrait/data-models?branch=edition";
 const FREEZABLE = {
-  [`GET ${VERSIONS}/freezable?branch=edition`]: { status: 200, body: { ok: true, reason: null } },
+  [`GET ${VERSIONS}/freezable?branch=edition`]: { status: 200, body: { ok: true, reason: null, reports: [] } },
 };
 const BRANCHES = {
   "GET /api/workspaces/retrait/branches": {
@@ -202,7 +202,11 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
     expect(within(panel).queryByText(/dataModels\.problems/)).not.toBeInTheDocument();
   });
 
-  function panelWith(freezable: { ok: boolean; reason: string | null }) {
+  function panelWith(freezable: {
+    ok: boolean;
+    reason: string | null;
+    reports?: { path: string; problems: { path: string; code: string; detail?: string }[] }[];
+  }) {
     mockApi({
       ...BRANCH_SCREEN,
       ...HELD,
@@ -210,10 +214,51 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
       ...BRANCHES,
       [MODELS]: { status: 200, body: [] },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
-      [`GET ${VERSIONS}/freezable?branch=edition`]: { status: 200, body: freezable },
+      [`GET ${VERSIONS}/freezable?branch=edition`]: {
+        status: 200,
+        body: { reports: [], ...freezable },
+      },
     });
     return openWorkshop();
   }
+
+  it("shows what fails the rules on arrival, without anyone clicking", async () => {
+    // « il faudrait que le message d'erreur arrive avant que j'aie envie de commiter »
+    // (Gael, 01/11/2026). Jusque-là on ne l'apprenait qu'après avoir demandé à figer.
+    const panel = await panelWith({
+      ok: false,
+      reason: "parametrage_invalide",
+      reports: [
+        {
+          path: "storages/accounts.yaml",
+          problems: [
+            { path: "index[0].colonnes[0]", code: "propriete_inconnue", detail: "$.site" },
+          ],
+        },
+      ],
+    });
+
+    expect(await within(panel).findByText("storages/accounts.yaml")).toBeInTheDocument();
+    expect(
+      within(panel).getByText(/property “\$\.site” does not exist in this storage/),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText("Save a version")).toBeDisabled();
+    // Rien n'a été envoyé : l'écran n'a pas eu à ESSAYER pour savoir.
+    expect(within(panel).queryByRole("form")).not.toBeInTheDocument();
+  });
+
+  it("shows them even when something else blocks first, so publishing is not wasted", async () => {
+    // « publiez d'abord » et « ces fichiers ne passent pas » sont deux choses : celui qui
+    // publie a le droit de savoir que le figement échouera ensuite.
+    const panel = await panelWith({
+      ok: false,
+      reason: "publication_requise",
+      reports: [{ path: "", problems: [{ path: "comptes/x.yaml", code: "emplacement_inattendu" }] }],
+    });
+
+    expect(await within(panel).findByText(/not published yet/)).toBeInTheDocument();
+    expect(within(panel).getByText(/unexpected location/)).toBeInTheDocument();
+  });
 
   it("greys the button out while changes are not published, and says so", async () => {
     const panel = await panelWith({ ok: false, reason: "publication_requise" });
@@ -233,7 +278,7 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
       // La seconde lecture est celle d'après la publication : plus rien n'empêche.
       [`GET ${VERSIONS}/freezable?branch=edition`]: [
         { status: 200, body: { ok: false, reason: "publication_requise" } },
-        { status: 200, body: { ok: true, reason: null } },
+        { status: 200, body: { ok: true, reason: null, reports: [] } },
       ],
       [PUBLISH]: { status: 200, body: { published: 2 } },
     });

@@ -489,7 +489,8 @@
         "version_concurrente": "Another version was saved at the same time: nothing was frozen. Try again.",
         "deja_a_cette_version": "The work branch already has this content.",
         "publication_requise": "Some changes are not published yet: publish them, then save the version.",
-        "prise_de_main_requise": "Take over this branch in “All workspaces” to change it."
+        "prise_de_main_requise": "Take over this branch in “All workspaces” to change it.",
+        "parametrage_invalide": "The configuration does not pass the rules: fix them before saving a version."
       },
       "unexpected": "The operation failed. See the back-office logs."
     }

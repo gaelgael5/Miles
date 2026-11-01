@@ -253,8 +253,11 @@ async def test_a_version_needs_everything_published_first(forge: Forge) -> None:
     saved = await forge.client.post(f"{WS}/versions", json={"label": "Publiée"}, timeout=120)
 
     assert (early.status_code, early.json()["detail"]) == (409, "publication_requise")
-    assert blocked.json() == {"ok": False, "reason": "publication_requise"}
-    assert freed.json() == {"ok": True, "reason": None}
+    # `reports` vide ici : le paramétrage passe les règles, c'est la publication qui
+    # manque. Les deux sont rendus ENSEMBLE depuis le 01/11/2026, et comparer le corps
+    # entier est ce qui fait remarquer un champ ajouté.
+    assert blocked.json() == {"ok": False, "reason": "publication_requise", "reports": []}
+    assert freed.json() == {"ok": True, "reason": None, "reports": []}
     assert saved.status_code == 201, saved.text
     assert saved.json()["commit"] == await _remote_head(forge)
 

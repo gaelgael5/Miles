@@ -5,9 +5,10 @@ import { ApiError, ConfirmDialog } from "@miles/socle-web";
 import { usePublishHold } from "../api/holds";
 import type { WorkTarget } from "../api/workTarget";
 import { HoldRefusal } from "./HoldRefusal";
+import { ProblemReports } from "./ProblemReports";
 
 import {
-  type ModelProblem,
+  type FileReport,
   type SavedVersion,
   useFreezable,
   useRestoreVersion,
@@ -19,7 +20,7 @@ type Detail = {
   code?: string;
   field?: string;
   reason?: string;
-  reports?: { path: string; problems: ModelProblem[] }[];
+  reports?: FileReport[];
 };
 
 function VersionRefusal({ error }: { error: unknown }) {
@@ -41,30 +42,7 @@ function VersionRefusal({ error }: { error: unknown }) {
   return (
     <div className="alert" role="alert">
       <p>{message}</p>
-      {detail?.reports?.map((report) => (
-        <div key={report.path}>
-          <p className="mono">{report.path || t("versions.tree")}</p>
-          <ul>
-            {report.problems.map((p) => (
-              <li key={`${p.path}-${p.code}`}>
-                {p.path && <span className="mono">{p.path} — </span>}
-                {t(`dataModels.problems.${p.code}`, {
-                  detail: p.detail ?? "",
-                  // Un code sans libellé affichait sa CLEF BRUTE — relevé par Gael sur
-                  // une copie d'écran le 01/11/2026. Le repli dit le code et son détail,
-                  // ce qui reste diagnosticable ; la clef, non. La garde du backend
-                  // (`test_problem_labels.py`) empêche d'en arriver là, et ce repli est
-                  // ce qui se passe si elle est un jour contournée.
-                  defaultValue: t("dataModels.problems._sans_message", {
-                    code: p.code,
-                    detail: p.detail ? ` (${p.detail})` : "",
-                  }),
-                })}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      {detail?.reports !== undefined && <ProblemReports reports={detail.reports} />}
     </div>
   );
 }
@@ -188,6 +166,20 @@ export function VersionsPanel({ target }: { target: WorkTarget }) {
           ne justifie (Gael, 01/11/2026). */}
       {!saving && target.canFreeze && freezable.data?.reason != null && (
         <p className="muted">{t(`versions.errors.conflict.${freezable.data.reason}`)}</p>
+      )}
+      {/* **Ce qui ne passe pas les règles, DÈS L'OUVERTURE** (Gael, 01/11/2026 : « il
+          faudrait que le message d'erreur arrive avant que j'aie envie de commiter »).
+          Jusque-là on ne l'apprenait qu'après avoir cliqué — parfois après avoir publié
+          pour rien.
+
+          Affiché même quand la raison est autre : « publiez d'abord » et « ces fichiers
+          ne passent pas » sont deux choses, et celui qui publie a le droit de savoir que
+          le figement échouera ensuite. */}
+      {target.canFreeze && (freezable.data?.reports ?? []).length > 0 && (
+        <div className="alert" role="status">
+          <p>{t("versions.errors.invalid")}</p>
+          <ProblemReports reports={freezable.data?.reports ?? []} />
+        </div>
       )}
       {/* **Offert sur la SEULE raison « publication_requise », et c'est ce qui garantit
           que le geste est permis** : le serveur ne rend cette raison que pour une copie
