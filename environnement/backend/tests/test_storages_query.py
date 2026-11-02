@@ -86,13 +86,44 @@ class TestLaRequete:
         )
 
         assert '"contact_phone" like $1 AND "postes" >= $2' in requete.sql
-        assert requete.values == ("01%", "3")
+        # L'entier part en int, pas en « 3 » : asyncpg déduit le type du paramètre de la
+        # colonne et refuse une chaîne. Mesuré en campagne le 02/11/2026.
+        assert requete.values == ("01%", 3)
 
     def test_un_prefixe_neutralise_les_jokers_de_la_valeur(self) -> None:
         """Sans quoi « 100% » chercherait « 100 suivi de n'importe quoi »."""
         requete = build(TABLE, [Criterion("contact_phone", "prefixe", "10%_a\\b")])
 
         assert requete.values == ("10\\%\\_a\\\\b%",)
+
+    def test_la_valeur_part_dans_le_type_de_la_colonne(self) -> None:
+        """Ce que le pilote exige, et ce qu'aucune doublure n'aurait dit."""
+        from decimal import Decimal
+
+        montants = StorageTable(
+            **{
+                **TABLE.__dict__,
+                "projections": (
+                    Projection("prix", ("Prix",), "number", "numeric"),
+                    Projection("actif", ("Actif",), "boolean", "boolean"),
+                ),
+            }
+        )
+
+        assert build(TABLE, [Criterion("postes", "eq", "12")]).values == (12,)
+        assert build(montants, [Criterion("prix", "le", "9.90")]).values == (Decimal("9.90"),)
+        assert build(montants, [Criterion("actif", "eq", "true")]).values == (True,)
+        assert build(montants, [Criterion("actif", "eq", "0")]).values == (False,)
+        # Et rien d'autre : un booléen qu'on ne reconnaît pas est refusé, pas interprété.
+        # Le rabattre sur « faux » rendrait les objets inverses de ce qu'on a demandé.
+        with pytest.raises(FilterError):
+            build(montants, [Criterion("actif", "eq", "peut-être")])
+
+    def test_une_valeur_qui_n_est_pas_du_type_de_la_colonne_est_refusee_et_nommee(self) -> None:
+        """Plutôt que de laisser le pilote lever un message qui parle de Python."""
+        with pytest.raises(FilterError) as refus:
+            build(TABLE, [Criterion("postes", "gt", "beaucoup")])
+        assert (refus.value.code, refus.value.detail) == ("valeur_hors_type", "postes:beaucoup")
 
     def test_un_prefixe_sur_une_colonne_non_textuelle_est_refuse(self) -> None:
         with pytest.raises(FilterError) as refus:

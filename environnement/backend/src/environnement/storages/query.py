@@ -13,7 +13,9 @@ est une erreur d'appel, pas une requête lente.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 
 from environnement.storages.ddl import quoted
 from environnement.storages.model import StorageTable
@@ -100,7 +102,7 @@ def build(
             # refuserait la requête, et un refus nommé ici dit laquelle des deux
             # choses est fausse — le critère, pas la base.
             raise FilterError("prefixe_sur_valeur_non_textuelle", criterion.column)
-        values.append(_value(criterion))
+        values.append(_value(criterion, types[criterion.column]))
         clauses.append(f"{quoted(criterion.column)} {OPERATORS[criterion.operator]} ${len(values)}")
     if sort is not None and sort not in filtrables:
         raise FilterError("propriete_non_triable", sort)
@@ -129,10 +131,40 @@ def build(
     return Query(sql=sql, count_sql=compte, values=tuple(values))
 
 
-def _value(criterion: Criterion) -> object:
-    if criterion.operator != "prefixe":
-        return criterion.value
-    # Les jokers de `like` sont neutralisés : on cherche le préfixe demandé, pas le motif
-    # que la valeur dessine.
-    echappe = criterion.value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"{echappe}%"
+# Comment une valeur venue de l'URL devient le paramètre que la colonne attend.
+#
+# **Nécessaire, et mesuré** : la campagne du 02/11/2026 a rendu « 'str' object cannot be
+# interpreted as an integer ». asyncpg déduit le type du paramètre de la requête préparée
+# — `bigint` pour une colonne entière — et refuse alors une chaîne. PostgreSQL aurait
+# accepté un littéral non typé ; le pilote, non. C'est le genre de chose qu'aucune
+# doublure ne dit.
+_CASTS: dict[str, Callable[[str], object]] = {
+    "text": str,
+    "bigint": int,
+    "numeric": Decimal,
+    "boolean": lambda raw: _boolean(raw),
+}
+
+
+def _value(criterion: Criterion, sql_type: str) -> object:
+    if criterion.operator == "prefixe":
+        # Les jokers de `like` sont neutralisés : on cherche le préfixe demandé, pas le
+        # motif que la valeur dessine. Réservé aux colonnes de texte, vérifié plus haut.
+        echappe = criterion.value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return f"{echappe}%"
+    cast = _CASTS.get(sql_type, str)
+    try:
+        return cast(criterion.value)
+    except (ValueError, InvalidOperation):
+        # Refusé et NOMMÉ, plutôt que de laisser le pilote lever : « 'str' object cannot
+        # be interpreted as an integer » ne dit pas à l'appelant que c'est SA valeur qui
+        # ne va pas, ni laquelle.
+        raise FilterError("valeur_hors_type", f"{criterion.column}:{criterion.value}") from None
+
+
+def _boolean(raw: str) -> bool:
+    if raw.lower() in ("true", "vrai", "1"):
+        return True
+    if raw.lower() in ("false", "faux", "0"):
+        return False
+    raise ValueError(raw)

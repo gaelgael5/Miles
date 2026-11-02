@@ -95,6 +95,7 @@
       "propriete_non_triable": "“{{property}}” is not a property to sort on.",
       "critere_malforme": "A filter is incomplete.",
       "operateur_inconnu": "This comparison is not offered.",
+      "valeur_hors_type": "The given value is not of this property's type.",
       "prefixe_sur_valeur_non_textuelle": "“{{property}}” is not text: “starts with” does not apply to it.",
       "nom_invalide": "A property name is invalid.",
       "unexpected": "The search failed. See the service logs."

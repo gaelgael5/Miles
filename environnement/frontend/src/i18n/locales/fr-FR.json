@@ -95,6 +95,7 @@
       "propriete_non_triable": "« {{property}} » n'est pas une propriété sur laquelle trier.",
       "critere_malforme": "Un filtre est incomplet.",
       "operateur_inconnu": "Cette comparaison n'est pas offerte.",
+      "valeur_hors_type": "La valeur donnée n'est pas du type de cette propriété.",
       "prefixe_sur_valeur_non_textuelle": "« {{property}} » n'est pas du texte : « commence par » ne s'y applique pas.",
       "nom_invalide": "Un nom de propriété est invalide.",
       "unexpected": "La recherche a échoué. Voyez les journaux du service."
