@@ -18,6 +18,7 @@ from environnement.event_types import code_event_types
 from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
 from environnement.identity.service import IdentityService
+from environnement.ingestion.service import IngestionService
 from environnement.storages.service import StoragesService
 
 # Réexportés : les tests d'intégration du produit s'en servent, et ils viennent du socle
@@ -51,6 +52,7 @@ class EnvironnementStack:
     hosting: HostingService
     storages: StoragesService
     api_keys: ApiKeysService
+    ingestion: IngestionService
     tree: HostedTree
 
     def anonymous(self) -> httpx.AsyncClient:
@@ -117,6 +119,10 @@ async def open_stack(
             # servie déclare, et cette liste ne doit pas venir d'ailleurs.
             api_keys = ApiKeysService(socle.pool, tree, socle.catalog, utc_now)
             socle.app.state.api_keys = api_keys
+            # Le point d'entrée TIENT le vérificateur de clés, comme dans `app.py` :
+            # refaire sa vérification ferait diverger le contrôle de la version servie.
+            ingestion = IngestionService(socle.pool, tree, api_keys, socle.catalog, utc_now)
+            socle.app.state.ingestion = ingestion
             # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît
             # au premier USAGE. Un montage qui la créerait d'avance cacherait justement le
             # cas que la machine de test a révélé.
@@ -130,5 +136,6 @@ async def open_stack(
                 hosting,
                 storages,
                 api_keys,
+                ingestion,
                 tree,
             )

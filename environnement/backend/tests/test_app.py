@@ -24,6 +24,7 @@ from environnement.app import build_app
 from environnement.event_types import code_event_types
 from environnement.hosting.api_peer_hosting import router as peer_hosting_router
 from environnement.identity.service import PEER_PING_PATH, IdentityService
+from environnement.ingestion.api_ingest import INGEST_PATH
 
 
 def _chemins() -> set[str]:
@@ -187,6 +188,26 @@ def test_les_routes_du_socle_sont_toutes_montees() -> None:
         "/api/secret-types",
         "/api/oidc/connectors",
     } <= chemins
+
+
+def test_la_SEULE_route_hors_du_portillon_est_le_point_d_entree_d_ingestion() -> None:
+    """La garde d'une famille neuve : une route hors de `/api` n'est gardée par PERSONNE.
+
+    La passerelle d'authentification ne regarde que `/api` — c'est écrit dans sa première
+    ligne. Toute route posée ailleurs est donc ouverte au réseau, et ne tient que par ce
+    qu'elle vérifie elle-même. Le point d'entrée d'ingestion est dans ce cas, et c'est
+    une décision : il est appelé de machine à machine, s'authentifie par clé d'API, et
+    porte des paramètres de chemin que la liste blanche — qui compare des chemins exacts
+    — ne saurait pas décrire.
+
+    Cette égalité est écrite en dur exprès. Poser une seconde route hors de `/api` doit
+    obliger quelqu'un à venir le dire ici, en écrivant par quoi elle est protégée. Sans
+    cette garde, une route d'administration posée hors de `/api` par distraction serait
+    ouverte à tous, et verte partout.
+    """
+    hors_portillon = {chemin for chemin in _chemins() if not chemin.startswith("/api/")}
+
+    assert hors_portillon == {INGEST_PATH}
 
 
 def test_la_documentation_interactive_n_est_pas_servie() -> None:

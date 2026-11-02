@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
+miles-env-contracts = "environnement.published_contracts:main"
 environnement-migrate = "environnement.cli:main"
 # Entièrement générique : le point d'entrée est celui du socle, sans glu côté produit.
 environnement-admin = "miles_socle.auth.cli_admin:main"

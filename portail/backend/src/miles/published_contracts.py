@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from pathlib import Path
 from typing import Any
+
+from miles_socle.contracts import dump, file_write_contracts, published_spec
 
 from miles.app import build_app
 from miles.mcp_api.server import MCP_PATH, build_server
@@ -30,20 +31,22 @@ PUBLISHED_PREFIXES = (
 
 
 def openapi_contract() -> dict[str, Any]:
-    spec = build_app().openapi()
-    spec["info"] = {
-        "title": "Miles — clés d'API, OAuth et identité d'acteur",
-        "version": "1",
-        "description": (
-            "Routes publiées pour connecter un agent à la surface MCP de Miles"
-            f" ({MCP_PATH}). Générées depuis le code ; l'article docflow terminal-pr"
-            " « Contrats d'interface » dit ce qui est garanti."
-        ),
-    }
-    spec["paths"] = {p: v for p, v in spec["paths"].items() if p.startswith(PUBLISHED_PREFIXES)}
-    schemas = spec.get("components", {}).get("schemas", {})
-    spec["components"] = {"schemas": {k: schemas[k] for k in sorted(_referenced(spec, schemas))}}
-    return spec
+    # L'élagage et la sérialisation sont au socle depuis le 02/11/2026 (deuxième usage :
+    # le module d'environnement publie son point d'entrée d'ingestion). Ce qui reste ici
+    # est ce que CE produit publie, et ce que son article promet.
+    return published_spec(
+        build_app().openapi(),
+        info={
+            "title": "Miles — clés d'API, OAuth et identité d'acteur",
+            "version": "1",
+            "description": (
+                "Routes publiées pour connecter un agent à la surface MCP de Miles"
+                f" ({MCP_PATH}). Générées depuis le code ; l'article docflow terminal-pr"
+                " « Contrats d'interface » dit ce qui est garanti."
+            ),
+        },
+        prefixes=PUBLISHED_PREFIXES,
+    )
 
 
 def mcp_tools_contract() -> dict[str, Any]:
@@ -62,31 +65,10 @@ def mcp_tools_contract() -> dict[str, Any]:
 def rendered() -> dict[str, str]:
     """Le contenu attendu de chaque fichier publié, à l'octet près."""
     return {
-        OPENAPI_FILE: _dump(openapi_contract()),
-        MCP_TOOLS_FILE: _dump(mcp_tools_contract()),
+        OPENAPI_FILE: dump(openapi_contract()),
+        MCP_TOOLS_FILE: dump(mcp_tools_contract()),
     }
 
 
 def main() -> None:
-    for name, content in rendered().items():
-        (CONTRACTS_DIR / name).write_text(content, encoding="utf-8")
-
-
-def _dump(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, indent=2) + "\n"
-
-
-def _referenced(spec: dict[str, Any], schemas: dict[str, Any]) -> set[str]:
-    found: set[str] = set()
-    pending: list[Any] = [spec["paths"]]
-    while pending:
-        node = pending.pop()
-        if isinstance(node, dict):
-            ref = node.get("$ref")
-            if isinstance(ref, str) and (name := ref.rsplit("/", 1)[1]) not in found:
-                found.add(name)
-                pending.append(schemas.get(name, {}))
-            pending.extend(v for k, v in node.items() if k != "$ref")
-        elif isinstance(node, list):
-            pending.extend(node)
-    return found
+    file_write_contracts(CONTRACTS_DIR, rendered())

@@ -8,6 +8,7 @@ from miles_socle.signing import identity_model as module_identity_events
 from environnement.apikeys import model as api_keys_events
 from environnement.hosting import model as hosting_events
 from environnement.identity import service as identity_events
+from environnement.ingestion import model as ingestion_events
 from environnement.storages import model as storages_events
 
 
@@ -29,4 +30,5 @@ def code_event_types() -> frozenset[str]:
         | hosting_events.EVENT_TYPES
         | storages_events.EVENT_TYPES
         | api_keys_events.EVENT_TYPES
+        | ingestion_events.EVENT_TYPES
     )

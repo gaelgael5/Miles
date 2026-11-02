@@ -5,6 +5,7 @@ from collections.abc import Callable
 from datetime import datetime
 
 import structlog
+from miles_socle.apikeys.presentation import key_from_headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from miles.apikeys.model import KeyPrincipal
@@ -26,20 +27,15 @@ ACTOR_STATE = "miles_actor"
 def presented_key(headers: dict[bytes, bytes]) -> str | None:
     """La clé présentée : `Authorization: Bearer` ou `X-API-Key`, jamais l'URL (critère 6).
 
-    Les deux en-têtes portant deux valeurs différentes : aucune n'est retenue. Choisir
-    l'une reviendrait à laisser l'appelant décider laquelle on vérifie.
+    La RÈGLE est au socle depuis le 02/11/2026 (deuxième usage : le point d'entrée
+    d'ingestion d'un environnement présente sa clé de la même façon). Ce qui reste ici est
+    la lecture des en-têtes ASGI, qui est propre à cette garde — elle est un middleware et
+    voit des octets, là où une route FastAPI voit un dictionnaire de chaînes.
     """
-    found: set[str] = set()
-    authorization = headers.get(b"authorization", b"").decode("latin-1").strip()
-    if authorization:
-        scheme, _, value = authorization.partition(" ")
-        if scheme.lower() != "bearer" or not value.strip():
-            return None
-        found.add(value.strip())
-    api_key = headers.get(b"x-api-key", b"").decode("latin-1").strip()
-    if api_key:
-        found.add(api_key)
-    return found.pop() if len(found) == 1 else None
+    return key_from_headers(
+        headers.get(b"authorization", b"").decode("latin-1"),
+        headers.get(b"x-api-key", b"").decode("latin-1"),
+    )
 
 
 class ApiKeyAuth:

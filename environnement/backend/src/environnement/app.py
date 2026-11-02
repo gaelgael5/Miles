@@ -38,6 +38,8 @@ from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
 from environnement.identity.api_identity import router as environment_router
 from environnement.identity.service import IdentityService
+from environnement.ingestion.api_ingest import router as ingest_router
+from environnement.ingestion.service import IngestionService
 from environnement.storages.api_storages import router as storages_router
 from environnement.storages.service import StoragesService
 
@@ -106,6 +108,10 @@ def create_app() -> FastAPI:
         # Les clés d'ingestion lisent le MÊME arbre : ce qu'une clé peut ouvrir est ce
         # que la version servie déclare, et cette liste ne doit pas venir d'ailleurs.
         app.state.api_keys = ApiKeysService(pool, tree, catalog, utc_now)
+        # Le point d'entrée d'ingestion TIENT le vérificateur de clés plutôt que de
+        # refaire son travail : la vérification compare l'octroi ET la version servie,
+        # et la dupliquer ferait diverger le second contrôle.
+        app.state.ingestion = IngestionService(pool, tree, app.state.api_keys, catalog, utc_now)
         # La pose d'une version matérialise les tables de ses storages. Un crochet, et
         # non un appel direct : l'hébergement sait poser un arbre et dire qu'il vient
         # de le poser, il n'a rien à savoir des storages.
@@ -157,6 +163,12 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(hosting_router)
     app.include_router(storages_router)
     app.include_router(api_keys_router)
+    # HORS de `/api`, donc hors du portillon de sessions : la seule surface de ce
+    # module ouverte à un système TIERS, et elle s'authentifie elle-même par clé
+    # d'API avant de lire quoi que ce soit. `test_app.py` garde cette liste : toute
+    # autre route posée hors de `/api` fera rougir, et c'est exactement ce qu'on veut
+    # — une route hors du portillon est une décision, jamais un oubli.
+    app.include_router(ingest_router)
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée :
     # un chemin ouvert à côté de sa vérification serait ouvert à tous, et c'est
