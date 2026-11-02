@@ -115,6 +115,47 @@ class HostedTree:
         # retiré par la nouvelle version resterait servi sans cela.
         await self._git("clean", "-q", "-fdx", "--exclude=.git")
 
+    async def file_paths(self) -> list[str]:
+        """Les chemins versionnés de l'arbre servi, relatifs à sa racine.
+
+        Lus de l'INDEX de git (`ls-files`) et non du disque : ce qui n'est pas dans le
+        commit servi n'est pas du paramétrage — un fichier oublié par un geste précédent
+        ne doit pas devenir une déclaration.
+        """
+        if not (self.root / ".git").is_dir():
+            return []
+        async with self._lock:
+            lu = await self._git("ls-files", "-z")
+        if not lu.ok:
+            return []
+        return [chemin for chemin in lu.stdout.split("\0") if chemin]
+
+    async def file_text(self, path: str) -> str | None:
+        """Le contenu d'un fichier de l'arbre servi, ou None s'il n'y est pas.
+
+        Le chemin vient d'une déclaration, donc du réseau : il est vérifié contre la
+        racine après résolution, et non par inspection de la chaîne. Un « .. » ou un lien
+        symbolique posé par un bundle sortirait d'un contrôle fait sur le texte, jamais
+        d'une comparaison de chemins résolus.
+        """
+        async with self._lock:
+            return await asyncio.to_thread(self._read, path)
+
+    def _read(self, path: str) -> str | None:
+        racine = self.root.resolve()
+        try:
+            cible = (racine / path).resolve()
+        except OSError:
+            return None
+        if not cible.is_relative_to(racine) or not cible.is_file():
+            return None
+        try:
+            return cible.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            # Un binaire ou un fichier illisible n'est pas une déclaration : le dire par
+            # l'absence, que l'appelant traduit en « déclaration illisible ».
+            return None
+
     async def _git(self, *args: str) -> GitResult:
         # Sans `GitAccess`, et c'est la ligne qui matérialise l'interdit : ce module ne
         # détient aucun credential git, et n'en reçoit aucun par aucun chemin.

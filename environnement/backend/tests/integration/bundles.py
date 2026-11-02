@@ -83,3 +83,108 @@ def bundle_substitue(tmp_path: Path, number: int, sur_commit: str) -> bytes:
     paquet = tmp_path / f"substitue-{number}.bundle"
     git("bundle", "create", str(paquet), f"version/{number}", cwd=depot)
     return paquet.read_bytes()
+
+
+# --- Un paramétrage RÉEL, pour éprouver la matérialisation des tables -----------------
+
+ACCOUNTS_MODELE = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/domains/pudo/accounts
+title: Accounts
+type: object
+properties:
+  AccountId: {type: string}
+  Postes: {type: integer}
+  Contact: {$ref: '#/$defs/Contact'}
+$defs:
+  Contact:
+    type: object
+    properties:
+      Phone: {type: string}
+      Email: {type: string}
+"""
+SITE_MODELE = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/domains/pudo/site
+title: Site
+type: object
+properties:
+  Id: {type: string}
+  Zipcode: {type: string}
+"""
+
+
+def _storage(nom: str, modele: str, cle: str, index: list[tuple[str, list[str]]]) -> str:
+    lignes = [
+        f'nom: "{nom}"',
+        f'libelle: "{nom.title()}"',
+        f'modele: "{modele}"',
+        "cle:",
+        f'  - "{cle}"',
+    ]
+    if index:
+        lignes.append("index:")
+        for titre, colonnes in index:
+            lignes.append(f'  - nom: "{titre}"')
+            lignes.append("    colonnes:")
+            lignes += [f'      - "{c}"' for c in colonnes]
+    else:
+        lignes.append("index: []")
+    return "\n".join(lignes) + "\n"
+
+
+def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
+    """Trois versions d'un paramétrage, pour éprouver l'écart entre deux poses.
+
+    1. `accounts` (téléphone indexé) et `sites` sans index ;
+    2. `accounts` gagne un index sur l'e-mail, `sites` en gagne un sur le code postal ;
+    3. `accounts` PERD son index sur le téléphone, et `sites` disparaît de la déclaration.
+
+    Les trois ensemble, et dans cet ordre, parce que c'est l'ENCHAÎNEMENT qui est à
+    éprouver : une pose seule ne dirait rien de ce qu'une version suivante retire.
+    """
+    depot = tmp_path / "param"
+    git("init", "-q", "-b", "main", str(depot))
+    (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
+    (depot / "storages").mkdir()
+    (depot / "domains/pudo/messages/accounts.yaml").write_text(ACCOUNTS_MODELE, encoding="utf-8")
+    (depot / "domains/pudo/messages/site.yaml").write_text(SITE_MODELE, encoding="utf-8")
+
+    etapes = [
+        {
+            "storages/accounts.yaml": _storage(
+                "accounts", "pudo/accounts", "$.AccountId", [("tel", ["$.Contact.Phone"])]
+            ),
+            "storages/sites.yaml": _storage("sites", "pudo/site", "$.Id", []),
+        },
+        {
+            "storages/accounts.yaml": _storage(
+                "accounts",
+                "pudo/accounts",
+                "$.AccountId",
+                [("tel", ["$.Contact.Phone"]), ("mail", ["$.Contact.Email"])],
+            ),
+            "storages/sites.yaml": _storage(
+                "sites", "pudo/site", "$.Id", [("code", ["$.Zipcode"])]
+            ),
+        },
+        {
+            "storages/accounts.yaml": _storage(
+                "accounts", "pudo/accounts", "$.AccountId", [("mail", ["$.Contact.Email"])]
+            ),
+        },
+    ]
+    fabriquees: dict[int, VersionFabriquee] = {}
+    for number, fichiers in enumerate(etapes, start=1):
+        for chemin in ("storages/accounts.yaml", "storages/sites.yaml"):
+            cible = depot / chemin
+            if chemin in fichiers:
+                cible.write_text(fichiers[chemin], encoding="utf-8")
+            elif cible.exists():
+                git("rm", "-q", chemin, cwd=depot)
+        git("add", "-A", cwd=depot)
+        git(*AUTHOR, "commit", "-q", "-m", f"param v{number}", cwd=depot)
+        git(*AUTHOR, "tag", "-a", f"version/{number}", "-m", f"v{number}", cwd=depot)
+        paquet = tmp_path / f"param-v{number}.bundle"
+        git("bundle", "create", str(paquet), f"version/{number}", cwd=depot)
+        commit = git("rev-parse", f"version/{number}^{{commit}}", cwd=depot).strip()
+        fabriquees[number] = VersionFabriquee(number, commit, paquet.read_bytes(), tuple(fichiers))
+    return fabriquees

@@ -29,6 +29,9 @@ FIXED_NAMES = frozenset(name for name, _ in FIXED_COLUMNS)
 STORAGES_MATERIALISED_EVENT = "environment.storages_materialised"
 STORAGE_REFUSED_EVENT = "environment.storage_refused"
 STORAGES_OBJECT_KIND = "storages"
+# Déclarés ici, et le catalogue du produit les y prend : un type écrit par le code et
+# absent du catalogue fait rendre 500 au premier event, et c'est arrivé le 29/10/2026.
+EVENT_TYPES = frozenset({STORAGES_MATERIALISED_EVENT, STORAGE_REFUSED_EVENT})
 
 # Motifs de refus d'un storage. Chacun appelle un geste différent dans le paramétrage,
 # donc chacun a son nom — un refus unique les enverrait tous chercher au même endroit.

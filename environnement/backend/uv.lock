@@ -829,6 +829,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyyaml" },
     { name = "structlog" },
 ]
 
@@ -845,6 +846,7 @@ requires-dist = [
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.9" },
     { name = "pytest", marker = "extra == 'testing'", specifier = ">=8.3" },
     { name = "pytest-asyncio", marker = "extra == 'testing'", specifier = ">=0.24" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "structlog", specifier = ">=24.4" },
 ]
 provides-extras = ["testing"]
@@ -857,6 +859,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "pytest-cov", specifier = ">=6.0" },
     { name = "ruff", specifier = ">=0.8" },
+    { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]

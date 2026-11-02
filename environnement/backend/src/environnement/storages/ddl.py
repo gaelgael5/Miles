@@ -14,15 +14,20 @@ from __future__ import annotations
 
 import re
 
-from environnement.storages.model import FIXED_COLUMNS, FIXED_NAMES, Projection, StorageTable
+from environnement.storages.model import FIXED_COLUMNS, Projection, StorageTable
 
-# 63 octets : la limite de PostgreSQL pour un nom. Au-delà, il TRONQUE en silence — deux
-# noms longs se retrouveraient confondus sans qu'aucune erreur ne le dise.
+# 63 : la limite de PostgreSQL pour un nom. Au-delà, il TRONQUE en silence — deux noms
+# longs se retrouveraient confondus sans qu'aucune erreur ne le dise.
 MAX_IDENTIFIER = 63
 # Ce qu'on accepte comme nom, avant de le citer : le vocabulaire des noms du paramétrage
 # (minuscules, chiffres, tiret, souligné). Volontairement plus strict que ce que
 # PostgreSQL accepte entre guillemets — on n'a aucune raison de poser une table nommée
 # avec un espace ou un point-virgule, et refuser ferme la porte plutôt que de la citer.
+#
+# **Le motif porte AUSSI la limite de longueur** : 1 + 62 = 63 caractères au plus, tous
+# ASCII, donc 63 octets au plus. Une seconde vérification sur la longueur en octets a
+# été écrite ici puis retirée le 02/11/2026 : la campagne d'injection a montré qu'elle
+# ne pouvait jamais tirer, et une garde inerte fait croire que quelque chose la tient.
 IDENTIFIER_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 # Préfixe des index que CE module pose. C'est lui qui autorise à en supprimer : un index
 # sans ce préfixe a été posé par quelqu'un d'autre, et on n'y touche pas.
@@ -59,7 +64,7 @@ class IdentifierError(ValueError):
 
 def quoted(name: str) -> str:
     """Un nom validé puis cité. Lève plutôt que de produire du SQL douteux."""
-    if not IDENTIFIER_RE.match(name) or len(name.encode("utf-8")) > MAX_IDENTIFIER:
+    if not IDENTIFIER_RE.match(name):
         raise IdentifierError(name)
     # Le doublement est sans objet pour ce que le motif accepte, et il est écrit quand
     # même : le jour où le motif s'élargit, la citation reste juste.

@@ -36,6 +36,8 @@ from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
 from environnement.identity.api_identity import router as environment_router
 from environnement.identity.service import IdentityService
+from environnement.storages.api_storages import router as storages_router
+from environnement.storages.service import StoragesService
 
 log = structlog.get_logger(__name__)
 # Un fournisseur lent ne doit pas retenir un utilisateur indéfiniment sur la connexion.
@@ -94,8 +96,16 @@ def create_app() -> FastAPI:
         )
         # Le service d'hébergement TIENT celui d'identité plutôt que de l'étendre : ce
         # qu'il lui emprunte est l'appel signé et le pair apparié, pas son métier.
+        tree = HostedTree(settings.hosting_tree_dir)
+        # Le MÊME arbre pour les deux services, et pas un second ouvert sur le même
+        # chemin : son verrou sérialise les gestes, et deux objets auraient deux verrous
+        # — donc une lecture de déclaration pendant qu'un bundle se pose.
+        app.state.storages = StoragesService(pool, tree, catalog, utc_now)
+        # La pose d'une version matérialise les tables de ses storages. Un crochet, et
+        # non un appel direct : l'hébergement sait poser un arbre et dire qu'il vient
+        # de le poser, il n'a rien à savoir des storages.
         app.state.hosting = HostingService(
-            app.state.identity, HostedTree(settings.hosting_tree_dir)
+            app.state.identity, tree, app.state.storages.resolve_materialise
         )
         log.info(
             "demarrage",
@@ -140,6 +150,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(pairing_router)
     app.include_router(environment_router)
     app.include_router(hosting_router)
+    app.include_router(storages_router)
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée :
     # un chemin ouvert à côté de sa vérification serait ouvert à tous, et c'est

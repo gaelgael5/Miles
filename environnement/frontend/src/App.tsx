@@ -18,6 +18,7 @@ import {
 } from "@miles/socle-web";
 
 import { EnvironnementAssigne } from "./pairing/EnvironnementAssigne";
+import { StoragesScreen } from "./storages/StoragesScreen";
 
 /**
  * L'écran d'appariement du socle, et ce que CE module tient en plus d'un pair.
@@ -37,10 +38,14 @@ function EcranAppariement() {
  * écrans à deux endroits : un écran présent dans l'une et absent de l'autre y donne un
  * écran inatteignable alors que tout paraît vert. Ici la clef et le composant voyagent
  * ensemble — l'oubli n'est plus exprimable. L'écran de collage du code d'appariement
- * (ticket 29d05f91) et les écrans du métier de l'environnement s'ajouteront ici.
+ * (ticket 29d05f91) et les autres écrans du métier de l'environnement s'ajouteront ici.
  */
 const ECRANS = [
   { nom: "pairing", Ecran: EcranAppariement },
+  // Les espaces de stockage que la version servie déclare (Gael, 02/11/2026). Juste
+  // après l'appariement : c'est par lui qu'une version arrive, et sans version il
+  // n'y a aucun espace à montrer.
+  { nom: "storages", Ecran: StoragesScreen },
   { nom: "cultures", Ecran: CulturesScreen },
   { nom: "secrets", Ecran: SecretsScreen },
   { nom: "oidc", Ecran: ConnectorsScreen },

@@ -12,6 +12,7 @@ appel qu'il signe. Il ne parle jamais à la forge, et ne détient aucun credenti
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 import httpx
@@ -61,6 +62,11 @@ class HostingService:
 
     identity: IdentityService
     tree: HostedTree
+    # Ce qu'il y a à faire une fois la version servie : matérialiser les tables de ses
+    # storages. Un CROCHET et non un appel direct, parce que l'hébergement n'a rien à
+    # savoir des storages — il sait poser un arbre, et dire qu'il vient de le poser.
+    # Optionnel : les tests qui n'éprouvent que l'hébergement n'ont pas à le fournir.
+    on_served: Callable[[int], Awaitable[object]] | None = None
 
     async def resolve_order(self, ordre: HostedVersionIn) -> HostedVersionOut:
         """Enregistre l'ordre, amène le contenu si besoin, et rend ce qu'on SERT.
@@ -81,6 +87,11 @@ class HostingService:
         servi = await self.tree.head()
         if servi == ordre.commit:
             await self._marque_servi(ordre.commit, journalise=False)
+            # L'aval est rejoué MÊME quand l'arbre était déjà conforme, et c'est ce qui
+            # fait du renvoi d'ordre un geste de réparation complet : une base recréée
+            # sous un volume intact retrouve ses tables. L'opération est idempotente,
+            # donc la rejouer ne coûte qu'une lecture du catalogue.
+            await self._aval(ordre)
             return await self._vue(ordre)
         refus = await self._amene(ordre)
         if refus is not None:
@@ -95,6 +106,7 @@ class HostingService:
             )
             return await self._vue(ordre)
         await self._marque_servi(ordre.commit, journalise=True, ordre=ordre)
+        await self._aval(ordre)
         log.info(
             "version_servie",
             workspace_id=ordre.workspace_id,
@@ -121,6 +133,18 @@ class HostingService:
             reason=rangee.refusal,
         )
         return vue, await self.tree.head()
+
+    async def _aval(self, ordre: HostedVersionIn) -> None:
+        """Ce qui suit la pose de l'arbre, s'il y a quelque chose à faire.
+
+        Une panne de l'aval ne retire PAS la version servie : l'arbre est posé, le
+        paramétrage est là, et répondre « non servi » pour une table qui n'a pas pu se
+        créer ferait reprendre tout le trajet du contenu au prochain ordre. Le refus
+        du storage, lui, est enregistré par l'aval et se lit sur son écran.
+        """
+        if self.on_served is None:
+            return
+        await self.on_served(ordre.number)
 
     async def _amene(self, ordre: HostedVersionIn) -> str | None:
         """Va chercher le bundle chez l'enrôlement et le pose. Rend le refus, ou nul.

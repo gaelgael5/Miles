@@ -6,7 +6,8 @@
       "secrets": "Secrets",
       "oidc": "Connecteurs OIDC",
       "health": "État du service",
-      "pairing": "Appariement"
+      "pairing": "Appariement",
+      "storages": "Espaces de stockage"
     },
     "sections": {
       "global": "Global"
@@ -31,6 +32,72 @@
     },
     "repair": {
       "body": "L'appariement actuel sera remplacé. Les devices que le module d'enrôlement précédent avait affectés à cet environnement ne le seront plus par lui."
+    }
+  },
+  "storages": {
+    "title": "Espaces de stockage",
+    "loading": "Lecture des espaces de stockage…",
+    "unreadable": "Les espaces de stockage n'ont pas pu être lus. Voyez les journaux du service.",
+    "none": "La version servie ne déclare aucun espace de stockage.",
+    "notApplied": "La table de cet espace n'est pas encore posée : aucun objet ne peut y être cherché.",
+    "key": "Clé fonctionnelle : {{keys}}",
+    "version": "version {{number}}",
+    "noIndex": "Aucun index déclaré : seule la clé fonctionnelle est filtrable.",
+    "search": "Chercher dans « {{label}} »",
+    "searching": "Recherche…",
+    "found": "{{count}} objet trouvé",
+    "found_other": "{{count}} objets trouvés",
+    "empty": "Aucun objet ne correspond.",
+    "seen": "vu le {{date}}",
+    "changed": "modifié le {{date}}",
+    "previous": "Page précédente",
+    "next": "Page suivante",
+    "page": "Page {{page}} sur {{pages}}",
+    "filters": {
+      "title": "Filtres de recherche",
+      "property": "Propriété",
+      "operator": "Comparaison",
+      "value": "Valeur",
+      "choose": "Choisir une propriété",
+      "add": "Ajouter un filtre",
+      "remove": "Retirer le filtre {{rank}}"
+    },
+    "operators": {
+      "eq": "égale",
+      "ne": "différente de",
+      "prefixe": "commence par",
+      "gt": "supérieure à",
+      "ge": "supérieure ou égale à",
+      "lt": "inférieure à",
+      "le": "inférieure ou égale à"
+    },
+    "origins": {
+      "import": "importé",
+      "manuel": "saisi"
+    },
+    "refusals": {
+      "declaration_illisible": "La déclaration de cet espace n'est pas lisible.",
+      "modele_invalide": "Le modèle déclaré n'est pas un « domaine/nom » valide.",
+      "modele_absent": "Le modèle déclaré est absent de la version servie.",
+      "nom_invalide": "Le nom de cet espace ne peut pas nommer une table.",
+      "propriete_inconnue": "Une propriété indexée n'existe pas dans le modèle — corrigez l'index dans le paramétrage.",
+      "propriete_non_scalaire": "Une propriété indexée n'est pas une valeur unique : un conteneur ou un chemin qui traverse un tableau.",
+      "colonne_en_collision": "Deux propriétés indexées donneraient la même colonne.",
+      "trop_de_colonnes": "Un index déclare plus de trois colonnes, ou aucune.",
+      "nom_d_index_invalide": "Le nom d'un index ne peut pas nommer un index en base.",
+      "table_de_forme_inattendue": "Une table de ce nom existe et n'a pas la forme attendue : rien n'a été modifié.",
+      "changement_de_type_requis": "La version servie demande un changement de type sur une colonne existante : il n'a pas été appliqué.",
+      "application_refusee": "PostgreSQL a refusé le SQL de cet espace.",
+      "unknown": "Cet espace a été refusé ({{code}})."
+    },
+    "searchErrors": {
+      "propriete_non_filtrable": "« {{property}} » n'est pas filtrable : seuls la clé fonctionnelle et les index déclarés le sont.",
+      "propriete_non_triable": "« {{property}} » n'est pas une propriété sur laquelle trier.",
+      "critere_malforme": "Un filtre est incomplet.",
+      "operateur_inconnu": "Cette comparaison n'est pas offerte.",
+      "prefixe_sur_valeur_non_textuelle": "« {{property}} » n'est pas du texte : « commence par » ne s'y applique pas.",
+      "nom_invalide": "Un nom de propriété est invalide.",
+      "unexpected": "La recherche a échoué. Voyez les journaux du service."
     }
   }
 }

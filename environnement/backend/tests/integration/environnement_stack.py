@@ -17,6 +17,7 @@ from environnement.event_types import code_event_types
 from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
 from environnement.identity.service import IdentityService
+from environnement.storages.service import StoragesService
 
 # Réexportés : les tests d'intégration du produit s'en servent, et ils viennent du socle
 # parce que la forme du `.env` et le compte d'amorçage sont imposés par lui, pas choisis ici.
@@ -47,6 +48,8 @@ class EnvironnementStack:
     http: httpx.AsyncClient
     identity: IdentityService
     hosting: HostingService
+    storages: StoragesService
+    tree: HostedTree
 
     def anonymous(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url=BASE_URL)
@@ -101,7 +104,12 @@ async def open_stack(
             socle.app.state.identity = identity
             # L'arbre servi sous `tmp_path` : il part avec le test, comme la base jetable.
             # En production c'est un volume, et git fait foi dans les deux cas.
-            hosting = HostingService(identity, HostedTree(tmp_path / "parametrage"))
+            tree = HostedTree(tmp_path / "parametrage")
+            # Le MÊME arbre pour les deux services, comme dans `app.py` : son verrou
+            # sérialise les gestes, et deux objets auraient deux verrous.
+            storages = StoragesService(socle.pool, tree, socle.catalog, utc_now)
+            socle.app.state.storages = storages
+            hosting = HostingService(identity, tree, storages.resolve_materialise)
             socle.app.state.hosting = hosting
             # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît
             # au premier USAGE. Un montage qui la créerait d'avance cacherait justement le
@@ -114,4 +122,6 @@ async def open_stack(
                 socle.http,
                 identity,
                 hosting,
+                storages,
+                tree,
             )

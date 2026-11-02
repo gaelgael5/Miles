@@ -22,6 +22,7 @@ const SANTE = {
 // Les écrans du menu, et la requête qui prouve que chacun s'est réellement ouvert.
 const ECRANS: { nom: string; libelle: string; appel: string }[] = [
   { nom: "pairing", libelle: "Pairing", appel: "GET /api/identity/pairing/state" },
+  { nom: "storages", libelle: "Storage spaces", appel: "GET /api/storages" },
   { nom: "cultures", libelle: "Cultures", appel: "GET /api/cultures" },
   { nom: "secrets", libelle: "Secrets", appel: "GET /api/secrets" },
   { nom: "oidc", libelle: "OIDC connectors", appel: "GET /api/oidc/connectors" },
@@ -51,6 +52,34 @@ const CONNECTE: Routes = {
   "GET /api/secrets": { status: 200, body: [] },
   "GET /api/secret-types": { status: 200, body: { types: ["OIDC_CLIENT_SECRET"] } },
   "GET /api/oidc/connectors": { status: 200, body: [] },
+  // Un storage réel et non une liste vide : un écran qui n'a rien à montrer rend une
+  // explication, pas son titre, et la garde du menu vérifie justement le titre.
+  "GET /api/storages": {
+    status: 200,
+    body: [
+      {
+        name: "accounts",
+        label: "Accounts",
+        model: "pudo/accounts",
+        schema_name: "pudo",
+        table_name: "accounts",
+        keys: ["$.AccountId"],
+        projections: [
+          {
+            column: "contact_phone",
+            path: "$.Contact.Phone",
+            kind: "string",
+            sql_type: "text",
+          },
+        ],
+        indexes: [{ name: "tel", columns: ["contact_phone"] }],
+        applied_at: "2026-11-02T07:08:26Z",
+        version_number: 1,
+        refusal: null,
+        refusal_detail: null,
+      },
+    ],
+  },
   "GET /api/auth/cultures": { status: 200, body: [{ code: "en-US", label_native: "English" }] },
 };
 

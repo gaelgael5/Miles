@@ -6,7 +6,8 @@
       "secrets": "Secrets",
       "oidc": "OIDC connectors",
       "health": "Service status",
-      "pairing": "Pairing"
+      "pairing": "Pairing",
+      "storages": "Storage spaces"
     },
     "sections": {
       "global": "Global"
@@ -31,6 +32,72 @@
     },
     "repair": {
       "body": "The current pairing will be replaced. Devices the previous enrolment module assigned to this environment will no longer be assigned by it."
+    }
+  },
+  "storages": {
+    "title": "Storage spaces",
+    "loading": "Reading the storage spaces…",
+    "unreadable": "The storage spaces could not be read. See the service logs.",
+    "none": "The served version declares no storage space.",
+    "notApplied": "This space's table is not created yet: no object can be searched in it.",
+    "key": "Functional key: {{keys}}",
+    "version": "version {{number}}",
+    "noIndex": "No declared index: only the functional key can be filtered on.",
+    "search": "Search in “{{label}}”",
+    "searching": "Searching…",
+    "found": "{{count}} object found",
+    "found_other": "{{count}} objects found",
+    "empty": "No object matches.",
+    "seen": "seen on {{date}}",
+    "changed": "changed on {{date}}",
+    "previous": "Previous page",
+    "next": "Next page",
+    "page": "Page {{page}} of {{pages}}",
+    "filters": {
+      "title": "Search filters",
+      "property": "Property",
+      "operator": "Comparison",
+      "value": "Value",
+      "choose": "Choose a property",
+      "add": "Add a filter",
+      "remove": "Remove filter {{rank}}"
+    },
+    "operators": {
+      "eq": "equals",
+      "ne": "differs from",
+      "prefixe": "starts with",
+      "gt": "greater than",
+      "ge": "greater than or equal to",
+      "lt": "less than",
+      "le": "less than or equal to"
+    },
+    "origins": {
+      "import": "imported",
+      "manuel": "entered"
+    },
+    "refusals": {
+      "declaration_illisible": "This space's declaration cannot be read.",
+      "modele_invalide": "The declared model is not a valid “domain/name”.",
+      "modele_absent": "The declared model is missing from the served version.",
+      "nom_invalide": "This space's name cannot name a table.",
+      "propriete_inconnue": "An indexed property does not exist in the model — fix the index in the configuration.",
+      "propriete_non_scalaire": "An indexed property is not a single value: a container, or a path crossing an array.",
+      "colonne_en_collision": "Two indexed properties would give the same column.",
+      "trop_de_colonnes": "An index declares more than three columns, or none.",
+      "nom_d_index_invalide": "An index name cannot name an index in the database.",
+      "table_de_forme_inattendue": "A table of this name exists and does not have the expected shape: nothing was changed.",
+      "changement_de_type_requis": "The served version asks for a type change on an existing column: it was not applied.",
+      "application_refusee": "PostgreSQL refused this space's SQL.",
+      "unknown": "This space was refused ({{code}})."
+    },
+    "searchErrors": {
+      "propriete_non_filtrable": "“{{property}}” cannot be filtered on: only the functional key and the declared indexes can.",
+      "propriete_non_triable": "“{{property}}” is not a property to sort on.",
+      "critere_malforme": "A filter is incomplete.",
+      "operateur_inconnu": "This comparison is not offered.",
+      "prefixe_sur_valeur_non_textuelle": "“{{property}}” is not text: “starts with” does not apply to it.",
+      "nom_invalide": "A property name is invalid.",
+      "unexpected": "The search failed. See the service logs."
     }
   }
 }
