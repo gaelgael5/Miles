@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -25,6 +26,10 @@ from environnement.event_types import code_event_types
 from environnement.hosting.api_peer_hosting import router as peer_hosting_router
 from environnement.identity.service import PEER_PING_PATH, IdentityService
 from environnement.ingestion.api_ingest import INGEST_PATH
+
+# Le `nginx.conf` DU PRODUIT : il reste au produit (décision du 28/10/2026), et c'est
+# lui qui décide ce qui atteint le backend.
+NGINX = Path(__file__).resolve().parents[2] / "frontend" / "nginx.conf"
 
 
 def _chemins() -> set[str]:
@@ -208,6 +213,36 @@ def test_la_SEULE_route_hors_du_portillon_est_le_point_d_entree_d_ingestion() ->
     hors_portillon = {chemin for chemin in _chemins() if not chemin.startswith("/api/")}
 
     assert hors_portillon == {INGEST_PATH}
+
+
+def test_toute_route_hors_de_l_API_est_RELAYEE_par_le_proxy() -> None:
+    """La garde du défaut du 02/11/2026, que seule la livraison a révélé.
+
+    Le `nginx.conf` du front est une **seconde déclaration de surface**, indépendante de
+    celle de l'application : il relaie `/api/` au backend et sert tout le reste comme des
+    fichiers statiques. Une route posée hors de `/api` tombe donc dans `location /`, où
+    nginx refuse un POST par un **405 Not Allowed** — et le backend ne voit jamais la
+    requête. Mesuré : le point d'entrée d'ingestion répondait 401 correctement en
+    interne, et 405 sur le port publié.
+
+    Aucun test ne pouvait le voir : tous montent l'application ASGI, aucun ne monte le
+    proxy. Celui-ci lit le fichier de configuration, ce qui est la seule façon de
+    confronter les deux déclarations sans déployer.
+    """
+    conf = NGINX.read_text(encoding="utf-8")
+    blocs = {
+        nom: corps for nom, corps in re.findall(r"location\s+(\S+)\s*\{([^}]*)\}", conf, re.DOTALL)
+    }
+    hors_api = {c for c in _chemins() if not c.startswith("/api/")}
+    assert hors_api, "aucune route hors de /api : cette garde n'éprouverait rien"
+    for chemin in hors_api:
+        prefixe = f"/{chemin.split('/')[1]}/"
+        assert prefixe in blocs, (
+            f"{chemin} n'est relayée par aucun bloc nginx : le port publié rendra 405"
+        )
+        assert "proxy_pass" in blocs[prefixe], (
+            f"le bloc nginx {prefixe} existe mais ne relaie rien au backend"
+        )
 
 
 def test_la_documentation_interactive_n_est_pas_servie() -> None:
