@@ -7,7 +7,8 @@
       "oidc": "OIDC connectors",
       "health": "Service status",
       "pairing": "Pairing",
-      "storages": "Storage spaces"
+      "storages": "Storage spaces",
+      "apikeys": "API keys"
     },
     "sections": {
       "global": "Global"
@@ -99,6 +100,33 @@
       "prefixe_sur_valeur_non_textuelle": "“{{property}}” is not text: “starts with” does not apply to it.",
       "nom_invalide": "A property name is invalid.",
       "unexpected": "The search failed. See the service logs."
+    }
+  },
+  "apiKeys": {
+    "title": "Ingestion API keys",
+    "intro": "A key lets a third-party system push data to the sources granted to it. This environment manages its own: no other module knows them.",
+    "loading": "Reading keys…",
+    "unreadable": "This environment's keys could not be read.",
+    "none": "No key has been issued yet.",
+    "noSource": "The served version declares no source: there is nothing to grant, so no key to issue.",
+    "new": "Issue a key",
+    "label": "Label",
+    "sources": "Sources the key opens",
+    "issue": "Issue",
+    "issued": "Key issued",
+    "onlyOnce": "Copy it now: it is shown once and cannot be read again.",
+    "close": "I have copied the key",
+    "revoke": "Revoke",
+    "revoked": "Revoked on {{when}}",
+    "createdBy": "Issued by {{who}} on {{when}}",
+    "neverUsed": "never used",
+    "lastUsed": "last used on {{when}}",
+    "missingSources": "Granted on a source the served version no longer declares: {{sources}}",
+    "errors": {
+      "vide": "Pick at least one source: a key that opens nothing is useless.",
+      "source_inconnue": "The served version does not declare source “{{source}}”.",
+      "invalide": "This label is not accepted: a single line, 120 characters at most.",
+      "unknown": "The key could not be issued."
     }
   }
 }

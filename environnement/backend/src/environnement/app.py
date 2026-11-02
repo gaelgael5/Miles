@@ -28,6 +28,8 @@ from miles_socle.secrets.api_secrets import router as secrets_router
 from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
 
+from environnement.apikeys.api_apikeys import router as api_keys_router
+from environnement.apikeys.service import ApiKeysService
 from environnement.config import Settings
 from environnement.event_types import code_event_types
 from environnement.hosting.api_hosting import router as hosting_router
@@ -101,6 +103,9 @@ def create_app() -> FastAPI:
         # chemin : son verrou sérialise les gestes, et deux objets auraient deux verrous
         # — donc une lecture de déclaration pendant qu'un bundle se pose.
         app.state.storages = StoragesService(pool, tree, catalog, utc_now)
+        # Les clés d'ingestion lisent le MÊME arbre : ce qu'une clé peut ouvrir est ce
+        # que la version servie déclare, et cette liste ne doit pas venir d'ailleurs.
+        app.state.api_keys = ApiKeysService(pool, tree, catalog, utc_now)
         # La pose d'une version matérialise les tables de ses storages. Un crochet, et
         # non un appel direct : l'hébergement sait poser un arbre et dire qu'il vient
         # de le poser, il n'a rien à savoir des storages.
@@ -151,6 +156,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(environment_router)
     app.include_router(hosting_router)
     app.include_router(storages_router)
+    app.include_router(api_keys_router)
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée :
     # un chemin ouvert à côté de sa vérification serait ouvert à tous, et c'est

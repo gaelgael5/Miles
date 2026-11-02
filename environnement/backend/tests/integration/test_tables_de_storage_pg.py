@@ -16,10 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, sign_call
-from miles_socle.signing.hosting import HOSTED_VERSION_PATH, HostedVersionIn
-from miles_socle.signing.keys import load_private_key
-from miles_socle.testing.enrolment_double import EXPECTED_CODE, PEER_ORIGIN, EnrolmentDouble
+from miles_socle.testing.enrolment_double import EnrolmentDouble
 
 from environnement.storages.model import (
     REFUSAL_APPLY_FAILED,
@@ -27,46 +24,16 @@ from environnement.storages.model import (
     STORAGE_REFUSED_EVENT,
     STORAGES_MATERIALISED_EVENT,
 )
-from tests.integration.bundles import VersionFabriquee, fabrique_parametrage
+from tests.integration.bundles import fabrique_parametrage
 from tests.integration.environnement_stack import EnvironnementStack, open_stack
+
+# Les gestes d'appariement et d'ordre sont au harnais : trois suites en ont besoin.
+from tests.integration.versions import apparie as _apparie
+from tests.integration.versions import ordonne as _ordonne
 
 pytestmark = pytest.mark.integration
 
 WORKSPACE = "reseau-ferroviaire"
-
-
-async def _apparie(stack: EnvironnementStack) -> None:
-    ouverte = await stack.client.post(
-        "/api/identity/pairing", json={"base_url": PEER_ORIGIN, "name": "Recette nord"}
-    )
-    assert ouverte.status_code == 202, ouverte.text
-    conclu = await stack.client.post("/api/identity/pairing/confirm", json={"code": EXPECTED_CODE})
-    assert conclu.status_code == 200, conclu.text
-
-
-async def _ordonne(
-    stack: EnvironnementStack, double: EnrolmentDouble, version: VersionFabriquee
-) -> Any:
-    double.bundles[version.commit] = version.bundle
-    corps = (
-        HostedVersionIn(workspace_id=WORKSPACE, number=version.number, commit=version.commit)
-        .model_dump_json()
-        .encode("utf-8")
-    )
-    entetes = {
-        ORIGIN_HEADER: PEER_ORIGIN,
-        "Content-Type": "application/json",
-        SIGNATURE_HEADER: sign_call(
-            load_private_key(double.keypair.private_pem),
-            origin=PEER_ORIGIN,
-            method="POST",
-            target=HOSTED_VERSION_PATH,
-            body=corps,
-        ),
-    }
-    recu = await stack.anonymous().post(HOSTED_VERSION_PATH, content=corps, headers=entetes)
-    assert recu.status_code == 200, recu.text
-    return recu
 
 
 async def _colonnes(stack: EnvironnementStack, schema: str, table: str) -> dict[str, str]:

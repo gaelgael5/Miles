@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from miles_socle.testing.files import ADMIN_PASSWORD, ADMIN_USERNAME, BASE_ENV, admin_env, write_env
 from miles_socle.testing.stack import open_socle_stack, utc_now
 
+from environnement.apikeys.service import ApiKeysService
 from environnement.app import build_app
 from environnement.config import DEFAULT_MIGRATIONS_DIR
 from environnement.event_types import code_event_types
@@ -49,6 +50,7 @@ class EnvironnementStack:
     identity: IdentityService
     hosting: HostingService
     storages: StoragesService
+    api_keys: ApiKeysService
     tree: HostedTree
 
     def anonymous(self) -> httpx.AsyncClient:
@@ -111,6 +113,10 @@ async def open_stack(
             socle.app.state.storages = storages
             hosting = HostingService(identity, tree, storages.resolve_materialise)
             socle.app.state.hosting = hosting
+            # Le MÊME arbre encore : ce qu'une clé peut ouvrir est ce que la version
+            # servie déclare, et cette liste ne doit pas venir d'ailleurs.
+            api_keys = ApiKeysService(socle.pool, tree, socle.catalog, utc_now)
+            socle.app.state.api_keys = api_keys
             # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît
             # au premier USAGE. Un montage qui la créerait d'avance cacherait justement le
             # cas que la machine de test a révélé.
@@ -123,5 +129,6 @@ async def open_stack(
                 identity,
                 hosting,
                 storages,
+                api_keys,
                 tree,
             )

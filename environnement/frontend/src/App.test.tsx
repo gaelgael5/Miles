@@ -23,6 +23,7 @@ const SANTE = {
 const ECRANS: { nom: string; libelle: string; appel: string }[] = [
   { nom: "pairing", libelle: "Pairing", appel: "GET /api/identity/pairing/state" },
   { nom: "storages", libelle: "Storage spaces", appel: "GET /api/storages" },
+  { nom: "apikeys", libelle: "API keys", appel: "GET /api/api-keys" },
   { nom: "cultures", libelle: "Cultures", appel: "GET /api/cultures" },
   { nom: "secrets", libelle: "Secrets", appel: "GET /api/secrets" },
   { nom: "oidc", libelle: "OIDC connectors", appel: "GET /api/oidc/connectors" },
@@ -80,6 +81,8 @@ const CONNECTE: Routes = {
       },
     ],
   },
+  "GET /api/api-keys": { status: 200, body: [] },
+  "GET /api/api-keys/sources": { status: 200, body: { sources: ["comptes-pudo"] } },
   "GET /api/auth/cultures": { status: 200, body: [{ code: "en-US", label_native: "English" }] },
 };
 

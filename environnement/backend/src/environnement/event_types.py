@@ -5,6 +5,7 @@ from miles_socle.oidc import service as oidc_events
 from miles_socle.secrets import service as secrets_events
 from miles_socle.signing import identity_model as module_identity_events
 
+from environnement.apikeys import model as api_keys_events
 from environnement.hosting import model as hosting_events
 from environnement.identity import service as identity_events
 from environnement.storages import model as storages_events
@@ -27,4 +28,5 @@ def code_event_types() -> frozenset[str]:
         | identity_events.EVENT_TYPES
         | hosting_events.EVENT_TYPES
         | storages_events.EVENT_TYPES
+        | api_keys_events.EVENT_TYPES
     )

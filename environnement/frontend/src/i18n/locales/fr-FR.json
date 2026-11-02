@@ -7,7 +7,8 @@
       "oidc": "Connecteurs OIDC",
       "health": "État du service",
       "pairing": "Appariement",
-      "storages": "Espaces de stockage"
+      "storages": "Espaces de stockage",
+      "apikeys": "Clés d'API"
     },
     "sections": {
       "global": "Global"
@@ -99,6 +100,33 @@
       "prefixe_sur_valeur_non_textuelle": "« {{property}} » n'est pas du texte : « commence par » ne s'y applique pas.",
       "nom_invalide": "Un nom de propriété est invalide.",
       "unexpected": "La recherche a échoué. Voyez les journaux du service."
+    }
+  },
+  "apiKeys": {
+    "title": "Clés d'API d'ingestion",
+    "intro": "Une clé permet à un système tiers de déposer des données sur les sources qu'on lui octroie. Cet environnement les gère seul : aucune n'est connue d'un autre module.",
+    "loading": "Lecture des clés…",
+    "unreadable": "Les clés de cet environnement n'ont pas pu être lues.",
+    "none": "Aucune clé n'a encore été émise.",
+    "noSource": "La version servie ne déclare aucune source : il n'y a rien à octroyer, donc aucune clé à émettre.",
+    "new": "Émettre une clé",
+    "label": "Libellé",
+    "sources": "Sources que la clé ouvre",
+    "issue": "Émettre",
+    "issued": "Clé émise",
+    "onlyOnce": "Recopiez-la maintenant : elle n'est montrée qu'une fois et ne pourra plus être relue.",
+    "close": "J'ai recopié la clé",
+    "revoke": "Révoquer",
+    "revoked": "Révoquée le {{when}}",
+    "createdBy": "Émise par {{who}} le {{when}}",
+    "neverUsed": "jamais utilisée",
+    "lastUsed": "dernier usage le {{when}}",
+    "missingSources": "Octroi sur une source que la version servie ne déclare plus : {{sources}}",
+    "errors": {
+      "vide": "Choisissez au moins une source : une clé qui n'ouvre rien ne sert à rien.",
+      "source_inconnue": "La version servie ne déclare pas la source « {{source}} ».",
+      "invalide": "Ce libellé n'est pas accepté : une seule ligne, 120 caractères au plus.",
+      "unknown": "La clé n'a pas pu être émise."
     }
   }
 }

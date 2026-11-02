@@ -4,7 +4,7 @@ import json
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import asyncpg
@@ -15,6 +15,7 @@ from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, Ob
 from miles.apikeys.model import (
     KEY_ID_RE,
     KEY_RE,
+    LAST_USED_GRANULARITY,
     Access,
     ApiKeyInfo,
     Grant,
@@ -38,9 +39,6 @@ ISSUED_EVENT = "api_key.issued"
 GRANTS_EVENT = "api_key.grants_changed"
 REVOKED_EVENT = "api_key.revoked"
 EVENT_TYPES = frozenset({ISSUED_EVENT, GRANTS_EVENT, REVOKED_EVENT})
-# Le dernier usage se tient à la minute près : l'écrire à chaque appel ferait de chaque
-# lecture MCP une écriture en base, pour une information qui ne sert qu'à l'inventaire.
-LAST_USED_GRANULARITY = timedelta(minutes=1)
 
 _SELECT = (
     "SELECT k.id, k.label, k.prefix, k.created_at, k.created_by_directory,"

@@ -1,93 +1,59 @@
+"""Ce que le module de paramétrage fait d'une déclaration de source : l'ÉCRIRE et la
+DIAGNOSTIQUER.
+
+La grammaire et la LECTURE sont au socle depuis le 02/11/2026 (`miles_socle.parametrage.sources`),
+deuxième usage : le module d'environnement lit les mêmes fichiers dans la version qu'il
+héberge, pour savoir quels points d'entrée exposer et quelles sources une clé d'API peut
+ouvrir. Elles sont réexportées ici sous leurs noms d'origine — les appelants du portail
+n'ont pas à savoir qu'elles ont déménagé.
+
+Ce qui RESTE ici, et pourquoi : l'écriture suppose la forme exacte du fichier qu'on
+produit, et le diagnostic suppose le registre des modèles de la branche et le parseur de
+jpath du moteur. Un consommateur n'a que faire de l'un ni de l'autre : il lit un fichier
+déjà écrit, et un refus se rend à qui édite, pas à qui consomme.
+"""
+
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 
+from miles_socle.parametrage.sources import (
+    DEFAULT_WRITE_BATCH,
+    ENTRY_TYPES,
+    MAX_BATCH,
+    NAME_RE,
+    ROOT,
+    WEB,
+    Entry,
+    EntryModes,
+    SourceDoc,
+    names_in,
+    read_source,
+    source_path,
+)
 from urban_json.jsonpath import IndexSelector, NameSelector, WildcardSelector
 
-from miles.datamodels.grammar import ModelSyntaxError, load_yaml
 from miles.datamodels.layout import MODEL_RE
 from miles.transform.jpath import read_path
 
-# Une source de données (story 66391afe, refondue le 25/10/2026) : une ENTRÉE de données
-# dans l'application. Elle dit d'abord OÙ ça va — la donnée cible, c'est-à-dire le storage
-# — et c'est tout ce qu'il faut pour l'enregistrer. Elle porte ensuite une ou plusieurs
-# entrées, chacune décrivant par quel moyen la donnée arrive.
-#
-# Un fichier par source, à la racine comme les storages et les chaînes.
-ROOT = "sources"
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
-_FILE_RE = re.compile(rf"^{ROOT}/(?P<name>[^/]+)\.yaml$")
-_KEYS = {"nom", "libelle", "storage", "entrees"}
-_ENTRY_KEYS = {
-    "type",
-    "modele_source",
-    "chaine",
-    "modes",
-    "decoupage",
-    "transaction_unifiee",
-    "lot_ecriture",
-}
-_MODE_KEYS = {"element", "tableau", "fichier"}
-
-# Le seul moyen d'entrée instruit à ce jour. Le type est écrit dans la déclaration plutôt
-# que sous-entendu : un second moyen (fichier déposé, file de messages) s'ajoutera sans
-# rendre ambiguës les déclarations déjà écrites.
-WEB = "web"
-ENTRY_TYPES = frozenset({WEB})
-# Plafond du mode tableau (Gael, 25/10/2026). C'est une décision, pas une limite
-# technique : au-delà, un appel unique devient un lot qu'il faut reprendre et suivre,
-# et c'est le mode fichier qui le sert.
-MAX_BATCH = 200
-# Lectures consécutives avant enregistrement, par défaut (Gael, 25/10/2026). Écrire à
-# chaque lecture coûte un aller-retour par objet ; cent lectures amortissent l'écriture
-# sans retenir assez d'objets pour peser en mémoire. Une déclaration qui ne dit rien
-# obtient donc ce lot-là, pas l'écriture unitaire.
-DEFAULT_WRITE_BATCH = 100
-
-
-@dataclass(frozen=True)
-class EntryModes:
-    """Les méthodes exposées par une entrée. Au moins une, sinon elle n'expose rien."""
-
-    # Un objet du modèle source, pour les intégrations à l'unité.
-    element: bool
-    # Un tableau d'objets du modèle source, MAX_BATCH au plus.
-    batch: bool
-    # Un fichier déposé, rangé en répertoire temporaire puis lu en flux (SAX) selon le
-    # jpath de découpage — d'où l'exigence de ce découpage dès que ce mode est coché.
-    file: bool
-
-
-@dataclass(frozen=True)
-class Entry:
-    kind: str
-    # « portée/nom » du modèle qui arrive sur la méthode.
-    source_model: str
-    # Slug de la chaîne qui mène du modèle source au modèle du storage.
-    chain: str
-    modes: EntryModes
-    # Où sont les items dans le fichier déposé. Requis par le mode fichier, et par lui
-    # seul : les deux autres méthodes reçoivent déjà des objets typés.
-    split: str
-    # Une seule transaction pour tout l'import, ou une par lot écrit.
-    unified_transaction: bool
-    # Nombre de lectures consécutives avant enregistrement (Gael, 25/10/2026). Il dit
-    # TOUS LES COMBIEN on écrit ; la transaction unifiée dit QUAND on valide. Les deux
-    # sont indépendants : on peut écrire par lots de 500 dans une transaction unique.
-    write_batch: int
-
-
-@dataclass(frozen=True)
-class SourceDoc:
-    # Identifiant : il nomme le fichier, et se déduit du libellé à la création.
-    name: str
-    # Ce que la personne a écrit, et ce que les écrans affichent.
-    label: str
-    # La donnée cible : le storage où les objets atterrissent.
-    storage: str
-    entries: tuple[Entry, ...]
+__all__ = [
+    "DEFAULT_WRITE_BATCH",
+    "ENTRY_TYPES",
+    "MAX_BATCH",
+    "NAME_RE",
+    "ROOT",
+    "WEB",
+    "Entry",
+    "EntryModes",
+    "SourceDoc",
+    "SourceProblem",
+    "form_problems",
+    "names_in",
+    "read_source",
+    "source_path",
+    "source_text",
+]
 
 
 @dataclass(frozen=True)
@@ -95,14 +61,6 @@ class SourceProblem:
     path: str
     code: str
     detail: str | None = None
-
-
-def source_path(name: str) -> str:
-    return f"{ROOT}/{name}.yaml"
-
-
-def names_in(paths: list[str]) -> list[str]:
-    return sorted(m["name"] for m in map(_FILE_RE.match, paths) if m is not None)
 
 
 def source_text(doc: SourceDoc) -> str:
@@ -137,79 +95,6 @@ def source_text(doc: SourceDoc) -> str:
             f"    lot_ecriture: {entry.write_batch}",
         ]
     return "\n".join(lines) + "\n"
-
-
-def read_source(text: str | None) -> SourceDoc | None:
-    """Déclaration lue, ou None si le fichier est absent ou n'en a pas la forme."""
-    try:
-        data = load_yaml(text) if text is not None else None
-    except ModelSyntaxError:
-        return None
-    if not isinstance(data, dict) or set(map(str, data)) - _KEYS:
-        return None
-    raw = data.get("entrees")
-    if raw is not None and not isinstance(raw, list):
-        return None
-    try:
-        return SourceDoc(
-            _text(data.get("nom")),
-            _text(data.get("libelle")),
-            _text(data.get("storage")),
-            tuple(_entry(e) for e in (raw or [])),
-        )
-    except (TypeError, AttributeError):
-        return None
-
-
-def _entry(raw: object) -> Entry:
-    if not isinstance(raw, dict) or set(map(str, raw)) - _ENTRY_KEYS:
-        raise TypeError
-    modes = raw.get("modes")
-    if not isinstance(modes, dict) or set(map(str, modes)) - _MODE_KEYS:
-        raise TypeError
-    return Entry(
-        _text(raw.get("type")),
-        _text(raw.get("modele_source")),
-        _text(raw.get("chaine")),
-        EntryModes(
-            _flag(modes.get("element")), _flag(modes.get("tableau")), _flag(modes.get("fichier"))
-        ),
-        _optional_text(raw.get("decoupage")),
-        _flag(raw.get("transaction_unifiee")),
-        _count(raw.get("lot_ecriture")),
-    )
-
-
-def _text(value: object) -> str:
-    if not isinstance(value, str):
-        raise TypeError
-    return value
-
-
-def _optional_text(value: object) -> str:
-    """Absent : vide. Le découpage ne sert qu'au mode fichier, et `form_problems` l'exige
-    quand ce mode est coché — l'absence se juge là, pas à la lecture du fichier."""
-    if value is None:
-        return ""
-    return _text(value)
-
-
-def _count(value: object) -> int:
-    """Absent : la valeur par défaut. Un booléen n'est pas un entier, même en Python."""
-    if value is None:
-        return DEFAULT_WRITE_BATCH
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError
-    return value
-
-
-def _flag(value: object) -> bool:
-    # Absent : faux. Un mode et une garantie se déclarent ; ils ne s'inventent pas.
-    if value is None:
-        return False
-    if not isinstance(value, bool):
-        raise TypeError
-    return value
 
 
 def form_problems(doc: SourceDoc) -> list[SourceProblem]:

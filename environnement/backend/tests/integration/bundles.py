@@ -131,6 +131,24 @@ def _storage(nom: str, modele: str, cle: str, index: list[tuple[str, list[str]]]
     return "\n".join(lignes) + "\n"
 
 
+def _source(nom: str, storage: str, modele: str, modes: tuple[bool, bool, bool]) -> str:
+    """Une source et son unique entrée web. Les trois modes dans l'ordre déclaré."""
+    element, tableau, fichier = modes
+    return (
+        f'nom: "{nom}"\n'
+        f'libelle: "{nom.title()}"\n'
+        f'storage: "{storage}"\n'
+        "entrees:\n"
+        '  - type: "web"\n'
+        f'    modele_source: "{modele}"\n'
+        f'    chaine: "vers-{storage}"\n'
+        "    modes:\n"
+        f"      element: {str(element).lower()}\n"
+        f"      tableau: {str(tableau).lower()}\n"
+        f"      fichier: {str(fichier).lower()}\n"
+    )
+
+
 def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
     """Trois versions d'un paramétrage, pour éprouver l'écart entre deux poses.
 
@@ -140,6 +158,10 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
     2. `accounts` gagne un index sur l'e-mail, `sites` en gagne un sur le code postal ;
     3. `accounts` PERD son index sur le téléphone, et `sites` disparaît de la déclaration.
 
+    Chaque version porte aussi ses SOURCES — `comptes-pudo` et `sites-pudo` —, et la
+    disparition de `sites` en v3 emporte la sienne : c'est le cas où un octroi de clé
+    d'API ne désigne plus rien, et il ne s'éprouve qu'avec une version qui retire.
+
     Les trois ensemble, et dans cet ordre, parce que c'est l'ENCHAÎNEMENT qui est à
     éprouver : une pose seule ne dirait rien de ce qu'une version suivante retire.
     """
@@ -147,6 +169,7 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
     git("init", "-q", "-b", "main", str(depot))
     (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
     (depot / "storages").mkdir()
+    (depot / "sources").mkdir()
     (depot / "domains/pudo/messages/accounts.yaml").write_text(ACCOUNTS_MODELE, encoding="utf-8")
     (depot / "domains/pudo/messages/site.yaml").write_text(SITE_MODELE, encoding="utf-8")
 
@@ -159,6 +182,12 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
                 [("tel", ["$.Contact.Phone"]), ("taille", ["$.Postes"])],
             ),
             "storages/sites.yaml": _storage("sites", "pudo/site", "$.Id", []),
+            "sources/comptes-pudo.yaml": _source(
+                "comptes-pudo", "accounts", "pudo/accounts", (True, True, False)
+            ),
+            "sources/sites-pudo.yaml": _source(
+                "sites-pudo", "sites", "pudo/site", (True, False, False)
+            ),
         },
         {
             "storages/accounts.yaml": _storage(
@@ -174,6 +203,12 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
             "storages/sites.yaml": _storage(
                 "sites", "pudo/site", "$.Id", [("code", ["$.Zipcode"])]
             ),
+            "sources/comptes-pudo.yaml": _source(
+                "comptes-pudo", "accounts", "pudo/accounts", (True, True, True)
+            ),
+            "sources/sites-pudo.yaml": _source(
+                "sites-pudo", "sites", "pudo/site", (True, False, False)
+            ),
         },
         {
             "storages/accounts.yaml": _storage(
@@ -182,11 +217,19 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
                 "$.AccountId",
                 [("mail", ["$.Contact.Email"]), ("taille", ["$.Postes"])],
             ),
+            "sources/comptes-pudo.yaml": _source(
+                "comptes-pudo", "accounts", "pudo/accounts", (True, True, True)
+            ),
         },
     ]
     fabriquees: dict[int, VersionFabriquee] = {}
     for number, fichiers in enumerate(etapes, start=1):
-        for chemin in ("storages/accounts.yaml", "storages/sites.yaml"):
+        for chemin in (
+            "storages/accounts.yaml",
+            "storages/sites.yaml",
+            "sources/comptes-pudo.yaml",
+            "sources/sites-pudo.yaml",
+        ):
             cible = depot / chemin
             if chemin in fichiers:
                 cible.write_text(fichiers[chemin], encoding="utf-8")

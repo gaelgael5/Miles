@@ -17,6 +17,7 @@ import {
   usePreferences,
 } from "@miles/socle-web";
 
+import { ApiKeysScreen } from "./apikeys/ApiKeysScreen";
 import { EnvironnementAssigne } from "./pairing/EnvironnementAssigne";
 import { StoragesScreen } from "./storages/StoragesScreen";
 
@@ -46,6 +47,10 @@ const ECRANS = [
   // après l'appariement : c'est par lui qu'une version arrive, et sans version il
   // n'y a aucun espace à montrer.
   { nom: "storages", Ecran: StoragesScreen },
+  // Les clés d'API d'ingestion (Gael, 02/11/2026). Après les espaces de stockage :
+  // une clé ouvre des SOURCES, qui alimentent ces espaces — l'ordre du menu suit
+  // celui dans lequel on découvre ce que la stack sert.
+  { nom: "apikeys", Ecran: ApiKeysScreen },
   { nom: "cultures", Ecran: CulturesScreen },
   { nom: "secrets", Ecran: SecretsScreen },
   { nom: "oidc", Ecran: ConnectorsScreen },

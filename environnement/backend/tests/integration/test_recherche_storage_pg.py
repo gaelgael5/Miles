@@ -15,13 +15,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from miles_socle.signing.calls import ORIGIN_HEADER, SIGNATURE_HEADER, sign_call
-from miles_socle.signing.hosting import HOSTED_VERSION_PATH, HostedVersionIn
-from miles_socle.signing.keys import load_private_key
-from miles_socle.testing.enrolment_double import EXPECTED_CODE, PEER_ORIGIN, EnrolmentDouble
+from miles_socle.testing.enrolment_double import EnrolmentDouble
 
 from tests.integration.bundles import VersionFabriquee, fabrique_parametrage
 from tests.integration.environnement_stack import EnvironnementStack, open_stack
+from tests.integration.versions import sert
 
 pytestmark = pytest.mark.integration
 
@@ -38,34 +36,8 @@ COMPTES = [
 async def _prepare(
     stack: EnvironnementStack, double: EnrolmentDouble, version: VersionFabriquee
 ) -> None:
-    ouverte = await stack.client.post(
-        "/api/identity/pairing", json={"base_url": PEER_ORIGIN, "name": "Recette nord"}
-    )
-    assert ouverte.status_code == 202, ouverte.text
-    conclu = await stack.client.post("/api/identity/pairing/confirm", json={"code": EXPECTED_CODE})
-    assert conclu.status_code == 200, conclu.text
-    double.bundles[version.commit] = version.bundle
-    corps = (
-        HostedVersionIn(workspace_id=WORKSPACE, number=version.number, commit=version.commit)
-        .model_dump_json()
-        .encode("utf-8")
-    )
-    recu = await stack.anonymous().post(
-        HOSTED_VERSION_PATH,
-        content=corps,
-        headers={
-            ORIGIN_HEADER: PEER_ORIGIN,
-            "Content-Type": "application/json",
-            SIGNATURE_HEADER: sign_call(
-                load_private_key(double.keypair.private_pem),
-                origin=PEER_ORIGIN,
-                method="POST",
-                target=HOSTED_VERSION_PATH,
-                body=corps,
-            ),
-        },
-    )
-    assert recu.status_code == 200, recu.text
+    """Apparie, fait servir la version, puis écrit les comptes du jeu d'essai."""
+    await sert(stack, double, version)
     for cle, objet in COMPTES:
         await stack.pool.execute(
             "INSERT INTO pudo.accounts (cle, objet, empreinte, version_modele)"
