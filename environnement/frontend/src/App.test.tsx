@@ -24,6 +24,11 @@ const ECRANS: { nom: string; libelle: string; appel: string }[] = [
   { nom: "pairing", libelle: "Pairing", appel: "GET /api/identity/pairing/state" },
   { nom: "storages", libelle: "Storage spaces", appel: "GET /api/storages" },
   { nom: "apikeys", libelle: "API keys", appel: "GET /api/api-keys" },
+  {
+    nom: "ingestion",
+    libelle: "Ingestion service",
+    appel: "GET /api/ingestion/health",
+  },
   { nom: "cultures", libelle: "Cultures", appel: "GET /api/cultures" },
   { nom: "secrets", libelle: "Secrets", appel: "GET /api/secrets" },
   { nom: "oidc", libelle: "OIDC connectors", appel: "GET /api/oidc/connectors" },
@@ -82,6 +87,37 @@ const CONNECTE: Routes = {
     ],
   },
   "GET /api/api-keys": { status: 200, body: [] },
+  // Une version servie et un point d'entrée réels : un écran qui n'a rien à montrer
+  // rend une explication, pas son titre, et la garde du menu vérifie le titre.
+  "GET /api/ingestion/health": {
+    status: 200,
+    body: {
+      version_number: 1,
+      version_commit: "abcdef1234567890",
+      version_served_at: "2026-11-02T08:00:00Z",
+      endpoints: [
+        {
+          source: "comptes-pudo",
+          storage: "accounts",
+          entry_model: "pudo/accounts",
+          mode: "tableau",
+          path: "/ingest/comptes-pudo/tableau",
+          served: true,
+        },
+      ],
+      unreadable_sources: [],
+      active_keys: 1,
+      never_used_keys: 0,
+      deposits_total: 0,
+      deposits_recent: 0,
+      last_deposit_at: null,
+      bulk_modes: [],
+    },
+  },
+  "GET /api/ingestion/calls": {
+    status: 200,
+    body: { calls: [], total: 0, page: 1, page_size: 50, sources: ["comptes-pudo"] },
+  },
   "GET /api/api-keys/sources": { status: 200, body: { sources: ["comptes-pudo"] } },
   "GET /api/auth/cultures": { status: 200, body: [{ code: "en-US", label_native: "English" }] },
 };

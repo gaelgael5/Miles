@@ -8,7 +8,8 @@
       "health": "État du service",
       "pairing": "Appariement",
       "storages": "Espaces de stockage",
-      "apikeys": "Clés d'API"
+      "apikeys": "Clés d'API",
+      "ingestion": "Service d'ingestion"
     },
     "sections": {
       "global": "Global"
@@ -127,6 +128,49 @@
       "source_inconnue": "La version servie ne déclare pas la source « {{source}} ».",
       "invalide": "Ce libellé n'est pas accepté : une seule ligne, 120 caractères au plus.",
       "unknown": "La clé n'a pas pu être émise."
+    }
+  },
+  "ingestion": {
+    "title": "Service d'ingestion",
+    "loading": "Lecture de l'état du service…",
+    "unreadable": "L'état du service d'ingestion n'a pas pu être lu.",
+    "health": "État du service",
+    "noVersion": "Aucune version de paramétrage n'est servie : il n'y a donc aucune source déclarée, et aucun point d'entrée.",
+    "version": "Version {{number}} · commit {{commit}}",
+    "servedAt": "servie le {{when}}",
+    "keys": "{{active}} clé(s) active(s), dont {{unused}} jamais utilisée(s)",
+    "deposits": "{{total}} dépôt(s) reçu(s), {{recent}} depuis 24 h",
+    "neverCalled": "jamais appelé",
+    "lastCall": "dernier dépôt le {{when}}",
+    "unreadableSources": "Sources déclarées mais illisibles : {{sources}}",
+    "noEndpoint": "La version servie ne déclare aucune entrée de source : rien n'est exposé.",
+    "notServed": "Le mode « {{mode}} » est déclaré mais pas encore servi : un dépôt y sera refusé.",
+    "noBulkQueue": "Les dépôts de masse ne sont pas encore servis : il n'y a aucune file à surveiller.",
+    "modes": {
+      "element": "un objet",
+      "tableau": "un lot",
+      "fichier": "un fichier"
+    },
+    "states": {
+      "recu": "reçu"
+    },
+    "calls": {
+      "title": "Derniers appels",
+      "filter": "Filtre du journal",
+      "source": "Source",
+      "allSources": "Toutes les sources",
+      "loading": "Lecture du journal…",
+      "unreadable": "Le journal des appels n'a pas pu être lu.",
+      "none": "Aucun appel reçu.",
+      "found": "{{count}} appel(s)",
+      "objects": "{{count}} objet(s)",
+      "size": "{{bytes}} octets",
+      "by": "par {{label}} ({{prefix}})",
+      "unknownKey": "clé effacée",
+      "version": "version {{number}}",
+      "page": "Page {{page}} sur {{pages}}",
+      "previous": "Page précédente",
+      "next": "Page suivante"
     }
   }
 }

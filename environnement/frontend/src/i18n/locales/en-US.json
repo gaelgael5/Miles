@@ -8,7 +8,8 @@
       "health": "Service status",
       "pairing": "Pairing",
       "storages": "Storage spaces",
-      "apikeys": "API keys"
+      "apikeys": "API keys",
+      "ingestion": "Ingestion service"
     },
     "sections": {
       "global": "Global"
@@ -127,6 +128,49 @@
       "source_inconnue": "The served version does not declare source “{{source}}”.",
       "invalide": "This label is not accepted: a single line, 120 characters at most.",
       "unknown": "The key could not be issued."
+    }
+  },
+  "ingestion": {
+    "title": "Ingestion service",
+    "loading": "Reading service state…",
+    "unreadable": "The ingestion service state could not be read.",
+    "health": "Service state",
+    "noVersion": "No configuration version is served: no source is declared, and no entry point exists.",
+    "version": "Version {{number}} · commit {{commit}}",
+    "servedAt": "served on {{when}}",
+    "keys": "{{active}} active key(s), {{unused}} never used",
+    "deposits": "{{total}} deposit(s) received, {{recent}} in the last 24h",
+    "neverCalled": "never called",
+    "lastCall": "last deposit on {{when}}",
+    "unreadableSources": "Sources declared but unreadable: {{sources}}",
+    "noEndpoint": "The served version declares no source entry: nothing is exposed.",
+    "notServed": "Mode “{{mode}}” is declared but not served yet: a deposit will be refused.",
+    "noBulkQueue": "Bulk deposits are not served yet: there is no queue to watch.",
+    "modes": {
+      "element": "single object",
+      "tableau": "batch",
+      "fichier": "file"
+    },
+    "states": {
+      "recu": "received"
+    },
+    "calls": {
+      "title": "Recent calls",
+      "filter": "Journal filter",
+      "source": "Source",
+      "allSources": "All sources",
+      "loading": "Reading the journal…",
+      "unreadable": "The call journal could not be read.",
+      "none": "No call received.",
+      "found": "{{count}} call(s)",
+      "objects": "{{count}} object(s)",
+      "size": "{{bytes}} bytes",
+      "by": "by {{label}} ({{prefix}})",
+      "unknownKey": "deleted key",
+      "version": "version {{number}}",
+      "page": "Page {{page}} of {{pages}}",
+      "previous": "Previous page",
+      "next": "Next page"
     }
   }
 }

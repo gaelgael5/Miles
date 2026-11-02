@@ -18,6 +18,7 @@ import {
 } from "@miles/socle-web";
 
 import { ApiKeysScreen } from "./apikeys/ApiKeysScreen";
+import { IngestionScreen } from "./ingestion/IngestionScreen";
 import { EnvironnementAssigne } from "./pairing/EnvironnementAssigne";
 import { StoragesScreen } from "./storages/StoragesScreen";
 
@@ -51,6 +52,10 @@ const ECRANS = [
   // une clé ouvre des SOURCES, qui alimentent ces espaces — l'ordre du menu suit
   // celui dans lequel on découvre ce que la stack sert.
   { nom: "apikeys", Ecran: ApiKeysScreen },
+  // Le service d'ingestion : son état, et le journal de ses appels (Gael, 02/11/2026).
+  // Après les clés : c'est une clé qui ouvre un point d'entrée, et l'ordre du menu
+  // suit celui dans lequel on branche un partenaire.
+  { nom: "ingestion", Ecran: IngestionScreen },
   { nom: "cultures", Ecran: CulturesScreen },
   { nom: "secrets", Ecran: SecretsScreen },
   { nom: "oidc", Ecran: ConnectorsScreen },

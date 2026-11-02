@@ -36,8 +36,8 @@ from environnement.ingestion.model import (
 from environnement.sources.declarations import DeclaredSources
 
 
-def _exposes(entry: Entry, mode: str) -> bool:
-    """Le mode est-il coché par cette entrée ?
+def exposes(entry: Entry, mode: str) -> bool:
+    """Le mode est-il coché par cette entrée ? Public : l'écran d'état le lit aussi.
 
     Écrit explicitement, et non par réflexion sur un nom : les trois noms du paramétrage
     (`element`, `tableau`, `fichier`) et les trois champs du socle (`element`, `batch`,
@@ -70,7 +70,7 @@ def target_of(declared: DeclaredSources, source: str, mode: str) -> Target:
     doc = declared.readable.get(source)
     if doc is None:
         raise IngestionRefusal(REFUSAL_SOURCE_INCONNUE, source)
-    candidates = [entry for entry in doc.entries if _exposes(entry, mode)]
+    candidates = [entry for entry in doc.entries if exposes(entry, mode)]
     if not candidates:
         raise IngestionRefusal(REFUSAL_MODE_NON_DECLARE, mode)
     if len(candidates) > 1:

@@ -18,6 +18,7 @@ from environnement.event_types import code_event_types
 from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
 from environnement.identity.service import IdentityService
+from environnement.ingestion.overview import IngestionOverview
 from environnement.ingestion.service import IngestionService
 from environnement.storages.service import StoragesService
 
@@ -53,6 +54,7 @@ class EnvironnementStack:
     storages: StoragesService
     api_keys: ApiKeysService
     ingestion: IngestionService
+    ingestion_overview: IngestionOverview
     tree: HostedTree
 
     def anonymous(self) -> httpx.AsyncClient:
@@ -123,6 +125,10 @@ async def open_stack(
             # refaire sa vérification ferait diverger le contrôle de la version servie.
             ingestion = IngestionService(socle.pool, tree, api_keys, socle.catalog, utc_now)
             socle.app.state.ingestion = ingestion
+            # Le MÊME arbre : ce que l'écran annonce comme points d'entrée doit être
+            # ce que le dépôt accepte vraiment.
+            apercu = IngestionOverview(socle.pool, tree, api_keys, utc_now)
+            socle.app.state.ingestion_overview = apercu
             # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît
             # au premier USAGE. Un montage qui la créerait d'avance cacherait justement le
             # cas que la machine de test a révélé.
@@ -137,5 +143,6 @@ async def open_stack(
                 storages,
                 api_keys,
                 ingestion,
+                apercu,
                 tree,
             )

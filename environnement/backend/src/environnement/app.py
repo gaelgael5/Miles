@@ -39,6 +39,8 @@ from environnement.hosting.service import HostingService
 from environnement.identity.api_identity import router as environment_router
 from environnement.identity.service import IdentityService
 from environnement.ingestion.api_ingest import router as ingest_router
+from environnement.ingestion.api_overview import router as ingestion_overview_router
+from environnement.ingestion.overview import IngestionOverview
 from environnement.ingestion.service import IngestionService
 from environnement.storages.api_storages import router as storages_router
 from environnement.storages.service import StoragesService
@@ -112,6 +114,9 @@ def create_app() -> FastAPI:
         # refaire son travail : la vérification compare l'octroi ET la version servie,
         # et la dupliquer ferait diverger le second contrôle.
         app.state.ingestion = IngestionService(pool, tree, app.state.api_keys, catalog, utc_now)
+        # L'écran de l'ingestion : lecture seule, et le MÊME arbre encore — ce qu'il
+        # annonce comme points d'entrée doit être ce que le dépôt accepte vraiment.
+        app.state.ingestion_overview = IngestionOverview(pool, tree, app.state.api_keys, utc_now)
         # La pose d'une version matérialise les tables de ses storages. Un crochet, et
         # non un appel direct : l'hébergement sait poser un arbre et dire qu'il vient
         # de le poser, il n'a rien à savoir des storages.
@@ -163,6 +168,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(hosting_router)
     app.include_router(storages_router)
     app.include_router(api_keys_router)
+    app.include_router(ingestion_overview_router)
     # HORS de `/api`, donc hors du portillon de sessions : la seule surface de ce
     # module ouverte à un système TIERS, et elle s'authentifie elle-même par clé
     # d'API avant de lire quoi que ce soit. `test_app.py` garde cette liste : toute
