@@ -25,6 +25,7 @@ from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, Ob
 
 from environnement.hosting.gitstore import HostedTree
 from environnement.storages.ddl import (
+    KEY_INDEX,
     IdentifierError,
     add_column,
     create_indexes,
@@ -68,9 +69,17 @@ SYSTEM_AUTHOR = EventAuthor("local", "stack")
 
 @dataclass(frozen=True)
 class Outcome:
-    """Ce qu'une matérialisation a produit : les posés, les refusés, les oubliés."""
+    """Ce qu'une matérialisation a produit.
+
+    `applied` et `changed` ne se confondent pas, et la campagne d'intégration a montré
+    pourquoi : à chaque pose, TOUS les storages déclarés sont « appliqués » — leur SQL
+    est rejoué, sans effet. Seul `changed` dit que la base a bougé, et c'est lui qui
+    décide si le journal parle. Sans cette distinction, un ordre rejoué écrivait un event
+    affirmant qu'on venait de matérialiser deux tables déjà en place.
+    """
 
     applied: tuple[str, ...]
+    changed: tuple[str, ...]
     refused: tuple[StorageRefusal, ...]
     forgotten: tuple[str, ...]
 
@@ -86,19 +95,22 @@ class StoragesService:
         """Aligne la base sur la version servie. Idempotent."""
         declared = await self.resolve_declared()
         applied: list[str] = []
+        changed: list[str] = []
         refused: list[StorageRefusal] = list(declared.refusals)
         for table in declared.tables:
-            refus = await self._one(table, version_number)
-            if refus is None:
-                applied.append(table.storage)
-            else:
+            refus, bouge = await self._one(table, version_number)
+            if refus is not None:
                 refused.append(refus)
+                continue
+            applied.append(table.storage)
+            if bouge:
+                changed.append(table.storage)
         async with self.pool.acquire() as conn, conn.transaction():
             for refus in declared.refusals:
                 await db_record_refusal(conn, refus)
             noms = [t.storage for t in declared.tables] + [r.storage for r in refused]
             forgotten = await db_forget(conn, noms)
-        outcome = Outcome(tuple(applied), tuple(refused), tuple(forgotten))
+        outcome = Outcome(tuple(applied), tuple(changed), tuple(refused), tuple(forgotten))
         await self._journalise(version_number, outcome)
         return outcome
 
@@ -141,21 +153,24 @@ class StoragesService:
                 preview[table.storage] = [f"-- refusé : nom invalide ({refuse.name})"]
         return preview
 
-    async def _one(self, table: StorageTable, version_number: int) -> StorageRefusal | None:
-        """Pose ou aligne UNE table. Rend le refus, ou nul.
+    async def _one(
+        self, table: StorageTable, version_number: int
+    ) -> tuple[StorageRefusal | None, bool]:
+        """Pose ou aligne UNE table. Rend (le refus ou nul, la base a-t-elle bougé).
 
         Chaque storage a sa transaction : un refus sur l'un laisse les autres posés, et
         c'est voulu — une version qui déclare un storage fautif ne doit pas priver
         l'environnement de ceux qui sont justes.
         """
         try:
-            instructions = await self._plan(table)
+            plan = await self._plan(table)
         except IdentifierError as refuse:
-            return StorageRefusal(table.storage, REFUSAL_BAD_NAME, refuse.name)
-        if isinstance(instructions, StorageRefusal):
+            return StorageRefusal(table.storage, REFUSAL_BAD_NAME, refuse.name), False
+        if isinstance(plan, StorageRefusal):
             async with self.pool.acquire() as conn, conn.transaction():
-                await db_record_refusal(conn, instructions)
-            return instructions
+                await db_record_refusal(conn, plan)
+            return plan, False
+        instructions, bouge = plan
         try:
             async with self.pool.acquire() as conn, conn.transaction():
                 for instruction in instructions:
@@ -168,15 +183,20 @@ class StoragesService:
             refus = StorageRefusal(table.storage, REFUSAL_APPLY_FAILED, str(panne)[:300])
             async with self.pool.acquire() as conn, conn.transaction():
                 await db_record_refusal(conn, refus)
-            return refus
-        return None
+            return refus, False
+        return None, bouge
 
-    async def _plan(self, table: StorageTable) -> list[str] | StorageRefusal:
-        """Le SQL à exécuter, déduit de l'écart avec le catalogue."""
+    async def _plan(self, table: StorageTable) -> tuple[list[str], bool] | StorageRefusal:
+        """Le SQL à exécuter, et si son exécution va changer quelque chose.
+
+        Le second terme ne se déduit PAS du SQL : tout y est en `if not exists`, donc le
+        texte d'une pose et celui d'un rejeu sont identiques. Il se déduit de l'écart avec
+        le catalogue, et c'est le seul endroit où on le connaisse.
+        """
         async with self.pool.acquire() as conn:
             existing = await db_existing_table(conn, table.schema, table.table)
         if existing is None:
-            return statements_for(table)
+            return statements_for(table), True
         manquante = _missing_fixed(existing)
         if manquante is not None:
             # Signalé, jamais réparé en silence : une table de ce nom existe et n'a pas
@@ -186,7 +206,7 @@ class StoragesService:
         return _alignment(table, existing)
 
     async def _journalise(self, version_number: int, outcome: Outcome) -> None:
-        if not outcome.applied and not outcome.refused and not outcome.forgotten:
+        if not outcome.changed and not outcome.refused and not outcome.forgotten:
             # Rien ne s'est passé : le journal ne doit pas dire le contraire. Même règle
             # que pour un ordre de version rejoué sur un arbre conforme.
             return
@@ -196,7 +216,9 @@ class StoragesService:
                 STORAGES_MATERIALISED_EVENT,
                 {
                     "version": version_number,
-                    "applied": list(outcome.applied),
+                    # Ce qui a CHANGÉ, pas ce qui est en place : un journal qui annonce
+                    # une pose à chaque rejeu ne se lit plus.
+                    "changed": list(outcome.changed),
                     "refused": [r.storage for r in outcome.refused],
                     "forgotten": list(outcome.forgotten),
                 },
@@ -237,7 +259,9 @@ def _missing_fixed(existing: ExistingTable) -> str | None:
     return None
 
 
-def _alignment(table: StorageTable, existing: ExistingTable) -> list[str] | StorageRefusal:
+def _alignment(
+    table: StorageTable, existing: ExistingTable
+) -> tuple[list[str], bool] | StorageRefusal:
     """Ce qu'il faut faire pour que la table porte ce que la version déclare."""
     instructions: list[str] = []
     voulues = {p.column: p for p in table.projections}
@@ -265,10 +289,14 @@ def _alignment(table: StorageTable, existing: ExistingTable) -> list[str] | Stor
             # `objet`, donc la retirer ne retire aucune donnée, et une réintroduction
             # ultérieure retrouve les mêmes valeurs.
             instructions.append(drop_column(table, column.name))
+    # Les colonnes ajoutées ou retirées suffisent à dire que la base bouge ; les index
+    # manquants aussi, et il faut les compter séparément — une version peut n'ajouter
+    # qu'un index sur une colonne déjà là.
+    colonnes_bougent = bool(instructions)
     instructions += create_indexes(table)
     voulus = {index_name(table.table, i.name) for i in table.indexes}
-    voulus.add(index_name(table.table, "cle"))
-    for nom in existing.indexes:
-        if is_ours(table.table, nom) and nom not in voulus:
-            instructions.append(drop_index(table.schema, nom))
-    return instructions
+    voulus.add(index_name(table.table, KEY_INDEX))
+    manquants = voulus - set(existing.indexes)
+    retires = [nom for nom in existing.indexes if is_ours(table.table, nom) and nom not in voulus]
+    instructions += [drop_index(table.schema, nom) for nom in retires]
+    return instructions, colonnes_bougent or bool(manquants) or bool(retires)

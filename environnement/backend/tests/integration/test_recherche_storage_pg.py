@@ -253,9 +253,15 @@ async def test_la_liste_des_storages_rend_la_declaration_et_l_etat_de_sa_table(
                 "path": "$.Contact.Phone",
                 "kind": "string",
                 "sql_type": "text",
-            }
+            },
+            # Le type vient du MODÈLE : c'est lui qui fera comparer des nombres et non
+            # des textes, où « 12 » serait inférieur à « 3 ».
+            {"column": "postes", "path": "$.Postes", "kind": "integer", "sql_type": "bigint"},
         ]
-        assert comptes["indexes"] == [{"name": "tel", "columns": ["contact_phone"]}]
+        assert comptes["indexes"] == [
+            {"name": "tel", "columns": ["contact_phone"]},
+            {"name": "taille", "columns": ["postes"]},
+        ]
 
 
 async def test_un_droit_de_lecture_est_exige(blank_db: str, tmp_path: Path) -> None:

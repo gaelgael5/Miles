@@ -302,6 +302,8 @@ async def test_un_storage_fautif_est_refuse_nomme_et_n_empeche_pas_les_autres(
         outcome = await stack.storages.resolve_materialise(1)
 
         assert outcome.applied == ("sites",)
+        # `sites` était déjà en place : appliqué, mais rien n'a bougé.
+        assert outcome.changed == ()
         assert [(r.storage, r.code, r.detail) for r in outcome.refused] == [
             ("accounts", REFUSAL_UNKNOWN_PROPERTY, "$.Contact.Phone")
         ]
@@ -329,7 +331,7 @@ async def test_le_journal_dit_ce_qui_a_ete_pose_et_ce_qui_a_ete_refuse(
         )
         assert [row["type"] for row in rows] == [STORAGES_MATERIALISED_EVENT]
         properties = json.loads(rows[0]["properties"])
-        assert sorted(properties["applied"]) == ["accounts", "sites"]
+        assert sorted(properties["changed"]) == ["accounts", "sites"]
         assert properties["version"] == 1
 
 

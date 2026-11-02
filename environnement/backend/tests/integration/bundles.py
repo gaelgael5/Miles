@@ -134,7 +134,9 @@ def _storage(nom: str, modele: str, cle: str, index: list[tuple[str, list[str]]]
 def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
     """Trois versions d'un paramétrage, pour éprouver l'écart entre deux poses.
 
-    1. `accounts` (téléphone indexé) et `sites` sans index ;
+    1. `accounts` indexé sur le téléphone et sur le nombre de postes — une chaîne et un
+       ENTIER, parce que c'est le type qui décide de l'ordre d'une comparaison — et
+       `sites` sans index ;
     2. `accounts` gagne un index sur l'e-mail, `sites` en gagne un sur le code postal ;
     3. `accounts` PERD son index sur le téléphone, et `sites` disparaît de la déclaration.
 
@@ -151,7 +153,10 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
     etapes = [
         {
             "storages/accounts.yaml": _storage(
-                "accounts", "pudo/accounts", "$.AccountId", [("tel", ["$.Contact.Phone"])]
+                "accounts",
+                "pudo/accounts",
+                "$.AccountId",
+                [("tel", ["$.Contact.Phone"]), ("taille", ["$.Postes"])],
             ),
             "storages/sites.yaml": _storage("sites", "pudo/site", "$.Id", []),
         },
@@ -160,7 +165,11 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
                 "accounts",
                 "pudo/accounts",
                 "$.AccountId",
-                [("tel", ["$.Contact.Phone"]), ("mail", ["$.Contact.Email"])],
+                [
+                    ("tel", ["$.Contact.Phone"]),
+                    ("taille", ["$.Postes"]),
+                    ("mail", ["$.Contact.Email"]),
+                ],
             ),
             "storages/sites.yaml": _storage(
                 "sites", "pudo/site", "$.Id", [("code", ["$.Zipcode"])]
@@ -168,7 +177,10 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
         },
         {
             "storages/accounts.yaml": _storage(
-                "accounts", "pudo/accounts", "$.AccountId", [("mail", ["$.Contact.Email"])]
+                "accounts",
+                "pudo/accounts",
+                "$.AccountId",
+                [("mail", ["$.Contact.Email"]), ("taille", ["$.Postes"])],
             ),
         },
     ]
