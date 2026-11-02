@@ -129,21 +129,38 @@ class TestLaTable:
         assert "\"origine\" text not null default 'import'" in sql
         assert '"statut" text generated always as (objet #>> \'{"Statut"}\') stored' in sql
 
-    def test_la_creation_est_rejouable(self) -> None:
-        """`if not exists` partout : servir deux fois la même version ne doit rien casser."""
-        for sql in statements_for(_table(_projection(("Statut",)))):
-            assert "if not exists" in sql
+    def test_le_schema_et_la_table_se_creent_sans_casser_s_ils_sont_la(self) -> None:
+        """Servir deux fois la même version ne doit rien casser. Les INDEX, eux, ne
+        tolèrent rien : leur idempotence vient de ce qu'on ne crée que les manquants."""
+        instructions = statements_for(_table(_projection(("Statut",))))
+
+        assert all("if not exists" in sql for sql in instructions[:2])
+        assert not any("index if not exists" in sql for sql in instructions)
 
     def test_la_cle_fonctionnelle_porte_un_index_unique(self) -> None:
         """C'est lui qui fait tenir la réconciliation : une clé, un objet."""
-        assert 'create unique index if not exists "sites__cle"' in create_indexes(_table())[0]
+        assert create_indexes(_table())[0] == (
+            'create unique index "sites__cle" on "pudo"."sites" ("cle")'
+        )
+
+    def test_un_index_ne_se_pose_JAMAIS_avec_tolerance(self) -> None:
+        """`if not exists` se décide sur le NOM, et l'espace des noms d'index est le
+        SCHÉMA : un index de ce nom sur une AUTRE table ferait taire la création, et
+        l'index attendu n'existerait jamais sur la nôtre. Mesuré en campagne le
+        02/11/2026, en tentant de provoquer un refus qui ne venait pas."""
+        table = _table(_projection(("Pays",)), indexes=(TableIndex("geo", ("pays",)),))
+
+        assert create_indexes(table) == [
+            'create unique index "sites__cle" on "pudo"."sites" ("cle")',
+            'create index "sites__geo" on "pudo"."sites" ("pays")',
+        ]
 
     def test_un_index_declare_porte_ses_colonnes_dans_l_ordre_declare(self) -> None:
         pays, code = _projection(("Pays",)), _projection(("CodePostal",))
         table = _table(pays, code, indexes=(TableIndex("geo", ("pays", "code_postal")),))
 
         assert create_indexes(table)[1] == (
-            'create index if not exists "sites__geo" on "pudo"."sites" ("pays", "code_postal")'
+            'create index "sites__geo" on "pudo"."sites" ("pays", "code_postal")'
         )
 
     def test_les_index_poses_ici_sont_reconnaissables_et_les_autres_intouchables(self) -> None:

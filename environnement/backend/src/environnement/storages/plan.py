@@ -16,11 +16,12 @@ from __future__ import annotations
 from environnement.storages.ddl import (
     KEY_INDEX,
     add_column,
-    create_indexes,
     drop_column,
     drop_index,
     index_name,
+    index_statement,
     is_ours,
+    key_index,
 )
 from environnement.storages.model import (
     FIXED_COLUMNS,
@@ -77,10 +78,43 @@ def alignment(
     # manquants aussi, et il faut les compter séparément — une version peut n'ajouter
     # qu'un index sur une colonne déjà là.
     colonnes_bougent = bool(instructions)
-    instructions += create_indexes(table)
-    voulus = {index_name(table.table, i.name) for i in table.indexes}
-    voulus.add(index_name(table.table, KEY_INDEX))
-    manquants = voulus - set(existing.indexes)
-    retires = [nom for nom in existing.indexes if is_ours(table.table, nom) and nom not in voulus]
-    instructions += [drop_index(table.schema, nom) for nom in retires]
-    return instructions, colonnes_bougent or bool(manquants) or bool(retires)
+    return _indexes(table, existing, instructions, colonnes_bougent)
+
+
+def _indexes(
+    table: StorageTable,
+    existing: ExistingTable,
+    instructions: list[str],
+    colonnes_bougent: bool,
+) -> tuple[list[str], bool]:
+    """Ce qu'il faut faire des index, en ne créant QUE ce qui manque.
+
+    **On ne crée que les manquants**, et c'est de là que vient l'idempotence : la
+        création d'index, elle, ne tolère rien (voir `index_statement`).
+
+        Et un index déclaré dont les COLONNES changent garde son nom : il est refait, pas
+        laissé en place. Comparer les seuls noms aurait laissé un index qui n'indexe plus ce
+        que la version demande.
+    """
+    voulus = {index_name(table.table, i.name): i.columns for i in table.indexes}
+    voulus[index_name(table.table, KEY_INDEX)] = ("cle",)
+    a_refaire = [
+        nom
+        for nom, colonnes in voulus.items()
+        if (porte := existing.index(nom)) is not None and porte.columns != colonnes
+    ]
+    manquants = [nom for nom in voulus if existing.index(nom) is None]
+    retires = [
+        item.name
+        for item in existing.indexes
+        if is_ours(table.table, item.name) and item.name not in voulus
+    ]
+    # L'ordre compte : on retire avant de reposer, sinon la création bute sur le nom.
+    instructions += [drop_index(table.schema, nom) for nom in a_refaire + retires]
+    instructions += [
+        key_index(table)
+        if nom == index_name(table.table, KEY_INDEX)
+        else index_statement(table, nom, voulus[nom])
+        for nom in manquants + a_refaire
+    ]
+    return instructions, colonnes_bougent or bool(manquants or a_refaire or retires)

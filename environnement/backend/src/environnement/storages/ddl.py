@@ -157,16 +157,37 @@ def _column_clause(projection: Projection) -> str:
     )
 
 
+def index_statement(
+    table: StorageTable, name: str, columns: tuple[str, ...], *, unique: bool = False
+) -> str:
+    """Un index, posé sur la table du storage. JAMAIS en `if not exists`.
+
+    **Cette tolérance se décide sur le NOM, et l'espace des noms d'index est le SCHÉMA,
+    pas la table.** Un index de ce nom posé sur une autre table du même schéma ferait donc
+    taire la création, et l'index attendu n'existerait jamais sur la nôtre — sans un mot.
+    Mesuré en campagne le 02/11/2026, en tentant de provoquer un refus de PostgreSQL : il
+    ne venait pas.
+
+    Sans tolérance, l'occupation d'un nom devient un refus de PostgreSQL, donc un refus
+    nommé sur l'écran. L'idempotence ne vient PAS d'ici : elle vient de ce qu'on ne crée
+    que les index que le catalogue ne porte pas.
+    """
+    cible = f"{quoted(table.schema)}.{quoted(table.table)}"
+    colonnes = ", ".join(quoted(c) for c in columns)
+    genre = "create unique index" if unique else "create index"
+    return f"{genre} {quoted(name)} on {cible} ({colonnes})"
+
+
+def key_index(table: StorageTable) -> str:
+    return index_statement(table, index_name(table.table, KEY_INDEX), ("cle",), unique=True)
+
+
 def create_indexes(table: StorageTable) -> list[str]:
     """L'index unique de la clé, puis les index déclarés, dans l'ordre déclaré."""
-    cible = f"{quoted(table.schema)}.{quoted(table.table)}"
-    unique = quoted(index_name(table.table, KEY_INDEX))
-    instructions = [f"create unique index if not exists {unique} on {cible} ({quoted('cle')})"]
-    for item in table.indexes:
-        nom = quoted(index_name(table.table, item.name))
-        colonnes = ", ".join(quoted(c) for c in item.columns)
-        instructions.append(f"create index if not exists {nom} on {cible} ({colonnes})")
-    return instructions
+    return [key_index(table)] + [
+        index_statement(table, index_name(table.table, item.name), item.columns)
+        for item in table.indexes
+    ]
 
 
 def statements_for(table: StorageTable) -> list[str]:

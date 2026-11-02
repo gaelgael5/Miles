@@ -9,7 +9,7 @@ from environnement.storages.model import (
     TableIndex,
 )
 from environnement.storages.plan import alignment, missing_fixed
-from environnement.storages.store import ExistingColumn, ExistingTable
+from environnement.storages.store import ExistingColumn, ExistingIndex, ExistingTable
 
 TEL = Projection("contact_phone", ("Contact", "Phone"), "string", "text")
 POSTES = Projection("postes", ("Postes",), "integer", "bigint")
@@ -35,8 +35,12 @@ FIXES = (
 )
 
 
+CLE = ExistingIndex("accounts__cle", ("cle",))
+TEL_INDEX = ExistingIndex("accounts__tel", ("contact_phone",))
+
+
 def _existe(
-    *projetees: ExistingColumn, index: tuple[str, ...] = ("accounts__cle", "accounts__tel")
+    *projetees: ExistingColumn, index: tuple[ExistingIndex, ...] = (CLE, TEL_INDEX)
 ) -> ExistingTable:
     return ExistingTable(columns=FIXES + projetees, indexes=index)
 
@@ -66,14 +70,10 @@ class TestLaFormeDeLaTable:
 
 
 class TestLAlignement:
-    def test_une_table_deja_conforme_ne_bouge_pas(self) -> None:
+    def test_une_table_deja_conforme_ne_demande_rien(self) -> None:
         plan = alignment(TABLE, _existe(ExistingColumn("contact_phone", "text", True)))
 
-        assert not isinstance(plan, StorageRefusal)
-        instructions, bouge = plan
-        assert bouge is False
-        # Le SQL est tout de même rendu — il est en `if not exists`, donc sans effet.
-        assert all("if not exists" in i for i in instructions)
+        assert plan == ([], False)
 
     def test_une_propriete_ajoutee_donne_une_colonne_et_la_base_bouge(self) -> None:
         voulue = StorageTable(**{**TABLE.__dict__, "projections": (TEL, POSTES)})
@@ -114,22 +114,47 @@ class TestLAlignement:
 
         assert plan == StorageRefusal("accounts", REFUSAL_TYPE_CHANGE, "postes:text->bigint")
 
-    def test_un_index_manquant_a_lui_seul_fait_bouger_la_base(self) -> None:
-        """Une version peut n'ajouter qu'un index sur une colonne déjà là."""
+    def test_un_index_manquant_est_cree_SANS_tolerance_et_fait_bouger_la_base(self) -> None:
+        """Sans `if not exists` : cette tolérance se décide sur le NOM, donc un index de ce
+        nom posé sur une autre table ferait taire la création, en silence."""
         plan = alignment(
             TABLE,
-            _existe(ExistingColumn("contact_phone", "text", True), index=("accounts__cle",)),
+            _existe(ExistingColumn("contact_phone", "text", True), index=(CLE,)),
         )
 
         assert not isinstance(plan, StorageRefusal)
-        assert plan[1] is True
+        instructions, bouge = plan
+        assert bouge is True
+        assert instructions == [
+            'create index "accounts__tel" on "pudo"."accounts" ("contact_phone")'
+        ]
+
+    def test_un_index_declare_dont_les_colonnes_changent_est_refait(self) -> None:
+        """Il garde son NOM : comparer les seuls noms l'aurait laissé en place, indexant
+        ce que la version ne demande plus."""
+        plan = alignment(
+            TABLE,
+            _existe(
+                ExistingColumn("contact_phone", "text", True),
+                index=(CLE, ExistingIndex("accounts__tel", ("cle",))),
+            ),
+        )
+
+        assert not isinstance(plan, StorageRefusal)
+        instructions, bouge = plan
+        assert bouge is True
+        # Retiré AVANT d'être reposé, sinon la création bute sur le nom.
+        assert instructions == [
+            'drop index if exists "pudo"."accounts__tel"',
+            'create index "accounts__tel" on "pudo"."accounts" ("contact_phone")',
+        ]
 
     def test_un_index_a_nous_que_la_version_ne_declare_plus_est_retire(self) -> None:
         plan = alignment(
             TABLE,
             _existe(
                 ExistingColumn("contact_phone", "text", True),
-                index=("accounts__cle", "accounts__tel", "accounts__mail"),
+                index=(CLE, TEL_INDEX, ExistingIndex("accounts__mail", ("contact_email",))),
             ),
         )
 
@@ -143,7 +168,12 @@ class TestLAlignement:
             TABLE,
             _existe(
                 ExistingColumn("contact_phone", "text", True),
-                index=("accounts__cle", "accounts__tel", "accounts_pkey", "idx_a_la_main"),
+                index=(
+                    CLE,
+                    TEL_INDEX,
+                    ExistingIndex("accounts_pkey", ("id",)),
+                    ExistingIndex("idx_a_la_main", ("cle",)),
+                ),
             ),
         )
 

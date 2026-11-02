@@ -35,14 +35,30 @@ class ExistingColumn:
 
 
 @dataclass(frozen=True)
+class ExistingIndex:
+    """Un index de la table, AVEC ses colonnes.
+
+    Avec ses colonnes, et c'est nécessaire : un index déclaré garde son nom quand ses
+    colonnes changent, et comparer les seuls noms laisserait en place un index qui
+    n'indexe plus ce que la version demande.
+    """
+
+    name: str
+    columns: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ExistingTable:
     """Ce que le catalogue dit d'une table de storage. None si elle n'existe pas."""
 
     columns: tuple[ExistingColumn, ...]
-    indexes: tuple[str, ...]
+    indexes: tuple[ExistingIndex, ...]
 
     def column(self, name: str) -> ExistingColumn | None:
         return next((c for c in self.columns if c.name == name), None)
+
+    def index(self, name: str) -> ExistingIndex | None:
+        return next((i for i in self.indexes if i.name == name), None)
 
 
 @dataclass(frozen=True)
@@ -84,16 +100,21 @@ async def db_existing_table(conn: StorageDb, schema: str, table: str) -> Existin
         found,
     )
     indexes = await conn.fetch(
-        "SELECT c.relname AS nom FROM pg_index i"
+        "SELECT c.relname AS nom,"
+        " array_agg(a.attname ORDER BY k.ord) FILTER (WHERE a.attname IS NOT NULL)"
+        " AS colonnes"
+        " FROM pg_index i"
         " JOIN pg_class c ON c.oid = i.indexrelid"
-        " WHERE i.indrelid = $1 ORDER BY c.relname",
+        " JOIN unnest(i.indkey) WITH ORDINALITY AS k(attnum, ord) ON true"
+        " LEFT JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum"
+        " WHERE i.indrelid = $1 GROUP BY c.relname ORDER BY c.relname",
         found,
     )
     return ExistingTable(
         columns=tuple(
             ExistingColumn(row["nom"], row["type_sql"], row["derivee"]) for row in columns
         ),
-        indexes=tuple(row["nom"] for row in indexes),
+        indexes=tuple(ExistingIndex(row["nom"], tuple(row["colonnes"] or ())) for row in indexes),
     )
 
 
