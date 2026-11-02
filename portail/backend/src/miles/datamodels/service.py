@@ -9,6 +9,7 @@ import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.parametrage.refs import inline_refs
 
 from miles.datamodels.example import example_of
 from miles.datamodels.grammar import ModelGrammarError, Problem, load_yaml
@@ -29,7 +30,6 @@ from miles.datamodels.schema import (
     normalized,
     parse_schema,
     references_in,
-    target_of,
 )
 from miles.git.workcopy import WorkCopy
 from miles.workshop.domains import domains_in
@@ -138,7 +138,7 @@ class DataModelsService:
             if content is None:
                 raise ModelNotFoundError(entry.path)
             schema = load_yaml(content)
-            inlined = await _inlined(copy, schema, {(scope, name)})
+            inlined = await inlined_schema(copy, schema, (scope, name))
         return example_of(inlined)
 
     async def resolve_paths(
@@ -163,7 +163,7 @@ class DataModelsService:
             content = await copy.read(entry.path)
             if content is None:
                 raise ModelNotFoundError(entry.path)
-            inlined = await _inlined(copy, load_yaml(content), {(scope, name)})
+            inlined = await inlined_schema(copy, load_yaml(content), (scope, name))
         return paths_of(inlined)
 
     async def resolve_create(
@@ -342,39 +342,17 @@ async def _users(copy: WorkCopy, entries: list[ModelEntry], target: ModelEntry) 
     return users
 
 
-# Profondeur de modèles désignés : un cycle entre deux modèles est déjà arrêté par
-# `seen`, mais une chaîne longue n'a pas non plus d'intérêt dans un gabarit.
-_MAX_MODEL_DEPTH = 8
-
-
 async def inlined_schema(copy: WorkCopy, schema: Any, origin: tuple[str, str]) -> Any:
     """Le schéma, renvois vers d'autres modèles remplacés par leur contenu.
 
     Exposé pour les documents qui partent du dépôt : un `$ref` vers « miles:/… » ne veut
     rien dire hors de Miles — ni pour un visualiseur Swagger, ni pour un appelant.
+
+    La marche est au socle depuis le 02/11/2026 : le module d'environnement doit voir
+    le MÊME schéma résolu, sans quoi l'écran proposerait une colonne qu'il refuserait.
     """
-    return await _inlined(copy, schema, {origin})
 
+    async def read(path: str) -> str | None:
+        return await copy.read(path)
 
-async def _inlined(copy: WorkCopy, node: Any, seen: set[tuple[str, str]], depth: int = 0) -> Any:
-    """Remplace les `$ref` vers d'autres modèles par leur schéma, en place.
-
-    Les `#/…` ne sont pas touchés : `example_of` les suit tout seul dans le document.
-    Un modèle déjà traversé n'est pas rouvert — deux modèles qui se désignent l'un
-    l'autre boucleraient sans fin.
-    """
-    if isinstance(node, list):
-        return [await _inlined(copy, item, seen, depth) for item in node]
-    if not isinstance(node, dict):
-        return node
-    ref = node.get("$ref")
-    if isinstance(ref, str) and (target := target_of(ref)) is not None:
-        if target in seen or depth >= _MAX_MODEL_DEPTH:
-            # Laissé tel quel : example_of rendra une place vide, ce qui se voit, plutôt
-            # qu'une descente sans fin.
-            return node
-        content = await copy.read(model_path(*target))
-        if content is None:
-            return node
-        return await _inlined(copy, load_yaml(content), seen | {target}, depth + 1)
-    return {key: await _inlined(copy, value, seen, depth) for key, value in node.items()}
+    return await inline_refs(read, schema, origin)

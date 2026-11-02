@@ -1,25 +1,20 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
 import yaml
 from jsonschema import Draft202012Validator
+from miles_socle.parametrage.layout import ID_PREFIX as ID_PREFIX
+from miles_socle.parametrage.layout import model_id as model_id
+from miles_socle.parametrage.layout import target_of as target_of
 
 from miles.datamodels.grammar import ModelGrammarError, Problem, load_yaml
 
 # Les modèles de données sont des JSON Schema 2020-12 écrits en YAML (Gael, 23/10/2026,
 # story 0f7cda10) : le standard d'OpenAPI 3.1, lu par tous et connu de l'agent.
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
-# Un modèle se désigne par un URI absolu, indépendant de l'emplacement de celui qui le
-# désigne : un chemin relatif casserait au moindre déplacement et serait illisible.
-ID_PREFIX = "miles:/"
-_ID_RE = re.compile(
-    r"^miles:/(?:shared/(?P<shared>[a-z0-9][a-z0-9_-]*)"
-    r"|domains/(?P<domain>[a-z0-9][a-z0-9_-]*)/(?P<name>[a-z0-9][a-z0-9_-]*))$"
-)
 _META = Draft202012Validator(Draft202012Validator.META_SCHEMA)
 
 
@@ -35,22 +30,6 @@ class ModelSchema:
     # Aucune propriété encore : un brouillon, admis à l'écriture mais pas dans une
     # version de la branche (Gael, 23/10/2026).
     empty: bool = False
-
-
-def model_id(scope: str, name: str) -> str:
-    if scope == "shared":
-        return f"{ID_PREFIX}shared/{name}"
-    return f"{ID_PREFIX}domains/{scope}/{name}"
-
-
-def target_of(ref: str) -> tuple[str, str] | None:
-    """(portée, nom) d'un `$ref` vers un modèle ; None s'il n'en désigne pas un."""
-    match = _ID_RE.match(ref.split("#", 1)[0])
-    if match is None:
-        return None
-    if match["shared"] is not None:
-        return "shared", match["shared"]
-    return match["domain"], match["name"]
 
 
 def _where(path: Any) -> str:

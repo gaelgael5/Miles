@@ -18,6 +18,10 @@ dependencies = [
     # défauts de sécurité. Les produits l'avaient déjà tous les trois en dépendance.
     "pydantic-settings>=2.6",
     "pyjwt[crypto]>=2.9",
+    # Le paramétrage versionné est écrit en YAML, et DEUX produits le lisent depuis le
+    # 02/11/2026 : le module de paramétrage qui l'écrit, le module d'environnement qui
+    # lit la version qu'il héberge. Le lecteur strict est donc ici.
+    "pyyaml>=6.0",
     "structlog>=24.4",
 ]
 
@@ -35,6 +39,7 @@ testing = [
 [dependency-groups]
 dev = [
     "asyncpg-stubs>=0.30",
+    "types-pyyaml>=6.0",
     "mypy>=1.13",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",

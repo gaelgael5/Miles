@@ -10,7 +10,7 @@ def _paths(schema: object) -> list[str]:
 def test_each_property_gives_a_path_from_the_root() -> None:
     schema = {"type": "object", "properties": {"Name": {"type": "string"}}}
 
-    assert paths_of(schema) == [PathEntry("$.Name", "string", "")]
+    assert paths_of(schema) == [PathEntry("$.Name", "string", "", ("Name",))]
 
 
 def test_an_array_is_indexed_not_starred() -> None:
@@ -37,7 +37,7 @@ def test_the_type_and_the_title_travel_with_the_path() -> None:
         "properties": {"Name": {"type": "string", "title": "Raison sociale"}},
     }
 
-    assert paths_of(schema) == [PathEntry("$.Name", "string", "Raison sociale")]
+    assert paths_of(schema) == [PathEntry("$.Name", "string", "Raison sociale", ("Name",))]
 
 
 def test_a_property_without_a_type_is_announced_as_a_plain_value() -> None:
