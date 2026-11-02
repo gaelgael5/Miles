@@ -77,13 +77,15 @@ def test_une_entree_sans_liste_ou_a_clef_inconnue_ne_rend_rien() -> None:
     assert read_source('nom: "s"\nlibelle: "S"\nstorage: "st"\ninconnu: 1\n') is None
     # `entrees` qui n'est pas une liste : on ne devine pas ce qu'elle voulait dire.
     assert read_source('nom: "s"\nlibelle: "S"\nstorage: "st"\nentrees: 3\n') is None
-    # Une clef inconnue DANS une entrée est refusée aussi : une faute de frappe sur
-    # « modes » passerait sinon pour une entrée qui n'expose aucune méthode.
+    # Une clef inconnue DANS une entrée est refusée aussi. L'entrée porte ici un `modes`
+    # VALIDE : sans cela, le refus viendrait du `modes` manquant et non de la clef en
+    # trop, et retirer la vérification laisserait le test vert. Défaut trouvé par la
+    # campagne d'injection du 02/11/2026.
     assert (
         read_source(
             'nom: "s"\nlibelle: "S"\nstorage: "st"\n'
             'entrees:\n  - type: "web"\n    modele_source: "d/m"\n    chaine: "c"\n'
-            "    mode: {}\n"
+            "    modes:\n      element: true\n    lot_ecrit: 10\n"
         )
         is None
     )

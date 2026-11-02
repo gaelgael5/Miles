@@ -179,6 +179,22 @@ class ApiKeysService:
             # chercher une clé perdue.
             log.info("cle_api_refusee", raison="sans_octroi", key=stored.id, source=source)
             return None
+        if source not in await self.resolve_declared_sources():
+            # **L'octroi ne suffit pas : la source doit encore être DÉCLARÉE.** Un octroi
+            # vit en base, la source vit dans la version servie — et une version suivante
+            # peut l'avoir retirée. Sans cette vérification, une clé continuait d'ouvrir
+            # une porte que le paramétrage avait fermée : défaut trouvé par la campagne
+            # d'intégration du 02/11/2026, qu'aucun test unitaire ne pouvait voir.
+            #
+            # Le coût est une lecture de l'arbre servi par appel. Il n'est pas gratuit, et
+            # il n'est pas en trop : le dépôt lit de toute façon la déclaration de
+            # l'entrée pour connaître son modèle, sa chaîne et ses modes. Si cette lecture
+            # devient un goulot, elle se MESURE et se met en cache derrière le seul point
+            # qui l'invalide — la pose d'une version. Elle ne se devine pas, et elle ne se
+            # retire pas : ce contrôle est ce qui rend une source retirée immédiatement
+            # fermée.
+            log.info("cle_api_refusee", raison="source_retiree", key=stored.id, source=source)
+            return None
         # Seulement ici : un appel refusé ne fait pas vivre une clé qui ne sert plus.
         await db_touch(self.pool, stored.id, self.now())
         return principal
