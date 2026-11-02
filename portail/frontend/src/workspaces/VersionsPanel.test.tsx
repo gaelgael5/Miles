@@ -336,3 +336,51 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
     expect(within(panel).queryByText("Publish")).not.toBeInTheDocument();
   });
 });
+
+describe("the screen says it is checking, instead of promising what it has not read (02/11/2026)", () => {
+  /**
+   * Mesuré sur la machine de test, sur le vrai dépôt de Gael : la route `freezable`
+   * prend plus de quatre secondes — elle ouvre la copie tenue et valide tout le
+   * paramétrage. Pendant ce temps, l'écran rendait « Enregistrer une version » ALLUMÉ,
+   * sans raison ni bouton de publication : exactement l'inverse de ce qui bloquait.
+   * Gael en a conclu que la modification n'était pas détectée.
+   */
+  function bloqueLaLecture() {
+    const inner = globalThis.fetch as unknown as typeof fetch;
+    let lacher = () => {};
+    const attente = new Promise<void>((resolve) => {
+      lacher = resolve;
+    });
+    vi.stubGlobal("fetch", (path: string, init?: RequestInit) =>
+      String(path).includes("freezable")
+        ? attente.then(() => inner(path, init))
+        : inner(path, init),
+    );
+    return () => lacher();
+  }
+
+  it("greys the button out and says so while it has not read what blocks", async () => {
+    mockApi({
+      ...BRANCH_SCREEN,
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...BRANCHES,
+      [MODELS]: { status: 200, body: [] },
+      [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${VERSIONS}/freezable?branch=edition`]: {
+        status: 200,
+        body: { ok: false, reason: "publication_requise", reports: [] },
+      },
+    });
+    const lacher = bloqueLaLecture();
+    const panel = await openWorkshop();
+
+    expect(await within(panel).findByText("Checking what blocks…")).toBeInTheDocument();
+    expect(within(panel).getByText("Save a version")).toBeDisabled();
+
+    lacher();
+
+    expect(await within(panel).findByText("Publish")).toBeInTheDocument();
+    expect(within(panel).queryByText("Checking what blocks…")).not.toBeInTheDocument();
+  });
+});

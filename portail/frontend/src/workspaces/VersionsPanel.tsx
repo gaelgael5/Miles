@@ -153,13 +153,26 @@ export function VersionsPanel({ target }: { target: WorkTarget }) {
           <button
             type="button"
             className="btn btn-primary"
-            disabled={freezable.data !== undefined && !freezable.data.ok}
+            // **Éteint TANT QUE la lecture n'est pas revenue**, et pas seulement quand
+            // elle a dit non. Mesuré le 02/11/2026 sur le dépôt de Gael : la route met
+            // plus de quatre secondes — elle ouvre la copie tenue et valide tout le
+            // paramétrage — et pendant ce temps l'écran offrait un bouton allumé alors
+            // que des commits n'étaient pas publiés. Gael en a conclu, à raison de ce
+            // qu'il voyait, que sa modification n'était pas détectée.
+            disabled={freezable.isPending || (freezable.data !== undefined && !freezable.data.ok)}
             onClick={() => setSaving(true)}
           >
             {t("versions.save")}
           </button>
         )}
       </div>
+      {/* Et on DIT qu'on vérifie : un bouton éteint sans un mot se lit comme une panne,
+          exactement comme pour les raisons de refus juste en dessous. */}
+      {!saving && target.canFreeze && freezable.isPending && (
+        <p className="muted" role="status">
+          {t("versions.checking")}
+        </p>
+      )}
       {/* La raison est dite à côté du bouton grisé : un bouton éteint sans explication
           se lit comme une panne. Et quand le geste qui débloque est à portée, il est
           offert ICI — renvoyer vers un autre écran pour un clic est un détour que rien

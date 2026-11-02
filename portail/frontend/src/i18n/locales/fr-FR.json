@@ -466,6 +466,7 @@
   "versions": {
     "title": "Versions de la branche de travail",
     "save": "Enregistrer une version",
+    "checking": "Vérification de ce qui bloque…",
     "submit": "Enregistrer la version",
     "empty": "Aucune version enregistrée.",
     "fields": {

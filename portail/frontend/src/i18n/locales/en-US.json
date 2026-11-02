@@ -466,6 +466,7 @@
   "versions": {
     "title": "Versions of the work branch",
     "save": "Save a version",
+    "checking": "Checking what blocks…",
     "submit": "Save the version",
     "empty": "No version saved yet.",
     "fields": {
