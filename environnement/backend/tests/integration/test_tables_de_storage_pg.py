@@ -22,6 +22,7 @@ from miles_socle.signing.keys import load_private_key
 from miles_socle.testing.enrolment_double import EXPECTED_CODE, PEER_ORIGIN, EnrolmentDouble
 
 from environnement.storages.model import (
+    REFUSAL_APPLY_FAILED,
     REFUSAL_UNKNOWN_PROPERTY,
     STORAGE_REFUSED_EVENT,
     STORAGES_MATERIALISED_EVENT,
@@ -378,3 +379,30 @@ async def test_le_sql_d_une_version_est_lisible_avant_d_etre_applique(
         sql = "\n".join(apercu.json()["accounts"])
         assert "create schema if not exists" in sql
         assert 'generated always as (objet #>> \'{"Contact","Phone"}\') stored' in sql
+
+
+async def test_un_refus_de_postgresql_est_signale_avec_son_motif(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """L'autre moitié du critère : ce qui arrive quand la base, elle, dit non.
+
+    Provoqué par un index qui occupe déjà le nom voulu, sur une AUTRE table : les noms
+    d'index sont uniques par schéma, donc PostgreSQL refuse. Ce qui doit en sortir est son
+    motif à lui, pas un message maison qui perdrait la seule information utile.
+    """
+    versions = fabrique_parametrage(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _apparie(stack)
+        await stack.pool.execute("CREATE SCHEMA pudo")
+        await stack.pool.execute("CREATE TABLE pudo.occupant (x text)")
+        await stack.pool.execute("CREATE INDEX accounts__tel ON pudo.occupant (x)")
+
+        await _ordonne(stack, double, versions[1])
+
+        liste = await stack.client.get("/api/storages")
+        comptes = next(item for item in liste.json() if item["name"] == "accounts")
+        assert comptes["refusal"] == REFUSAL_APPLY_FAILED
+        assert "accounts__tel" in (comptes["refusal_detail"] or "")
+        # Et les autres storages sont tout de même posés : un refus n'en emporte pas deux.
+        assert next(item for item in liste.json() if item["name"] == "sites")["refusal"] is None
