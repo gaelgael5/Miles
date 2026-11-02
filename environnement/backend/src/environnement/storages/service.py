@@ -26,7 +26,6 @@ from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, Ob
 from environnement.hosting.gitstore import HostedTree
 from environnement.storages.ddl import (
     IdentifierError,
-    create_indexes,
     statements_for,
 )
 from environnement.storages.declarations import Declared, file_declared
@@ -140,7 +139,11 @@ class StoragesService:
         preview: dict[str, list[str]] = {}
         for table in declared.tables:
             try:
-                preview[table.storage] = statements_for(table) + create_indexes(table)[1:]
+                # `statements_for` porte DÉJÀ les index : les rajouter affichait chaque
+                # index déclaré deux fois, et un aperçu qui se répète fait douter de ce
+                # qui sera réellement exécuté. Vu en passant le paramétrage réel de
+                # Gael dans le résolveur, le 02/11/2026.
+                preview[table.storage] = statements_for(table)
             except IdentifierError as refuse:
                 preview[table.storage] = [f"-- refusé : nom invalide ({refuse.name})"]
         return preview
