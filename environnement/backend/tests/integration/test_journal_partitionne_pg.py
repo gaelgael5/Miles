@@ -110,15 +110,25 @@ class TestLAvance:
     async def test_l_entretien_pose_aujourd_hui_et_sept_jours_d_avance(
         self, blank_db: str, tmp_path: Path
     ) -> None:
+        """Comparé à ce qui était DÉJÀ là, et non à `changed`.
+
+        La migration pose elle-même sept jours d'avance, à partir de `current_date` — la
+        vraie date du jour. Affirmer que l'entretien a posé quelque chose ferait donc
+        dépendre ce test du calendrier : vert le 3 novembre 2026, rouge le lendemain. Ce
+        qui est invariant, c'est que les huit journées soient là APRÈS, et que l'entretien
+        ait posé exactement celles qui manquaient.
+        """
         async with open_stack(blank_db, tmp_path) as stack:
+            deja = {table: await _jours(stack.pool, table) for table in JOURNAL_TABLES}
+
             rapport = await _entretien(stack.pool, TROIS_NOVEMBRE).resolve_maintain()
 
-            for table in JOURNAL_TABLES:
-                jours = await _jours(stack.pool, table)
-                assert date(2026, 11, 3) in jours
-                assert date(2026, 11, 10) in jours
-                assert date(2026, 11, 11) not in jours
-            assert rapport.changed is True
+            attendues = {date(2026, 11, 3) + timedelta(days=n) for n in range(8)}
+            for compte_rendu in rapport.tables:
+                jours = await _jours(stack.pool, compte_rendu.table)
+                assert attendues <= jours
+                assert date(2026, 11, 11) not in attendues
+                assert set(compte_rendu.created) == attendues - deja[compte_rendu.table]
 
     async def test_rejouer_l_entretien_ne_pose_rien_et_ne_tombe_pas_en_erreur(
         self, blank_db: str, tmp_path: Path
