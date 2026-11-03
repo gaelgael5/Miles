@@ -7,7 +7,9 @@ Trois promesses tiennent dans une seule instruction, et c'est voulu :
   d'un objet oublié, et le balayage finirait par le sortir. (Correction du 26/10/2026 au
   ticket, qui interdisait l'inverse.)
 - **`modifie_le` et le corps ne bougent QUE si l'empreinte change.** C'est la date de
-  l'historique ; l'avancer à chaque import la rend inutile.
+  l'historique ; l'avancer à chaque import la rend inutile. Et le corps, lui, ne se
+  garde pas pour la date : voir la mesure au point d'application, qui est la seule
+  raison de ne pas simplifier ces trois lignes en une.
 - **un objet d'origine `manuel` n'est jamais écrasé par un import** : aucun import ne le
   réécrira jamais, donc son `vu_le` ne bougera plus, et c'est ce qui l'exclut du balayage.
 
@@ -75,6 +77,13 @@ WITH avant AS (
     VALUES ($1, $2::jsonb, $3, '{IMPORT_ORIGIN}', $4, $4, $5)
     ON CONFLICT (cle) DO UPDATE SET
         vu_le = excluded.vu_le,
+        -- GARDER L'ANCIEN DATUM, et non réécrire le même. Aucun test fonctionnel ne
+        -- distingue les deux — la campagne d'injection du 03/11/2026 est restée verte en
+        -- remplaçant ces trois lignes par « objet = excluded.objet ». Ce qui les tient est
+        -- le TOAST : rendre le datum d'avant laisse PostgreSQL réutiliser son stockage
+        -- hors ligne, alors qu'une valeur neuve le réécrit entièrement. Mesuré le même
+        -- jour sur 200 objets de 12 ko réimportés 40 fois à l'identique : 2,6 Mo de TOAST
+        -- avec ce CASE, 104 Mo sans — le facteur est le nombre de réimports.
         objet = CASE
             WHEN {cible}.empreinte = excluded.empreinte THEN {cible}.objet
             ELSE excluded.objet END,
