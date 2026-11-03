@@ -357,17 +357,26 @@ socle_compte_d_amorcage() {
 # RIEN ICI NE FAIT ÉCHOUER LE DÉPLOIEMENT, sauf la génération du jeton. Un entretien non
 # planifié laisse un journal qui grossit — ce qui se voit sur un disque et se répare ;
 # faire tomber la livraison pour cela coûterait plus que le défaut.
-socle_entretien_du_journal() {
-  local stack="$1" port="$2" conf unite jeton retention
+# À appeler à l'étape de CONFIGURATION, avant que la stack ne soit relancée : le backend
+# lit MILES_JOURNAL_MAINTENANCE_TOKEN à son démarrage, et une route d'entretien sans jeton
+# configuré répond 401. Mesuré le 03/11/2026 sur le portail : généré après le contrôle de
+# santé, le jeton n'atteignait le conteneur qu'au déploiement SUIVANT — la route refusait
+# le premier passage, et l'entretien n'aurait rien posé avant 24 h.
+socle_jeton_du_journal() {
   socle_valeur_durable MILES_JOURNAL_MAINTENANCE_TOKEN "$(openssl rand -hex 32)" \
     "jeton d'entretien du journal généré"
   # Rétention écrite dans .env au premier passage, donc VISIBLE et modifiable base par
   # base (cadrage, amendement du 26/10/2026). Le défaut du code, lui, reste « ne rien
   # purger » : un paramètre absent ne doit pas effacer un journal.
   socle_persist_default MILES_JOURNAL_RETENTION_DAYS 90
+}
+
+socle_entretien_du_journal() {
+  local stack="$1" port="$2" conf unite jeton retention
   jeton="$(socle_env_value MILES_JOURNAL_MAINTENANCE_TOKEN)"
   retention="$(socle_env_value MILES_JOURNAL_RETENTION_DAYS)"
-  [[ -n "$jeton" ]] || socle_fail "jeton d'entretien du journal absent de $ENV_FILE"
+  [[ -n "$jeton" ]] || socle_fail \
+    "jeton d'entretien du journal absent de $ENV_FILE : socle_jeton_du_journal n'a pas été appelé à l'étape de configuration"
 
   conf="/etc/miles/$stack-journal.curlrc"
   unite="miles-$stack-journal"

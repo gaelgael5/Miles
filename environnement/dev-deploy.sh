@@ -79,6 +79,7 @@ socle_valeur_durable MILES_SECRETS_KEY "$(openssl rand -base64 32 | tr '+/' '-_'
 # Machines de test partagées : le portail occupe souvent 8080 et un autre produit 8081,
 # d'où un défaut distinct et un port choisi au premier passage.
 socle_persist_default MILES_HTTP_PORT 8082
+socle_jeton_du_journal
 socle_persist_default EXPOSE_PORTAL_URL
 socle_persist_default EXPOSE_WORKSPACE
 socle_persist_default EXPOSE_HOST "$(hostname)"

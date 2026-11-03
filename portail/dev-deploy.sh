@@ -99,6 +99,7 @@ socle_valeur_durable MILES_SECRETS_KEY "$(openssl rand -base64 32 | tr '+/' '-_'
   "clé des secrets générée"
 # Machines de test partagées : 8080 y est souvent pris, d'où un port choisi au premier passage.
 socle_persist_default MILES_HTTP_PORT 8080
+socle_jeton_du_journal
 socle_persist_default MILES_MQTT_PORT 1883
 socle_persist_default EXPOSE_PORTAL_URL
 socle_persist_default EXPOSE_WORKSPACE
