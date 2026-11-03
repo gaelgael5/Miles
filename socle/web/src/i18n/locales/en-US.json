@@ -304,5 +304,32 @@
       "clockSkew": "The code was right, but the two servers' clocks differ by about {{seconds}} seconds. Set the machines to the right time, then try again.",
       "unexpected": "The operation did not succeed."
     }
+  },
+  "events": {
+    "title": "Event journal",
+    "help": "Everything that was changed in this instance, and by whom. The journal is kept for a limited number of days; beyond that, its content no longer exists.",
+    "found": "{{count}} event(s)",
+    "defaultWindow": "Default window: {{start}} to {{end}}. Set dates to look further back.",
+    "none": "No event in this window.",
+    "writeTime": "write time",
+    "missingSequences": "Missing sequence numbers: {{sequences}}. The history is incomplete — this is the normal effect of retention purging.",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}} of {{pages}}",
+    "fields": {
+      "functionalAt": "Functional date",
+      "objects": "Objects"
+    },
+    "filters": {
+      "type": "Event type",
+      "typePlaceholder": "secret.created",
+      "writtenFrom": "Written since",
+      "writtenTo": "Written until"
+    },
+    "errors": {
+      "window": "The date bounds are inverted: the start date is after the end date.",
+      "pair": "This filter comes in pairs: the directory with the account, the object kind with its id.",
+      "unexpected": "The journal could not be read."
+    }
   }
 }

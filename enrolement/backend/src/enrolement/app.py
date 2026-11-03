@@ -17,6 +17,7 @@ from miles_socle.cultures.api_cultures import public_router as login_cultures_ro
 from miles_socle.cultures.api_cultures import router as cultures_router
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.pool import db_create_pool
+from miles_socle.events.api_events import router as events_router
 from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.api_health import router as health_router
 from miles_socle.journal.api_journal import MAINTENANCE_PATH
@@ -151,6 +152,10 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     # laisse passer par `system_api_paths` — déclaré ci-dessous DEPUIS le routeur qui le
     # porte, pour que le chemin et sa vérification ne puissent pas se séparer.
     app.include_router(journal_router)
+    # La consultation du journal d'events (story 50bfcba0). DANS /api et hors de toute
+    # liste de passage : le portillon exige donc une session, ce qui est le but — le
+    # journal dit qui a fait quoi.
+    app.include_router(events_router)
     app.include_router(auth_router)
     app.include_router(secrets_router)
     app.include_router(secret_types_router)

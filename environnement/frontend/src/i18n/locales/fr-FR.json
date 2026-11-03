@@ -5,6 +5,7 @@
       "cultures": "Cultures",
       "secrets": "Secrets",
       "oidc": "Connecteurs OIDC",
+      "events": "Journal d'events",
       "health": "État du service",
       "pairing": "Appariement",
       "storages": "Espaces de stockage",

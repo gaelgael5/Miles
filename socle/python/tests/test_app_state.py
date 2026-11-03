@@ -26,6 +26,7 @@ SERVICES_DU_SOCLE = (
     "public_url",
     "journal_maintenance",
     "journal_maintenance_token",
+    "events",
 )
 
 

@@ -117,6 +117,9 @@ describe("App", () => {
       "Agent",
       "API keys",
       "OAuth clients",
+      // Le journal d'events, avant l'état du service : les deux se lisent quand on
+      // diagnostique, et aucun des deux n'est un réglage (story 50bfcba0).
+      "Event journal",
       "Service status",
       "Workspaces",
       "All workspaces",

@@ -33,6 +33,7 @@ from miles_socle.auth.throttle import LoginThrottle
 from miles_socle.cultures.service import CulturesService
 from miles_socle.events.journal import JOURNAL_TABLES
 from miles_socle.events.model import EventAuthor, EventTypeCatalog
+from miles_socle.events.service import EventsService
 from miles_socle.health.probe import resolve_health
 from miles_socle.journal.maintenance import JournalMaintenance
 from miles_socle.oidc.service import OidcService
@@ -141,3 +142,6 @@ def wire_socle_services(
     # l'état par défaut : la route refuse tout tant que la stack n'a pas de jeton.
     jeton = settings.journal_maintenance_token
     app.state.journal_maintenance_token = jeton.get_secret_value() if jeton else None
+    # La consultation du journal. Lecture seule, et sans catalogue d'events : lire n'écrit
+    # rien, et un event « journal consulté » le ferait grossir de sa propre lecture.
+    app.state.events = EventsService(pool=pool, now=now)

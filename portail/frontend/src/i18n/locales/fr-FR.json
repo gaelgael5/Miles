@@ -8,6 +8,7 @@
       "countries": "Pays",
       "timezones": "Fuseaux horaires",
       "secrets": "Secrets",
+      "events": "Journal d'events",
       "health": "État du service",
       "gitConnections": "Connexions git",
       "allWorkspaces": "Tous les workspaces",

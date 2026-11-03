@@ -6,6 +6,7 @@ import {
   AuthGate,
   ConnectorsScreen,
   CulturesScreen,
+  EventsScreen,
   HealthStatus,
   type Me,
   PairingScreen,
@@ -56,6 +57,10 @@ const ECRANS = [
   // Après les clés : c'est une clé qui ouvre un point d'entrée, et l'ordre du menu
   // suit celui dans lequel on branche un partenaire.
   { nom: "ingestion", Ecran: IngestionScreen },
+  // Le journal d'events (story 50bfcba0) : qui a modifié quoi dans cette instance.
+  // Juste avant l'état du service : les deux se lisent quand on diagnostique, et aucun
+  // des deux n'est un réglage.
+  { nom: "events", Ecran: EventsScreen },
   { nom: "cultures", Ecran: CulturesScreen },
   { nom: "secrets", Ecran: SecretsScreen },
   { nom: "oidc", Ecran: ConnectorsScreen },

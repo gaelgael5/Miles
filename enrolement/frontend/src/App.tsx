@@ -7,6 +7,7 @@ import {
   CollapsibleGroup,
   ConnectorsScreen,
   CulturesScreen,
+  EventsScreen,
   HealthStatus,
   type Me,
   ProfileShell,
@@ -35,6 +36,10 @@ import { WorkspaceScreen } from "./workspaces/WorkspaceScreen";
 const ECRANS = [
   { nom: "pairing", Ecran: PairingScreen },
   { nom: "environments", Ecran: EnvironmentsScreen },
+  // Le journal d'events (story 50bfcba0) : qui a modifié quoi dans cette instance.
+  // Juste avant l'état du service : les deux se lisent quand on diagnostique, et aucun
+  // des deux n'est un réglage.
+  { nom: "events", Ecran: EventsScreen },
   { nom: "cultures", Ecran: CulturesScreen },
   { nom: "secrets", Ecran: SecretsScreen },
   { nom: "oidc", Ecran: ConnectorsScreen },

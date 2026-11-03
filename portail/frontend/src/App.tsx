@@ -6,6 +6,7 @@ import {
   CollapsibleGroup,
   ConnectorsScreen,
   CulturesScreen,
+  EventsScreen,
   HealthStatus,
   type Me,
   PairingScreen,
@@ -41,6 +42,7 @@ type Page =
   | "oauthClients"
   | "countries"
   | "timezones"
+  | "events"
   | "health";
 // Deux menus, dans cet ordre (Gael, 21/10/2026) : le global d'abord, ce que partagent tous
 // les workspaces, puis les workspaces. L'ordre des écrans dans le global est voulu.
@@ -71,6 +73,10 @@ const SECTIONS: Section[] = [
       // fait obtenir. Regroupés (Gael, 30/10/2026) — ils ne servent qu'à cela, et au
       // premier niveau ils se lisaient comme deux réglages de plus.
       { group: "agent", pages: ["apiKeys", "oauthClients"] },
+      // Le journal d'events (story 50bfcba0) : qui a modifié quoi dans cette
+      // instance. Avant l'état du service : les deux se lisent quand on
+      // diagnostique, et aucun des deux n'est un réglage.
+      "events",
       "health",
     ],
   },
@@ -90,6 +96,7 @@ const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
   secrets: SecretsScreen,
   apiKeys: ApiKeysScreen,
   oauthClients: OAuthClientsScreen,
+  events: EventsScreen,
   health: HealthStatus,
 };
 

@@ -304,5 +304,32 @@
       "clockSkew": "Le code était le bon, mais les horloges des deux serveurs diffèrent d'environ {{seconds}} secondes. Remettre les machines à l'heure, puis réessayer.",
       "unexpected": "L'opération n'a pas abouti."
     }
+  },
+  "events": {
+    "title": "Journal d'events",
+    "help": "Tout ce qui a été modifié dans cette instance, et par qui. Le journal est conservé un nombre de jours limité : au-delà, son contenu n'existe plus.",
+    "found": "{{count}} event(s)",
+    "defaultWindow": "Fenêtre par défaut : du {{start}} au {{end}}. Au-delà, préciser des dates.",
+    "none": "Aucun event sur cette fenêtre.",
+    "writeTime": "date d'écriture",
+    "missingSequences": "Numéros de séquence absents : {{sequences}}. L'histoire est incomplète — c'est l'effet normal de la purge de rétention.",
+    "previous": "Précédents",
+    "next": "Suivants",
+    "page": "Page {{page}} sur {{pages}}",
+    "fields": {
+      "functionalAt": "Date fonctionnelle",
+      "objects": "Objets concernés"
+    },
+    "filters": {
+      "type": "Type d'event",
+      "typePlaceholder": "secret.created",
+      "writtenFrom": "Écrits depuis",
+      "writtenTo": "Écrits jusqu'au"
+    },
+    "errors": {
+      "window": "Les bornes de dates sont inversées : la date de début est après celle de fin.",
+      "pair": "Ce filtre se donne par paire : l'annuaire avec le compte, le genre d'objet avec son identifiant.",
+      "unexpected": "Le journal n'a pas pu être lu."
+    }
   }
 }

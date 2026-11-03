@@ -23,6 +23,14 @@ const SANTE = {
 const ECRANS: { nom: string; libelle: string; appel: string }[] = [
   { nom: "pairing", libelle: "Pairing", appel: "GET /api/pairing/requests" },
   { nom: "environments", libelle: "Environments", appel: "GET /api/environments" },
+  // La requête porte sa chaîne de paramètres : l'écran borne toujours sa page, et la
+  // garde compare la clé EXACTE — un écran qui demanderait tout le journal d'un coup
+  // ferait donc rougir celle-ci.
+  {
+    nom: "events",
+    libelle: "Event journal",
+    appel: "GET /api/events?page=1&size=50",
+  },
   { nom: "cultures", libelle: "Cultures", appel: "GET /api/cultures" },
   { nom: "secrets", libelle: "Secrets", appel: "GET /api/secrets" },
   { nom: "oidc", libelle: "OIDC connectors", appel: "GET /api/oidc/connectors" },
@@ -56,6 +64,35 @@ const CONNECTE: Routes = {
   "GET /api/auth/me/preferences": { status: 200, body: { language: null } },
   "GET /api/health": { status: 200, body: SANTE },
   "GET /api/cultures": { status: 200, body: [] },
+  // Un event réel et non une liste vide : un écran qui n'a rien à montrer rend une
+  // explication, pas son titre, et la garde du menu vérifie justement le titre.
+  "GET /api/events": {
+    status: 200,
+    body: {
+      events: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          type: "secret.created",
+          functional_at: "2026-11-02T10:21:29Z",
+          functional_at_source: "caller",
+          written_at: "2026-11-02T10:21:29Z",
+          author_directory: "local",
+          author_subject: "admin",
+          properties: {},
+          objects: [],
+        },
+      ],
+      total: 1,
+      page: 1,
+      size: 50,
+      window: {
+        start: "2026-10-27T12:00:00Z",
+        end: "2026-11-03T12:00:00Z",
+        defaulted: true,
+      },
+      missing_sequences: [],
+    },
+  },
   "GET /api/pairing/requests": { status: 200, body: [] },
   "GET /api/pairing/peers": { status: 200, body: [] },
   "GET /api/environments": { status: 200, body: [] },
