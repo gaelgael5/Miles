@@ -27,7 +27,7 @@ ADMIN_PASSWORD_FILE="$STATE_DIR/admin-password"
 # uid de l'utilisateur non root de l'image backend (backend/Dockerfile).
 RUNTIME_UID=10001
 DEPLOY_KEY="$HOME/.ssh/miles_deploy_key"
-TOTAL_STEPS=10
+TOTAL_STEPS=11
 # Nom publié à l'annuaire : doit rester le `name:` de docker-compose.yml, sinon le lien de
 # la machine de test dans le portail ne retrouve pas la stack. Distinct de celui des deux
 # autres produits, les trois stacks cohabitant sur la même machine.
@@ -137,6 +137,11 @@ socle_schema_a_jour "environnement-migrate"
 
 socle_step 10 "contrôle de santé sur le port publié $HTTP_PORT"
 socle_sante "$HTTP_PORT" "$HEALTH_WAIT_S"
+socle_step 11 "entretien du journal (déclencheur d'hôte)"
+# APRÈS le contrôle de santé : l'appel de validation a besoin que la route réponde,
+# et rien ici ne doit retarder la mise à disposition du service.
+socle_entretien_du_journal "environnement" "$HTTP_PORT"
+
 echo "déploiement OK : $(git -C "$DEPOT_DIR" rev-parse --short HEAD) sur http://$(hostname):$HTTP_PORT"
 
 socle_purge_hebdomadaire "$PURGE_STAMP" "$PURGE_EVERY_S"

@@ -15,6 +15,7 @@ from miles_socle.auth.sessions import SESSION_COOKIE
 from miles_socle.auth.throttle import LoginThrottle
 from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.probe import HealthReport
+from miles_socle.journal.api_journal import MAINTENANCE_PATH
 from miles_socle.signing.calls import ORIGIN_HEADER
 from miles_socle.signing.hosting import HOSTING_BUNDLE_PATH
 from miles_socle.signing.protocol import (
@@ -291,3 +292,19 @@ def test_un_appel_de_pair_non_signe_est_refuse_par_la_route(
 
     assert reponse.status_code == 401
     assert reponse.json()["detail"] != "session_requise"
+
+
+def test_la_route_d_entretien_des_journaux_est_LA_SEULE_ouverte_par_secret_de_stack() -> None:
+    """Deux listes de passage, et une seule route dans la seconde.
+
+    `system_api_paths` est distincte de `signed_api_paths` : une signature prouve l'identité
+    d'un pair par une clé échangée à l'appariement, un secret de stack ne prouve que
+    l'appartenance à la stack. Cette égalité est écrite en dur exprès — ouvrir un second
+    chemin par secret de stack doit obliger quelqu'un à venir le dire ici.
+    """
+    app = build_app()
+
+    assert app.state.system_api_paths == {MAINTENANCE_PATH}
+    # Le jeton, lui, est posé par la durée de vie et non par la construction : qu'il soit
+    # nul par défaut — route inerte — est éprouvé par la suite du socle, qui monte la route
+    # sans jeton, et par les tests d'intégration sur une base réelle.

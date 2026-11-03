@@ -23,6 +23,8 @@ from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.pool import db_create_pool
 from miles_socle.events.model import EventAuthor, EventTypeCatalog
 from miles_socle.health.api_health import router as health_router
+from miles_socle.journal.api_journal import MAINTENANCE_PATH
+from miles_socle.journal.api_journal import router as journal_router
 from miles_socle.log_config import configure_logging
 from miles_socle.oidc.api_connectors import router as oidc_connectors_router
 from miles_socle.oidc.api_login import router as oidc_login_router
@@ -311,6 +313,11 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app = FastAPI(title="Miles", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.middleware("http")(auth_gate)
     app.include_router(health_router)
+    # L'entretien des journaux partitionnés, appelé par un déclencheur d'HÔTE (décision du
+    # 03/11/2026) : ni cookie ni personne derrière. Il vit dans /api et le portillon le
+    # laisse passer par `system_api_paths` — déclaré ci-dessous DEPUIS le routeur qui le
+    # porte, pour que le chemin et sa vérification ne puissent pas se séparer.
+    app.include_router(journal_router)
     app.include_router(auth_router)
     app.include_router(secrets_router)
     app.include_router(secret_types_router)
@@ -363,6 +370,11 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     # chemin ouvert à côté de sa vérification serait ouvert à tous, et c'est exactement
     # l'erreur que cette dérivation rend inexprimable.
     app.include_router(peer_router)
+    # Une liste DISTINCTE de `signed_api_paths` : une signature prouve l'identité d'un
+    # pair par une clé échangée à l'appariement, un secret de stack ne prouve que
+    # l'appartenance à la stack. Les confondre laisserait un chemin déclaré pour l'un
+    # s'ouvrir par le mécanisme de l'autre.
+    app.state.system_api_paths = frozenset({MAINTENANCE_PATH})
     app.state.signed_api_paths = frozenset(
         route.path for route in peer_router.routes if isinstance(route, APIRoute)
     )

@@ -135,3 +135,33 @@ def test_la_configuration_est_figee() -> None:
 
     with pytest.raises(ValidationError):
         settings.cookie_secure = False  # type: ignore[misc]
+
+
+class TestLesParametresDuJournal:
+    """Mesuré le 03/11/2026 : une variable VIDE faisait refuser le démarrage.
+
+    `docker-compose.yml` passe `${MILES_JOURNAL_RETENTION_DAYS:-}` : une stack lancée sans
+    cette clef dans `.env` transmet la chaîne vide, et le backend tombait en boucle de
+    redémarrage pour un paramètre FACULTATIF.
+    """
+
+    def test_une_retention_vide_vaut_absente_et_ne_purge_rien(self) -> None:
+        assert _settings(journal_retention_days="").journal_retention_days is None
+
+    def test_un_jeton_d_entretien_vide_vaut_absent_donc_route_inerte(self) -> None:
+        assert _settings(journal_maintenance_token="   ").journal_maintenance_token is None
+
+    def test_les_deux_sont_nuls_par_defaut(self) -> None:
+        """Les défauts sont des CHOIX : aucune purge, et une route d'entretien fermée."""
+        reglages = _settings()
+
+        assert reglages.journal_retention_days is None
+        assert reglages.journal_maintenance_token is None
+
+    def test_une_retention_de_zero_jour_est_refusee(self) -> None:
+        """« Zéro » ne veut pas dire « ne rien purger » : ça, c'est l'absence de valeur."""
+        with pytest.raises(ValidationError):
+            _settings(journal_retention_days=0)
+
+    def test_une_retention_lue_est_bien_un_nombre_de_jours(self) -> None:
+        assert _settings(journal_retention_days="90").journal_retention_days == 90

@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 from miles_socle.auth.admin_account import AdminConfigError
 from miles_socle.db.migration_files import MigrationError
+from miles_socle.journal.api_journal import MAINTENANCE_PATH
 from miles_socle.secrets.crypto import SecretsKeyError
 from pydantic import ValidationError
 
@@ -150,3 +151,21 @@ def test_create_app_without_secrets_key_refuses_to_start(
 
     with pytest.raises(ValidationError, match="secrets_key"):
         app_module.create_app()
+
+
+def test_la_route_d_entretien_des_journaux_est_LA_SEULE_ouverte_par_secret_de_stack(
+    env: Path,
+) -> None:
+    """Deux listes de passage, et une seule route dans la seconde.
+
+    `system_api_paths` est distincte de `signed_api_paths` : une signature prouve l'identité
+    d'un pair par une clé échangée à l'appariement, un secret de stack ne prouve que
+    l'appartenance à la stack. Cette égalité est écrite en dur exprès — ouvrir un second
+    chemin par secret de stack doit obliger quelqu'un à venir le dire ici.
+    """
+    app = app_module.create_app()
+
+    assert app.state.system_api_paths == {MAINTENANCE_PATH}
+    # Le jeton, lui, est posé par la durée de vie et non par la construction : qu'il soit
+    # nul par défaut — route inerte — est éprouvé par la suite du socle, qui monte la route
+    # sans jeton, et par les tests d'intégration sur une base réelle.

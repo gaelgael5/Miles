@@ -97,6 +97,14 @@ async def auth_gate(request: Request, call_next: CallNext) -> Response:
     #     l'existence d'un administrateur humain, et sa clé n'est connue que par appariement.
     if path in getattr(request.app.state, "signed_api_paths", frozenset()):
         return await call_next(request)
+    # Routes authentifiées par un secret de STACK : un déclencheur d'hôte n'a ni cookie ni
+    # personne derrière, et la route elle-même refuse tout si le secret n'est pas configuré
+    # ou ne correspond pas. Les mêmes trois propriétés que ci-dessus, et une LISTE DISTINCTE
+    # plutôt qu'une seule : une signature prouve l'identité d'un pair par une clé échangée à
+    # l'appariement, un secret de stack ne prouve que l'appartenance à la stack. Les
+    # confondre laisserait un chemin déclaré pour l'un s'ouvrir par le mécanisme de l'autre.
+    if path in getattr(request.app.state, "system_api_paths", frozenset()):
+        return await call_next(request)
     ctx: AuthContext = request.app.state.auth
     account = ctx.store.account
     if account is None:

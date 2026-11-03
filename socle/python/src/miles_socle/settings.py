@@ -91,10 +91,35 @@ class SocleWebSettings(SocleConfig):
     # Configurée, jamais lue des en-têtes de la requête : un Host forgé enverrait le code
     # d'autorisation ailleurs. Absente, la connexion OIDC est indisponible.
     public_url: str | None = None
+    # Rétention des journaux, en jours, réglée BASE PAR BASE (cadrage, amendement du
+    # 26/10/2026 : le journal d'un environnement de recette n'a pas la valeur de celui de la
+    # production). **Nul par défaut, et ce défaut est un choix** : un paramètre oublié laisse
+    # le journal grossir — ce qui se voit sur un disque et se répare — au lieu de l'effacer
+    # sans retour. `ge=1` : « zéro jour » ne voudrait pas dire « ne rien purger » mais « ne
+    # garder même pas aujourd'hui », et personne ne l'écrit exprès.
+    journal_retention_days: int | None = Field(default=None, ge=1)
+    # Secret SYSTÈME qui ouvre la route d'entretien des journaux, appelée par un déclencheur
+    # d'hôte (décision du 03/11/2026). Nul par défaut : la route est alors inerte et refuse
+    # tout — fail closed, une route d'entretien ouverte laisserait RETIRER des partitions.
+    journal_maintenance_token: SecretStr | None = None
     # Faux par défaut : un fournisseur d'identité (connecteur OIDC, service de sécurité) en
     # HTTP laisse passer jetons, codes et secrets en clair. Seuls les tests d'intégration,
     # contre des fournisseurs jetables, l'activent.
     allow_http_identity_providers: bool = False
+
+    @field_validator("journal_retention_days", "journal_maintenance_token", mode="before")
+    @classmethod
+    def _vide_vaut_absent(cls, value: object) -> object:
+        """Une variable d'environnement VIDE vaut « non configuré », pas « illisible ».
+
+        Mesuré le 03/11/2026 : sans ceci, `MILES_JOURNAL_RETENTION_DAYS=` fait REFUSER le
+        démarrage (`Input should be a valid integer`). Or `docker-compose.yml` passe
+        `${MILES_JOURNAL_RETENTION_DAYS:-}`, donc une stack lancée sans ces clefs dans
+        `.env` transmet la chaîne vide — et le backend tomberait en boucle de redémarrage
+        pour un paramètre facultatif. `public_url` avait déjà ce traitement, dans son
+        propre validateur ; il est ici parce que la règle est la même pour ces deux-ci.
+        """
+        return None if isinstance(value, str) and value.strip() == "" else value
 
     @field_validator("public_url")
     @classmethod

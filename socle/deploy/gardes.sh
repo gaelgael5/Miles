@@ -338,3 +338,94 @@ socle_compte_d_amorcage() {
   unset mot_de_passe
   echo "compte d'amorçage '$utilisateur' créé ; mot de passe dans $fichier_mot_de_passe"
 }
+
+# --- Entretien des journaux partitionnés : le déclencheur d'HÔTE ------------------------
+# Décision de Gael du 3 novembre 2026 (enabler 8e86afbc) : le déclencheur périodique vient
+# de l'hôte et appelle la route d'entretien. Rien de périodique n'existait dans le dépôt.
+#
+# UN TIMER SYSTEMD, PAS UN CRON, et c'est mesuré : sur les machines de test, `cron` n'est
+# PAS installé (`dpkg -l` : zéro paquet), tandis que systemd 252 y tourne et que l'image
+# emploie déjà cette convention pour ses propres tâches (`portal-network-recover.timer`,
+# `portal-zram-*.timer`). Ajouter un paquet pour trois lignes de planification aurait fait
+# du déploiement l'installateur d'une dépendance d'hôte.
+#
+# LE SECRET NE PASSE JAMAIS EN ARGUMENT : il vit dans un fichier de configuration de curl à
+# 0600. Un `-H "Authorization: Bearer …"` sur la ligne de commande serait lu par n'importe
+# quel `ps auxww` de la machine, et resterait dans la définition de l'unité, lisible par
+# `systemctl cat`.
+#
+# RIEN ICI NE FAIT ÉCHOUER LE DÉPLOIEMENT, sauf la génération du jeton. Un entretien non
+# planifié laisse un journal qui grossit — ce qui se voit sur un disque et se répare ;
+# faire tomber la livraison pour cela coûterait plus que le défaut.
+socle_entretien_du_journal() {
+  local stack="$1" port="$2" conf unite jeton retention
+  socle_valeur_durable MILES_JOURNAL_MAINTENANCE_TOKEN "$(openssl rand -hex 32)" \
+    "jeton d'entretien du journal généré"
+  # Rétention écrite dans .env au premier passage, donc VISIBLE et modifiable base par
+  # base (cadrage, amendement du 26/10/2026). Le défaut du code, lui, reste « ne rien
+  # purger » : un paramètre absent ne doit pas effacer un journal.
+  socle_persist_default MILES_JOURNAL_RETENTION_DAYS 90
+  jeton="$(socle_env_value MILES_JOURNAL_MAINTENANCE_TOKEN)"
+  retention="$(socle_env_value MILES_JOURNAL_RETENTION_DAYS)"
+  [[ -n "$jeton" ]] || socle_fail "jeton d'entretien du journal absent de $ENV_FILE"
+
+  conf="/etc/miles/$stack-journal.curlrc"
+  unite="miles-$stack-journal"
+  install -d -m 700 /etc/miles
+  ( umask 077
+    printf 'url = "http://127.0.0.1:%s/api/journal/maintenance"\n' "$port"
+    printf 'header = "Authorization: Bearer %s"\n' "$jeton"
+    printf 'request = "POST"\nsilent\nshow-error\nfail\n'
+  ) > "$conf"
+  chmod 600 "$conf"
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    echo "AVERTISSEMENT : systemd absent, entretien du journal NON planifié."
+    echo "  à appeler autrement : curl --config $conf"
+    return 0
+  fi
+
+  cat > "/etc/systemd/system/$unite.service" <<UNIT
+[Unit]
+Description=Miles $stack — entretien du journal partitionné (partitions d'avance, purge)
+Documentation=https://github.com/Black-Beard-Sdk/admin-miles
+
+[Service]
+Type=oneshot
+# Le secret est dans le fichier de configuration, jamais sur la ligne de commande :
+# \`systemctl cat\` et \`ps auxww\` ne doivent pas le montrer.
+ExecStart=/usr/bin/curl --config $conf
+UNIT
+  cat > "/etc/systemd/system/$unite.timer" <<UNIT
+[Unit]
+Description=Miles $stack — entretien quotidien du journal partitionné
+
+[Timer]
+OnCalendar=*-*-* 03:17:00 UTC
+# Rattrapé au démarrage si la machine était éteinte à l'heure dite : les machines de test
+# sont éphémères, et un entretien manqué laisse grossir le journal.
+Persistent=true
+# Trois stacks sur la même machine : sans ce décalage, elles entretiendraient ensemble.
+RandomizedDelaySec=900
+Unit=$unite.service
+
+[Install]
+WantedBy=timers.target
+UNIT
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  if systemctl enable --now "$unite.timer" >/dev/null 2>&1; then
+    echo "entretien du journal planifié : $unite.timer, rétention ${retention} jours"
+  else
+    echo "AVERTISSEMENT : $unite.timer non activé (systemctl enable en échec)."
+  fi
+
+  # UN appel réel, tout de suite. C'est ce qui prouve que la route répond et que le jeton
+  # est le bon — un fichier d'unité écrit ne prouve rien, et l'erreur se découvrirait à
+  # 3 h 17 du matin, dans un journal que personne ne lit.
+  if curl --config "$conf" -o /dev/null; then
+    echo "entretien du journal : premier passage OK"
+  else
+    echo "AVERTISSEMENT : la route d'entretien a refusé le premier passage."
+    echo "  diagnostic : curl -v --config $conf"
+  fi
+}

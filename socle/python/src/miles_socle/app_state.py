@@ -24,14 +24,17 @@ from typing import Protocol
 import asyncpg
 import httpx
 from fastapi import FastAPI
+from pydantic import SecretStr
 
 from miles_socle.auth.admin_store import AdminAccountStore
 from miles_socle.auth.api_preferences import PreferencesService
 from miles_socle.auth.context import AuthContext, utc_now
 from miles_socle.auth.throttle import LoginThrottle
 from miles_socle.cultures.service import CulturesService
+from miles_socle.events.journal import JOURNAL_TABLES
 from miles_socle.events.model import EventAuthor, EventTypeCatalog
 from miles_socle.health.probe import resolve_health
+from miles_socle.journal.maintenance import JournalMaintenance
 from miles_socle.oidc.service import OidcService
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.service import SecretsService
@@ -60,6 +63,12 @@ class SocleRuntime(Protocol):
 
     @property
     def db_connect_timeout_s(self) -> float: ...
+
+    @property
+    def journal_retention_days(self) -> int | None: ...
+
+    @property
+    def journal_maintenance_token(self) -> SecretStr | None: ...
 
 
 def wire_socle_services(
@@ -117,3 +126,18 @@ def wire_socle_services(
     # Lue par les routes qui construisent une URL de retour. Posée ici pour que `None` —
     # une instance sans adresse publique, OIDC indisponible — soit un état explicite.
     app.state.public_url = settings.public_url
+    # L'entretien des journaux partitionnés. Posé pour les TROIS produits : les trois
+    # portent la table `events`, et un produit dont le journal ne se purgerait pas serait
+    # celui dont le disque se remplit — on ne laisse pas ce choix à l'oubli.
+    app.state.journal_maintenance = JournalMaintenance(
+        pool=pool,
+        # Les tables du socle, dans cet ORDRE : les liens avant les events, pour qu'une
+        # purge interrompue ne laisse pas un lien vers un event déjà retiré.
+        tables=JOURNAL_TABLES,
+        now=now,
+        retention_days=settings.journal_retention_days,
+    )
+    # Déballé ici, au point d'usage, et jamais plus haut. Nul = route inerte, et c'est
+    # l'état par défaut : la route refuse tout tant que la stack n'a pas de jeton.
+    jeton = settings.journal_maintenance_token
+    app.state.journal_maintenance_token = jeton.get_secret_value() if jeton else None

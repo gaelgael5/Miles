@@ -24,6 +24,7 @@ from pathlib import Path
 import asyncpg
 import httpx
 from fastapi import FastAPI
+from pydantic import SecretStr
 
 from miles_socle.app_state import wire_socle_services
 from miles_socle.auth.admin_store import AdminAccountStore
@@ -55,6 +56,11 @@ class TestRuntime:
       contre un fournisseur JETABLE servi en HTTP. En production c'est une garde : un
       fournisseur en HTTP laisse passer jetons et codes en clair ;
     - une session d'une heure, qui suffit à un test et n'a pas à durer douze heures.
+
+    La rétention des journaux et le jeton d'entretien gardent en revanche leurs défauts de
+    PRODUCTION — nuls, donc aucune purge et une route d'entretien inerte : un test qui veut
+    les éprouver les pose explicitement, et aucun autre ne risque de voir son journal purgé
+    sous lui.
     """
 
     public_url: str | None
@@ -62,6 +68,8 @@ class TestRuntime:
     cookie_secure: bool = False
     allow_http_identity_providers: bool = True
     db_connect_timeout_s: float = HEALTH_TIMEOUT_S
+    journal_retention_days: int | None = None
+    journal_maintenance_token: SecretStr | None = None
 
 
 def utc_now() -> datetime:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -26,9 +27,18 @@ class _FakeEventDb:
         self.history = history or []
         self.counters: dict[tuple[str, str], int] = {}
         self.executed: list[tuple[str, tuple[Any, ...]]] = []
+        self.savepoints = 0
 
     def is_in_transaction(self) -> bool:
         return self.in_transaction
+
+    @asynccontextmanager
+    async def transaction(self) -> Any:
+        # Le point de sauvegarde de la vraie connexion. La doublure n'échoue jamais sur une
+        # partition manquante : c'est un défaut de BASE, et il s'éprouve sur une base réelle
+        # (tests d'intégration des trois produits), pas sur une doublure qui dirait oui.
+        self.savepoints += 1
+        yield None
 
     async def execute(self, query: str, *args: Any) -> str:
         self.executed.append((query, args))

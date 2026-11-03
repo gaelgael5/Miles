@@ -30,7 +30,7 @@ MOSQUITTO_IMAGE="eclipse-mosquitto:2.0.20"
 MOSQUITTO_UID=1883
 MOSQUITTO_DIR="$STATE_DIR/mosquitto"
 DEPLOY_KEY="$HOME/.ssh/miles_deploy_key"
-TOTAL_STEPS=11
+TOTAL_STEPS=12
 # Nom publié à l'annuaire : doit rester le `name:` de docker-compose.yml, sinon le lien de la
 # machine de test dans le portail ne retrouve pas la stack.
 SERVICE_NAME="miles"
@@ -178,6 +178,11 @@ socle_schema_a_jour "miles-migrate"
 
 socle_step 11 "contrôle de santé sur le port publié $HTTP_PORT"
 socle_sante "$HTTP_PORT" "$HEALTH_WAIT_S"
+socle_step 12 "entretien du journal (déclencheur d'hôte)"
+# APRÈS le contrôle de santé : l'appel de validation a besoin que la route réponde,
+# et rien ici ne doit retarder la mise à disposition du service.
+socle_entretien_du_journal "portail" "$HTTP_PORT"
+
 echo "déploiement OK : $(git -C "$DEPOT_DIR" rev-parse --short HEAD) sur http://$(hostname):$HTTP_PORT"
 
 socle_purge_hebdomadaire "$PURGE_STAMP" "$PURGE_EVERY_S"

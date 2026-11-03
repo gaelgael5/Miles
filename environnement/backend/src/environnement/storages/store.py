@@ -9,6 +9,7 @@ pour une table qu'une restauration de base aurait emportée, exactement comme cr
 from __future__ import annotations
 
 import json
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
@@ -25,6 +26,10 @@ class StorageDb(Protocol):
     async def execute(self, query: str, *args: Any) -> str: ...
     async def fetch(self, query: str, *args: Any) -> list[Any]: ...
     async def fetchval(self, query: str, *args: Any) -> Any: ...
+    # Exigée par l'écriture d'event, qui pose un POINT DE SAUVEGARDE avant d'insérer :
+    # la partition du jour peut manquer, et la réparer ne doit pas emporter la
+    # transaction de la modification que l'event trace (enabler 8e86afbc).
+    def transaction(self) -> AbstractAsyncContextManager[Any]: ...
 
 
 @dataclass(frozen=True)

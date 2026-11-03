@@ -8,6 +8,7 @@ from typing import Any, cast
 import httpx
 import pytest
 from fastapi import FastAPI
+from pydantic import SecretStr
 
 from miles_socle.app_state import wire_socle_services
 from miles_socle.auth.admin_store import AdminAccountStore
@@ -23,6 +24,8 @@ SERVICES_DU_SOCLE = (
     "preferences",
     "oidc",
     "public_url",
+    "journal_maintenance",
+    "journal_maintenance_token",
 )
 
 
@@ -33,6 +36,8 @@ class _Runtime:
     cookie_secure: bool = True
     allow_http_identity_providers: bool = False
     db_connect_timeout_s: float = 5.0
+    journal_retention_days: int | None = None
+    journal_maintenance_token: SecretStr | None = None
 
 
 class _Pool:
@@ -61,7 +66,7 @@ def _cable(tmp_path: Path, runtime: _Runtime, *, email: str = "gael@example.org"
 
 
 @pytest.mark.parametrize("service", SERVICES_DU_SOCLE)
-def test_les_sept_services_du_socle_sont_poses(tmp_path: Path, service: str) -> None:
+def test_chaque_service_du_socle_est_pose(tmp_path: Path, service: str) -> None:
     # Nommés un par un, et non comptés : un service perdu doit faire rougir un test qui
     # dit lequel. C'est tout l'objet de ce module.
     app = _cable(tmp_path, _Runtime())

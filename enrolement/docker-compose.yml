@@ -41,6 +41,14 @@ services:
       MILES_SECRETS_KEY: ${MILES_SECRETS_KEY:?MILES_SECRETS_KEY absent de .env — lancer dev-deploy.sh}
       # Adresse publique (URL de retour OIDC) ; vide : la connexion OIDC est indisponible.
       MILES_PUBLIC_URL: ${MILES_PUBLIC_URL:-}
+      # Rétention du journal partitionné, en jours, réglée BASE PAR BASE dans .env
+      # (enabler 8e86afbc). Vide : AUCUNE purge — un paramètre oublié laisse le journal
+      # grossir plutôt que de l'effacer sans retour.
+      MILES_JOURNAL_RETENTION_DAYS: ${MILES_JOURNAL_RETENTION_DAYS:-}
+      # Secret SYSTÈME qui ouvre la route d'entretien, appelée par le timer de l'hôte.
+      # Vide : la route est inerte et refuse tout. Fail closed — une route d'entretien
+      # ouverte laisserait n'importe qui RETIRER des partitions du journal.
+      MILES_JOURNAL_MAINTENANCE_TOKEN: ${MILES_JOURNAL_MAINTENANCE_TOKEN:-}
     volumes:
       # Fichier par fichier, pas le dossier du dépôt : le backend y écrit le compte
       # d'amorçage, et .env.bak sert à restaurer .env si cette écriture est interrompue.
