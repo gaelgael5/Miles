@@ -8,8 +8,9 @@ from datetime import datetime
 from typing import Any, Protocol
 
 from environnement.ingestion.model import Acknowledgement
+from environnement.ingestion.outcome import Report, report_of
 
-_SELECT = "SELECT id, source, mode, object_count, received_at, state FROM ingestions"
+_SELECT = "SELECT id, source, mode, object_count, received_at, state, report FROM ingestions"
 
 
 class IngestionDb(Protocol):
@@ -21,6 +22,13 @@ class IngestionDb(Protocol):
 
 
 def _ack(row: Any, *, replayed: bool) -> Acknowledgement:
+    # Une colonne `jsonb` revient d'asyncpg en CHAÎNE, pas en dictionnaire : le journal du
+    # socle le sait déjà, et un test l'avait appris à ses dépens le 28/10/2026. Lire sans
+    # convertir comparerait des caractères.
+    brut = row["report"] if "report" in row.keys() else None
+    rapport = None
+    if brut is not None:
+        rapport = report_of(json.loads(brut) if isinstance(brut, str) else brut)
     return Acknowledgement(
         id=row["id"],
         source=row["source"],
@@ -29,6 +37,7 @@ def _ack(row: Any, *, replayed: bool) -> Acknowledgement:
         received_at=row["received_at"],
         state=row["state"],
         replayed=replayed,
+        report=rapport,
     )
 
 
@@ -57,7 +66,7 @@ async def db_record_ingestion(
         "INSERT INTO ingestions (id, source, entry_model, mode, version_number, key_id,"
         " key_label, received_at, size_bytes, object_count, state, idempotency_key, raw)"
         " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)"
-        " RETURNING id, source, mode, object_count, received_at, state",
+        " RETURNING id, source, mode, object_count, received_at, state, report",
         ingestion_id,
         source,
         entry_model,
@@ -88,6 +97,25 @@ async def db_ingestion_by_idempotency(
         f"{_SELECT} WHERE key_id = $1 AND idempotency_key = $2", key_id, idempotency_key
     )
     return None if row is None else _ack(row, replayed=True)
+
+
+async def db_mark_processed(
+    db: IngestionDb, ingestion_id: str, state: str, report: Report
+) -> Acknowledgement:
+    """Range l'état et le compte-rendu, et rend l'accusé LU de la ligne écrite.
+
+    Lu de la ligne et non reconstruit : c'est ce qui garantit qu'un rejeu rendra
+    exactement ce que l'appelant vient de recevoir, et non une reconstruction qui pourrait
+    en différer. Un stockage normalise ce qu'on lui donne.
+    """
+    row = await db.fetchrow(
+        "UPDATE ingestions SET state = $2, report = $3::jsonb WHERE id = $1"
+        " RETURNING id, source, mode, object_count, received_at, state, report",
+        ingestion_id,
+        state,
+        json.dumps(report.as_json(), ensure_ascii=False),
+    )
+    return _ack(row, replayed=False)
 
 
 async def db_ingestion(db: IngestionDb, ingestion_id: str) -> Acknowledgement | None:

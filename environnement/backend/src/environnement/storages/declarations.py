@@ -88,17 +88,22 @@ async def _one(read: ReadFile, name: str) -> StorageTable | StorageRefusal:
     if not IDENTIFIER_RE.match(scope):
         # Le schéma PostgreSQL porte le nom du domaine : il doit en être un.
         return StorageRefusal(name, REFUSAL_BAD_MODEL, scope)
-    schema = await _schema(read, scope, model)
+    schema = await file_model_schema(read, scope, model)
     if schema is None:
         return StorageRefusal(name, REFUSAL_MODEL_MISSING, doc.model)
     return _resolved(doc, scope, paths_of(schema))
 
 
-async def _schema(read: ReadFile, scope: str, model: str) -> Any | None:
+async def file_model_schema(read: ReadFile, scope: str, model: str) -> Any | None:
     """Le schéma du modèle, renvois vers d'autres modèles résolus.
 
     Résolus, et c'est nécessaire : une propriété indexable peut vivre sous un renvoi, et
     le portail l'a proposée parce qu'il résout les mêmes.
+
+    **Public depuis le 03/11/2026** : l'ingestion valide l'objet transformé contre ce
+    MÊME schéma résolu (story `d680e811`). Une seconde lecture aurait pu résoudre
+    autrement, et la validation aurait alors accepté ou refusé sur une forme que les
+    colonnes de la table ne décrivent pas.
     """
     content = await read(model_path(scope, model))
     if content is None:

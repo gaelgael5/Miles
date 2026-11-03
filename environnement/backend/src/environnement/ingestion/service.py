@@ -1,9 +1,16 @@
-"""Recevoir un dépôt, le persister, en accuser réception. Rien de plus à ce stade.
+"""Recevoir un dépôt, le persister, le traiter, en rendre le compte-rendu.
 
-**L'accusé dit que le lot est REÇU, pas qu'il est écrit.** La transformation et l'écriture
-différentielle sont le ticket suivant, et c'est délibéré : la trace de ce qui est
-réellement arrivé doit exister AVANT qu'on y touche, sans quoi un résultat contesté n'est
-pas reproductible et un incident de transformation n'est pas rejouable.
+**Le lot est persisté AVANT d'être transformé**, et l'ordre n'est pas négociable : sans la
+trace de ce qui est réellement arrivé, un résultat contesté n'est pas reproductible et un
+incident de transformation n'est pas rejouable. Les deux gestes sont dans la MÊME
+transaction, et c'est ce qui rend la reprise sûre (critère 14) — un service interrompu au
+milieu du traitement n'a rien laissé, ni lot ni écriture, et le même dépôt rejoué repart
+de zéro sans doublon.
+
+**Ce que la version servie ne porte pas est refusé avant toute persistance** : storage,
+modèle ou chaîne absents sont de la famille « mode non déclaré », pas du rejet d'objet.
+Aucun objet du lot ne pourrait aboutir, et persister pour rejeter deux cents fois la même
+faute de paramétrage ne renseignerait personne.
 
 **L'ordre des contrôles n'est pas indifférent.** On authentifie avant de dire quoi que ce
 soit de la version servie : sans cela, un appelant anonyme apprendrait quelles sources
@@ -12,6 +19,7 @@ existent, et dans quels modes, en lisant les refus.
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from collections.abc import Callable
@@ -38,14 +46,27 @@ from environnement.ingestion.model import (
     INGESTION_OBJECT_KIND,
     RECEIVED_EVENT,
     REFUSAL_AUCUNE_VERSION,
+    REFUSAL_CIBLE_NON_SERVIE,
     REFUSAL_TYPE_DE_CONTENU,
     STATE_RECEIVED,
     Acknowledgement,
     IngestionRefusal,
     Target,
 )
+from environnement.ingestion.outcome import STATE_FAILED, STATE_PROCESSED
 from environnement.ingestion.resolve import objects_of, target_of
-from environnement.ingestion.store import db_ingestion_by_idempotency, db_record_ingestion
+from environnement.ingestion.store import (
+    db_ingestion_by_idempotency,
+    db_mark_processed,
+    db_record_ingestion,
+)
+from environnement.ingestion.writeback import (
+    NotServed,
+    Prepared,
+    Processing,
+    file_prepare,
+    resolve_process,
+)
 from environnement.sources.declarations import file_declared_sources
 
 log = structlog.get_logger(__name__)
@@ -69,6 +90,9 @@ class IngestionService:
     keys: ApiKeysService
     catalog: EventTypeCatalog
     now: Callable[[], datetime]
+    # Borne de l'évaluation d'un template. C'est un TIERS qui fournit le document ici,
+    # pas l'auteur du template : sans borne, un document démesuré retiendrait le service.
+    transform_budget: int
 
     async def resolve_deposit(
         self,
@@ -87,9 +111,18 @@ class IngestionService:
         if idempotency_key is not None and not IDEMPOTENCY_RE.match(idempotency_key):
             # Elle devient une clé d'unicité en base : validée avant tout usage.
             raise IngestionRefusal("cle_idempotence_invalide")
-        cible = target_of(await self._declared(), source, mode)
+        paths = await self.tree.file_paths()
+        cible = target_of(await self._declared(paths), source, mode)
         objets = objects_of(mode, body)
-        return await self._persist(cible, principal, objets, len(body), idempotency_key)
+        # AVANT toute persistance : ce que la version servie n'offre pas se refuse comme
+        # un mode non déclaré. Lu une fois pour le dépôt, jamais par objet.
+        try:
+            prepare = await file_prepare(
+                self.tree.file_text, paths, cible.storage, cible.entry.chain
+            )
+        except NotServed as refus:
+            raise IngestionRefusal(REFUSAL_CIBLE_NON_SERVIE, refus.detail) from None
+        return await self._persist(cible, prepare, principal, objets, len(body), idempotency_key)
 
     async def _caller(self, source: str, mode: str, presented: str | None) -> KeyPrincipal:
         """L'appelant, ou un refus unique. **Avant toute lecture de la version servie.**"""
@@ -105,13 +138,13 @@ class IngestionService:
             raise NotAuthenticated
         return principal
 
-    async def _declared(self) -> Any:
-        paths = await self.tree.file_paths()
+    async def _declared(self, paths: list[str]) -> Any:
         return await file_declared_sources(self.tree.file_text, paths)
 
     async def _persist(
         self,
         cible: Target,
+        prepare: Prepared,
         principal: KeyPrincipal,
         objets: list[dict[str, object]],
         size_bytes: int,
@@ -121,12 +154,20 @@ class IngestionService:
         async with self.pool.acquire() as conn, conn.transaction():
             if idempotency_key is not None:
                 deja = await db_ingestion_by_idempotency(conn, principal.key_id, idempotency_key)
-                if deja is not None:
-                    # Rien n'est persisté une seconde fois, et le MÊME accusé est rendu.
-                    # Refuser serait pire : une ré-émission légitime, dont l'acquittement
-                    # s'est perdu, est un régime normal, pas un incident.
+                if deja is not None and deja.report is not None:
+                    # Déjà TRAITÉ : le même accusé et le même compte-rendu. Refuser serait
+                    # pire — une ré-émission légitime, dont l'acquittement s'est perdu, est
+                    # un régime normal, pas un incident (critère 13).
                     log.info("depot_rejoue", ingestion=deja.id, key=principal.key_id)
                     return deja
+                if deja is not None:
+                    # Reçu mais JAMAIS traité : c'est ce qu'un service interrompu laisse
+                    # derrière lui. On reprend le traitement au lieu de rendre un
+                    # compte-rendu vide — rien n'avait été écrit, donc ni doublon ni perte
+                    # (critère 14). Le lot traité est celui de la base, pas celui du corps
+                    # reçu : c'est la trace du premier dépôt qui fait foi.
+                    log.info("depot_repris", ingestion=deja.id, key=principal.key_id)
+                    return await self._process(conn, deja, cible, prepare, principal, version)
             accuse = await db_record_ingestion(
                 conn,
                 ingestion_id=uuid.uuid4().hex,
@@ -143,15 +184,56 @@ class IngestionService:
                 idempotency_key=idempotency_key,
             )
             await self._journalise(conn, accuse, cible, principal)
+            log.info(
+                "depot_recu",
+                ingestion=accuse.id,
+                source=cible.source,
+                mode=cible.mode,
+                objets=accuse.object_count,
+                key=principal.key_id,
+            )
+            return await self._process(conn, accuse, cible, prepare, principal, version)
+
+    async def _process(
+        self,
+        conn: Any,
+        accuse: Acknowledgement,
+        cible: Target,
+        prepare: Prepared,
+        principal: KeyPrincipal,
+        version: int,
+    ) -> Acknowledgement:
+        """Transforme et écrit les objets du lot persisté, puis range son compte-rendu.
+
+        Les objets traités sont relus de la LIGNE d'ingestion et non du corps reçu : c'est
+        la trace de ce qui est réellement arrivé qui fait foi, et c'est elle qu'une reprise
+        retrouve. L'auteur de chaque event écrit est la CLÉ, jamais une personne.
+        """
+        objets = await _raw_objects(conn, accuse.id)
+        processing = Processing(
+            db=conn,
+            catalog=self.catalog,
+            now=self.now,
+            budget=self.transform_budget,
+            author=EventAuthor(KEY_DIRECTORY, principal.key_id),
+            ingestion_id=accuse.id,
+            model_version=version,
+        )
+        rapport = await resolve_process(processing, prepare, objets)
+        # « rejete » dit que RIEN n'a abouti (critère 12). Aucune ligne de storage n'a
+        # bougé pour autant, `vu_le` compris : chaque motif de rejet est décidé avant
+        # d'écrire, et le seul qui atteigne la base — l'objet d'origine manuelle — est
+        # écarté par la clause de l'instruction elle-même.
+        etat = STATE_FAILED if rapport.all_rejected else STATE_PROCESSED
         log.info(
-            "depot_recu",
+            "depot_traite",
             ingestion=accuse.id,
             source=cible.source,
-            mode=cible.mode,
-            objets=accuse.object_count,
-            key=principal.key_id,
+            ecrits=rapport.written,
+            inchanges=rapport.unchanged,
+            rejetes=rapport.rejected,
         )
-        return accuse
+        return await db_mark_processed(conn, accuse.id, etat, rapport)
 
     async def _version_number(self) -> int:
         """La version que porte la stack. Sans elle, on ne reçoit pas.
@@ -204,3 +286,11 @@ def _is_json(content_type: str | None) -> bool:
     if content_type is None:
         return False
     return content_type.split(";")[0].strip().lower() == CONTENT_TYPE
+
+
+async def _raw_objects(conn: Any, ingestion_id: str) -> list[dict[str, object]]:
+    """Le lot BRUT tel qu'il a été persisté. Une colonne jsonb revient en CHAÎNE."""
+    row = await conn.fetchrow("SELECT raw FROM ingestions WHERE id = $1", ingestion_id)
+    brut = row["raw"]
+    objets = json.loads(brut) if isinstance(brut, str) else brut
+    return list(objets)

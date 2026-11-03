@@ -8,6 +8,7 @@ délibérément autre chose que ce qu'on annonce.
 
 from __future__ import annotations
 
+import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -131,6 +132,29 @@ def _storage(nom: str, modele: str, cle: str, index: list[tuple[str, list[str]]]
     return "\n".join(lignes) + "\n"
 
 
+def _pose_chaine(depot: Path, slug: str, etapes: list[tuple[str, str]]) -> None:
+    """Écrit `transformations/<slug>/` : son enchaînement, et un template par étape.
+
+    La forme est celle que le module de paramétrage produit, lue par le socle. Elle est
+    recopiée ici plutôt que produite par son écrivain : les tests du module
+    d'environnement n'ont pas accès au module de paramétrage, et c'est la frontière.
+    """
+    repertoire = depot / "transformations" / slug
+    repertoire.mkdir(parents=True, exist_ok=True)
+    pas = [{"name": nom, "template": f"{nom}.jslt", "target": None} for nom, _ in etapes]
+    (repertoire / "chain.json").write_text(
+        json.dumps(
+            {"format_version": 1, "slug": slug, "label": slug, "steps": pas},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    for nom, template in etapes:
+        (repertoire / f"{nom}.jslt").write_text(template, encoding="utf-8")
+
+
 def _source(nom: str, storage: str, modele: str, modes: tuple[bool, bool, bool]) -> str:
     """Une source et son unique entrée web. Les trois modes dans l'ordre déclaré."""
     element, tableau, fichier = modes
@@ -172,6 +196,14 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
     (depot / "sources").mkdir()
     (depot / "domains/pudo/messages/accounts.yaml").write_text(ACCOUNTS_MODELE, encoding="utf-8")
     (depot / "domains/pudo/messages/site.yaml").write_text(SITE_MODELE, encoding="utf-8")
+    # Les chaînes que les sources nomment. SANS ÉTAPE, et c'est le cas réel de ces deux
+    # sources : leur modèle d'entrée EST celui de leur storage, donc il n'y a rien à
+    # transformer. Exiger un template identité pour ne rien faire serait du bruit — et
+    # l'absence du répertoire ferait désormais refuser le dépôt, puisque la chaîne
+    # déclarée doit exister dans la version servie. La transformation réelle s'éprouve
+    # avec `fabrique_import`, qui porte un vrai template.
+    for storage in ("accounts", "sites"):
+        _pose_chaine(depot, f"vers-{storage}", [])
 
     etapes = [
         {
@@ -243,3 +275,51 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
         commit = git("rev-parse", f"version/{number}^{{commit}}", cwd=depot).strip()
         fabriquees[number] = VersionFabriquee(number, commit, paquet.read_bytes(), tuple(fichiers))
     return fabriquees
+
+
+# Un paramétrage dédié à l'écriture différentielle (story d680e811) : un modèle, un
+# storage, une source, et une chaîne qui TRANSFORME vraiment. Séparé de
+# `fabrique_parametrage`, dont les deux sources ont le même modèle en entrée et en sortie
+# — elles ne pouvaient donc rien dire de ce qu'une transformation rend insensible.
+MAGASIN_MODELE = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/domains/pudo/magasin
+title: Magasin
+type: object
+required: [Code, Libelle]
+properties:
+  Code: {type: string}
+  Libelle: {type: string}
+  Ville: {type: [string, "null"]}
+  Postes: {type: [integer, "null"]}
+"""
+# Le template NE LIT PAS tout ce que la source envoie : c'est ce qui rend l'empreinte
+# insensible à un champ d'émission qui change à chaque envoi (critère 4), et on ne peut
+# pas l'éprouver avec un template identité.
+MAGASIN_TEMPLATE = (
+    '{ "Code": $.code, "Libelle": $.nom, "Ville": $.ville, "Postes": $.postes#integer }'
+)
+
+
+def fabrique_import(tmp_path: Path) -> dict[int, VersionFabriquee]:
+    """UNE version : le storage `magasins`, sa source, et la chaîne qui y mène."""
+    depot = tmp_path / "import"
+    git("init", "-q", "-b", "main", str(depot))
+    (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
+    (depot / "storages").mkdir()
+    (depot / "sources").mkdir()
+    (depot / "domains/pudo/messages/magasin.yaml").write_text(MAGASIN_MODELE, encoding="utf-8")
+    (depot / "storages/magasins.yaml").write_text(
+        _storage("magasins", "pudo/magasin", "$.Code", [("ville", ["$.Ville"])]), encoding="utf-8"
+    )
+    (depot / "sources/magasins-import.yaml").write_text(
+        _source("magasins-import", "magasins", "pudo/magasin", (True, True, False)),
+        encoding="utf-8",
+    )
+    _pose_chaine(depot, "vers-magasins", [("convertir", MAGASIN_TEMPLATE)])
+    git("add", "-A", cwd=depot)
+    git(*AUTHOR, "commit", "-q", "-m", "import v1", cwd=depot)
+    git(*AUTHOR, "tag", "-a", "version/1", "-m", "v1", cwd=depot)
+    paquet = tmp_path / "import-v1.bundle"
+    git("bundle", "create", str(paquet), "version/1", cwd=depot)
+    commit = git("rev-parse", "version/1^{commit}", cwd=depot).strip()
+    return {1: VersionFabriquee(1, commit, paquet.read_bytes(), ("storages/magasins.yaml",))}

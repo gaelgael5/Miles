@@ -13,7 +13,7 @@ from miles_socle.testing.stack import open_socle_stack, utc_now
 
 from environnement.apikeys.service import ApiKeysService
 from environnement.app import build_app
-from environnement.config import DEFAULT_MIGRATIONS_DIR
+from environnement.config import DEFAULT_MIGRATIONS_DIR, Settings
 from environnement.event_types import code_event_types
 from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
@@ -123,7 +123,17 @@ async def open_stack(
             socle.app.state.api_keys = api_keys
             # Le point d'entrée TIENT le vérificateur de clés, comme dans `app.py` :
             # refaire sa vérification ferait diverger le contrôle de la version servie.
-            ingestion = IngestionService(socle.pool, tree, api_keys, socle.catalog, utc_now)
+            # La borne d'évaluation vient de la CONFIGURATION du produit, comme en
+            # production : le harnais appelle ce que la fabrique attend, il ne recompose
+            # pas une valeur (leçon du 29/10/2026 sur les harnais trop généreux).
+            ingestion = IngestionService(
+                socle.pool,
+                tree,
+                api_keys,
+                socle.catalog,
+                utc_now,
+                _budget_par_defaut(),
+            )
             socle.app.state.ingestion = ingestion
             # Le MÊME arbre : ce que l'écran annonce comme points d'entrée doit être
             # ce que le dépôt accepte vraiment.
@@ -146,3 +156,14 @@ async def open_stack(
                 apercu,
                 tree,
             )
+
+
+def _budget_par_defaut() -> int:
+    """La borne d'évaluation telle que la CONFIGURATION du produit la pose.
+
+    Lue du champ et non recopiée : un harnais qui recompose une valeur de production est
+    plus généreux ou plus avare qu'elle, et c'est la leçon du 29/10/2026 — on appelle la
+    fabrique du produit, on n'en réécrit pas le contenu.
+    """
+    defaut = Settings.model_fields["transform_budget"].default
+    return int(defaut)

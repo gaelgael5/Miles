@@ -80,7 +80,7 @@ def target_of(declared: DeclaredSources, source: str, mode: str) -> Target:
         # le geste à faire n'est pas le même — là il faut cocher le mode, ici il faut
         # attendre la story qui le sert.
         raise IngestionRefusal(REFUSAL_MODE_NON_SERVI, mode)
-    return Target(source, mode, candidates[0])
+    return Target(source, mode, candidates[0], doc.storage)
 
 
 def objects_of(mode: str, raw: bytes) -> list[dict[str, object]]:

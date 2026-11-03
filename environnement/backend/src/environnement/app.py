@@ -116,7 +116,9 @@ def create_app() -> FastAPI:
         # Le point d'entrée d'ingestion TIENT le vérificateur de clés plutôt que de
         # refaire son travail : la vérification compare l'octroi ET la version servie,
         # et la dupliquer ferait diverger le second contrôle.
-        app.state.ingestion = IngestionService(pool, tree, app.state.api_keys, catalog, utc_now)
+        app.state.ingestion = IngestionService(
+            pool, tree, app.state.api_keys, catalog, utc_now, settings.transform_budget
+        )
         # L'écran de l'ingestion : lecture seule, et le MÊME arbre encore — ce qu'il
         # annonce comme points d'entrée doit être ce que le dépôt accepte vraiment.
         app.state.ingestion_overview = IngestionOverview(pool, tree, app.state.api_keys, utc_now)

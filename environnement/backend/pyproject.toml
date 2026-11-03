@@ -7,6 +7,12 @@ requires-python = ">=3.12"
 # structlog : on ne les redéclare pas ici. Ne figurent que ce dont le produit a besoin en
 # propre — la lecture de sa configuration et le serveur qui l'expose.
 dependencies = [
+    # Les modèles de données sont des JSON Schema 2020-12 (Gael, 23/10/2026). Le module
+    # d'environnement les VALIDE : un objet transformé qui ne respecte pas le modèle cible
+    # est rejeté AVANT d'atteindre la table (story d680e811, critère 11). Même version
+    # épinglée que le module de paramétrage, qui valide les mêmes fichiers : deux versions
+    # du validateur accepteraient deux choses différentes du même schéma.
+    "jsonschema==4.26.0",
     # L'extra `transform` : le moteur JSLT, pour appliquer la chaîne d'une entrée de
     # source aux objets reçus (story d680e811). Jamais une dépendance DIRECTE à
     # urban-json — deux déclarations de version finiraient par diverger, et c'est le
@@ -39,6 +45,7 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-cov>=6.0",
+    "types-jsonschema>=4.26.0.20261006",
     "ruff>=0.8",
 ]
 

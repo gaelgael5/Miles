@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from miles_socle.settings import SocleDatabaseSettings, SocleWebSettings
+from pydantic import Field
 
 DEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
 
@@ -33,3 +34,9 @@ class Settings(SocleWebSettings, DatabaseSettings):
     # qui n'a pas besoin de lui. Volume non monté : l'arbre vit dans le conteneur et part
     # au redéploiement, et il suffit alors de renvoyer l'ordre.
     hosting_tree_dir: Path = Path("/var/lib/miles/parametrage")
+    # Nombre de nœuds qu'une évaluation de template peut parcourir
+    # (MILES_TRANSFORM_BUDGET). Même borne et même raison que dans le module de
+    # paramétrage : le langage n'a pas de boucle, mais `$source` itère sur les données, et
+    # la borne interrompt un template lancé sur un document démesuré. Elle compte DOUBLE
+    # ici — c'est un tiers qui fournit le document, pas un auteur de template.
+    transform_budget: int = Field(default=100_000, gt=0)

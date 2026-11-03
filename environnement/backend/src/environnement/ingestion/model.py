@@ -7,6 +7,8 @@ from datetime import datetime
 
 from miles_socle.parametrage.sources import Entry
 
+from environnement.ingestion.outcome import Report
+
 ELEMENT = "element"
 BATCH = "tableau"
 FILE = "fichier"
@@ -44,6 +46,10 @@ REFUSAL_OBJET_ATTENDU = "objet_attendu"
 REFUSAL_TABLEAU_ATTENDU = "tableau_attendu"
 REFUSAL_LOT_TROP_GRAND = "lot_trop_grand"
 REFUSAL_AUCUNE_VERSION = "aucune_version_servie"
+# La version servie ne porte pas ce que l'entrée désigne : son storage, le modèle de ce
+# storage, ou la chaîne qui y mène. Refus de DÉPÔT et non rejet d'objet : aucun objet de
+# ce lot ne pourrait aboutir, et `detail` nomme lequel des trois manque.
+REFUSAL_CIBLE_NON_SERVIE = "cible_non_servie"
 
 
 class IngestionRefusal(Exception):
@@ -61,11 +67,23 @@ class Target:
     source: str
     mode: str
     entry: Entry
+    # Le storage où les objets atterrissent. Porté par la SOURCE et non par l'entrée :
+    # plusieurs entrées d'une même source alimentent le même storage par des modèles
+    # d'entrée différents. Recopié ici pour que le traitement n'ait pas à relire la
+    # déclaration — il l'a déjà résolue pour en tirer l'entrée.
+    storage: str
 
 
 @dataclass(frozen=True)
 class Acknowledgement:
-    """L'accusé rendu à l'appelant. Il dit que le lot est REÇU, pas qu'il est traité."""
+    """L'accusé rendu à l'appelant : ce qui est reçu, et ce que le traitement en a fait.
+
+    Il ne disait que « reçu » jusqu'au 03/11/2026 : la transformation et l'écriture
+    différentielle étaient le ticket suivant. Depuis la story `d680e811`, les modes
+    `element` et `tableau` traitent le lot dans l'appel et rendent son compte-rendu —
+    décision de Gael du 02/11/2026, « un array qui décris pour chaque clef fonctionnel le
+    retour ».
+    """
 
     id: str
     source: str
@@ -76,3 +94,7 @@ class Acknowledgement:
     # Vrai quand la clé d'idempotence de l'appelant a retrouvé un dépôt déjà pris : la
     # même ingestion est rendue, et rien n'a été persisté une seconde fois.
     replayed: bool
+    # Le sort de chaque objet du lot. Nul tant que le lot n'est pas traité — c'est l'état
+    # qu'un service interrompu laisse derrière lui, et celui qui fait REPRENDRE le
+    # traitement au rejeu plutôt que rendre un compte-rendu vide (critère 14).
+    report: Report | None = None

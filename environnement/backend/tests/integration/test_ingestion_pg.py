@@ -22,8 +22,8 @@ from environnement.ingestion.model import (
     ELEMENT,
     FILE,
     RECEIVED_EVENT,
-    STATE_RECEIVED,
 )
+from environnement.ingestion.outcome import STATE_PROCESSED
 from tests.integration.bundles import fabrique_parametrage
 from tests.integration.environnement_stack import EnvironnementStack, open_stack
 from tests.integration.versions import ordonne, sert
@@ -85,7 +85,11 @@ async def test_un_lot_depose_est_persiste_brut_et_accuse(blank_db: str, tmp_path
         accuse = recu.json()
         assert accuse["source"] == COMPTES
         assert (accuse["mode"], accuse["object_count"]) == (BATCH, 2)
-        assert (accuse["state"], accuse["replayed"]) == (STATE_RECEIVED, False)
+        # « traite » et non « recu » depuis la story d680e811 : les modes `element` et
+        # `tableau` transforment et écrivent DANS l'appel, et l'accusé porte le sort de
+        # chaque objet. Le lot brut reste persisté AVANT cela — c'est ce que la ligne
+        # relue ci-dessous vérifie, et c'est la condition du rejeu.
+        assert (accuse["state"], accuse["replayed"]) == (STATE_PROCESSED, False)
         # Le lot BRUT est retrouvable par l'identifiant de l'accusé : c'est la condition
         # du rejeu, et elle doit tenir AVANT toute transformation.
         ligne = await stack.pool.fetchrow(

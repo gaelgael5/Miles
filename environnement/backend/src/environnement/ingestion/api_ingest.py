@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict
 
 from environnement.ingestion.model import (
     REFUSAL_AUCUNE_VERSION,
+    REFUSAL_CIBLE_NON_SERVIE,
     REFUSAL_CORPS_TROP_GRAND,
     REFUSAL_LOT_TROP_GRAND,
     REFUSAL_MODE_AMBIGU,
@@ -59,6 +60,7 @@ _STATUS = {
     REFUSAL_MODE_AMBIGU: status.HTTP_409_CONFLICT,
     REFUSAL_MODE_NON_SERVI: status.HTTP_409_CONFLICT,
     REFUSAL_AUCUNE_VERSION: status.HTTP_409_CONFLICT,
+    REFUSAL_CIBLE_NON_SERVIE: status.HTTP_409_CONFLICT,
     REFUSAL_TYPE_DE_CONTENU: status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
     REFUSAL_LOT_TROP_GRAND: status.HTTP_413_CONTENT_TOO_LARGE,
     REFUSAL_CORPS_TROP_GRAND: status.HTTP_413_CONTENT_TOO_LARGE,
@@ -73,8 +75,44 @@ def ingestion_service(request: Request) -> IngestionService:
 Service = Annotated[IngestionService, Depends(ingestion_service)]
 
 
+class ObjectOutcomeOut(BaseModel):
+    """Le sort d'UN objet du lot. `position` est son rang, 0 pour le premier.
+
+    Le rang est là pour les objets dont la clé n'a pas pu être extraite : c'est alors la
+    seule prise de l'appelant pour retrouver lequel de ses objets est en cause.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    position: int
+    # « ecrit » (créé ou corps réécrit), « inchange » (même empreinte : seul `vu_le` a
+    # avancé), « rejete » (rien n'a été écrit pour cet objet).
+    outcome: str
+    key: str | None
+    reason: str | None
+    detail: str | None
+
+
+class ReportOut(BaseModel):
+    """Le compte-rendu du lot : les comptes, le sort de chaque objet, les anomalies.
+
+    `unchanged` est distinct de `written`, et c'est tout l'objet de l'écriture
+    différentielle : un réimport à l'identique ne réécrit aucun corps et ne touche aucune
+    date de modification — il n'avance que la date de dernière vue.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    received: int
+    written: int
+    unchanged: int
+    rejected: int
+    objects: list[ObjectOutcomeOut]
+    # Signalées et non corrigées : deux objets de même clé dans un même lot, par exemple.
+    # Le dernier valide gagne, et l'appelant doit savoir que sa source se contredit.
+    anomalies: list[str]
+
+
 class AcknowledgementOut(BaseModel):
-    """L'accusé. Il dit que le lot est REÇU et persisté, pas qu'il est écrit."""
+    """L'accusé : ce qui est reçu, et ce que le traitement en a fait."""
 
     model_config = ConfigDict(extra="forbid")
     id: str
@@ -86,6 +124,10 @@ class AcknowledgementOut(BaseModel):
     # Vrai quand la clé d'idempotence a retrouvé un dépôt déjà pris : l'accusé est le
     # même qu'à la première remise, et rien n'a été persisté une seconde fois.
     replayed: bool
+    # Nul seulement si le lot n'a pas été traité — ce qui n'arrive pas sur les modes
+    # servis ici, qui traitent dans l'appel. Le champ reste facultatif parce que le mode
+    # `fichier` n'accusera que la prise en charge (story 0f14adbd).
+    report: ReportOut | None
 
 
 class RefusalDetail(BaseModel):
@@ -136,7 +178,9 @@ _REFUSALS_DOC: dict[int | str, dict[str, object]] = {
         "description": (
             "La version servie ne permet pas ce dépôt : `mode_non_declare` (l'entrée ne"
             " coche pas ce mode), `mode_ambigu` (deux entrées l'exposent), `mode_non_servi`"
-            " (déclaré, pas encore branché), `source_illisible`, `aucune_version_servie`."
+            " (déclaré, pas encore branché), `source_illisible`, `aucune_version_servie`,"
+            " `cible_non_servie` (le storage, son modèle ou la chaîne manquent de la"
+            " version servie — `detail` dit lequel)."
         ),
     },
     status.HTTP_413_CONTENT_TOO_LARGE: {
@@ -150,7 +194,32 @@ _REFUSALS_DOC: dict[int | str, dict[str, object]] = {
         "model": RefusalOut,
         "description": "`type_de_contenu_inattendu` : seul `application/json` est reçu.",
     },
+    status.HTTP_422_UNPROCESSABLE_CONTENT: {
+        "model": AcknowledgementOut,
+        "description": (
+            "**Le lot est reçu et persisté, mais TOUS ses objets ont été rejetés** :"
+            " aucune ligne n'a été écrite, et aucune date de dernière vue n'a avancé."
+            " Le corps est l'accusé complet, `state` vaut `rejete`, et `report.objects`"
+            " dit pour chaque objet pourquoi — `cle_non_extractible`,"
+            " `transformation_en_echec`, `modele_non_respecte`,"
+            " `objet_d_origine_manuelle`. Un lot dont UN SEUL objet aboutit rend 201."
+        ),
+    },
 }
+
+
+def _report_out(accuse: Acknowledgement) -> ReportOut | None:
+    rapport = accuse.report
+    if rapport is None:
+        return None
+    return ReportOut(
+        received=rapport.received,
+        written=rapport.written,
+        unchanged=rapport.unchanged,
+        rejected=rapport.rejected,
+        objects=[ObjectOutcomeOut(**o.as_json()) for o in rapport.objects],
+        anomalies=list(rapport.anomalies),
+    )
 
 
 def _out(accuse: Acknowledgement) -> AcknowledgementOut:
@@ -162,6 +231,7 @@ def _out(accuse: Acknowledgement) -> AcknowledgementOut:
         received_at=accuse.received_at,
         state=accuse.state,
         replayed=accuse.replayed,
+        report=_report_out(accuse),
     )
 
 
@@ -203,7 +273,11 @@ async def deposit(
             status_code=_STATUS.get(refus.code, status.HTTP_400_BAD_REQUEST),
             content={"detail": {"code": refus.code, "detail": refus.detail}},
         )
-    # 201 pour un lot pris, 200 pour un rejeu : un rejeu n'a rien créé, et l'appelant doit
-    # pouvoir le distinguer sans lire le corps.
-    response.status_code = status.HTTP_200_OK if accuse.replayed else status.HTTP_201_CREATED
+    # Trois codes, et chacun dit quelque chose que le corps ne dirait qu'après lecture :
+    # 200 un rejeu (rien de créé), 422 un lot dont RIEN n'a abouti, 201 le cas où au moins
+    # un objet a été traité. Un appelant doit pouvoir se brancher sur le code.
+    if accuse.report is not None and accuse.report.all_rejected:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    else:
+        response.status_code = status.HTTP_200_OK if accuse.replayed else status.HTTP_201_CREATED
     return _out(accuse)
