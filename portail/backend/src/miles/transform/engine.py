@@ -188,13 +188,33 @@ def _registry() -> FunctionRegistry:
     """
     registry = FunctionRegistry()
     for name in default_registry.names():
-        function = default_registry.get(name)
         info = default_registry.describe(name)
-        if function is None or info is None:
+        if info is None:
             continue
-        if not function.__module__.startswith(_CORE_MODULE):
+        # LA DESCRIPTION D'ABORD, ET LE GENRE AVANT TOUT APPEL À `get`. Depuis
+        # urban-json 0.2.1, le registre porte des « fonctions de SORTIE » — `to_block` —
+        # qui ne se déclarent pas dans le corps d'un template mais dans
+        # `$directives.output.mode`, et dont `get()` LÈVE au lieu de rendre nul. Les
+        # parcourir avec `get` faisait donc échouer la construction du registre entier,
+        # et avec elle 55 modules de test à la collecte (mesuré le 03/11/2026).
+        #
+        # Elles ne sont PAS reprises : Miles n'admet pas `$directives` dans son profil
+        # d'écriture, donc aucune ne serait atteignable, et les admettre serait élargir
+        # ce que le moteur accepte — une décision de paramétrage, pas une conséquence
+        # d'une montée de version.
+        if info.kind != "function":
             continue
-        registry.register(name, function, info.path_args, info.description)
+        # `info.function` ET NON `default_registry.get(name)`. Depuis urban-json 0.2.1,
+        # `get()` rend une ENVELOPPE de contrôle d'arité (`_arity_guard`), dont le
+        # `__module__` est celui du registre et non celui de la fonction : le filtre
+        # ci-dessous ne rejetait donc plus rien, et une fonction de plugin — HTTP, SQL —
+        # entrait dans le registre de Miles. C'est la garde du 22/10/2026 qui tombait, en
+        # silence, à la faveur d'une montée de version ; seul son test l'a vue.
+        # `info.function` est la fonction telle qu'elle a été enregistrée, donc le module
+        # qui la définit vraiment. Notre propre registre pose son enveloppe à son tour.
+        if not info.function.__module__.startswith(_CORE_MODULE):
+            continue
+        registry.register(name, info.function, info.path_args, info.description)
     # Écart voulu au convert du moteur (voir _strict_convert) : il le remplace.
     registry.register(CAST_FUNCTION, _strict_convert, (), _CAST_DESCRIPTION)
     return registry

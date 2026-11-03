@@ -197,8 +197,13 @@ def test_only_core_functions_of_the_engine_enter_the_registry(
     registry = engine._registry()
 
     assert sorted(registry.names()) == ["convert", "upper"]
-    # La conversion est celle de Miles, stricte, pas celle du moteur.
-    assert registry.get("convert") is engine._strict_convert
+    # La conversion est celle de Miles, stricte, pas celle du moteur. Lue par `describe`
+    # et non par `get` : depuis urban-json 0.2.1, `get` rend une enveloppe de contrôle
+    # d'arité, et l'identité ne pouvait plus être comparée. L'intention du test n'a pas
+    # changé — seul le moyen de l'éprouver.
+    enregistree = registry.describe("convert")
+    assert enregistree is not None
+    assert enregistree.function is engine._strict_convert
 
 
 def test_a_function_missing_from_the_catalogue_is_refused_when_written() -> None:
