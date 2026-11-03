@@ -1,14 +1,16 @@
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "@miles/socle-web";
+
 import { useOAuthGrants, useRevokeOAuthGrant } from "../api/oauth";
 
 /** Ce que j'ai autorisé des clients OAuth à faire pour moi ; la révocation vaut aussitôt. */
 export function OAuthGrantsSection() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const grants = useOAuthGrants();
   const revoke = useRevokeOAuthGrant();
-  const date = (value: string | null) =>
-    value ? new Date(value).toLocaleString(i18n.language) : t("apiKeys.list.never");
+  const instant = useInstant();
+  const date = (value: string | null) => (value ? instant(value) : t("apiKeys.list.never"));
 
   return (
     <section className="card" aria-labelledby="profile-oauth">

@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "@miles/socle-web";
+
 import { type ApiKey, useApiKeys, useDeclaredSources, useRevokeKey } from "../api/apikeys";
 import { NewApiKey } from "./NewApiKey";
 
@@ -50,8 +52,8 @@ export function ApiKeysScreen() {
 
 function ApiKeyRow({ apiKey }: { apiKey: ApiKey }) {
   const { t } = useTranslation();
+  const instant = useInstant();
   const revoke = useRevokeKey();
-  const revoquee = apiKey.revoked_at !== null;
 
   return (
     <li className="row">
@@ -66,14 +68,14 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKey }) {
       <p className="caption row-detail">
         {t("apiKeys.createdBy", {
           who: apiKey.created_by,
-          when: new Date(apiKey.created_at).toLocaleString(),
+          when: instant(apiKey.created_at),
         })}
         {" · "}
         {/* Jamais utilisée se distingue d'utilisée : c'est ce qui permet de révoquer sans
             risque, en sachant si quelqu'un s'en sert encore. */}
         {apiKey.last_used_at === null
           ? t("apiKeys.neverUsed")
-          : t("apiKeys.lastUsed", { when: new Date(apiKey.last_used_at).toLocaleString() })}
+          : t("apiKeys.lastUsed", { when: instant(apiKey.last_used_at) })}
       </p>
       {apiKey.missing_sources.length > 0 && (
         // L'octroi reste écrit : une version suivante peut ramener la source, et le
@@ -82,10 +84,12 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKey }) {
           {t("apiKeys.missingSources", { sources: apiKey.missing_sources.join(" · ") })}
         </p>
       )}
-      {revoquee ? (
+      {apiKey.revoked_at !== null ? (
         // Une clé révoquée reste visible : l'effacer rendrait son histoire illisible.
+        // Le test porte sur le CHAMP et non sur un booléen dérivé : lui seul restreint le
+        // type, et `revoked_at ?? ""` affichait « Invalid Date » sur une clé active.
         <p className="muted row-detail">
-          {t("apiKeys.revoked", { when: new Date(apiKey.revoked_at ?? "").toLocaleString() })}
+          {t("apiKeys.revoked", { when: instant(apiKey.revoked_at) })}
         </p>
       ) : (
         <div className="actions row-detail">

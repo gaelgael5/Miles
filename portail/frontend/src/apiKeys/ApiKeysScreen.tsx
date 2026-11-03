@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ConfirmDialog, CopyButton, invalidField, PageHead } from "@miles/socle-web";
+import { ConfirmDialog, CopyButton, PageHead, invalidField, useInstant } from "@miles/socle-web";
 import {
   type ApiKey,
   type Grant,
@@ -100,13 +100,14 @@ function IssueForm({ onIssued, onCancel }: { onIssued: (issued: IssuedKey) => vo
 }
 
 function KeyRow({ apiKey }: { apiKey: ApiKey }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [grants, setGrants] = useState<Grant[]>(apiKey.grants);
   const [confirming, setConfirming] = useState(false);
   const save = useSetApiKeyGrants(apiKey.id);
   const revoke = useRevokeApiKey(apiKey.id);
-  const date = (value: string | null) => (value ? new Date(value).toLocaleString(i18n.language) : t("apiKeys.list.never"));
+  const instant = useInstant();
+  const date = (value: string | null) => (value ? instant(value) : t("apiKeys.list.never"));
   const revoked = apiKey.revoked_at !== null;
 
   return (

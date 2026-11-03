@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "@miles/socle-web";
+
 import {
   type OrderedVersion,
   type PublishedVersion,
@@ -68,7 +70,8 @@ function Etat({
   renvoiEnCours: boolean;
 }) {
   const { t } = useTranslation();
-  const instant = ordonnee.acked_at === null ? null : new Date(ordonnee.acked_at).toLocaleString();
+  const instant = useInstant();
+  const acquitte = ordonnee.acked_at === null ? null : instant(ordonnee.acked_at);
   return (
     <dl className="facts">
       <div>
@@ -106,8 +109,8 @@ function Etat({
               </button>
             </>
           )}
-          {instant !== null && (
-            <span className="muted"> {t("workspaces.version.asOf", { instant })}</span>
+          {acquitte !== null && (
+            <span className="muted"> {t("workspaces.version.asOf", { instant: acquitte })}</span>
           )}
         </dd>
       </div>
@@ -127,6 +130,7 @@ function Liste({
   enCours: boolean;
 }) {
   const { t } = useTranslation();
+  const instant = useInstant();
   if (versions.length === 0) {
     // Lu du dépôt, donc une liste vide est une VÉRITÉ ici — contrairement à avant, où
     // elle n'aurait été qu'une absence de route. On le dit comme tel.
@@ -141,7 +145,7 @@ function Liste({
               {t("workspaces.version.numbered", { number: version.number })} — {version.label}
             </div>
             <div className="row-sub">
-              {version.author} · {new Date(version.saved_at).toLocaleString()}
+              {version.author} · {instant(version.saved_at)}
               {version.branch !== null && <> · {version.branch}</>}
             </div>
           </div>

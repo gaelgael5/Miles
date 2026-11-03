@@ -1,7 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
-import { ApiError } from "@miles/socle-web";
+import { ApiError, useInstant } from "@miles/socle-web";
 import type { ObjectPage, Storage } from "../api/storages";
 
 type Detail = { code?: string; detail?: string };
@@ -41,7 +41,8 @@ export function StorageObjects({
   page: number;
   onPage: (page: number) => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const instant = useInstant();
   if (query.isPending) {
     return (
       <p className="muted" role="status">
@@ -81,11 +82,11 @@ export function StorageObjects({
                 </div>
                 <div className="row-sub caption">
                   {t("storages.seen", {
-                    date: new Date(objet.vu_le).toLocaleString(i18n.language),
+                    date: instant(objet.vu_le),
                   })}
                   {" · "}
                   {t("storages.changed", {
-                    date: new Date(objet.modifie_le).toLocaleString(i18n.language),
+                    date: instant(objet.modifie_le),
                   })}
                   {" · "}
                   {t(`storages.origins.${objet.origine}`, { defaultValue: objet.origine })}

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, ConfirmDialog } from "@miles/socle-web";
+import { ApiError, ConfirmDialog, useInstant } from "@miles/socle-web";
 import { usePublishHold } from "../api/holds";
 import type { WorkTarget } from "../api/workTarget";
 import { HoldRefusal } from "./HoldRefusal";
@@ -78,10 +78,11 @@ function SaveForm({ target, onDone }: { target: WorkTarget; onDone: () => void }
 }
 
 function VersionRow({ target, version }: { target: WorkTarget; version: SavedVersion }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const instant = useInstant();
   const restore = useRestoreVersion(target);
   const [confirming, setConfirming] = useState(false);
-  const date = new Date(version.saved_at).toLocaleString(i18n.language);
+  const date = instant(version.saved_at);
 
   return (
     <li className="row">

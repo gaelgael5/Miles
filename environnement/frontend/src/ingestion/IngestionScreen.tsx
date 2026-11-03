@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "@miles/socle-web";
+
 import { type Health, useIngestionHealth } from "../api/ingestion";
 import { IngestionCalls } from "./IngestionCalls";
 
@@ -43,6 +45,7 @@ export function IngestionScreen() {
 
 function ServiceHealth({ health }: { health: Health }) {
   const { t } = useTranslation();
+  const instant = useInstant();
 
   if (health.version_number === null) {
     // L'état normal d'une stack neuve, et non une panne : sans version servie, aucune
@@ -61,7 +64,7 @@ function ServiceHealth({ health }: { health: Health }) {
         })}
         {health.version_served_at !== null &&
           ` · ${t("ingestion.servedAt", {
-            when: new Date(health.version_served_at).toLocaleString(),
+            when: instant(health.version_served_at),
           })}`}
       </p>
       <p className="caption">
@@ -75,7 +78,7 @@ function ServiceHealth({ health }: { health: Health }) {
         {health.last_deposit_at === null
           ? t("ingestion.neverCalled")
           : t("ingestion.lastCall", {
-              when: new Date(health.last_deposit_at).toLocaleString(),
+              when: instant(health.last_deposit_at),
             })}
       </p>
       {health.unreadable_sources.length > 0 && (

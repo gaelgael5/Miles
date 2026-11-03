@@ -1,6 +1,8 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "@miles/socle-web";
+
 import { type ContractVersionDetail, type Operation, useContract } from "../api/contracts";
 import type { WorkTarget } from "../api/workTarget";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
@@ -89,11 +91,12 @@ function VersionRow({
   version: ContractVersionDetail;
   onSwagger: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const instant = useInstant();
   const [open, setOpen] = useState(false);
   const deposited = version.imported_at
     ? t("contracts.versions.deposited", {
-        date: new Date(version.imported_at).toLocaleString(i18n.language),
+        date: instant(version.imported_at),
         by: version.imported_by ?? "",
       })
     : t("contracts.versions.outside");

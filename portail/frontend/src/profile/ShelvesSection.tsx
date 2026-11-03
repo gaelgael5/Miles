@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "@miles/socle-web";
+
 import { useMyShelves } from "../api/holds";
 
 /**
@@ -7,7 +9,8 @@ import { useMyShelves } from "../api/holds";
  * retrouve ici son travail non publié, et sait que reprendre la main le fusionnera.
  */
 export function ShelvesSection() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const instant = useInstant();
   const shelves = useMyShelves();
   if (shelves.isSuccess && shelves.data.length === 0) {
     return null;
@@ -29,7 +32,7 @@ export function ShelvesSection() {
                 {t("profile.shelves.item", {
                   workspace: s.workspace_name,
                   branch: s.slug,
-                  date: new Date(s.shelved_at).toLocaleString(i18n.language),
+                  date: instant(s.shelved_at),
                 })}{" "}
                 <span className="mono">{s.shelf_branch}</span>
               </li>

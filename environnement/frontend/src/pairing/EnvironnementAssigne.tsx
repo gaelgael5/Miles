@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "@miles/socle-web";
+
 import { useAssignedEnvironment } from "../api/environment";
 
 /**
@@ -21,6 +23,7 @@ import { useAssignedEnvironment } from "../api/environment";
  */
 export function EnvironnementAssigne() {
   const { t } = useTranslation();
+  const instant = useInstant();
   const assigne = useAssignedEnvironment();
 
   if (assigne.isPending) {
@@ -60,7 +63,7 @@ export function EnvironnementAssigne() {
       {!fresh && (
         <p className="alert alert-warning" role="status">
           {t("assignedEnvironment.stale", {
-            date: new Date(environment.fetched_at).toLocaleString(),
+            date: instant(environment.fetched_at),
           })}
         </p>
       )}

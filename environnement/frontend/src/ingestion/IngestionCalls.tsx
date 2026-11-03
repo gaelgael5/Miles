@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "@miles/socle-web";
+
 import { useIngestionCalls } from "../api/ingestion";
 
 /**
@@ -11,6 +13,7 @@ import { useIngestionCalls } from "../api/ingestion";
  */
 export function IngestionCalls() {
   const { t } = useTranslation();
+  const instant = useInstant();
   const [source, setSource] = useState("");
   const [page, setPage] = useState(1);
   const appels = useIngestionCalls(source, page);
@@ -68,7 +71,7 @@ export function IngestionCalls() {
               <li key={appel.id} className="row">
                 <div className="row-main">
                   <span className="row-title">
-                    {new Date(appel.received_at).toLocaleString()}
+                    {instant(appel.received_at)}
                   </span>
                   <div className="row-sub">
                     <span className="mono">

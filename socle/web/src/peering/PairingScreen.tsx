@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "../i18n/instants";
+
 import { PageHead } from "../layout/PageHead";
 
 import { type EnrolmentPeer, type PairingState, usePairingState } from "../api/peering";
@@ -9,6 +11,7 @@ import { SaisieDuCode } from "./SaisieDuCode";
 
 function Apparie({ peer }: { peer: EnrolmentPeer }) {
   const { t } = useTranslation();
+  const instant = useInstant();
   return (
     <div className="panel">
       <dl className="facts">
@@ -36,7 +39,7 @@ function Apparie({ peer }: { peer: EnrolmentPeer }) {
         </div>
         <div>
           <dt className="caption">{t("peering.paired.captionSince")}</dt>
-          <dd className="value">{new Date(peer.created_at).toLocaleString()}</dd>
+          <dd className="value">{instant(peer.created_at)}</dd>
         </div>
         <div>
           <dt className="caption">{t("peering.paired.captionFingerprint")}</dt>
@@ -82,6 +85,7 @@ function Etat({ etat }: { etat: PairingState }) {
  */
 export function PairingScreen({ peerExtra }: { peerExtra?: ReactNode } = {}) {
   const { t } = useTranslation();
+  const instant = useInstant();
   const etat = usePairingState();
 
   if (etat.isPending) {
@@ -135,7 +139,7 @@ export function PairingScreen({ peerExtra }: { peerExtra?: ReactNode } = {}) {
         {revoque && peer !== null && (
           <p className="alert alert-warning" role="status">
             {t("peering.revoked", {
-              date: peer.revoked_at === null ? "" : new Date(peer.revoked_at).toLocaleString(),
+              date: peer.revoked_at === null ? "" : instant(peer.revoked_at),
             })}
           </p>
         )}

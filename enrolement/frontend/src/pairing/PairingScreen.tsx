@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ConfirmDialog, PageHead } from "@miles/socle-web";
+import { ConfirmDialog, PageHead, useInstant } from "@miles/socle-web";
 
 import {
   type PairedEnvironment,
@@ -20,6 +20,7 @@ import { WorkspacesExposes } from "./WorkspacesExposes";
 
 function DemandeRow({ demande }: { demande: PairingRequest }) {
   const { t } = useTranslation();
+  const instant = useInstant();
   const [revele, setRevele] = useState(false);
   const [confirmeRefus, setConfirmeRefus] = useState(false);
   const [ouvreChoix, setOuvreChoix] = useState(false);
@@ -54,7 +55,7 @@ function DemandeRow({ demande }: { demande: PairingRequest }) {
       </div>
       <div className="cell">
         <div className="caption">{t("pairing.requests.captionReceived")}</div>
-        <div className="value">{new Date(demande.created_at).toLocaleString()}</div>
+        <div className="value">{instant(demande.created_at)}</div>
       </div>
       <div className="cell">
         <div className="caption">{t("pairing.requests.captionExpires")}</div>

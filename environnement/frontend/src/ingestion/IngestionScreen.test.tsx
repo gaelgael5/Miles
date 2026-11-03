@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { i18n } from "@miles/socle-web";
 import { type Routes, mockApi } from "@miles/socle-web/testing";
 
 import "../i18n/i18n";
@@ -167,6 +168,24 @@ describe("l'écran du service d'ingestion", () => {
     expect(journal.getByText(/1337 bytes/)).toBeInTheDocument();
     expect(journal.getByText(/by Transporteur \(mlk_kkkkkkkk\)/)).toBeInTheDocument();
     expect(journal.getByText(/received/)).toBeInTheDocument();
+  });
+
+  it("écrit la date du journal dans la culture de l'INTERFACE, pas celle du navigateur", async () => {
+    // Forcé en français : les tests du dépôt tournent en en-US, où le défaut d'origine
+    // — `toLocaleString()` sans culture — était rigoureusement invisible (bug 4f53012d).
+    await i18n.changeLanguage("fr-FR");
+    try {
+      monte(UN_APPEL);
+
+      expect(await screen.findByText("1 appel(s)")).toBeInTheDocument();
+      const journal = within(screen.getByRole("region", { name: "Derniers appels" }));
+      // 02/11, et non 11/02 : l'appel a été reçu le 2 novembre. Sur ce journal la date
+      // EST l'information de la colonne, et un lecteur français y lisait le 11 février.
+      expect(journal.getByText(/^02\/11\/2026/)).toBeInTheDocument();
+    } finally {
+      // Dans `act` : l'écran est encore monté, et le retour à en-US le fait rendre.
+      await act(() => i18n.changeLanguage("en-US"));
+    }
   });
 
   it("dit « aucun appel » sans en faire une erreur", async () => {

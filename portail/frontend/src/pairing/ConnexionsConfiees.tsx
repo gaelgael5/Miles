@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { useInstant } from "@miles/socle-web";
+
 import { useConfidingState, useTransmitConfided } from "../api/confiage";
 
 /**
@@ -22,6 +24,7 @@ import { useConfidingState, useTransmitConfided } from "../api/confiage";
  */
 export function ConnexionsConfiees() {
   const { t } = useTranslation();
+  const instant = useInstant();
   const etat = useConfidingState();
   const transmettre = useTransmitConfided();
 
@@ -51,7 +54,7 @@ export function ConnexionsConfiees() {
           <div>
             <dt className="caption">{t("confiding.captionTransmitted")}</dt>
             <dd className="value">
-              {new Date(transmis).toLocaleString()}
+              {instant(transmis)}
               <span className="badge">{t("confiding.revision", { revision })}</span>
             </dd>
           </div>

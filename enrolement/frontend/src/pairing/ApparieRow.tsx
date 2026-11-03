@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ConfirmDialog } from "@miles/socle-web";
+import { ConfirmDialog, useInstant } from "@miles/socle-web";
 
 import { type PairedEnvironment, useRevokePeer } from "../api/pairing";
 import { ContactUrlForm } from "./ContactUrlForm";
@@ -28,6 +28,7 @@ function Consequence({ devices }: { devices: number | null }) {
 
 export function ApparieRow({ environnement }: { environnement: PairedEnvironment }) {
   const { t } = useTranslation();
+  const instant = useInstant();
   const [confirmeRevocation, setConfirmeRevocation] = useState(false);
   const revocation = useRevokePeer();
   // L'espèce commande ce que cette ligne a du sens à montrer. Le module de paramétrage ne
@@ -51,7 +52,7 @@ export function ApparieRow({ environnement }: { environnement: PairedEnvironment
       )}
       <div className="cell">
         <div className="caption">{t("pairing.paired.captionSince")}</div>
-        <div className="value">{new Date(environnement.created_at).toLocaleString()}</div>
+        <div className="value">{instant(environnement.created_at)}</div>
       </div>
       {rattachable && (
         <div className="cell">

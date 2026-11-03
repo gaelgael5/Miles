@@ -20,6 +20,7 @@ export * from "./auth/BootstrapScreen";
 export * from "./auth/LoginScreen";
 export * from "./auth/visitorCulture";
 export * from "./i18n/i18n";
+export * from "./i18n/instants";
 // `export *` ne transporte pas l'export par défaut : l'instance i18next partagée est
 // nommée ici, parce qu'un produit en a besoin pour changer de langue dans ses tests.
 export { default as i18n } from "./i18n/i18n";
