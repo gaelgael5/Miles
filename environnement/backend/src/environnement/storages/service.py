@@ -26,6 +26,7 @@ from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, Ob
 from environnement.hosting.gitstore import HostedTree
 from environnement.storages.ddl import (
     IdentifierError,
+    rewrites_table,
     statements_for,
 )
 from environnement.storages.declarations import Declared, file_declared
@@ -166,6 +167,17 @@ class StoragesService:
                 await db_record_refusal(conn, plan)
             return plan, False
         instructions, bouge = plan
+        # Dit AVANT de l'exécuter : l'ajout d'une colonne dérivée réécrit la table sous
+        # verrou exclusif, donc le storage est illisible le temps de l'opération. Le DDL
+        # appliqué est déjà rangé en base par `db_record_applied`, mais une trace qu'on
+        # relit après coup n'aide pas celui qui regarde un déploiement en cours.
+        reecritures = [i for i in instructions if rewrites_table(i)]
+        if reecritures:
+            log.warning(
+                "table_de_storage_reecrite_sous_verrou",
+                storage=table.storage,
+                colonnes=len(reecritures),
+            )
         try:
             async with self.pool.acquire() as conn, conn.transaction():
                 for instruction in instructions:

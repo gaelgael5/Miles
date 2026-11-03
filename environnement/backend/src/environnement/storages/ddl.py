@@ -195,9 +195,32 @@ def statements_for(table: StorageTable) -> list[str]:
     return [create_schema(table), create_table(table), *create_indexes(table)]
 
 
+# Le fragment qui dit qu'une instruction AJOUTE une colonne dérivée. Partagé par le
+# producteur et par le reconnaisseur ci-dessous : deux littéraux auraient divergé au
+# premier reformatage du SQL, et le reconnaisseur se serait tu sans que rien n'échoue.
+_ADD_COLUMN = " add column if not exists "
+
+
 def add_column(table: StorageTable, projection: Projection) -> str:
     cible = f"{quoted(table.schema)}.{quoted(table.table)}"
-    return f"alter table {cible} add column if not exists {_column_clause(projection)}"
+    return f"alter table {cible}{_ADD_COLUMN}{_column_clause(projection)}"
+
+
+def rewrites_table(instruction: str) -> bool:
+    """Cette instruction va-t-elle RÉÉCRIRE la table sous verrou exclusif ?
+
+    Ajouter une colonne dérivée `stored` réécrit la table entière et prend un
+    `AccessExclusiveLock` : toute lecture du storage est bloquée pendant l'opération.
+    **Mesuré le 03/11/2026 sur `host-test-37`** (PostgreSQL 16, objets d'environ 1 ko) :
+    362 ms pour 10 000 lignes, 1,2 s pour 100 000, 6,3 s pour 500 000 — soit ≈ 12 µs par
+    ligne —, et un `SELECT count(*)` concurrent est bel et bien annulé sur dépassement de
+    son délai de verrou. C'est tenable au moment d'un déploiement, et c'est pourquoi on
+    l'applique ; ça ne l'est plus à l'échelle de plusieurs millions de lignes, et c'est
+    pourquoi on le DIT au lieu de le payer à l'insu de qui déploie.
+
+    Le retrait d'une colonne, lui, ne réécrit rien : PostgreSQL la marque simplement.
+    """
+    return _ADD_COLUMN in instruction
 
 
 def drop_column(table: StorageTable, column: str) -> str:

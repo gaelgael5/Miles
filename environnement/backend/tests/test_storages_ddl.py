@@ -4,6 +4,7 @@ import pytest
 
 from environnement.storages.ddl import (
     IdentifierError,
+    add_column,
     column_of,
     create_indexes,
     create_table,
@@ -12,6 +13,7 @@ from environnement.storages.ddl import (
     index_name,
     is_ours,
     quoted,
+    rewrites_table,
     sql_type_of,
     statements_for,
 )
@@ -173,3 +175,25 @@ class TestLaTable:
         sql = drop_column(_table(), "statut")
 
         assert sql == 'alter table "pudo"."sites" drop column if exists "statut"'
+
+
+class TestCeQuiReecritLaTable:
+    """La reconnaissance d'une instruction qui prend un verrou exclusif.
+
+    Elle existe pour que le déploiement le DISE avant de le payer : ajouter une colonne
+    dérivée réécrit la table entière. Le coût est mesuré dans `rewrites_table`.
+    """
+
+    def test_ajouter_une_colonne_derivee_reecrit_la_table(self) -> None:
+        assert rewrites_table(add_column(_table(), _projection(("Pays",))))
+
+    def test_retirer_une_colonne_ne_reecrit_rien(self) -> None:
+        """PostgreSQL la marque simplement : il n'y a pas de verrou long à annoncer."""
+        assert not rewrites_table(drop_column(_table(), "pays"))
+
+    def test_ni_la_creation_d_une_table_ni_celle_d_un_index(self) -> None:
+        """Une table neuve n'a rien à bloquer, et un index ne réécrit pas la table."""
+        table = _table(_projection(("Pays",)), indexes=(TableIndex("geo", ("pays",)),))
+
+        assert not rewrites_table(create_table(table))
+        assert not any(rewrites_table(sql) for sql in create_indexes(table))
