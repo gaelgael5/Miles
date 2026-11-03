@@ -99,7 +99,12 @@ def conditions(filtre: EventFilter, window: Window) -> tuple[str, list[Any]]:
 
     Paramétré, jamais concaténé : les valeurs viennent d'une requête HTTP.
     """
-    clauses = ["e.written_at >= $1", "e.written_at < $2"]
+    # Les deux bornes sont INCLUSIVES, à la différence des bornes de partition qui sont
+    # mi-ouvertes. Mesuré le 03/11/2026 : avec `<`, un event écrit à l'instant même où
+    # l'horloge de la recherche a été lue disparaissait de sa propre fenêtre — le plus
+    # récent, c'est-à-dire celui qu'on cherche. Et « jusqu'au 3 novembre » veut dire
+    # « le 3 novembre compris » pour quiconque le tape.
+    clauses = ["e.written_at >= $1", "e.written_at <= $2"]
     valeurs: list[Any] = [window.start, window.end]
 
     def ajoute(clause: str, *args: Any) -> None:

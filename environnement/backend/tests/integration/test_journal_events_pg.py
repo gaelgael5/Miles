@@ -93,19 +93,27 @@ class TestLesIndex:
 
             nom = partition_name("events", lointain.date())
             async with stack.pool.acquire() as cnx:
-                portes = [
-                    row["nom"]
+                # Par l'HÉRITAGE et non par les noms : PostgreSQL nomme l'index d'une
+                # partition d'après ses COLONNES, donc
+                # `events_author_written_at_idx` devient
+                # `events_<jour>_author_directory_author_subject_written_at_idx`. Comparer
+                # des noms ferait rougir ce test pour une raison sans rapport — c'est ce
+                # qui s'est produit le 03/11/2026. `pg_inherits` relie chaque index de
+                # partition à l'index du parent dont il descend : c'est exactement la
+                # question posée.
+                herites = {
+                    row["parent"]
                     for row in await cnx.fetch(
-                        "SELECT indexrelid::regclass::text AS nom FROM pg_index"
-                        " WHERE indrelid = $1::regclass",
-                        nom,
+                        "SELECT parent.relname AS parent"
+                        " FROM pg_inherits i"
+                        " JOIN pg_class parent ON parent.oid = i.inhparent"
+                        " JOIN pg_class enfant ON enfant.oid = i.inhrelid"
+                        " WHERE enfant.relkind = 'i' AND enfant.relname LIKE $1",
+                        f"{nom}%",
                     )
-                ]
-            # Les noms sont préfixés par celui de la partition : on compte, et on vérifie
-            # qu'aucun des quatre ne manque, par le suffixe que PostgreSQL conserve.
-            for attendu in INDEX_ATTENDUS:
-                suffixe = attendu.removeprefix("events_")
-                assert any(index.endswith(suffixe) for index in portes), (attendu, portes)
+                }
+
+            assert set(INDEX_ATTENDUS) <= herites, sorted(herites)
 
 
 class TestLaFenetre:

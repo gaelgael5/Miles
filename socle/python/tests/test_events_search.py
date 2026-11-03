@@ -92,8 +92,15 @@ class TestLesConditions:
         """C'est la clé de partition : sans elle, la requête considère tout le journal."""
         ou, valeurs = conditions(EventFilter(), FENETRE)
 
-        assert ou == "e.written_at >= $1 AND e.written_at < $2"
+        assert ou == "e.written_at >= $1 AND e.written_at <= $2"
         assert valeurs == [FENETRE.start, FENETRE.end]
+
+    def test_la_borne_haute_est_INCLUSIVE(self) -> None:
+        """Sinon l'event écrit à l'instant où l'horloge a été lue — le plus récent, donc
+        celui qu'on cherche — disparaît de sa propre fenêtre."""
+        ou, _ = conditions(EventFilter(), FENETRE)
+
+        assert "e.written_at <= $2" in ou
 
     def test_le_type_s_ajoute_en_parametre_jamais_en_texte(self) -> None:
         ou, valeurs = conditions(EventFilter(type="secret.created"), FENETRE)
