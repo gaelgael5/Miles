@@ -8,95 +8,53 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 import httpx
 import structlog
-import urban_json_editor
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from miles_socle.app_state import wire_socle_services
 from miles_socle.auth.admin_store import AdminAccountStore
-from miles_socle.auth.api_auth import router as auth_router
-from miles_socle.auth.api_preferences import router as preferences_router
 from miles_socle.auth.context import utc_now
 from miles_socle.auth.gate import auth_gate
-from miles_socle.cultures.api_cultures import public_router as login_cultures_router
-from miles_socle.cultures.api_cultures import router as cultures_router
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.pool import db_create_pool
-from miles_socle.events.api_events import router as events_router
 from miles_socle.events.model import EventAuthor, EventTypeCatalog
-from miles_socle.health.api_health import router as health_router
 from miles_socle.journal.api_journal import MAINTENANCE_PATH
-from miles_socle.journal.api_journal import router as journal_router
 from miles_socle.log_config import configure_logging
-from miles_socle.oidc.api_connectors import router as oidc_connectors_router
-from miles_socle.oidc.api_login import router as oidc_login_router
-from miles_socle.pairing.api_admin import router as pairing_router
 from miles_socle.pairing.api_peer import router as peer_router
-from miles_socle.secrets.api_secrets import router as secrets_router
-from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
 
-from miles.accounts.api_accounts import router as accounts_router
 from miles.accounts.service import AccountsService
-from miles.apikeys.api_apikeys import router as api_keys_router
 from miles.apikeys.service import ApiKeysService
-from miles.chains.api_chains import router as chains_api_router
 from miles.chains.service import ChainsService
 from miles.config import Settings
-from miles.contracts.api_contracts import router as contracts_router
-from miles.contracts.api_models import router as contract_models_router
 from miles.contracts.models_service import ContractModelsService
 from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import ContractsService
-from miles.datamodels.api_datamodels import router as data_models_router
 from miles.datamodels.service import DataModelsService
 from miles.event_types import code_event_types
 from miles.git.holdspace import HOLDS_DIR, HoldSpaces
 from miles.git.workdirs import WorkDirs
-from miles.gitaccess.api_gitaccess import connections_router
 from miles.gitaccess.confide import GitConfidingService
 from miles.gitaccess.confide_model import TRIGGER_CREDENTIAL, TRIGGER_PAIRED
 from miles.gitaccess.connections import ConnectionsService
 from miles.gitaccess.dependents import DependentsVerifier
 from miles.gitaccess.resolver import AccessResolver
 from miles.gitaccess.store_confide import db_connections_using
-from miles.identities.api_identities import router as identities_router
 from miles.identities.service import GitIdentitiesService
 from miles.mcp_api.server import MCP_MOUNT, MCP_PATH, build_server, mcp_app
 from miles.mqtt.protocol import BUILTIN_HANDLERS
 from miles.mqtt.responder import MqttSettings, run_responder
 from miles.oauth.access import OAuthAccess
-from miles.oauth.api_authorize import router as oauth_authorize_router
-from miles.oauth.api_clients import router as oauth_clients_router
-from miles.oauth.api_public import router as oauth_public_router
 from miles.oauth.clients import OAuthClientsService
 from miles.oauth.flow import OAuthFlow
-from miles.obo.api_identity import router as identity_router
 from miles.obo.service import ActorIdentitiesService
 from miles.pairing.service import PairingService
-from miles.reference.api_countries import router as countries_router
-from miles.reference.api_timezones import router as timezones_router
 from miles.reference.service import CountriesService
 from miles.reference.timezones import TimezonesService
-from miles.security.api_security import router as security_router
+from miles.routing import include_api_routers
 from miles.security.service import SecurityServices
-from miles.sources.api_sources import router as sources_router
 from miles.sources.service import SourcesService
-from miles.storages.api_storages import router as storages_router
 from miles.storages.service import StoragesService
 from miles.transform.api_catalog import CatalogService
-from miles.transform.api_catalog import router as catalog_router
-from miles.transform.api_editor import JSLT_EDITOR_PATH
-from miles.transform.api_editor import router as jslt_editor_router
-from miles.transform.api_transform import chains_router
-from miles.transform.api_transform import router as transform_router
-from miles.workshop.api_branches import router as branches_router
-from miles.workshop.api_branches import views_router as branch_views_router
-from miles.workshop.api_domains import router as domains_router
-from miles.workshop.api_holds import me_router as my_shelves_router
-from miles.workshop.api_holds import router as holds_router
-from miles.workshop.api_trads import router as trads_router
-from miles.workshop.api_trads_keys import router as trads_keys_router
-from miles.workshop.api_workshop import router as workshop_router
 from miles.workshop.branches import BranchesService
 from miles.workshop.domains_service import DomainsService
 from miles.workshop.holds import BranchHoldsService
@@ -106,8 +64,6 @@ from miles.workshop.target import WorkBranches
 from miles.workshop.targeted import TargetedReads
 from miles.workshop.trads_keys import TradsKeysService
 from miles.workshop.trads_service import TradsService
-from miles.workspaces.api_workspace_cultures import router as workspace_cultures_router
-from miles.workspaces.api_workspaces import router as workspaces_router
 from miles.workspaces.cultures_service import WorkspaceCulturesService
 from miles.workspaces.service import WorkspacesService
 
@@ -308,67 +264,20 @@ def _log_responder_end(task: asyncio.Task[None]) -> None:
 
 
 def build_app(lifespan: Lifespan | None = None) -> FastAPI:
-    """Routes et passerelle d'authentification, sans dépendance à l'environnement."""
+    """Passerelle, routes et déclarations de sécurité, sans dépendance à l'environnement.
+
+    La LISTE des routeurs est dans `miles.routing` depuis le 03/11/2026 (enabler
+    `82ec7d76`) : elle s'allonge à chaque écran, et ce fichier porte ce qui ne doit pas
+    bouger avec elle. Ce qui reste ici y est EXPRÈS — portillon, routeur de pair et la
+    dérivation de `signed_api_paths` qu'il alimente, chemins ouverts par secret de stack,
+    surface MCP hors de `/api`. Ces quatre déclarations décident ce qui est ATTEIGNABLE
+    sans session ; les éloigner l'une de l'autre ouvre une route à tous sans le dire.
+    """
     # Pas de /docs ni d'/openapi.json servis : ce seraient des routes ouvertes
     # hors de la passerelle d'authentification. La spec se génère par app.openapi().
     app = FastAPI(title="Miles", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.middleware("http")(auth_gate)
-    app.include_router(health_router)
-    # L'entretien des journaux partitionnés, appelé par un déclencheur d'HÔTE (décision du
-    # 03/11/2026) : ni cookie ni personne derrière. Il vit dans /api et le portillon le
-    # laisse passer par `system_api_paths` — déclaré ci-dessous DEPUIS le routeur qui le
-    # porte, pour que le chemin et sa vérification ne puissent pas se séparer.
-    app.include_router(journal_router)
-    # La consultation du journal d'events (story 50bfcba0). DANS /api et hors de toute
-    # liste de passage : le portillon exige donc une session, ce qui est le but — le
-    # journal dit qui a fait quoi.
-    app.include_router(events_router)
-    app.include_router(auth_router)
-    app.include_router(secrets_router)
-    app.include_router(secret_types_router)
-    app.include_router(cultures_router)
-    app.include_router(login_cultures_router)
-    app.include_router(oidc_connectors_router)
-    app.include_router(oidc_login_router)
-    app.include_router(security_router)
-    app.include_router(workspaces_router)
-    app.include_router(workspace_cultures_router)
-    app.include_router(trads_router)
-    app.include_router(trads_keys_router)
-    app.include_router(connections_router)
-    app.include_router(countries_router)
-    app.include_router(timezones_router)
-    app.include_router(data_models_router)
-    app.include_router(domains_router)
-    app.include_router(workshop_router)
-    app.include_router(contracts_router)
-    app.include_router(contract_models_router)
-    app.include_router(branches_router)
-    app.include_router(branch_views_router)
-    app.include_router(holds_router)
-    app.include_router(my_shelves_router)
-    app.include_router(preferences_router)
-    app.include_router(identities_router)
-    app.include_router(transform_router)
-    app.include_router(chains_router)
-    app.include_router(catalog_router)
-    app.include_router(chains_api_router)
-    app.include_router(sources_router)
-    app.include_router(storages_router)
-    app.include_router(accounts_router)
-    app.include_router(api_keys_router)
-    app.include_router(identity_router)
-    # L'appariement au module d'enrôlement, servi par le socle sous `/api/identity`.
-    app.include_router(pairing_router)
-    app.include_router(oauth_clients_router)
-    app.include_router(oauth_authorize_router)
-    app.include_router(oauth_public_router)
-    app.include_router(jslt_editor_router)
-    # Éditeur JSLT (urban-json-editor, 24/10/2026) : le Web Component et sa feuille de
-    # style, servis par Miles lui-même — jamais depuis un CDN, comme Monaco. Monté SOUS
-    # /api parce que c'est le seul préfixe que le nginx du front relaie déjà : ailleurs,
-    # les assets tomberaient sur l'index de l'IHM.
-    urban_json_editor.mount(app, JSLT_EDITOR_PATH)
+    include_api_routers(app)
 
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée : un

@@ -188,12 +188,11 @@ def _registry() -> FunctionRegistry:
 
     **Aucune liste blanche tenue à la main, et c'est une décision** (Gael, 03/11/2026) :
     tout le cœur passe, et « c'est la responsabilité de celui qui met les paquets à jour
-    de vérifier que rien ne manque ». Une liste de soixante-neuf noms à tenir aurait
-    retardé chaque fonction utile qu'une version apporte, pour une protection que le
-    filtre de module donne déjà — la frontière à défendre est cœur / plugin, pas
-    fonction par fonction. La contrepartie est portée par qui monte la version : relire
-    ce qui ENTRE dans le profil d'écriture et ce qui en SORT, et l'annoncer. Mesuré le
-    03/11/2026 au passage 0.1.0 → 0.2.1 : 56 → 69 fonctions, treize entrées, zéro sortie.
+    de vérifier que rien ne manque ». Tenir soixante-neuf noms aurait retardé chaque
+    fonction utile qu'une version apporte, pour une protection que le filtre de module
+    donne déjà — la frontière à défendre est cœur / plugin, pas fonction par fonction.
+    La contrepartie revient à qui monte la version : relire ce qui ENTRE dans le profil
+    et ce qui en SORT, puis l'annoncer. Mesuré au passage 0.1.0 → 0.2.1 : 56 → 69.
     """
     registry = FunctionRegistry()
     for name in default_registry.names():

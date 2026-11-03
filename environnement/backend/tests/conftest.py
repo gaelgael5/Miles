@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+from fastapi.testclient import TestClient
 from miles_socle.auth.admin_account import AdminAccount
 from miles_socle.auth.passwords import hash_password
 from miles_socle.testing import DSN, SECRETS_KEY
@@ -8,6 +11,8 @@ from miles_socle.testing.fixtures import env_files
 from pydantic import SecretStr
 
 from environnement.config import Settings
+
+from .app_harness import app_sous_essai
 
 # `env_files` vient du socle : les trois produits montaient le même `.env` d'essai. Importée
 # et non redéfinie — l'import suffit à pytest pour l'enregistrer —, d'où le réexport.
@@ -34,3 +39,13 @@ def admin_account() -> AdminAccount:
         username="admin",
         password_hash=SecretStr(hash_password("mot-de-passe-d-essai-suffisant")),
     )
+
+
+@pytest.fixture
+def client_sans_admin(tmp_path: Path) -> TestClient:
+    return TestClient(app_sous_essai(None, tmp_path))
+
+
+@pytest.fixture
+def client_avec_admin(admin_account: AdminAccount, tmp_path: Path) -> TestClient:
+    return TestClient(app_sous_essai(admin_account, tmp_path))
