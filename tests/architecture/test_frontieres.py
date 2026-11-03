@@ -5,10 +5,12 @@ from pathlib import Path
 from architecture.frontieres import (
     PAQUET_SOCLE_WEB,
     SOCLE_DEPLOY,
+    file_extras_du_socle,
     file_paquets_de,
     file_racines_web,
     file_sources_shell,
     resolve_violations,
+    resolve_violations_extras,
     resolve_violations_shell,
     resolve_violations_web,
 )
@@ -202,3 +204,53 @@ def test_sourcer_les_gardes_du_socle_est_licite(tmp_path: Path) -> None:
     licite.write_text('source "$DEPOT_DIR/socle/deploy/gardes.sh"\n', encoding="utf-8")
 
     assert resolve_violations_shell(tmp_path) == ()
+
+
+def test_un_produit_n_importe_un_sous_paquet_a_extra_du_socle_que_s_il_le_declare() -> None:
+    violations = resolve_violations_extras(DEPOT)
+    assert not violations, "extra du socle non déclaré :\n" + "\n".join(str(v) for v in violations)
+
+
+def test_les_extras_du_socle_sont_bien_lus() -> None:
+    # Sans cette garde, un `pyproject.toml` déplacé ferait passer le test précédent sur un
+    # ensemble vide — et c'est précisément le vert trompeur que la règle doit éviter.
+    extras = file_extras_du_socle(DEPOT)
+    assert {"testing", "transform"} <= extras
+
+
+def _depot_a_extra(racine: Path, declare: str) -> Path:
+    """Un dépôt factice : un socle à extra `transform`, et un produit qui l'importe."""
+    socle = racine / "socle" / "python"
+    (socle / "src" / "miles_socle" / "transform").mkdir(parents=True)
+    (socle / "pyproject.toml").write_text(
+        '[project]\nname = "miles-socle"\n\n'
+        '[project.optional-dependencies]\ntransform = [\n    "urban-json==0.2.1",\n]\n'
+        "\n[build-system]\nrequires = []\n",
+        encoding="utf-8",
+    )
+    src = racine / "enrolement" / "backend" / "src" / "enrolement"
+    src.mkdir(parents=True)
+    (racine / "enrolement" / "backend" / "pyproject.toml").write_text(
+        f'[project]\nname = "x"\ndependencies = [\n    "{declare}",\n]\n', encoding="utf-8"
+    )
+    fautif = src / "service.py"
+    fautif.write_text("from miles_socle.transform.engine import evaluate\n", encoding="utf-8")
+    return fautif
+
+
+def test_importer_un_sous_paquet_a_extra_sans_le_declarer_est_detecte(tmp_path: Path) -> None:
+    # La faute pour de vrai, pas la supposition qu'elle serait vue : c'est elle qui fait
+    # échouer un conteneur au démarrage alors que tout passe en local.
+    fautif = _depot_a_extra(tmp_path, "miles-socle")
+
+    violations = resolve_violations_extras(tmp_path)
+
+    assert [(v.racine, v.importe) for v in violations] == [("enrolement", "miles_socle.transform")]
+    assert violations[0].fichier == fautif.relative_to(tmp_path)
+
+
+def test_importer_un_sous_paquet_a_extra_en_le_declarant_est_licite(tmp_path: Path) -> None:
+    # La règle doit interdire l'oubli sans interdire l'usage, qui est sa raison d'être.
+    _depot_a_extra(tmp_path, "miles-socle[transform]")
+
+    assert resolve_violations_extras(tmp_path) == ()

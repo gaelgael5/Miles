@@ -8,6 +8,7 @@ import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.transform.chain import StepSpec, compile_chain
 
 from miles.chains.layout import (
     ChainDoc,
@@ -28,7 +29,6 @@ from miles.chains.store import (
     write_chain,
 )
 from miles.sources.layout import names_in, read_source, source_path
-from miles.transform.chain import StepSpec, compile_chain
 from miles.workshop.target import Gesture, WorkBranches, base_slug
 from miles.workspaces.model import checked_label
 

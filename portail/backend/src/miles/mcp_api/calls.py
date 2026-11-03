@@ -8,6 +8,7 @@ import structlog
 from mcp.server.mcpserver import Context
 from mcp.server.mcpserver.exceptions import ToolError
 from miles_socle.events.model import DelegatedAuthor, EventAuthor
+from miles_socle.transform.chain import ChainInvalidError
 from starlette.requests import Request
 
 from miles.apikeys.model import KEY_DIRECTORY, KeyPrincipal
@@ -18,7 +19,6 @@ from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE
 from miles.mcp_api.errors import refusal, refusal_code
 from miles.obo.service import Actor
 from miles.transform.api_transform import step_problem_out
-from miles.transform.chain import ChainInvalidError
 from miles.workshop.trads import TradsFileError
 from miles.workshop.trads_keys_errors import (
     KeyUnknownError,

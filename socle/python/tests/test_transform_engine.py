@@ -3,13 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from urban_json import FunctionRegistry, default_registry
 
-from miles.transform import engine
-from miles.transform.api_transform import router
-from miles.transform.engine import (
+from miles_socle.transform import engine
+from miles_socle.transform.engine import (
     EvaluationError,
     OutsideProfileError,
     TemplateSyntaxError,
@@ -213,45 +210,3 @@ def test_a_function_missing_from_the_catalogue_is_refused_when_written() -> None
     assert [(v.construct, v.detail) for v in caught.value.violations] == [
         ("fonction_inconnue", "http_get")
     ]
-
-
-def _client() -> TestClient:
-    app = FastAPI()
-    app.include_router(router)
-    app.state.transform_budget = BUDGET
-    return TestClient(app)
-
-
-def test_check_route_gives_the_same_verdict_each_time() -> None:
-    client = _client()
-    body = {"template": '{ "a": $.x + 1, "b": $.y }', "sample": {"x": 1}}
-
-    first, second = (
-        client.post("/api/templates/check", json=body),
-        client.post("/api/templates/check", json=body),
-    )
-
-    assert first.json() == second.json()
-    assert first.json()["valid"] is False
-    assert first.json()["violations"] == [
-        {"construction": "operateur", "detail": "add", "line": 1, "column": 7}
-    ]
-
-
-def test_check_route_without_sample_does_not_claim_the_result_conforms() -> None:
-    client = _client()
-
-    unsampled = client.post("/api/templates/check", json={"template": '{ "a": $.x }'})
-    sampled = client.post(
-        "/api/templates/check", json={"template": '{ "a": $.x#integer }', "sample": {"x": "z"}}
-    )
-    unreadable = client.post("/api/templates/check", json={"template": '{ "a": '})
-
-    assert unsampled.json()["valid"] is True and unsampled.json()["evaluated"] is False
-    assert sampled.json()["evaluation"] == {
-        "code": "conversion",
-        "message": None,
-        "path": "$.x",
-        "expected": "integer",
-    }
-    assert unreadable.json()["syntax"]["line"] == 1

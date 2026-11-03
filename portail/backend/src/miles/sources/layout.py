@@ -32,10 +32,10 @@ from miles_socle.parametrage.sources import (
     read_source,
     source_path,
 )
+from miles_socle.transform.jpath import read_path
 from urban_json.jsonpath import IndexSelector, NameSelector, WildcardSelector
 
 from miles.datamodels.layout import MODEL_RE
-from miles.transform.jpath import read_path
 
 __all__ = [
     "DEFAULT_WRITE_BATCH",

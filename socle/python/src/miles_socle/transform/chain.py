@@ -7,7 +7,7 @@ from typing import Any
 from urban_json.ast.nodes import JsltObject, JsltPath
 from urban_json.jsonpath import IndexSelector, NameSelector, PathScope
 
-from miles.transform.engine import (
+from miles_socle.transform.engine import (
     EvaluationError,
     OutsideProfileError,
     Template,
@@ -17,7 +17,7 @@ from miles.transform.engine import (
     evaluate,
     parse_ast,
 )
-from miles.transform.profile import Violation
+from miles_socle.transform.profile import Violation
 
 # Chaîne de transformations (story 66ae5c10, Gael 22/10/2026) : des étapes ordonnées par
 # l'utilisateur, appliquées au même message aux quatre points de passage (source de

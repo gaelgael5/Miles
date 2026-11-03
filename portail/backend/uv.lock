@@ -999,7 +999,7 @@ dependencies = [
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "mcp" },
-    { name = "miles-socle" },
+    { name = "miles-socle", extra = ["transform"] },
     { name = "openapi-spec-validator" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -1035,7 +1035,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "jsonschema", specifier = "==4.26.0" },
     { name = "mcp", specifier = "==2.3.0" },
-    { name = "miles-socle", editable = "../../socle/python" },
+    { name = "miles-socle", extras = ["transform"], editable = "../../socle/python" },
     { name = "openapi-spec-validator", specifier = "==0.9.0" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
@@ -1077,6 +1077,11 @@ dependencies = [
     { name = "structlog" },
 ]
 
+[package.optional-dependencies]
+transform = [
+    { name = "urban-json" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1" },
@@ -1092,8 +1097,9 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'testing'", specifier = ">=0.24" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "structlog", specifier = ">=24.4" },
+    { name = "urban-json", marker = "extra == 'transform'", specifier = "==0.2.1" },
 ]
-provides-extras = ["testing"]
+provides-extras = ["testing", "transform"]
 
 [package.metadata.requires-dev]
 dev = [

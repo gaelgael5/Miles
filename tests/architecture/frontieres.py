@@ -216,3 +216,98 @@ def resolve_violations_shell(depot: Path) -> tuple[Violation, ...]:
                     if f"/{interdit}/" in cible or cible.startswith(f"{interdit}/"):
                         violations.append(Violation(fichier.relative_to(depot), ligne, cible, nom))
     return tuple(violations)
+
+
+# --- Frontière des EXTRAS du socle ------------------------------------------------------
+# Genre de référence inter-racines apparu le 03/11/2026 (enabler b2a215ee) : un
+# sous-paquet du socle dont les dépendances sont en EXTRA. `miles_socle.transform` importe
+# `urban_json`, que le socle ne tire pas — le module d'enrôlement ne transforme rien et ne
+# doit pas l'installer.
+#
+# **Ce que cette règle attrape, et qu'aucune autre ne voit** : un produit dont le code de
+# PRODUCTION importe un tel sous-paquet sans déclarer l'extra. L'import réussit en local,
+# où le socle est synchronisé avec tous ses extras ; il échoue au DÉMARRAGE DU CONTENEUR,
+# où l'image n'installe que ce que le produit déclare. C'est la famille « invisible en
+# local », et le déploiement est la seule voie de livraison du projet.
+#
+# La convention qui rend la règle mécanique : **un extra du socle porte le nom du
+# sous-paquet qu'il équipe**. Sans elle il faudrait une table écrite à la main ici, donc
+# une seconde source de vérité qui divergerait du `pyproject.toml` du socle.
+#
+# Portée : `src/` seulement. Les suites de test tirent leurs outils du groupe `dev` du
+# produit, et `miles_socle.testing` n'est jamais importé depuis du code de production.
+SOCLE_PYPROJECT = "socle/python/pyproject.toml"
+_EXTRAS_RE = re.compile(r"^\[project\.optional-dependencies\]", re.MULTILINE)
+_EXTRA_NOM_RE = re.compile(r"^(?P<nom>[a-z][a-z0-9-]*)\s*=\s*\[", re.MULTILINE)
+_SECTION_SUIVANTE_RE = re.compile(r"^\[", re.MULTILINE)
+
+
+def file_extras_du_socle(depot: Path) -> frozenset[str]:
+    """Les noms d'extras déclarés par le socle, lus dans son `pyproject.toml`.
+
+    Lu par motif et non par un analyseur TOML : ce paquet de tests n'a aucune dépendance,
+    et doit tourner sans qu'aucun environnement de produit soit installé — même raison
+    que la lecture des imports par `ast`.
+    """
+    texte = (depot / SOCLE_PYPROJECT).read_text(encoding="utf-8")
+    debut = _EXTRAS_RE.search(texte)
+    if debut is None:
+        return frozenset()
+    reste = texte[debut.end() :]
+    fin = _SECTION_SUIVANTE_RE.search(reste)
+    bloc = reste[: fin.start()] if fin is not None else reste
+    return frozenset(m["nom"] for m in _EXTRA_NOM_RE.finditer(bloc))
+
+
+def file_extras_declares(pyproject: Path) -> frozenset[str]:
+    """Les extras que ce produit demande sur `miles-socle`, tels qu'il les déclare."""
+    texte = pyproject.read_text(encoding="utf-8")
+    declares: set[str] = set()
+    for correspondance in re.finditer(r'"miles-socle\[([^\]]*)\]"', texte):
+        declares.update(nom.strip() for nom in correspondance.group(1).split(","))
+    return frozenset(declares)
+
+
+def resolve_violations_extras(depot: Path) -> tuple[Violation, ...]:
+    """Les sous-paquets du socle importés par un produit qui n'en déclare pas l'extra."""
+    extras = file_extras_du_socle(depot)
+    violations: list[Violation] = []
+    for produit in PRODUITS:
+        src = depot / produit / "backend" / "src"
+        pyproject = depot / produit / "backend" / "pyproject.toml"
+        if not src.is_dir() or not pyproject.is_file():
+            continue
+        declares = file_extras_declares(pyproject)
+        manquants = extras - declares
+        if not manquants:
+            continue
+        for fichier in sorted(src.rglob("*.py")):
+            for module, ligne in file_sous_paquets_socle(fichier):
+                if module in manquants:
+                    violations.append(
+                        Violation(
+                            fichier.relative_to(depot), ligne, f"miles_socle.{module}", produit
+                        )
+                    )
+    return tuple(violations)
+
+
+def file_sous_paquets_socle(fichier: Path) -> tuple[tuple[str, int], ...]:
+    """Les sous-paquets de `miles_socle` qu'un fichier importe, avec leur ligne.
+
+    Le DEUXIÈME niveau, là où `file_imports` ne rend que le premier : c'est le
+    sous-paquet qui porte la dépendance en extra, pas `miles_socle` lui-même.
+    """
+    arbre = ast.parse(fichier.read_text(encoding="utf-8"), filename=str(fichier))
+    trouves: list[tuple[str, int]] = []
+    for noeud in ast.walk(arbre):
+        chemins: list[str] = []
+        if isinstance(noeud, ast.Import):
+            chemins = [alias.name for alias in noeud.names]
+        elif isinstance(noeud, ast.ImportFrom) and noeud.level == 0 and noeud.module:
+            chemins = [noeud.module]
+        for chemin in chemins:
+            parties = chemin.split(".")
+            if parties[0] == "miles_socle" and len(parties) > 1:
+                trouves.append((parties[1], noeud.lineno))
+    return tuple(trouves)

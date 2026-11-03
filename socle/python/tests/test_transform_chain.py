@@ -3,11 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
-from miles.transform.api_transform import chains_router
-from miles.transform.chain import (
+from miles_socle.transform.chain import (
     ChainFailedError,
     ChainInvalidError,
     StepSpec,
@@ -127,31 +124,6 @@ def test_a_failing_step_fails_the_whole_chain_and_names_its_rank() -> None:
         "conversion",
         "$.poids",
     )
-
-
-def test_check_route_shows_the_message_after_each_step_or_where_it_fails() -> None:
-    app = FastAPI()
-    app.include_router(chains_router)
-    app.state.transform_budget = BUDGET
-    client = TestClient(app)
-    steps = [{"template": '{ "ref": $.colis.ref }'}, {"template": '"ok"', "target": "$.statut"}]
-
-    passed = client.post("/api/transformations/check", json={"steps": steps, "sample": MESSAGE})
-    failed = client.post(
-        "/api/transformations/check",
-        json={"steps": [{"template": '{ "k": $.colis.ref#integer }'}], "sample": MESSAGE},
-    )
-
-    assert passed.json()["trace"] == [{"ref": "C-42"}, {"ref": "C-42", "statut": "ok"}]
-    assert failed.json()["failure"] == {
-        "step": 0,
-        "evaluation": {
-            "code": "conversion",
-            "message": None,
-            "path": "$.colis.ref",
-            "expected": "integer",
-        },
-    }
 
 
 def test_an_unimplemented_filter_operator_is_a_named_refusal_carried_to_the_screen() -> None:

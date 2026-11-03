@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from miles_socle.transform.jpath import property_keys
+
 from miles.accounts.layout import SERVED_MODES, Delivery, ReferenceProblem
 from miles.datamodels.grammar import load_yaml
 from miles.datamodels.layout import MODEL_RE, model_path
 from miles.datamodels.navigate import kind_at
 from miles.datamodels.schema import parse_schema
-from miles.transform.jpath import property_keys
 from miles.workshop.reading import Read
 
 # Ce que le champ d'adresse peut désigner : une valeur, jamais un conteneur. Une adresse

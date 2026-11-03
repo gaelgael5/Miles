@@ -26,6 +26,15 @@ wheels = [
 ]
 
 [[package]]
+name = "antlr4-python3-runtime"
+version = "4.13.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/5f/2cdf6f7aca3b20d3f316e9f505292e1f256a32089bd702034c29ebde6242/antlr4_python3_runtime-4.13.2.tar.gz", hash = "sha256:909b647e1d2fc2b70180ac586df3933e38919c85f98ccc656a96cd3f25ef3916", size = 117467, upload-time = "2024-08-03T19:00:12.757Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/03/a851e84fcbb85214dc637b6378121ef9a0dd61b4c65264675d8a5c9b1ae7/antlr4_python3_runtime-4.13.2-py3-none-any.whl", hash = "sha256:fe3835eb8d33daece0e799090eda89719dbccee7aa39ef94eed3818cafa5a7e8", size = 144462, upload-time = "2024-08-03T19:00:11.134Z" },
+]
+
+[[package]]
 name = "anyio"
 version = "4.15.1"
 source = { registry = "https://pypi.org/simple" }
@@ -782,7 +791,7 @@ name = "miles-environnement"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "miles-socle" },
+    { name = "miles-socle", extra = ["transform"] },
     { name = "pydantic-settings" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -800,7 +809,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "miles-socle", editable = "../../socle/python" },
+    { name = "miles-socle", extras = ["transform"], editable = "../../socle/python" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
@@ -833,6 +842,11 @@ dependencies = [
     { name = "structlog" },
 ]
 
+[package.optional-dependencies]
+transform = [
+    { name = "urban-json" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1" },
@@ -848,8 +862,9 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'testing'", specifier = ">=0.24" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "structlog", specifier = ">=24.4" },
+    { name = "urban-json", marker = "extra == 'transform'", specifier = "==0.2.1" },
 ]
-provides-extras = ["testing"]
+provides-extras = ["testing", "transform"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1296,6 +1311,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a3/26/b09b8010994eccc3c09092e6b34058f36a460eea2d4c3e8b910c695975a0/typing_inspection-0.4.4.tar.gz", hash = "sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47", size = 76928, upload-time = "2026-08-12T12:37:25.997Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl", hash = "sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147", size = 14750, upload-time = "2026-08-12T12:37:24.648Z" },
+]
+
+[[package]]
+name = "urban-json"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "antlr4-python3-runtime" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ff/7c/e0e7998daa3258c1b2657e097e345b0357b5b15a4684731aa3d9b281c440/urban_json-0.2.1.tar.gz", hash = "sha256:a396ed9a0047a46b3e599d5e98e5bffbcf2954a543a9e2e7ad23a1784ab8ed46", size = 114764, upload-time = "2026-11-01T06:24:00.681Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/56/e9/7396613738bc2d5454409c58d40a0db44fe0fa08864290547d1c5f74de9b/urban_json-0.2.1-py3-none-any.whl", hash = "sha256:eb5c8a5a5f44623393097b83e51f3fe925e8c1a94a38104889644cdc2b408dcd", size = 106624, upload-time = "2026-11-01T06:23:59.155Z" },
 ]
 
 [[package]]

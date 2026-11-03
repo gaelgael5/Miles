@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from miles_socle.transform.chain import ChainInvalidError, StepSpec, compile_chain
+
 from miles.chains.layout import CHAIN_FILE, chain_dir, chain_path, files_of, read_chain, slugs_in
 from miles.datamodels.grammar import Problem
 from miles.git.workcopy import WorkCopy
@@ -12,7 +14,6 @@ from miles.storages.checks import branch_problems as storage_branch_problems
 from miles.storages.layout import ROOT as STORAGES_ROOT
 from miles.storages.layout import form_problems as storage_form_problems
 from miles.storages.layout import read_storage
-from miles.transform.chain import ChainInvalidError, StepSpec, compile_chain
 
 
 async def chain_reports(copy: WorkCopy, paths: list[str]) -> list[tuple[str, tuple[Problem, ...]]]:

@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from miles_socle.transform.engine import TemplateSyntaxError, UnsupportedConstructError, parse_ast
 from urban_json.ast import JsltBase
 from urban_json.ast.kind import JsltKind
 from urban_json.ast.nodes import JsltArray, JsltConstant, JsltFunctionCall, JsltObject
@@ -30,7 +31,6 @@ from miles.datamodels.layout import model_path
 from miles.datamodels.navigate import Read, resolved
 from miles.datamodels.paths import ROOT
 from miles.datamodels.schema import target_of
-from miles.transform.engine import TemplateSyntaxError, UnsupportedConstructError, parse_ast
 
 # Ce qu'une valeur écrite en clair produit, à coup sûr : son type JSON, et le code qui
 # le nomme. Demandé par Gael le 01/11/2026 — « propriétés manquantes, propriétés non

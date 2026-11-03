@@ -94,6 +94,17 @@ est, et chaque produit ne déclare plus que ce qu'il EST — son nom de module, 
 (`environnement` ou `parametrage`), le libellé de son secret. Ses TABLES restent à lui,
 comme `module_identity` : le socle ne porte aucune migration.
 
+Depuis le 03/11/2026, l'**évaluation JSLT** (`miles_socle.transform`) et la **lecture
+d'une déclaration de chaîne** (`parametrage/chains.py`), deuxième usage : le module
+d'environnement applique aux objets reçus la chaîne qu'une entrée de source nomme. Le
+moteur arrive avec une dépendance que le socle refusait, et la solution est sa FORME :
+`urban-json` est un **extra** du socle, déclaré par les deux produits qui transforment.
+Le module d'enrôlement ne l'installe pas. Un produit qui importerait un sous-paquet à
+extra sans le déclarer passerait en local — où tous les extras sont synchronisés — et
+échouerait au démarrage du conteneur : c'est un quatrième genre de référence
+inter-racines, et `tests/` le tient par une règle (un extra du socle porte le nom du
+sous-paquet qu'il équipe). L'ÉCRITURE d'une chaîne et son diagnostic restent au portail.
+
 Depuis le 30/10/2026, les **connexions git sont CONFIÉES** au module d'enrôlement par le
 module de paramétrage (`POST /api/peer/git-connections`, contrat au socle) : saisies une
 seule fois, transmises à chaque changement, détruites avec l'appariement révoqué. **Le
@@ -105,7 +116,7 @@ doit pas y aller : c'est une conséquence du portail, pas du protocole.
 
 | Répertoire | Socle partagé | Consommé par |
 |---|---|---|
-| `socle/python` | paquet `miles_socle` — **aucune migration** : il porte les requêtes de SES tables (secrets, sessions, journal, identité du module), le schéma reste l'affaire de chaque produit | `<produit>/backend`, chemin relatif dans `pyproject.toml` |
+| `socle/python` | paquet `miles_socle` — **aucune migration** : il porte les requêtes de SES tables (secrets, sessions, journal, identité du module), le schéma reste l'affaire de chaque produit. Deux sous-paquets sont derrière un **extra** (`testing`, `transform`) : un produit ne les importe qu'en le déclarant | `<produit>/backend`, chemin relatif dans `pyproject.toml` |
 | `socle/web` | paquet `@miles/socle-web` — coquille front et écrans répliqués | `<produit>/frontend`, chemin relatif dans `package.json` |
 | `socle/deploy` | `gardes.sh` et `integration.sh` — les gardes du déploiement et des campagnes | `<produit>/dev-deploy.sh` et `<produit>/scripts/`, par `source` |
 

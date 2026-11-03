@@ -10,7 +10,7 @@ from __future__ import annotations
 from urban_json.ast.nodes import JsltObject, JsltPath
 from urban_json.jsonpath import IndexSelector, NameSelector, PathScope
 
-from miles.transform.engine import TemplateSyntaxError, parse_ast
+from miles_socle.transform.engine import TemplateSyntaxError, parse_ast
 
 
 def read_path(text: str) -> JsltPath | None:

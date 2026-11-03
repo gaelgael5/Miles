@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from miles_socle.transform.engine import function_registry
 from urban_json import FunctionRegistry
 
 from miles.transform.catalog import app_floor, functions_catalog, models_catalog
-from miles.transform.engine import function_registry
 
 PERSONNE = (
     "$schema: https://json-schema.org/draft/2020-12/schema\n$id: miles:/shared/personne\n"

@@ -3,9 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel, ConfigDict, Field
-
-from miles.transform.chain import (
+from miles_socle.transform.chain import (
     ChainFailedError,
     ChainInvalidError,
     StepProblem,
@@ -13,13 +11,14 @@ from miles.transform.chain import (
     compile_chain,
     run_chain,
 )
-from miles.transform.engine import (
+from miles_socle.transform.engine import (
     EvaluationError,
     OutsideProfileError,
     TemplateSyntaxError,
     compile_template,
     evaluate,
 )
+from pydantic import BaseModel, ConfigDict, Field
 
 # Réservé à l'administrateur tant que les rôles n'existent pas. Vérifier n'écrit rien :
 # l'enregistrement d'un template appartient à ce qui le porte (mapping, import…).

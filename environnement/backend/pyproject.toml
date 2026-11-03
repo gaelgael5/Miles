@@ -7,7 +7,11 @@ requires-python = ">=3.12"
 # structlog : on ne les redéclare pas ici. Ne figurent que ce dont le produit a besoin en
 # propre — la lecture de sa configuration et le serveur qui l'expose.
 dependencies = [
-    "miles-socle",
+    # L'extra `transform` : le moteur JSLT, pour appliquer la chaîne d'une entrée de
+    # source aux objets reçus (story d680e811). Jamais une dépendance DIRECTE à
+    # urban-json — deux déclarations de version finiraient par diverger, et c'est le
+    # socle qui porte le code qui l'importe.
+    "miles-socle[transform]",
     "pydantic-settings>=2.6",
     "uvicorn[standard]>=0.32",
 ]

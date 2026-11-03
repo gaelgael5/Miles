@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from miles_socle.transform.engine import function_registry
 from pydantic import Field
 from starlette.requests import Request
 
@@ -13,7 +14,6 @@ from miles.mcp_api.calls import Caller, caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
 from miles.mcp_api.tools_models import ReadBranch, Workspace
 from miles.transform.catalog import functions_catalog
-from miles.transform.engine import function_registry
 from miles.workshop.domains import DomainNotFoundError, Element
 from miles.workshop.targeted import ContractUnknownError, TargetedReads
 from miles.workspaces.model import WorkspaceInputError

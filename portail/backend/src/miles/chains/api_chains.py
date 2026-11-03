@@ -5,13 +5,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
+from miles_socle.transform.chain import ChainInvalidError
 from pydantic import BaseModel, ConfigDict, Field
 
 from miles.chains.layout import MAX_STEPS
 from miles.chains.service import ChainInUseError, ChainNotFoundError, ChainsService
 from miles.chains.store import CheckedChain, StoredStep
 from miles.transform.api_transform import MAX_TEMPLATE_LENGTH, StepProblemOut, step_problem_out
-from miles.transform.chain import ChainInvalidError
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,

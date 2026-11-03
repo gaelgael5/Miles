@@ -38,9 +38,9 @@ from miles_socle.parametrage.storages import (
 from miles_socle.parametrage.storages import (
     storage_path as storage_path,
 )
+from miles_socle.transform.jpath import property_keys
 
 from miles.datamodels.layout import MODEL_RE
-from miles.transform.jpath import property_keys
 
 
 @dataclass(frozen=True)

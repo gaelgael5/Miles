@@ -41,6 +41,15 @@ testing = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
 ]
+# `miles_socle.transform` évalue du JSLT, et DEUX produits en ont besoin depuis le
+# 03/11/2026 : le module de paramétrage qui écrit les templates, le module d'environnement
+# qui les applique aux objets reçus (enabler b2a215ee). En EXTRA et non en dépendance, pour
+# la raison écrite plus haut : le module d'enrôlement ne transforme rien, et ne doit pas
+# installer le moteur. Un produit qui importe ce sous-paquet sans l'extra échoue à
+# l'import, au démarrage — jamais sur un chemin de données.
+transform = [
+    "urban-json==0.2.1",
+]
 
 [dependency-groups]
 dev = [

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from miles_socle.transform.chain import ChainInvalidError, StepSpec, compile_chain
+
 from miles.chains.store import stored_chain
 from miles.datamodels.layout import MODEL_RE, model_path
 from miles.datamodels.schema import model_id
 from miles.git.workcopy import WorkCopy
 from miles.sources.layout import Entry, SourceDoc, SourceProblem
 from miles.storages.layout import read_storage, storage_path
-from miles.transform.chain import ChainInvalidError, StepSpec, compile_chain
 
 
 async def branch_problems(copy: WorkCopy, doc: SourceDoc) -> list[SourceProblem]:

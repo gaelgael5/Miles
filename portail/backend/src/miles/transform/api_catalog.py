@@ -7,11 +7,11 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
 from miles_socle.events.model import EventAuthor
+from miles_socle.transform.engine import function_registry
 from pydantic import BaseModel, ConfigDict
 
 from miles.git.snapshot import CommitNotFoundError
 from miles.transform.catalog import app_floor, functions_catalog, models_catalog
-from miles.transform.engine import function_registry
 from miles.workshop.reading import branch_source
 from miles.workshop.target import WorkBranches
 from miles.workspaces.model import (

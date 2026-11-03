@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from miles.transform.jpath import path_keys, property_keys, read_path
+from miles_socle.transform.jpath import path_keys, property_keys, read_path
 
 
 @pytest.mark.parametrize(
