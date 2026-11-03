@@ -34,6 +34,43 @@
 ALTER TABLE event_objects RENAME TO event_objects_avant_partition;
 ALTER TABLE events RENAME TO events_avant_partition;
 
+-- RENOMMER UNE TABLE NE RENOMME PAS SES INDEX NI SES CONTRAINTES. Mesuré le 03/11/2026,
+-- et c'est ce qui a fait échouer le premier jet : `CREATE INDEX event_objects_event_id_idx`
+-- butait sur l'index de l'ancienne table, qui portait encore ce nom. Les contraintes
+-- auto-nommées, elles, ne butent pas — PostgreSQL leur ajoute un suffixe en silence — et
+-- les nouvelles tables auraient gardé pour toujours un `events_..._check1` que personne
+-- n'aurait pu expliquer. Donc on décale TOUS les noms de l'ancien schéma, en boucle plutôt
+-- qu'en liste : une liste écrite à la main oublierait la contrainte ajoutée demain.
+DO $$
+DECLARE
+    objet record;
+BEGIN
+    FOR objet IN
+        SELECT conrelid::regclass::text AS porteuse, conname AS nom
+        FROM pg_constraint
+        WHERE conrelid IN (
+            'events_avant_partition'::regclass, 'event_objects_avant_partition'::regclass
+        )
+    LOOP
+        EXECUTE format(
+            'ALTER TABLE %s RENAME CONSTRAINT %I TO %I',
+            objet.porteuse, objet.nom, objet.nom || '_avant_partition'
+        );
+    END LOOP;
+    -- Puis les index qui ne soutiennent AUCUNE contrainte : ceux-là ne sont pas renommés
+    -- par la boucle précédente, et `event_objects_event_id_idx` est précisément de ceux-là.
+    FOR objet IN
+        SELECT i.indexrelid::regclass::text AS nom
+        FROM pg_index i
+        WHERE i.indrelid IN (
+            'events_avant_partition'::regclass, 'event_objects_avant_partition'::regclass
+        )
+        AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conindid = i.indexrelid)
+    LOOP
+        EXECUTE format('ALTER INDEX %s RENAME TO %I', objet.nom, objet.nom || '_avant_partition');
+    END LOOP;
+END $$;
+
 CREATE TABLE events (
     id uuid NOT NULL,
     type text NOT NULL,
