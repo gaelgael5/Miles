@@ -25,6 +25,12 @@ dependencies = [
     "structlog>=24.4",
 ]
 
+# Le contrat publié de la route d'entretien du journal est engendré depuis le code, comme
+# ceux des produits. Il est ici parce que la route est ici : publiée depuis un produit,
+# elle l'aurait été trois fois.
+[project.scripts]
+miles-socle-contracts = "miles_socle.journal.published_contract:main"
+
 [project.optional-dependencies]
 # `miles_socle.testing` est livré DANS le paquet — les trois produits ont chacun leur suite
 # et aucun ne peut importer celle d'un autre — mais ses fixtures et son harnais ont besoin

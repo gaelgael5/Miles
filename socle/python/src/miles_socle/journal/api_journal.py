@@ -79,7 +79,21 @@ def _refuse(request: Request, raison: str) -> HTTPException:
     )
 
 
-@router.post(MAINTENANCE_PATH, response_model=MaintenanceOut)
+# `summary` et `description` ne sont pas décoratifs : ils sont ce que le contrat PUBLIÉ
+# porte (`docs/contracts/miles-journal-maintenance.openapi.json`). Sans eux, le cadre
+# dérive un titre du nom de la fonction — « Post Maintenance » — et le lecteur du contrat
+# n'apprend rien de l'ordre des deux gestes, qui est précisément ce qui s'engage.
+@router.post(
+    MAINTENANCE_PATH,
+    response_model=MaintenanceOut,
+    summary="Entretenir le journal partitionné : poser l'avance, retirer ce qui a expiré",
+    description=(
+        "Pose les partitions manquantes du jour et des jours d'avance, PUIS retire celles"
+        " qui ont dépassé la rétention. Les deux tables d'un même jour tombent dans la même"
+        " transaction. Tout le SQL est idempotent : `changed` dit si la base a bougé, le"
+        " code HTTP ne le dit pas."
+    ),
+)
 async def post_maintenance(request: Request) -> MaintenanceOut:
     attendu: str | None = getattr(request.app.state, "journal_maintenance_token", None)
     if not attendu:
