@@ -95,6 +95,10 @@ type: object
 properties:
   AccountId: {type: string}
   Postes: {type: integer}
+  # Une DATE, et elle reste `text` en base : `format` est une annotation JSON Schema, pas
+  # une garantie. Ce qui la rend comparable, c'est que l'ordre lexicographique d'un
+  # ISO-8601 est son ordre chronologique — et c'est ce que le critère 5 éprouve.
+  Ouvert: {type: string, format: date}
   Contact: {$ref: '#/$defs/Contact'}
 $defs:
   Contact:
@@ -211,7 +215,11 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
                 "accounts",
                 "pudo/accounts",
                 "$.AccountId",
-                [("tel", ["$.Contact.Phone"]), ("taille", ["$.Postes"])],
+                [
+                    ("tel", ["$.Contact.Phone"]),
+                    ("taille", ["$.Postes"]),
+                    ("ouverture", ["$.Ouvert"]),
+                ],
             ),
             "storages/sites.yaml": _storage("sites", "pudo/site", "$.Id", []),
             "sources/comptes-pudo.yaml": _source(
@@ -230,6 +238,7 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
                     ("tel", ["$.Contact.Phone"]),
                     ("taille", ["$.Postes"]),
                     ("mail", ["$.Contact.Email"]),
+                    ("ouverture", ["$.Ouvert"]),
                 ],
             ),
             "storages/sites.yaml": _storage(
@@ -247,7 +256,11 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
                 "accounts",
                 "pudo/accounts",
                 "$.AccountId",
-                [("mail", ["$.Contact.Email"]), ("taille", ["$.Postes"])],
+                [
+                    ("mail", ["$.Contact.Email"]),
+                    ("taille", ["$.Postes"]),
+                    ("ouverture", ["$.Ouvert"]),
+                ],
             ),
             "sources/comptes-pudo.yaml": _source(
                 "comptes-pudo", "accounts", "pudo/accounts", (True, True, True)

@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import asyncpg
 import pytest
 from miles_socle.testing.enrolment_double import EnrolmentDouble
 
@@ -26,10 +27,36 @@ pytestmark = pytest.mark.integration
 WORKSPACE = "reseau-ferroviaire"
 # Trois comptes, dont deux partagent un préfixe de téléphone : un jeu où chaque filtre
 # doit DISCRIMINER. Avec des valeurs toutes différentes, un filtre faux resterait vert.
+# Les dates franchissent un changement d'année et se suivent à un jour près : un tri qui
+# couperait l'ISO-8601 ou le relirait en nombre les mélangerait, et le test le verrait.
 COMPTES = [
-    ("A-1", {"AccountId": "A-1", "Postes": 3, "Contact": {"Phone": "0102030405"}}),
-    ("A-2", {"AccountId": "A-2", "Postes": 12, "Contact": {"Phone": "0102999999"}}),
-    ("A-3", {"AccountId": "A-3", "Postes": 7, "Contact": {"Phone": "0600000000"}}),
+    (
+        "A-1",
+        {
+            "AccountId": "A-1",
+            "Postes": 3,
+            "Ouvert": "2026-01-09",
+            "Contact": {"Phone": "0102030405"},
+        },
+    ),
+    (
+        "A-2",
+        {
+            "AccountId": "A-2",
+            "Postes": 12,
+            "Ouvert": "2025-12-31",
+            "Contact": {"Phone": "0102999999"},
+        },
+    ),
+    (
+        "A-3",
+        {
+            "AccountId": "A-3",
+            "Postes": 7,
+            "Ouvert": "2026-01-10",
+            "Contact": {"Phone": "0600000000"},
+        },
+    ),
 ]
 
 
@@ -48,8 +75,8 @@ async def _prepare(
         )
 
 
-async def _cherche(stack: EnvironnementStack, **params: Any) -> Any:
-    reponse = await stack.client.get("/api/storages/accounts/objects", params=params)
+async def _cherche(stack: EnvironnementStack, *, storage: str = "accounts", **params: Any) -> Any:
+    reponse = await stack.client.get(f"/api/storages/{storage}/objects", params=params)
     assert reponse.status_code == 200, reponse.text
     return reponse.json()
 
@@ -229,10 +256,15 @@ async def test_la_liste_des_storages_rend_la_declaration_et_l_etat_de_sa_table(
             # Le type vient du MODÈLE : c'est lui qui fera comparer des nombres et non
             # des textes, où « 12 » serait inférieur à « 3 ».
             {"column": "postes", "path": "$.Postes", "kind": "integer", "sql_type": "bigint"},
+            # Une date reste `text`, et ce n'est pas un pis-aller : `format: date` est une
+            # annotation, pas une garantie, et l'ordre lexicographique d'un ISO-8601 est
+            # son ordre chronologique.
+            {"column": "ouvert", "path": "$.Ouvert", "kind": "string", "sql_type": "text"},
         ]
         assert comptes["indexes"] == [
             {"name": "tel", "columns": ["contact_phone"]},
             {"name": "taille", "columns": ["postes"]},
+            {"name": "ouverture", "columns": ["ouvert"]},
         ]
 
 
@@ -246,3 +278,146 @@ async def test_un_droit_de_lecture_est_exige(blank_db: str, tmp_path: Path) -> N
         for chemin in ("/api/storages", "/api/storages/schema", "/api/storages/accounts/objects"):
             refus = await stack.anonymous().get(chemin)
             assert refus.status_code == 401, (chemin, refus.status_code)
+
+
+async def test_une_ecriture_applicative_d_une_colonne_projetee_est_REFUSEE_par_la_base(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 2, et c'est LA garantie que colonne et objet ne peuvent pas diverger.
+
+    Ce n'est pas une discipline applicative qui l'assure : PostgreSQL REFUSE l'écriture.
+    Du code qui prétendrait « maintenir » la colonne échouerait donc bruyamment, au lieu
+    de poser une valeur qui contredirait le jsonb sans que rien ne le dise. C'est aussi ce
+    qui rend un DDL sur ces colonnes incapable de détruire quoi que ce soit.
+
+    Les DEUX gestes sont éprouvés : une insertion qui vise la colonne, et une mise à jour.
+    N'en éprouver qu'un laisserait l'autre chemin ouvert.
+    """
+    versions = fabrique_parametrage(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _prepare(stack, double, versions[1])
+
+        with pytest.raises(asyncpg.PostgresError) as insertion:
+            await stack.pool.execute(
+                "INSERT INTO pudo.accounts"
+                " (cle, objet, empreinte, version_modele, contact_phone)"
+                " VALUES ($1, $2::jsonb, $3, 1, $4)",
+                "A-9",
+                json.dumps({"AccountId": "A-9"}),
+                b"\x00" * 32,
+                "0000000000",
+            )
+        with pytest.raises(asyncpg.PostgresError) as mise_a_jour:
+            await stack.pool.execute("UPDATE pudo.accounts SET contact_phone = $1", "0000000000")
+
+        assert "contact_phone" in str(insertion.value)
+        assert "contact_phone" in str(mise_a_jour.value)
+        # Et rien n'a été écrit : le refus porte sur la ligne entière.
+        assert await stack.pool.fetchval("SELECT count(*) FROM pudo.accounts") == len(COMPTES)
+
+
+async def test_une_propriete_ABSENTE_de_l_objet_vaut_null_et_un_filtre_d_egalite_l_ecarte(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 3, éprouvé sur `sites`, dont la v2 indexe le code postal.
+
+    Deux objets, un seul porte la propriété : avec un jeu où tous la portent, un filtre
+    qui confondrait « absent » et « vide » resterait vert. Et c'est bien la BASE qui rend
+    `null`, puisque personne n'écrit la colonne.
+    """
+    versions = fabrique_parametrage(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await sert(stack, double, versions[2])
+        for cle, objet in (("S-1", {"Id": "S-1", "Zipcode": "59000"}), ("S-2", {"Id": "S-2"})):
+            await stack.pool.execute(
+                "INSERT INTO pudo.sites (cle, objet, empreinte, version_modele)"
+                " VALUES ($1, $2::jsonb, $3, 2)",
+                cle,
+                json.dumps(objet),
+                b"\x00" * 32,
+            )
+
+        manquante = await stack.pool.fetchval(
+            "SELECT zipcode FROM pudo.sites WHERE cle = $1", "S-2"
+        )
+        egalite = await _cherche(stack, storage="sites", f="zipcode:eq:59000")
+        tous = await _cherche(stack, storage="sites")
+
+        assert manquante is None
+        assert [o["cle"] for o in egalite["objects"]] == ["S-1"]
+        # L'objet sans la propriété reste dans le storage : il est écarté du FILTRE, pas
+        # de la table, et la colonne nulle voyage avec lui.
+        assert sorted(o["cle"] for o in tous["objects"]) == ["S-1", "S-2"]
+        sans = next(o for o in tous["objects"] if o["cle"] == "S-2")
+        assert sans["columns"]["zipcode"] is None
+
+
+async def test_une_comparaison_sur_une_propriete_DATE_rend_l_ordre_chronologique(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 5, second volet — le premier étant la comparaison numérique.
+
+    La colonne est `text`, et c'est assumé : ce qui est éprouvé est que l'ordre
+    lexicographique d'un ISO-8601 est bien l'ordre des dates, par-dessus un changement
+    d'année, et qu'un intervalle se comporte comme on l'attend. Un hachage de la valeur
+    ferait tomber les deux.
+    """
+    versions = fabrique_parametrage(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _prepare(stack, double, versions[1])
+
+        apres_la_saint_sylvestre = await _cherche(stack, f="ouvert:gt:2025-12-31", tri="ouvert")
+        intervalle = await _cherche(stack, f=["ouvert:ge:2026-01-10", "ouvert:le:2026-12-31"])
+        chronologie = await _cherche(stack, tri="ouvert")
+
+        # A-2 est ouvert le 31/12/2025 : exclu par la comparaison STRICTE.
+        assert [o["cle"] for o in apres_la_saint_sylvestre["objects"]] == ["A-1", "A-3"]
+        assert [o["cle"] for o in intervalle["objects"]] == ["A-3"]
+        # Le changement d'année est franchi dans le bon sens, et le 09 précède le 10.
+        assert [o["cle"] for o in chronologie["objects"]] == ["A-2", "A-1", "A-3"]
+
+
+async def test_le_TRI_sur_une_propriete_indexee_emprunte_son_index(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 8 : un tri doit être SERVI par un index, pas seulement accepté.
+
+    Le parcours séquentiel ET le tri explicite sont coupés le temps de la mesure : sur
+    trois lignes PostgreSQL les choisirait, moins chers. Ce qui reste alors est le seul
+    chemin qui produit l'ordre sans trier — la lecture ordonnée d'un index —, et c'est
+    précisément ce qu'on veut constater.
+    """
+    versions = fabrique_parametrage(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _prepare(stack, double, versions[1])
+
+        async with stack.pool.acquire() as conn:
+            await conn.execute("SET enable_seqscan = off")
+            await conn.execute("SET enable_sort = off")
+            plan = await conn.fetchval(
+                "EXPLAIN (FORMAT JSON) SELECT cle FROM pudo.accounts ORDER BY postes"
+            )
+
+        assert "accounts__taille" in json.dumps(plan)
+
+
+async def test_aucun_objet_ne_satisfait_le_critere_rend_une_page_VIDE_et_non_une_erreur(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 15, distinct du storage vide (critère 14) : ici la table porte des objets,
+    et c'est le filtre qui n'en retient aucun. Confondre les deux ferait rendre une erreur
+    à un écran dont le filtre est simplement trop étroit."""
+    versions = fabrique_parametrage(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _prepare(stack, double, versions[1])
+
+        page = await _cherche(stack, f="postes:gt:1000")
+
+        assert page == {"objects": [], "total": 0, "page": 1, "page_size": 50}
+        # La table n'est pas vide pour autant : c'est ce qui distingue ce cas du 14.
+        assert (await _cherche(stack))["total"] == len(COMPTES)
