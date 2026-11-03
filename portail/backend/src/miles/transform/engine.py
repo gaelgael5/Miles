@@ -191,27 +191,17 @@ def _registry() -> FunctionRegistry:
         info = default_registry.describe(name)
         if info is None:
             continue
-        # LA DESCRIPTION D'ABORD, ET LE GENRE AVANT TOUT APPEL À `get`. Depuis
-        # urban-json 0.2.1, le registre porte des « fonctions de SORTIE » — `to_block` —
-        # qui ne se déclarent pas dans le corps d'un template mais dans
-        # `$directives.output.mode`, et dont `get()` LÈVE au lieu de rendre nul. Les
-        # parcourir avec `get` faisait donc échouer la construction du registre entier,
-        # et avec elle 55 modules de test à la collecte (mesuré le 03/11/2026).
-        #
-        # Elles ne sont PAS reprises : Miles n'admet pas `$directives` dans son profil
-        # d'écriture, donc aucune ne serait atteignable, et les admettre serait élargir
-        # ce que le moteur accepte — une décision de paramétrage, pas une conséquence
-        # d'une montée de version.
+        # Le GENRE avant tout appel à `get` : depuis urban-json 0.2.1, les « fonctions de
+        # sortie » (`to_block`, déclarées dans `$directives.output.mode`) font LEVER `get`
+        # au lieu de rendre nul. Elles ne sont pas reprises — Miles n'admet pas
+        # `$directives`, et les admettre élargirait ce que le moteur accepte.
         if info.kind != "function":
             continue
-        # `info.function` ET NON `default_registry.get(name)`. Depuis urban-json 0.2.1,
-        # `get()` rend une ENVELOPPE de contrôle d'arité (`_arity_guard`), dont le
-        # `__module__` est celui du registre et non celui de la fonction : le filtre
-        # ci-dessous ne rejetait donc plus rien, et une fonction de plugin — HTTP, SQL —
-        # entrait dans le registre de Miles. C'est la garde du 22/10/2026 qui tombait, en
-        # silence, à la faveur d'une montée de version ; seul son test l'a vue.
-        # `info.function` est la fonction telle qu'elle a été enregistrée, donc le module
-        # qui la définit vraiment. Notre propre registre pose son enveloppe à son tour.
+        # `info.function` ET NON `get(name)` : depuis urban-json 0.2.1, `get` rend une
+        # enveloppe de contrôle d'arité dont le `__module__` est celui du registre. Le
+        # filtre ci-dessous ne rejetait donc plus rien, et une fonction de plugin — HTTP,
+        # SQL — entrait dans le profil d'écriture de Miles. Garde du 22/10/2026 tombée en
+        # silence à la faveur d'une montée de version ; détail dans LESSONS.md.
         if not info.function.__module__.startswith(_CORE_MODULE):
             continue
         registry.register(name, info.function, info.path_args, info.description)
