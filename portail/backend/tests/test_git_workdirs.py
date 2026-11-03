@@ -9,7 +9,7 @@ from miles_socle.git.forge import Repository
 from miles_socle.secrets.model import Secret
 
 from miles.git.versions import fetch_versions, tag_head
-from miles.git.workcopy import BranchMissingError
+from miles.git.workcopy import BranchMissingError, WorkCopy
 from miles.git.workdirs import WorkDirs
 
 TOKEN = GitAccess(token=Secret("jeton-local"))
@@ -125,3 +125,58 @@ async def test_a_version_deleted_on_the_forge_leaves_the_persistent_copy(tmp_pat
 
     async with dirs.checkout(repo, TOKEN, "retrait", BRANCH) as copy:
         assert [v.number for v in await fetch_versions(copy)] == [1]
+
+
+def _compte_git(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Les sous-commandes git que l'alignement lance réellement.
+
+    On compte, on ne chronomètre pas (critère 1 de l'enabler 782ce1e9) : sur une forge
+    `file://` locale un `fetch` coûte quelques millisecondes, et un test au chronomètre
+    resterait vert le jour où il revient. Ce qu'on protège est un aller-retour réseau.
+    """
+    appels: list[str] = []
+    origine = WorkCopy.git
+
+    async def compte(self: WorkCopy, *args: str) -> object:
+        appels.append(args[0])
+        return await origine(self, *args)
+
+    monkeypatch.setattr(WorkCopy, "git", compte)
+    return appels
+
+
+async def test_a_second_read_of_an_unchanged_branch_fetches_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _ = _remote(tmp_path)
+    dirs = WorkDirs(tmp_path / "volume")
+    async with dirs.checkout(repo, TOKEN, "retrait", BRANCH):
+        pass
+
+    appels = _compte_git(monkeypatch)
+    async with dirs.checkout(repo, TOKEN, "retrait", BRANCH) as copy:
+        contenu = await copy.read("a.yaml")
+        tete = copy.head
+
+    assert "fetch" not in appels
+    # L'économie porte sur le transfert, jamais sur l'alignement : la copie est toujours
+    # remise sur la tête distante (`checkout -f`, `clean`), et elle sait où elle en est.
+    assert "checkout" in appels and "clean" in appels
+    assert (contenu, bool(tete)) == ("un\n", True)
+
+
+async def test_a_branch_moved_on_the_forge_is_fetched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, seed = _remote(tmp_path)
+    dirs = WorkDirs(tmp_path / "volume")
+    async with dirs.checkout(repo, TOKEN, "retrait", BRANCH):
+        pass
+    _outside_change(seed, repo.url.removeprefix("file://"), "deux\n")
+
+    appels = _compte_git(monkeypatch)
+    async with dirs.checkout(repo, TOKEN, "retrait", BRANCH) as copy:
+        contenu = await copy.read("a.yaml")
+
+    assert "fetch" in appels
+    assert contenu == "deux\n"

@@ -160,3 +160,90 @@ async def test_an_unreachable_repository_is_refused_with_its_reason(tmp_path: Pa
     # La RAISON et pas seulement l'échec : l'écran du module d'enrôlement en fait un
     # message, et « identifiants » ou « dépôt inexistant » n'appellent pas le même geste.
     assert refus.value.reason in (Reason.REPOSITORY_NOT_FOUND, Reason.FAILED)
+
+
+def _comptant(git: GitCommand) -> tuple[GitCommand, list[str]]:
+    """Le même lanceur, plus la liste des sous-commandes git réellement passées.
+
+    On COMPTE les invocations plutôt que de chronométrer (critère 1 de l'enabler 782ce1e9) :
+    un chronomètre sur une forge locale mesure quelques millisecondes dans tous les cas et
+    resterait vert si le `fetch` revenait. Ce qui est économisé est un aller-retour réseau,
+    et c'est son existence qu'il faut affirmer, pas sa durée.
+    """
+    appels: list[str] = []
+
+    async def compte(*args: str) -> GitResult:
+        appels.append(args[0])
+        return await git(*args)
+
+    return compte, appels
+
+
+async def test_an_unchanged_forge_is_read_without_fetching_anything(tmp_path: Path) -> None:
+    url = _forge(tmp_path)
+    git = _dans(tmp_path / "cache")
+    await fetch_versions(git, url)
+
+    compte, appels = _comptant(git)
+    versions = await fetch_versions(compte, url)
+
+    assert "fetch" not in appels
+    # Et la lecture rend quand même tout : l'économie porte sur le transfert, pas sur le
+    # résultat. Un test qui ne vérifierait que l'absence de fetch passerait aussi si la
+    # fonction avait cessé de rendre les versions.
+    assert [v.number for v in versions] == [2, 1]
+
+
+async def test_a_version_added_on_the_forge_is_fetched(tmp_path: Path) -> None:
+    url = _forge(tmp_path)
+    git = _dans(tmp_path / "cache")
+    await fetch_versions(git, url)
+    semence = tmp_path / "semence"
+    _etiquette(semence, "version/3", "Troisième")
+    _git("push", "-q", url, "refs/tags/version/3", cwd=semence)
+
+    compte, appels = _comptant(git)
+    versions = await fetch_versions(compte, url)
+
+    assert "fetch" in appels
+    assert [v.number for v in versions] == [3, 2, 1]
+
+
+async def test_a_version_removed_on_the_forge_is_fetched_and_pruned(tmp_path: Path) -> None:
+    """Le sens que la comparaison aurait pu perdre : une étiquette en MOINS (critère 4).
+
+    Une comparaison écrite comme « y a-t-il du nouveau sur la forge » laisserait ce cas
+    sans fetch, donc sans `--prune`, et la version supprimée resterait listée. C'est le
+    seul des quatre critères qu'une implémentation plausible rate en silence.
+    """
+    url = _forge(tmp_path)
+    git = _dans(tmp_path / "cache")
+    await fetch_versions(git, url)
+    _git("push", "-q", url, "--delete", "refs/tags/version/1", cwd=tmp_path / "semence")
+
+    compte, appels = _comptant(git)
+    versions = await fetch_versions(compte, url)
+
+    assert "fetch" in appels
+    assert [v.number for v in versions] == [2]
+
+
+async def test_a_version_moved_on_the_forge_is_fetched(tmp_path: Path) -> None:
+    """Même nom, autre objet : ni une entrée ni une sortie, mais un SHA qui change."""
+    url = _forge(tmp_path)
+    git = _dans(tmp_path / "cache")
+    premier = (await fetch_versions(git, url))[0].commit
+    semence = tmp_path / "semence"
+    _git("tag", "-d", "version/2", cwd=semence)
+    (semence / "f.txt").write_text("deplacee\n", encoding="utf-8")
+    _git("add", "-A", cwd=semence)
+    _git(*AUTEUR, "commit", "-q", "-m", "c4", cwd=semence)
+    _etiquette(semence, "version/2", "Déplacée")
+    _git("push", "-q", "--force", url, "refs/tags/version/2", cwd=semence)
+
+    compte, appels = _comptant(git)
+    versions = await fetch_versions(compte, url)
+
+    assert "fetch" in appels
+    assert versions[0].label == "Déplacée"
+    assert versions[0].commit != premier

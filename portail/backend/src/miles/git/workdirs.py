@@ -93,12 +93,45 @@ async def _align(copy: WorkCopy) -> None:
     # jeton ne s'y écrit jamais (il passe par l'assistant d'identifiants du lanceur).
     await _ok(copy, "remote", "set-url", _REMOTE, copy.repo.url)
     tracking = f"refs/remotes/{_REMOTE}/{copy.branch}"
-    await _ok(copy, "fetch", "-q", "--depth", "1", _REMOTE, f"+{ref}:{tracking}")
+    # UNE interrogation de la forge au lieu de deux (enabler 782ce1e9). Le `ls-remote`
+    # ci-dessus a DÉJÀ rendu le SHA distant : récupérer ensuite des objets qu'on tient
+    # déjà est un aller-retour HTTPS pur, avec sa propre poignée de main. Mesuré le
+    # 03/11/2026 sur host-test-37 : `ls-remote` 460 ms, `fetch --depth 1` 665 ms, et le
+    # travail local de tout l'alignement 15 ms — la lenteur des écrans de paramétrage
+    # était là, pas dans la lecture des fichiers.
+    #
+    # CE N'EST PAS UN CACHE, et la distinction est ce qui rend l'économie acceptable :
+    # on continue d'INTERROGER la forge à chaque geste, donc une modification faite dans
+    # GitHub est toujours vue — « git fait foi » est intact. Il n'y a ni fenêtre de
+    # fraîcheur, ni délai, ni état gardé. On n'économise que le transfert d'objets déjà
+    # présents, ce que le SHA prouve.
+    if _remote_head(listed.stdout, ref) != await _tracked(copy, tracking):
+        await _ok(copy, "fetch", "-q", "--depth", "1", _REMOTE, f"+{ref}:{tracking}")
     # Forcé puis nettoyé : un geste interrompu a pu laisser un commit non poussé, des
     # modifications ou des fichiers non suivis ; aucun ne doit atteindre le geste suivant.
     await _ok(copy, "checkout", "-q", "-f", "-B", copy.branch, tracking)
     await _ok(copy, "clean", "-q", "-fdx")
     copy.head = (await copy.git("rev-parse", "HEAD")).stdout.strip()
+
+
+def _remote_head(stdout: str, ref: str) -> str | None:
+    """Le SHA que `ls-remote` a rendu pour cette référence, sans relancer git."""
+    for line in stdout.splitlines():
+        sha, _, name = line.partition("\t")
+        if name.strip() == ref:
+            return sha.strip() or None
+    return None
+
+
+async def _tracked(copy: WorkCopy, tracking: str) -> str | None:
+    """Le SHA que la copie tient déjà pour cette branche, ou None.
+
+    Jamais une erreur : une copie neuve n'a pas encore de référence de suivi, et c'est le
+    cas NORMAL du premier passage. Rendre None fait alors différer la comparaison, donc
+    récupérer — l'économie ne se décide que sur une égalité prouvée, jamais sur un doute.
+    """
+    result = await copy.git("rev-parse", "--verify", "--quiet", tracking)
+    return result.stdout.strip() or None if result.ok else None
 
 
 async def _ok(copy: WorkCopy, *args: str) -> None:

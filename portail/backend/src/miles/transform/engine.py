@@ -185,6 +185,15 @@ def _registry() -> FunctionRegistry:
     avoir garni de tout plugin installé (HTTP, SQL…). Seules entrent les fonctions
     définies dans le paquet `urban_json.functions` (Gael, 22/10/2026) : un plugin
     installé plus tard ne s'y glisse pas. Le catalogue dérive de ce registre.
+
+    **Aucune liste blanche tenue à la main, et c'est une décision** (Gael, 03/11/2026) :
+    tout le cœur passe, et « c'est la responsabilité de celui qui met les paquets à jour
+    de vérifier que rien ne manque ». Une liste de soixante-neuf noms à tenir aurait
+    retardé chaque fonction utile qu'une version apporte, pour une protection que le
+    filtre de module donne déjà — la frontière à défendre est cœur / plugin, pas
+    fonction par fonction. La contrepartie est portée par qui monte la version : relire
+    ce qui ENTRE dans le profil d'écriture et ce qui en SORT, et l'annoncer. Mesuré le
+    03/11/2026 au passage 0.1.0 → 0.2.1 : 56 → 69 fonctions, treize entrées, zéro sortie.
     """
     registry = FunctionRegistry()
     for name in default_registry.names():

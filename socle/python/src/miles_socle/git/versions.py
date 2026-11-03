@@ -77,19 +77,31 @@ async def fetch_versions(
     # git refuse un fetch dont le motif ne trouve rien : sans version, rien à récupérer.
     if not remote.stdout.strip():
         return []
-    profondeur = () if depth is None else ("--depth", str(depth))
-    fetched = await git(
-        "fetch",
-        "-q",
-        # La copie peut être persistante : une étiquette supprimée sur la forge doit
-        # disparaître ici aussi, sinon elle serait encore listée comme version.
-        "--prune",
-        *profondeur,
-        repo_url,
-        f"+refs/tags/{TAG_PREFIX}*:refs/tags/{TAG_PREFIX}*",
-    )
-    if not fetched.ok:
-        raise GitAccessError(classify(fetched))
+    # UNE interrogation de la forge au lieu de deux (enabler 782ce1e9) : le `ls-remote`
+    # ci-dessus a déjà rendu le SHA de CHAQUE étiquette, et récupérer ce qu'on tient déjà
+    # coûte un aller-retour HTTPS complet — 665 ms mesurés le 03/11/2026 sur host-test-37,
+    # contre 6 ms pour la lecture locale qui le rend inutile. Aucun cache : la forge est
+    # toujours interrogée, on n'économise que le transfert.
+    #
+    # Comparaison d'ENSEMBLES, et c'est le critère 4 du ticket : une étiquette en MOINS
+    # est un changement au même titre qu'une en plus. Comparer des tailles, ou chercher
+    # seulement les nouvelles, laisserait une version supprimée sur la forge listée ici
+    # pour toujours — c'est précisément ce que `--prune` garantit, et le sauter sans
+    # comparer dans les deux sens l'aurait perdu.
+    if _remote_tags(remote.stdout) != await _local_tags(git):
+        profondeur = () if depth is None else ("--depth", str(depth))
+        fetched = await git(
+            "fetch",
+            "-q",
+            # La copie peut être persistante : une étiquette supprimée sur la forge doit
+            # disparaître ici aussi, sinon elle serait encore listée comme version.
+            "--prune",
+            *profondeur,
+            repo_url,
+            f"+refs/tags/{TAG_PREFIX}*:refs/tags/{TAG_PREFIX}*",
+        )
+        if not fetched.ok:
+            raise GitAccessError(classify(fetched))
     listed = await git(
         "for-each-ref",
         f"--format=%(refname:short){_FIELD}%(*objectname){_FIELD}%(taggername) %(taggeremail)"
@@ -99,6 +111,39 @@ async def fetch_versions(
     )
     versions = [v for v in map(parse_version_line, listed.stdout.splitlines()) if v is not None]
     return sorted(versions, key=lambda v: v.number, reverse=True)
+
+
+def _remote_tags(stdout: str) -> dict[str, str]:
+    """`<sha>\t<ref>` par ligne, tel que `ls-remote --refs` le rend : {ref: sha}.
+
+    `--refs` écarte les lignes pelées `^{}`, si bien que le SHA retenu est celui de
+    l'OBJET d'étiquette — exactement ce que `%(objectname)` rend en local. Comparer une
+    étiquette annotée à son commit aurait fait croire à un changement à chaque lecture,
+    et l'économie n'aurait jamais eu lieu.
+    """
+    tags: dict[str, str] = {}
+    for line in stdout.splitlines():
+        sha, _, ref = line.partition("\t")
+        if sha.strip() and ref.strip():
+            tags[ref.strip()] = sha.strip()
+    return tags
+
+
+async def _local_tags(git: GitCommand) -> dict[str, str]:
+    """Les étiquettes de version que la copie porte déjà : {ref complète: sha}.
+
+    Une copie sans aucune étiquette rend un dictionnaire vide, qui diffère de toute forge
+    qui en porte : le premier passage récupère donc, comme avant.
+    """
+    listed = await git(
+        "for-each-ref", f"--format=%(objectname){_FIELD}%(refname)", f"refs/tags/{TAG_PREFIX}"
+    )
+    tags: dict[str, str] = {}
+    for line in listed.stdout.splitlines():
+        sha, _, ref = line.partition(_FIELD)
+        if sha and ref:
+            tags[ref] = sha
+    return tags
 
 
 def parse_version_line(line: str) -> SavedVersion | None:
