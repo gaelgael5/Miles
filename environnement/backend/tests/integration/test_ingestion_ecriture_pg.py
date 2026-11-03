@@ -217,7 +217,10 @@ async def test_les_colonnes_projetees_sont_DERIVEES_par_la_base(
             TABLE,
             PROJETEE,
         )
-        assert genere == "s"
+        # `b"s"` et non `"s"` : `attgenerated` est du type catalogue `"char"`, qu'asyncpg
+        # rend en OCTETS. Mesuré le 03/11/2026 — comparer à la chaîne échoue sur une
+        # colonne pourtant bien générée, et le test aurait accusé le DDL.
+        assert genere == b"s"
 
 
 async def test_un_reimport_a_l_identique_n_avance_QUE_la_date_de_derniere_vue(
