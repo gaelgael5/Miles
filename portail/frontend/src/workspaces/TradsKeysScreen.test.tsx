@@ -68,6 +68,29 @@ describe("TradsKeysScreen", () => {
     expect(codes).toEqual(["fr-FR", "ar-MA"]);
   });
 
+  it("shows a culture missing from a key as untranslated on its row, never as a fault", async () => {
+    // Le critère 3 de la story : les cultures manquantes se voient SANS rien ouvrir. Et
+    // la clé choisie n'a que sa culture par défaut — l'état normal d'une clé qu'on vient
+    // d'ajouter, puisque la saisie interdit de la créer sans celle-là.
+    const NEUVE = { slug: "adieu", values: { "fr-FR": "Au revoir" } };
+    routes({ status: 200, body: { keys: [NEUVE], total: 1 } });
+    await openKeys();
+
+    const row = (await screen.findByText("adieu")).closest("li") as HTMLElement;
+    const manquante = within(row).getByText("Untranslated");
+
+    expect(manquante).toBeInTheDocument();
+    // En retrait, et jamais en alerte : une traduction manquante n'est pas une erreur,
+    // c'est un interdit explicite du ticket. Un écran qui crie à chaque clé neuve
+    // apprend à ne plus être lu.
+    expect(manquante.className).toContain("muted");
+    expect(within(row).queryByRole("alert")).not.toBeInTheDocument();
+    expect(row.querySelector(".alert")).toBeNull();
+    // La culture par défaut, elle, porte bien sa valeur : sans ça le test passerait sur
+    // une ligne entièrement vide, et ne dirait rien de la DISTINCTION.
+    expect(within(row).getByText("Au revoir")).toBeInTheDocument();
+  });
+
   it("opens the edition from the whole row, and keeps the other actions reachable", async () => {
     routes({ status: 200, body: { keys: [TITRE], total: 1 } });
     await openKeys();
