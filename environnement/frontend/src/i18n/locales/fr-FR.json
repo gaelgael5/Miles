@@ -198,7 +198,7 @@
       "file": "Document à déposer",
       "fileHelp": "L'issue de l'import se lit dans le journal des appels, ci-dessous.",
       "fileExample": "Forme attendue du document",
-      "open": "Signature et essai"
+      "open": "Essayer cette méthode"
     },
     "signature": {
       "headers": "En-têtes",

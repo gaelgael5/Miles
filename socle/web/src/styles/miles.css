@@ -231,6 +231,12 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .split { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
 .split-list { flex: 999 1 420px; min-width: 0; }
 .split-detail { flex: 1 1 300px; min-width: 0; position: sticky; top: 20px; }
+/* Les valeurs du détail DÉBORDENT sans ces deux lignes, et ça ne se voit que dans un
+   navigateur : `.facts` pose une colonne `max-content`, et un identifiant de 32
+   caractères en mono n'a aucun point de coupure — il sortait du panneau, par-dessus le
+   bord de la carte (vu sur l'auteur `apikey/34e1…` et sur la propriété `ingestion`). */
+.split-detail .facts { grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }
+.split-detail .facts dd { overflow-wrap: anywhere; }
 /* Panneau en retrait DANS une carte : il ne doit pas se lire comme une seconde carte,
    d'où le fond doux et la bordure fine plutôt que le blanc sur gris. */
 .card-inset {

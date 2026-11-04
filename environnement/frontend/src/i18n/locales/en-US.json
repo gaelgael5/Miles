@@ -198,7 +198,7 @@
       "file": "Document to deposit",
       "fileHelp": "The import's outcome is in the call log below.",
       "fileExample": "Expected shape of the document",
-      "open": "Signature and trial"
+      "open": "Try this method"
     },
     "signature": {
       "headers": "Headers",
