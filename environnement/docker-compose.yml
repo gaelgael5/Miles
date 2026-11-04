@@ -53,6 +53,14 @@ services:
       # Vide : la route est inerte et refuse tout. Fail closed — une route d'entretien
       # ouverte laisserait n'importe qui RETIRER des partitions du journal.
       MILES_JOURNAL_MAINTENANCE_TOKEN: ${MILES_JOURNAL_MAINTENANCE_TOKEN:-}
+      # Bornes d'exploitation du mode gros fichier (story 0f14adbd). Laissées aux défauts
+      # du code — 2 Gio par dépôt, 20 Gio de quota, 7 jours de conservation — et réglables
+      # base par base dans .env, comme la rétention du journal. La rétention borne la
+      # FENÊTRE DE REJEU : à zéro, un document est ôté dès la fin de son import, et aucun
+      # rejeu n'est possible sans nouvel export du partenaire.
+      MILES_INGESTION_FILE_MAX_BYTES: ${MILES_INGESTION_FILE_MAX_BYTES:-2147483648}
+      MILES_INGESTION_FILES_QUOTA_BYTES: ${MILES_INGESTION_FILES_QUOTA_BYTES:-21474836480}
+      MILES_INGESTION_FILES_RETENTION_DAYS: ${MILES_INGESTION_FILES_RETENTION_DAYS:-7}
     volumes:
       # Fichier par fichier, pas le dossier du dépôt : le backend y écrit le compte
       # d'amorçage, et .env.bak sert à restaurer .env si cette écriture est interrompue.
@@ -65,6 +73,12 @@ services:
       # au nom de root et le backend, non root, ne pourrait pas y écrire. Git fait foi
       # — le supprimer coûte un ordre à renvoyer depuis l'enrôlement, rien de plus.
       - ./.deploy/parametrage:/var/lib/miles/parametrage
+      # Les documents déposés en mode gros fichier. Volume mappé, et non un dossier du
+      # conteneur : ce qu'il porte est la fenêtre de rejeu d'un import, et un
+      # redéploiement ne doit pas obliger à redemander un export au partenaire. Préparé
+      # par dev-deploy.sh au nom de l'utilisateur du runtime, pour la même raison que
+      # l'arbre servi — docker le créerait au nom de root, et le backend n'y écrirait pas.
+      - ./.deploy/ingestion:/var/lib/miles/ingestion
     depends_on:
       db:
         condition: service_healthy

@@ -99,6 +99,13 @@ chown "$RUNTIME_UID:$RUNTIME_UID" "$ENV_FILE" "$BACKUP_ENV_FILE" \
 mkdir -p "$STATE_DIR/parametrage"
 chown "$RUNTIME_UID:$RUNTIME_UID" "$STATE_DIR/parametrage" \
   || socle_fail "chown du volume du paramétrage impossible : lancer dev-deploy.sh en root"
+# Documents déposés en mode gros fichier (story 0f14adbd), même régime que l'arbre servi.
+# Jamais vidé par le déploiement : ce qu'il porte est la FENÊTRE DE REJEU — un import se
+# rejoue depuis son document sans redemander un export au partenaire —, et la purge est le
+# geste de l'entretien, borné par une rétention et un quota.
+mkdir -p "$STATE_DIR/ingestion"
+chown "$RUNTIME_UID:$RUNTIME_UID" "$STATE_DIR/ingestion" \
+  || socle_fail "chown du volume des dépôts impossible : lancer dev-deploy.sh en root"
 
 # --- Mode destructif isolé : drapeau explicite, confirmation, court-circuit -------------
 if [[ "$RESET_DB" -eq 1 ]]; then
