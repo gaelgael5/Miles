@@ -278,23 +278,32 @@ async def test_un_modele_d_entree_absent_de_la_version_servie_est_NOMME(
         assert comptes["example"] is None
 
 
-async def test_le_contrat_servi_est_EXACTEMENT_celui_qui_est_publie(
+async def test_le_contrat_servi_est_celui_qui_ENGENDRE_le_fichier_publie(
     blank_db: str, tmp_path: Path
 ) -> None:
-    """Une seule vérité sur la forme : la route rend ce que le fichier versionné porte.
+    """Une seule vérité sur la forme : la route rend ce que le générateur produit.
 
-    Comparé au fichier du dépôt, et non à une régénération : c'est le fichier qu'un
-    partenaire lit, et c'est lui qui doit correspondre à ce que l'écran montre.
+    **Comparé au générateur, et non au fichier du dépôt**, parce que le fichier n'est pas
+    dans l'image : seul `backend/` y est copié, et `docs/` n'a rien à faire dans une image
+    d'exécution — l'y embarquer pour arranger un test serait payer la documentation à
+    chaque démarrage de conteneur. Premier essai écrit ainsi, et il a échoué sur un
+    `FileNotFoundError` dans le conteneur, le 04/11/2026.
+
+    La chaîne d'égalité reste complète, et chaque maillon est vérifié là où il peut
+    l'être : ICI que la route sert la sortie du générateur, et dans
+    `tests/test_published_contracts.py` que le générateur correspond au fichier versionné.
     """
-    from environnement.published_contracts import CONTRACTS_DIR, OPENAPI_FILE
+    from environnement.published_contracts import openapi_contract
 
     double = EnrolmentDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         servi = await stack.client.get("/api/ingestion/contract")
 
         assert servi.status_code == 200, servi.text
-        publie = json.loads((CONTRACTS_DIR / OPENAPI_FILE).read_text(encoding="utf-8"))
-        assert servi.json() == publie
+        assert servi.json() == openapi_contract()
+        # Et il porte bien l'opération de dépôt, pas une spec vide : sans cette ligne, le
+        # test passerait sur deux dictionnaires également vides.
+        assert "/ingest/{source}/{mode}" in servi.json()["paths"]
 
 
 async def test_les_routes_de_la_page_sont_fermees_sans_session(
