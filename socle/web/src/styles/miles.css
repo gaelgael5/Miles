@@ -42,7 +42,13 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; font-family: var(--police); color: var(--encre); background: var(--fond); }
+/* La taille de base, et c'est elle qui rendait les écrans plus gros que les maquettes :
+   la feuille n'en posait aucune, donc tout ce qu'une règle ne couvrait pas tombait sur les
+   16px du navigateur. Les maquettes écrivent une taille sur CHAQUE élément — 13 ou 14px
+   pour le texte courant, jamais 16 — et leur base `mockup-base` ne compte que sur ce qui
+   est déclaré. 14px remet au bon pas tout ce qui n'a pas de règle à soi (paragraphes,
+   listes de faits, cellules), sans toucher aux tailles déjà posées. */
+body { margin: 0; font-family: var(--police); font-size: 14px; color: var(--encre); background: var(--fond); }
 a { color: var(--accent); }
 a:hover { color: var(--accent-fonce); }
 code, .mono { font-family: var(--police-mono); font-size: 12.5px; }
