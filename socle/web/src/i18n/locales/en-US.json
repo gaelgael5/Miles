@@ -155,7 +155,10 @@
       "fallback": "en-US is the fallback of the installation and cannot be deactivated.",
       "unreachable": "Cultures could not be loaded.",
       "unexpected": "The change failed. See the back-office logs."
-    }
+    },
+    "activeCount_one": "{{count}} active",
+    "activeCount_other": "{{count}} active",
+    "toggle": "Activate {{code}}"
   },
   "oidc": {
     "title": "OIDC connectors",
@@ -194,7 +197,8 @@
       "edit": "Edit",
       "delete": "Delete",
       "recognizesAdmin": "recognises the administrator",
-      "captionState": "State"
+      "captionState": "State",
+      "pick": "Pick a connector in the list to open it."
     },
     "errors": {
       "issuerUnreachable": "The provider does not answer at this address, or not as an OIDC provider. Nothing was saved.",
@@ -280,7 +284,9 @@
       "codeLabel": "Six-digit code",
       "codeHelp": "Spaces and line breaks are stripped automatically.",
       "submit": "Submit the code",
-      "cancel": "Abandon the request"
+      "cancel": "Abandon the request",
+      "expiresIn_one": "expires in {{count}} min",
+      "expiresIn_other": "expires in {{count}} min"
     },
     "paired": {
       "captionContact": "Reached at",
@@ -304,6 +310,11 @@
       "refused": "The code was refused: it is wrong, already used, or the request no longer exists. The request is still pending, another code can be entered.",
       "clockSkew": "The code was right, but the two servers' clocks differ by about {{seconds}} seconds. Set the machines to the right time, then try again.",
       "unexpected": "The operation did not succeed."
+    },
+    "steps": {
+      "1": "Declare this module",
+      "2": "Have the request accepted",
+      "3": "Paste the code"
     }
   },
   "events": {

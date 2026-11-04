@@ -5,7 +5,13 @@ import { useInstant } from "../i18n/instants";
 
 import { PageHead } from "../layout/PageHead";
 
-import { type EnrolmentPeer, type PairingState, usePairingState } from "../api/peering";
+import {
+  type EnrolmentPeer,
+  type PairingAttempt,
+  type PairingState,
+  usePairingState,
+} from "../api/peering";
+import { FilDesEtapes } from "./FilDesEtapes";
 import { FormulaireDemande } from "./FormulaireDemande";
 import { SaisieDuCode } from "./SaisieDuCode";
 
@@ -66,8 +72,32 @@ function Etat({ etat }: { etat: PairingState }) {
   return (
     <p role="status">
       <span className={classe}>{t(`peering.states.${etat.state}`)}</span>
+      <Echeance attempt={etat.attempt} />
     </p>
   );
+}
+
+/**
+ * Le temps qu'il reste à la demande, collé à l'état comme dans la maquette.
+ *
+ * Sans lui, « en attente » ne dit pas s'il faut patienter ou tout reprendre : une demande
+ * expirée et une demande envoyée il y a dix secondes portaient le même mot. Le compte est
+ * calculé au rendu et non tenu par une horloge à nous — l'état est relu toutes les cinq
+ * secondes tant qu'il attend, ce qui le rafraîchit déjà, et une horloge de plus
+ * continuerait de compter sur un onglet dont l'état a changé ailleurs.
+ */
+function Echeance({ attempt }: { attempt: PairingAttempt | null }) {
+  const { t } = useTranslation();
+  if (attempt?.expires_at == null) {
+    return null;
+  }
+  const minutes = Math.ceil((Date.parse(attempt.expires_at) - Date.now()) / 60000);
+  if (minutes <= 0) {
+    // Échue mais l'état ne l'a pas encore dit : on ne compte pas en négatif, et le
+    // prochain rafraîchissement apportera « Demande expirée ».
+    return null;
+  }
+  return <span className="expiry">{t("peering.pending.expiresIn", { count: minutes })}</span>;
 }
 
 /**
@@ -116,6 +146,9 @@ export function PairingScreen({ peerExtra }: { peerExtra?: ReactNode } = {}) {
   return (
     <section className="section" aria-labelledby="pairing-title">
       <PageHead id="pairing-title" title={t("peering.title")} lead={t("peering.lead")} />
+      {/* Le fil ne sert que tant qu'il reste à faire : apparié, il n'apprendrait plus
+          rien et éloignerait l'état de son titre. */}
+      {state !== "apparie" && <FilDesEtapes courante={enAttente ? 2 : 1} />}
       <div className="card">
         <div className="card-head">
           <h2>{t("peering.current")}</h2>

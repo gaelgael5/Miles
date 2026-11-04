@@ -103,7 +103,7 @@ describe("ConnectorsScreen", () => {
       "PUT /api/oidc/connectors/kc": { status: 200, body: { ...KC, active: false } },
     });
     renderScreen();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByText("Keycloak"));
     await screen.findByLabelText(/Label — fr-FR/);
 
     fireEvent.click(screen.getByLabelText("Active (offered on the sign-in screen)"));
@@ -134,7 +134,7 @@ describe("ConnectorsScreen", () => {
       "PUT /api/oidc/connectors/kc": { status: 200, body: { ...KC, recognize_admin: true } },
     });
     renderScreen();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByText("Keycloak"));
 
     const recognize = screen.getByLabelText("Recognise the administrator");
     expect(recognize).not.toBeChecked();
@@ -159,7 +159,7 @@ describe("ConnectorsScreen", () => {
       "GET /api/cultures/active": ACTIVE,
     });
     renderScreen();
-    fireEvent.click((await screen.findAllByText("Edit"))[0] as HTMLElement);
+    fireEvent.click((await screen.findAllByText("Keycloak"))[0] as HTMLElement);
 
     fireEvent.change(await screen.findByLabelText(/Label — fr-FR/), {
       target: { value: "annuaire " },
@@ -179,7 +179,7 @@ describe("ConnectorsScreen", () => {
       },
     });
     renderScreen();
-    fireEvent.click(await screen.findByText("Edit"));
+    fireEvent.click(await screen.findByText("Keycloak"));
 
     fireEvent.click(screen.getByText("Save"));
 
@@ -189,6 +189,11 @@ describe("ConnectorsScreen", () => {
   it("suggests deactivating a connector accounts already signed in through", async () => {
     mockApi({
       "GET /api/oidc/connectors": { status: 200, body: [KC] },
+      // Ouvrir le connecteur monte aussi son formulaire : sans ces deux routes, c'est son
+      // « secrets illisibles » que l'assertion attraperait, et non le refus de la
+      // suppression.
+      [SECRETS]: { status: 200, body: [SECRET] },
+      "GET /api/cultures/active": ACTIVE,
       "DELETE /api/oidc/connectors/kc": {
         status: 409,
         body: { detail: { code: "connecteur_utilise", identities: 3 } },
@@ -196,6 +201,8 @@ describe("ConnectorsScreen", () => {
     });
     renderScreen();
 
+    // La suppression a quitté la liste pour le connecteur ouvert : on l'ouvre d'abord.
+    fireEvent.click(await screen.findByText("Keycloak"));
     fireEvent.click(await screen.findByText("Delete"));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Deactivate it instead.");

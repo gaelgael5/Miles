@@ -122,6 +122,41 @@ describe("écran d'appariement vu du demandeur", () => {
     expect(screen.queryByLabelText("Enrolment module URL")).toBeNull();
   });
 
+  it("while pending, marks the awaited step as the current one, not as done", async () => {
+    // La maquette coche la deuxième étape pendant l'attente ; c'est précisément ce qu'on
+    // attend, et la cocher ferait chercher la panne ailleurs. Divergence volontaire.
+    monte(etatRoute({ state: "en_attente", attempt: TENTATIVE, peer: null }));
+
+    const courante = (await screen.findByText("Have the request accepted")).closest("li");
+    expect(courante).toHaveAttribute("aria-current", "step");
+    // Les deux autres ne le portent pas : deux étapes courantes ne diraient plus où l'on
+    // en est, et c'est le seul défaut que ce test doit attraper.
+    expect(screen.getByText("Declare this module").closest("li")).not.toHaveAttribute(
+      "aria-current",
+    );
+    expect(screen.getByText("Paste the code").closest("li")).not.toHaveAttribute("aria-current");
+  });
+
+  it("counts down the minutes a pending request has left", async () => {
+    // L'échéance est calculée sur l'horloge : on la pose à cinquante-sept minutes d'ici,
+    // comme la maquette, plutôt que sur une date fixe qui serait passée depuis longtemps.
+    const tentative = {
+      ...TENTATIVE,
+      expires_at: new Date(Date.now() + 57 * 60_000).toISOString(),
+    };
+    monte(etatRoute({ state: "en_attente", attempt: tentative, peer: null }));
+
+    expect(await screen.findByText("expires in 57 min")).toBeInTheDocument();
+  });
+
+  it("drops the step rail once paired, and says nothing of an expiry", async () => {
+    monte(etatRoute({ state: "apparie", attempt: null, peer: PAIR }));
+
+    expect(await screen.findByText("Paired")).toBeInTheDocument();
+    expect(screen.queryByText("Paste the code")).toBeNull();
+    expect(screen.queryByText(/expires in/)).toBeNull();
+  });
+
   it("strips whitespace around a pasted code rather than refusing it", async () => {
     // Un code circule par copier-coller : il arrivera sale, et le refuser pour cela
     // reviendrait à refuser le bon code.

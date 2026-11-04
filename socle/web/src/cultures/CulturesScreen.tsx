@@ -33,11 +33,24 @@ function CultureRow({
   const { t } = useTranslation();
   const isFallback = culture.code === FALLBACK_CODE;
   return (
-    <li className="row">
-      <label className="field-check row-main">
-        <input type="checkbox" checked={selected} disabled={isFallback} onChange={onToggle} />
-        <code>{culture.code}</code> {culture.label_native} — {culture.label_en}
-      </label>
+    // La ligne de la maquette : case, code en colonne fixe, nom, pastilles à droite. Le
+    // repli porte en plus un fond, parce que sa case est verrouillée et qu'une case
+    // cochée-grisée sans autre marque se lit comme une case oubliée.
+    <li className={isFallback ? "row row-compact row-soft" : "row row-compact"}>
+      {/* Le libellé accessible est porté par la case elle-même et non par un `label`
+          englobant : la ligne est devenue trois colonnes, et un `label` qui les enveloppe
+          rendrait tout le texte de la ligne cliquable, y compris les pastilles. */}
+      <input
+        type="checkbox"
+        checked={selected}
+        disabled={isFallback}
+        aria-label={t("cultures.toggle", { code: culture.code })}
+        onChange={onToggle}
+      />
+      <code className="row-code">{culture.code}</code>
+      <div className="row-main">
+        {culture.label_native} — {culture.label_en}
+      </div>
       {culture.active && <span className="badge badge-success">{t("cultures.active")}</span>}
       {isFallback && <span className="badge badge-accent">{t("cultures.fallbackNote")}</span>}
     </li>
@@ -71,35 +84,26 @@ export function CulturesScreen() {
     change.mutate({ codes: [...selected], active }, { onSuccess: () => setSelected(new Set()) });
   }
 
+  const actives = (cultures.data ?? []).filter((c) => c.active).length;
+
   return (
     <section aria-labelledby="cultures-title">
-      <PageHead id="cultures-title" title={t("cultures.title")} lead={t("cultures.intro")} />
-      <div className="card">
-        <label className="field">
-          {t("cultures.filter")}
-          <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} />
-        </label>
-        <div className="actions">
-          <span className="muted">{t("cultures.selected", { count: selected.size })}</span>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={selected.size === 0 || change.isPending}
-            onClick={() => apply(true)}
-          >
-            {t("cultures.activate")}
-          </button>
-          <button
-            type="button"
-            className="btn btn-danger"
-            disabled={selected.size === 0 || change.isPending}
-            onClick={() => apply(false)}
-          >
-            {t("cultures.deactivate")}
-          </button>
-        </div>
-        <p className="alert">{t("cultures.keepValues")}</p>
-      </div>
+      {/* La maquette chiffre les actives à côté du titre : c'est la seule chose qu'on
+          vient vérifier sans rien faire d'autre, et la compter à la main dans une liste
+          de deux cents lignes n'est pas un geste. */}
+      <PageHead
+        id="cultures-title"
+        title={t("cultures.title")}
+        lead={t("cultures.intro")}
+        action={<span className="badge badge-success">{t("cultures.activeCount", { count: actives })}</span>}
+      />
+      {/* Le filtre seul au-dessus de la liste, sans carte autour : la maquette ne met en
+          carte que la liste elle-même, et l'encadrer une deuxième fois ajoutait un bloc
+          entre le titre et ce qu'on est venu lire. */}
+      <label className="field">
+        {t("cultures.filter")}
+        <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} />
+      </label>
       {change.isError && <p className="alert" role="alert">{t(errorKey(change.error))}</p>}
       {cultures.isPending && <p className="muted" role="status">{t("cultures.loading")}</p>}
       {cultures.isError && <p className="alert" role="alert">{t("cultures.errors.unreachable")}</p>}
@@ -118,6 +122,29 @@ export function CulturesScreen() {
           ))}
         </ul>
       )}
+      {/* Les gestes SOUS la liste, comme la maquette : ils portent sur ce qu'on vient de
+          cocher, et placés au-dessus ils demandaient d'agir avant d'avoir choisi. La
+          conséquence de la désactivation reste à côté d'eux, au moment où elle se décide. */}
+      <div className="actions">
+        <span className="muted">{t("cultures.selected", { count: selected.size })}</span>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={selected.size === 0 || change.isPending}
+          onClick={() => apply(true)}
+        >
+          {t("cultures.activate")}
+        </button>
+        <button
+          type="button"
+          className="btn btn-danger"
+          disabled={selected.size === 0 || change.isPending}
+          onClick={() => apply(false)}
+        >
+          {t("cultures.deactivate")}
+        </button>
+      </div>
+      <p className="help">{t("cultures.keepValues")}</p>
     </section>
   );
 }

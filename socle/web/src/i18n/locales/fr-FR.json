@@ -155,7 +155,10 @@
       "fallback": "en-US est le repli de l'installation et ne peut pas être désactivée.",
       "unreachable": "Impossible de charger les cultures.",
       "unexpected": "Le changement a échoué. Voir les journaux du back-office."
-    }
+    },
+    "activeCount_one": "{{count}} active",
+    "activeCount_other": "{{count}} actives",
+    "toggle": "Activer {{code}}"
   },
   "oidc": {
     "title": "Connecteurs OIDC",
@@ -194,7 +197,8 @@
       "edit": "Modifier",
       "delete": "Supprimer",
       "recognizesAdmin": "reconnaît l'administrateur",
-      "captionState": "État"
+      "captionState": "État",
+      "pick": "Choisissez un connecteur dans la liste pour l'ouvrir."
     },
     "errors": {
       "issuerUnreachable": "Le fournisseur ne répond pas à cette adresse, ou pas comme un fournisseur OIDC. Rien n'a été enregistré.",
@@ -280,7 +284,9 @@
       "codeLabel": "Code à six chiffres",
       "codeHelp": "Les espaces et les retours à la ligne sont retirés automatiquement.",
       "submit": "Valider le code",
-      "cancel": "Abandonner la demande"
+      "cancel": "Abandonner la demande",
+      "expiresIn_one": "expire dans {{count}} min",
+      "expiresIn_other": "expire dans {{count}} min"
     },
     "paired": {
       "captionContact": "Joint à l'adresse",
@@ -304,6 +310,11 @@
       "refused": "Le code a été refusé : il est faux, déjà utilisé, ou la demande n'existe plus. La demande reste en attente, un nouveau code peut être saisi.",
       "clockSkew": "Le code était le bon, mais les horloges des deux serveurs diffèrent d'environ {{seconds}} secondes. Remettre les machines à l'heure, puis réessayer.",
       "unexpected": "L'opération n'a pas abouti."
+    },
+    "steps": {
+      "1": "Déclarer ce module",
+      "2": "Faire accepter la demande",
+      "3": "Coller le code"
     }
   },
   "events": {

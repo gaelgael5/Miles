@@ -11,7 +11,12 @@
   --bordure: #dadde3;
   --bordure-fine: #edeff2;
   --bordure-carte: #e6e9ed;
-  --bordure-champ: #c3c9d2;
+  /* Les maquettes distinguent DEUX gris de bordure, et c'est ce qui rendait les
+     formulaires fades ici : le cadre d'un champ est franc (#7e8795), celui d'une
+     pastille est léger (#d5d9e0). Le socle n'avait que le second, appliqué aux deux.
+     Valeurs relevées dans le bloc `mockup-base` partagé par les vingt-cinq écrans. */
+  --bordure-champ: #7e8795;
+  --bordure-pastille: #d5d9e0;
   --encre: #1b1f26;
   --encre-douce: #3a424f;
   --encre-faible: #5a6372;
@@ -87,7 +92,10 @@ code, .mono { font-family: var(--police-mono); font-size: 12.5px; }
 }
 .content { flex: 999 1 560px; min-width: 0; padding: 32px 36px 48px; }
 /* Écrans hors portail (amorçage, connexion) : une colonne centrée, sans navigation. */
-.narrow { max-width: 720px; margin: 0 auto; padding: 48px 24px; width: 100%; }
+/* Largeur de la colonne hors portail (amorçage, connexion, consentement), relevée sur
+   la maquette « Amorçage — premier administrateur » : 620px. Plus large, le
+   formulaire s'étale et les champs cessent d'être lus comme une suite. */
+.narrow { max-width: 620px; margin: 0 auto; padding: 48px 24px; width: 100%; }
 
 /* En-tête de page : titre, chapeau, action principale. */
 .page-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 28px; }
@@ -167,6 +175,17 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .row-openable .row-actions, .row-openable .row-detail,
 /* Le sélecteur de branche affichée reste utilisable sans ouvrir le paramétrage. */
 .row-openable .row-control { position: relative; z-index: 1; }
+/* Ligne de case à cocher, telle que la maquette « Cultures actives » la dessine : plus
+   dense qu'une ligne de liste ordinaire (14px au lieu de 20), parce qu'on la PARCOURT
+   pour cocher. Le code tient une colonne FIXE — sans elle, les codes ne s'alignent pas
+   d'une ligne à l'autre et l'œil ne peut plus descendre la colonne. */
+.row-compact { padding: 14px 20px; gap: 14px; align-items: center; border-bottom-color: var(--bordure-fine); }
+.row-compact input[type="checkbox"] { flex: 0 0 17px; width: 17px; height: 17px; margin: 0; }
+.row-code { flex: 0 0 110px; font-family: var(--police-mono); font-size: 14px; font-weight: 500; }
+/* Une ligne qu'on ne décoche pas : le fond la distingue, et c'est ce que la maquette fait
+   du repli `en-US`. Dire « toujours active » dans une pastille sans distinguer la ligne
+   laisserait croire à une case oubliée. */
+.row-soft { background: var(--surface-douce); }
 .row-sub { margin-top: 6px; font-family: var(--police-mono); font-size: 12px; color: var(--encre-faible); }
 .cell { flex: 0 0 170px; }
 .caption {
@@ -211,10 +230,58 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
   font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
 }
 
+/* Fil des étapes de la maquette « Appariement — côté demandeur » : trois cartons côte à
+   côte qui s'empilent quand la largeur manque. L'étape courante est cerclée d'accent et
+   non simplement colorée — la couleur seule ne se voit pas sur un écran mal réglé, et la
+   bordure de 2px compense son propre épaississement par un retrait d'un pixel de padding,
+   pour que les trois cartons gardent la même hauteur. */
+.steps {
+  list-style: none; margin: 0 0 24px; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px;
+}
+.steps li {
+  flex: 1 1 180px; display: flex; gap: 8px; align-items: center;
+  background: var(--surface); border: 1px solid var(--bordure); border-radius: 6px;
+  padding: 12px 14px; color: var(--encre-faible);
+}
+.steps .step-now { border: 2px solid var(--accent); padding: 11px 13px; color: var(--encre); font-weight: 600; }
+.step-mark {
+  flex: 0 0 20px; width: 20px; height: 20px; line-height: 20px; text-align: center;
+  border-radius: 10px; background: var(--succes-fond); color: var(--succes-encre);
+  font-weight: 600; font-size: 12px;
+}
+.steps .step-now .step-mark { background: var(--accent); color: var(--surface); }
+/* L'échéance d'une demande, à côté de son état : la maquette la met en `--avertissement`
+   et non en rouge — elle annonce une fin, elle ne signale pas une faute. */
+.expiry { margin-left: 10px; font-size: 12px; color: var(--avertissement); }
+
+/* Maître-détail de la maquette « Connecteurs OIDC » : la liste tient une colonne étroite
+   à gauche, l'élément ouvert prend le reste. Les deux s'empilent quand la largeur manque
+   — c'est la place disponible qui décide, pas le type d'appareil, comme pour `.filters`. */
+.master-detail { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+.master-detail > .pick-list { flex: 0 0 280px; }
+.master-detail > .detail { flex: 999 1 420px; min-width: 0; }
+/* La carte de la liste porte déjà le cadre : la ligne n'apporte que sa séparation. */
+.pick { border-bottom: 1px solid var(--bordure-fine); }
+.pick:last-child { border-bottom: none; }
+.pick-open {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: none; border: none; border-left: 3px solid transparent;
+  font: inherit; padding: 14px 16px; color: inherit;
+}
+.pick-open:hover { background: var(--fond); }
+.pick-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* L'élément ouvert : fond d'accent ET filet à gauche. La couleur seule ne suffit pas —
+   c'est la même règle que l'entrée courante du menu, et elle vient de la même maquette. */
+.pick-now .pick-open { background: var(--accent-fond); border-left-color: var(--accent); }
+.pick-title { display: block; font-size: 14px; font-weight: 600; }
+.pick-now .pick-title { color: var(--encre); }
+.pick-sub { display: block; margin-top: 3px; font-size: 12px; color: var(--encre-faible); }
+
 /* Pastilles, alertes, comptes rendus. */
 .badge {
   display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 4px;
-  border: 1px solid var(--bordure-champ); color: var(--encre-douce); background: var(--surface-alt);
+  border: 1px solid var(--bordure-pastille); color: var(--encre-douce); background: var(--surface-alt);
 }
 .badge-success { background: var(--succes-fond); border-color: var(--succes-bordure); color: var(--succes-encre); }
 .badge-accent { background: var(--accent-fond); border-color: var(--accent); color: var(--accent-fonce); }
@@ -352,7 +419,7 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
    le taper. L'indentation vient du niveau, pas d'un gabarit : un modèle profond reste
    lisible sans que la colonne de droite ne sorte de l'écran. */
 .tree { margin: 0; padding-left: 0; }
-.tree .tree { padding-left: 18px; border-left: 1px solid var(--bordure-champ); margin-left: 7px; }
+.tree .tree { padding-left: 18px; border-left: 1px solid var(--bordure); margin-left: 7px; }
 .tree-row { display: flex; align-items: baseline; gap: 6px; padding: 2px 0; }
 .tree-twist {
   flex: 0 0 16px; width: 16px; background: none; border: none; padding: 0; cursor: pointer;
@@ -374,7 +441,7 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 .index-row {
   display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
   padding: 12px; margin-bottom: 10px;
-  border: 1px solid var(--bordure-champ); border-radius: 6px;
+  border: 1px solid var(--bordure); border-radius: 6px;
 }
 .index-row .field { flex: 1 1 180px; margin-bottom: 0; }
 .index-columns { flex: 2 1 240px; min-width: 0; }
