@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { type Routes, mockApi } from "@miles/socle-web/testing";
 
 import "../i18n/i18n";
@@ -108,9 +108,10 @@ describe("les espaces de stockage de la version servie", () => {
     const form = () => within(screen.getByRole("form", { name: "Search filters" }));
     fireEvent.change(form().getByLabelText("$.Contact.Phone"), { target: { value: "0102" } });
 
-    expect(await screen.findByText("A-1")).toBeInTheDocument();
-    expect(calls.map((c) => c.key)).toContain(
-      "GET /api/storages/accounts/objects?f=contact_phone%3Acontient%3A0102&page=1",
+    await waitFor(() =>
+      expect(calls.map((c) => c.key)).toContain(
+        "GET /api/storages/accounts/objects?f=contact_phone%3Acontient%3A0102&page=1",
+      ),
     );
   });
 
@@ -136,9 +137,10 @@ describe("les espaces de stockage de la version servie", () => {
     const form = () => within(screen.getByRole("form", { name: "Search filters" }));
     fireEvent.change(form().getByLabelText("$.AccountId"), { target: { value: "A-1" } });
 
-    expect(await screen.findByText("A-1")).toBeInTheDocument();
-    expect(calls.map((c) => c.key)).toContain(
-      "GET /api/storages/accounts/objects?f=cle%3Acontient%3AA-1&page=1",
+    await waitFor(() =>
+      expect(calls.map((c) => c.key)).toContain(
+        "GET /api/storages/accounts/objects?f=cle%3Acontient%3AA-1&page=1",
+      ),
     );
   });
 
@@ -154,9 +156,10 @@ describe("les espaces de stockage de la version servie", () => {
     });
     fireEvent.change(form().getByLabelText("$.AccountId"), { target: { value: "A-1" } });
 
-    expect(await screen.findByText("A-1")).toBeInTheDocument();
-    expect(calls.map((c) => c.key)).toContain(
-      `GET /api/storages/accounts/objects?f=${encodeURIComponent('cle:eq:["A-1"]')}&page=1`,
+    await waitFor(() =>
+      expect(calls.map((c) => c.key)).toContain(
+        `GET /api/storages/accounts/objects?f=${encodeURIComponent('cle:eq:["A-1"]')}&page=1`,
+      ),
     );
   });
 
@@ -300,8 +303,10 @@ describe("les espaces de stockage de la version servie", () => {
     fireEvent.change(form().getByLabelText("$.Contact.Phone"), { target: { value: "01" } });
 
     expect(await screen.findByText("Page 1 of 3")).toBeInTheDocument();
-    expect(calls.map((c) => c.key)).toContain(
-      "GET /api/storages/accounts/objects?f=contact_phone%3Acontient%3A01&page=1",
+    await waitFor(() =>
+      expect(calls.map((c) => c.key)).toContain(
+        "GET /api/storages/accounts/objects?f=contact_phone%3Acontient%3A01&page=1",
+      ),
     );
   });
 });

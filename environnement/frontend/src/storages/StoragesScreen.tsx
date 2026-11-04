@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Criterion, type Storage, useStorageObjects, useStorages } from "../api/storages";
@@ -144,6 +144,24 @@ function StorageRow({
   );
 }
 
+/**
+ * Ce qui a cessé de bouger depuis `delai`, pour ne pas chercher à chaque frappe.
+ *
+ * Nécessaire depuis que chaque colonne porte son filtre : taper « S-001 » lançait cinq
+ * recherches, et « contient » se résout par un parcours que l'index de la clé ne sert
+ * pas. La saisie, elle, reste immédiate — c'est la REQUÊTE qui attend.
+ */
+function useDebounced<T>(valeur: T, delai = 300): T {
+  const [retardee, setRetardee] = useState(valeur);
+
+  useEffect(() => {
+    const minuteur = setTimeout(() => setRetardee(valeur), delai);
+    return () => clearTimeout(minuteur);
+  }, [valeur, delai]);
+
+  return retardee;
+}
+
 /** La recherche dans le storage ouvert : ses filtres, et ce qu'ils rendent. */
 function StorageSearch({ storage }: { storage: Storage }) {
   const { t } = useTranslation();
@@ -151,7 +169,8 @@ function StorageSearch({ storage }: { storage: Storage }) {
   // comme autant de colonnes, et il n'y a plus de critère à ajouter avant de chercher.
   const [criteria, setCriteria] = useState<Criterion[]>(() => emptyCriteria(storage));
   const [page, setPage] = useState(1);
-  const objects = useStorageObjects(storage.name, criteria, page, storage.applied_at !== null);
+  const cherches = useDebounced(criteria);
+  const objects = useStorageObjects(storage.name, cherches, page, storage.applied_at !== null);
 
   function change(suivants: Criterion[]) {
     // Changer un critère ramène à la première page : rester en page 4 d'une recherche
