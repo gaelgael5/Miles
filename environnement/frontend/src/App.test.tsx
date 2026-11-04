@@ -239,6 +239,19 @@ describe("App du module d'environnement", () => {
     },
   );
 
+  it("liste les espaces de stockage sous leur écran, et ouvre leur page", async () => {
+    const calls = monte(CONNECTE);
+    const menu = within(await screen.findByRole("navigation"));
+
+    // L'espace vient de la version SERVIE, pas d'une liste tenue dans le code.
+    fireEvent.click(await menu.findByRole("button", { name: "Accounts" }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Accounts" })).toBeInTheDocument();
+    // La page de l'espace cherche dans SA table : c'est ce que la liste ne faisait plus.
+    expect(calls.map((c) => c.key)).toContain("GET /api/storages/accounts/objects?page=1");
+    expect(screen.queryByRole("heading", { level: 1, name: "Storage spaces" })).toBeNull();
+  });
+
   it("liste les sources servies sous le service d'ingestion, et ouvre leur page", async () => {
     const calls = monte(CONNECTE);
     const menu = within(await screen.findByRole("navigation"));
@@ -255,7 +268,7 @@ describe("App du module d'environnement", () => {
     expect(screen.queryByRole("heading", { level: 1, name: "Ingestion service" })).toBeNull();
   });
 
-  it("quitte la source quand on choisit un autre écran", async () => {
+  it("quitte la sous-entrée quand on choisit un autre écran", async () => {
     // Sans cette remise à zéro, l'écran choisi serait masqué par la source restée
     // ouverte, et le menu montrerait deux entrées courantes.
     monte(CONNECTE);
@@ -268,16 +281,17 @@ describe("App du module d'environnement", () => {
     expect(screen.queryByRole("heading", { level: 1, name: "comptes-pudo" })).toBeNull();
   });
 
-  it("n'a aucune entrée de menu de plus que d'écrans déclarés et de sources servies", async () => {
+  it("n'a aucune entrée de menu de plus que d'écrans, de sources et d'espaces", async () => {
     monte(CONNECTE);
     const menu = within(await screen.findByRole("navigation"));
     await menu.findByRole("button", { name: "comptes-pudo" });
+    await menu.findByRole("button", { name: "Accounts" });
 
     // La garde du ticket : un écran déclaré mais absent du menu est inatteignable, et
     // une entrée de menu sans écran mène dans le vide. Ici les deux viennent de la même
-    // déclaration, et ce test interdit qu'on les redouble. Les sources s'y ajoutent, une
-    // par source de la version servie — la version d'essai n'en déclare qu'une.
-    expect(menu.getAllByRole("button")).toHaveLength(ECRANS.length + 1);
+    // déclaration, et ce test interdit qu'on les redouble. S'y ajoutent les sous-entrées
+    // que la VERSION SERVIE déclare — une source et un espace dans le jeu d'essai.
+    expect(menu.getAllByRole("button")).toHaveLength(ECRANS.length + 2);
   });
 
   it("ouvre le profil depuis la barre du haut", async () => {

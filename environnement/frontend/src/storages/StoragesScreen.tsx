@@ -1,23 +1,18 @@
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { type Criterion, type Storage, useStorageObjects, useStorages } from "../api/storages";
-import { StorageFilters, emptyCriteria } from "./StorageFilters";
-import { StorageObjects } from "./StorageObjects";
+import { type Storage, useStorages } from "../api/storages";
 
 /**
- * Les espaces de stockage de cette stack : ce que la version servie déclare, et ce que
- * les tables contiennent (Gael, 02/11/2026).
+ * Les espaces de stockage que la version servie déclare (Gael, 02/11/2026).
  *
- * Un seul écran pour les deux, et non une liste puis un détail : il y a peu de storages
- * par environnement, et ce qu'on vient y faire est chercher un objet. Un niveau de
- * navigation de plus n'apporterait qu'un clic.
+ * Ce que cette page montre, c'est la DÉCLARATION : quels espaces existent, sur quel
+ * modèle, dans quelle table, et lesquels sont refusés. Les objets de chacun sont sur SA
+ * page, que le menu ouvre (Gael, 04/11/2026) — tenir la recherche ici faisait lire les
+ * colonnes d'un espace en cherchant dans un autre.
  */
 export function StoragesScreen() {
   const { t } = useTranslation();
   const storages = useStorages();
-  const [choisi, setChoisi] = useState<string | null>(null);
-  const storage = storages.data?.find((item) => item.name === choisi) ?? null;
 
   if (storages.isPending) {
     return (
@@ -41,46 +36,27 @@ export function StoragesScreen() {
   return (
     <section aria-labelledby="storages-title">
       <div className="page-head">
-        <h1 id="storages-title">{t("storages.title")}</h1>
+        <div>
+          <h1 id="storages-title">{t("storages.title")}</h1>
+          <p className="lead">{t("storages.lead")}</p>
+        </div>
       </div>
-      <ul className="plain-list">
+      <ul className="card-list">
         {storages.data.map((item) => (
-          <StorageRow
-            key={item.name}
-            storage={item}
-            open={item.name === choisi}
-            onOpen={() => setChoisi(item.name === choisi ? null : item.name)}
-          />
+          <StorageRow key={item.name} storage={item} />
         ))}
       </ul>
-      {/* Aucune recherche offerte sur une table qui n'est pas posée : le formulaire
-          promettrait un geste impossible, et le message de la ligne dit déjà
-          pourquoi. */}
-      {storage !== null && storage.refusal === null && storage.applied_at !== null && (
-        // Remonté quand on change d'espace : les filtres sont ceux de SES colonnes, et
-        // la page courante celle de SA recherche.
-        <StorageSearch key={storage.name} storage={storage} />
-      )}
     </section>
   );
 }
 
-function StorageRow({
-  storage,
-  open,
-  onOpen,
-}: {
-  storage: Storage;
-  open: boolean;
-  onOpen: () => void;
-}) {
+function StorageRow({ storage }: { storage: Storage }) {
   const { t } = useTranslation();
+
   return (
     <li className="row">
       <div className="row-main">
-        <button type="button" className="row-title link" aria-expanded={open} onClick={onOpen}>
-          {storage.label}
-        </button>
+        <div className="row-title">{storage.label}</div>
         <div className="row-sub">
           <span className="mono">{storage.model}</span>
           {storage.refusal === null && (
@@ -114,78 +90,6 @@ function StorageRow({
         // sinon une recherche sans résultat se lit comme « aucun objet ».
         <p className="muted row-detail">{t("storages.notApplied")}</p>
       )}
-      {open && storage.refusal === null && (
-        <div className="row-detail">
-          <p className="caption">
-            {t("storages.key", { keys: storage.keys.join(" · ") })}
-            {storage.version_number !== null &&
-              ` · ${t("storages.version", { number: storage.version_number })}`}
-          </p>
-          {storage.indexes.length === 0 ? (
-            <p className="help">{t("storages.noIndex")}</p>
-          ) : (
-            <ul className="plain-list">
-              {storage.indexes.map((index) => (
-                <li key={index.name} className="caption">
-                  <span className="mono">{index.name}</span> —{" "}
-                  {index.columns
-                    .map(
-                      (column) =>
-                        storage.projections.find((p) => p.column === column)?.path ?? column,
-                    )
-                    .join(" · ")}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </li>
-  );
-}
-
-/**
- * Ce qui a cessé de bouger depuis `delai`, pour ne pas chercher à chaque frappe.
- *
- * Nécessaire depuis que chaque colonne porte son filtre : taper « S-001 » lançait cinq
- * recherches, et « contient » se résout par un parcours que l'index de la clé ne sert
- * pas. La saisie, elle, reste immédiate — c'est la REQUÊTE qui attend.
- */
-function useDebounced<T>(valeur: T, delai = 300): T {
-  const [retardee, setRetardee] = useState(valeur);
-
-  useEffect(() => {
-    const minuteur = setTimeout(() => setRetardee(valeur), delai);
-    return () => clearTimeout(minuteur);
-  }, [valeur, delai]);
-
-  return retardee;
-}
-
-/** La recherche dans le storage ouvert : ses filtres, et ce qu'ils rendent. */
-function StorageSearch({ storage }: { storage: Storage }) {
-  const { t } = useTranslation();
-  // Un critère par propriété filtrable, tous vides : la barre de filtres les porte
-  // comme autant de colonnes, et il n'y a plus de critère à ajouter avant de chercher.
-  const [criteria, setCriteria] = useState<Criterion[]>(() => emptyCriteria(storage));
-  const [page, setPage] = useState(1);
-  const cherches = useDebounced(criteria);
-  const objects = useStorageObjects(storage.name, cherches, page, storage.applied_at !== null);
-
-  function change(suivants: Criterion[]) {
-    // Changer un critère ramène à la première page : rester en page 4 d'une recherche
-    // qui n'a plus que deux pages afficherait un vide qu'on prendrait pour un résultat.
-    setCriteria(suivants);
-    setPage(1);
-  }
-
-  return (
-    <section className="card" aria-labelledby="storage-search-title">
-      <div className="card-head">
-        <h2 id="storage-search-title">{t("storages.search", { label: storage.label })}</h2>
-      </div>
-      <StorageFilters storage={storage} criteria={criteria} onChange={change} />
-      <StorageObjects storage={storage} query={objects} page={page} onPage={setPage} />
-    </section>
   );
 }

@@ -39,6 +39,8 @@
   },
   "storages": {
     "title": "Storage spaces",
+    "lead": "What the served version declares. The objects of each space are on its own page, in the menu.",
+    "gone": "The served version no longer declares a “{{name}}” space.",
     "loading": "Reading the storage spaces…",
     "unreadable": "The storage spaces could not be read. See the service logs.",
     "none": "The served version declares no storage space.",

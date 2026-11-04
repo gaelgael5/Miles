@@ -39,6 +39,8 @@
   },
   "storages": {
     "title": "Espaces de stockage",
+    "lead": "Ce que la version servie déclare. Les objets de chaque espace sont sur sa page, dans le menu.",
+    "gone": "La version servie ne déclare plus d'espace « {{name}} ».",
     "loading": "Lecture des espaces de stockage…",
     "unreadable": "Les espaces de stockage n'ont pas pu être lus. Voyez les journaux du service.",
     "none": "La version servie ne déclare aucun espace de stockage.",

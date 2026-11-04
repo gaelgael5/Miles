@@ -23,6 +23,8 @@ import { IngestionScreen } from "./ingestion/IngestionScreen";
 import { SourceScreen } from "./ingestion/SourceScreen";
 import { SourcesNav } from "./ingestion/SourcesNav";
 import { EnvironnementAssigne } from "./pairing/EnvironnementAssigne";
+import { StorageScreen } from "./storages/StorageScreen";
+import { StoragesNav } from "./storages/StoragesNav";
 import { StoragesScreen } from "./storages/StoragesScreen";
 
 /**
@@ -78,24 +80,24 @@ function BackOffice({ me, profil, onQuitterProfil }: {
 }) {
   const { t } = useTranslation();
   const [page, setPage] = useState<Page>("health");
-  // La source d'ingestion ouverte, le cas échéant. Hors de `page` et non un écran de
-  // plus : son nom vient du serveur, et la table des écrans ne porte que ce que le code
-  // déclare. Une source choisie n'est jamais lue sans sa page — tout autre choix de menu
-  // la remet à null juste au-dessous.
-  const [source, setSource] = useState<string | null>(null);
+  // La SOUS-ENTRÉE ouverte sous l'écran courant : une source d'ingestion, un espace de
+  // stockage. Hors de `page` et non un écran de plus : son nom vient du serveur, et la
+  // table des écrans ne porte que ce que le code déclare. Elle n'est jamais lue sans son
+  // écran — tout autre choix de menu la remet à null juste au-dessous.
+  const [ouverte, setOuverte] = useState<string | null>(null);
   const { Ecran } = ECRANS.find((ecran) => ecran.nom === page) ?? ECRANS[0];
 
   function ouvrir(nom: Page) {
     // Tout choix dans le menu referme le profil, ouvert depuis la barre du haut.
     onQuitterProfil();
     setPage(nom);
-    setSource(null);
+    setOuverte(null);
   }
 
-  function ouvrirSource(nom: string) {
+  function ouvrirSous(ecran: Page, nom: string) {
     onQuitterProfil();
-    setPage("ingestion");
-    setSource(nom);
+    setPage(ecran);
+    setOuverte(nom);
   }
 
   return (
@@ -109,18 +111,25 @@ function BackOffice({ me, profil, onQuitterProfil }: {
                 <button
                   type="button"
                   className="sidebar-link"
-                  aria-current={!profil && page === nom && source === null ? "page" : undefined}
+                  aria-current={!profil && page === nom && ouverte === null ? "page" : undefined}
                   onClick={() => ouvrir(nom)}
                 >
                   {t(`app.nav.${nom}`)}
                 </button>
-                {/* Les sources servies, sous le service qui les expose (Gael,
-                    04/11/2026). Elles ne sont pas dans la table des écrans : leur liste
-                    vient de la version servie, pas du code. */}
+                {/* Les sources servies sous le service qui les expose, les espaces de
+                    stockage sous leur écran (Gael, 04/11/2026). Aucun des deux n'est dans
+                    la table des écrans : leur liste vient de la version servie, pas du
+                    code. */}
                 {nom === "ingestion" && (
                   <SourcesNav
-                    selected={profil ? null : source}
-                    onOpen={(choisie) => ouvrirSource(choisie)}
+                    selected={profil || page !== "ingestion" ? null : ouverte}
+                    onOpen={(choisie) => ouvrirSous("ingestion", choisie)}
+                  />
+                )}
+                {nom === "storages" && (
+                  <StoragesNav
+                    selected={profil || page !== "storages" ? null : ouverte}
+                    onOpen={(choisi) => ouvrirSous("storages", choisi)}
                   />
                 )}
               </div>
@@ -131,10 +140,16 @@ function BackOffice({ me, profil, onQuitterProfil }: {
       <main className="content">
         {profil ? (
           <ProfileShell me={me} />
-        ) : source === null ? (
+        ) : ouverte === null ? (
           <Ecran />
+        ) : // L'écran d'une sous-entrée dépend de l'entrée sous laquelle elle est rangée.
+        // Écrit ici et non dans un composant défini dans celui-ci : un composant déclaré
+        // dans un autre change d'identité à chaque rendu, et React remonterait la page —
+        // filtres et pagination remis à zéro.
+        page === "storages" ? (
+          <StorageScreen name={ouverte} />
         ) : (
-          <SourceScreen source={source} />
+          <SourceScreen source={ouverte} />
         )}
       </main>
     </div>
