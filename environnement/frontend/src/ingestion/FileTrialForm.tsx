@@ -51,7 +51,10 @@ export function FileTrialForm({
         {/* Ce que le contrat ne dit pas, et que l'écran seul peut dire : où lire la
             suite. Le reste — document posé sur disque, import hors de l'appel — est déjà
             dans la description de l'opération, juste au-dessus. */}
-        <span className="help">{t("ingestion.methods.fileHelp")}</span>
+        {/* Un bloc et non un `span` : la feuille du socle style `.field > .help` comme
+            une ligne à part, et en ligne il se collait au libellé — « Document à
+            déposerL'issue de l'import… ». Vu dans un vrai navigateur. */}
+        <div className="help">{t("ingestion.methods.fileHelp")}</div>
         <input
           type="file"
           accept="application/json,.json"
