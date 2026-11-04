@@ -313,6 +313,24 @@ MAGASIN_TEMPLATE = (
 )
 
 
+# Le modèle d'ENTRÉE de la source : la forme brute que le partenaire envoie, avant la
+# chaîne. Distinct du modèle du storage, et c'est le point — sans lui, l'écran de service
+# proposerait un corps d'exemple dans la forme de l'ARRIVÉE, que la chaîne refuserait.
+# Toutes ses propriétés sont obligatoires et scalaires : le gabarit est alors complet, et
+# un essai qui le dépose tel quel doit aboutir.
+MAGASIN_ENTREE = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/domains/pudo/magasin-import
+title: Magasin (entrée)
+type: object
+required: [code, nom, ville, postes]
+properties:
+  code: {type: string}
+  nom: {type: string}
+  ville: {type: string}
+  postes: {type: integer}
+"""
+
+
 def fabrique_import(tmp_path: Path) -> dict[int, VersionFabriquee]:
     """UNE version : le storage `magasins`, sa source, et la chaîne qui y mène."""
     depot = tmp_path / "import"
@@ -321,11 +339,14 @@ def fabrique_import(tmp_path: Path) -> dict[int, VersionFabriquee]:
     (depot / "storages").mkdir()
     (depot / "sources").mkdir()
     (depot / "domains/pudo/messages/magasin.yaml").write_text(MAGASIN_MODELE, encoding="utf-8")
+    (depot / "domains/pudo/messages/magasin-import.yaml").write_text(
+        MAGASIN_ENTREE, encoding="utf-8"
+    )
     (depot / "storages/magasins.yaml").write_text(
         _storage("magasins", "pudo/magasin", "$.Code", [("ville", ["$.Ville"])]), encoding="utf-8"
     )
     (depot / "sources/magasins-import.yaml").write_text(
-        _source("magasins-import", "magasins", "pudo/magasin", (True, True, False)),
+        _source("magasins-import", "magasins", "pudo/magasin-import", (True, True, False)),
         encoding="utf-8",
     )
     _pose_chaine(depot, "vers-magasins", [("convertir", MAGASIN_TEMPLATE)])
