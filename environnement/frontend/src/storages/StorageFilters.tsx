@@ -1,9 +1,14 @@
 import { useTranslation } from "react-i18next";
 
-import { type Criterion, OPERATORS, type Storage } from "../api/storages";
+import { KEY_COLUMN } from "../api/storageKey";
+import { type Criterion, type Storage, operatorsFor } from "../api/storages";
 
-/** La colonne de la clé fonctionnelle : filtrable comme les autres, et nommée à part. */
-export const KEY_COLUMN = "cle";
+/** Une propriété sur laquelle on peut filtrer : sa colonne, son libellé, son type SQL. */
+export interface Filterable {
+  column: string;
+  label: string;
+  sqlType: string;
+}
 
 /**
  * Ce sur quoi on peut filtrer un storage, et c'est le paramétrage qui le dit : sa clé
@@ -15,10 +20,14 @@ export const KEY_COLUMN = "cle";
  * C'est la même règle que l'arbre des propriétés du portail : on ne coche que ce que le
  * modèle offre vraiment.
  */
-export function filterable(storage: Storage): { column: string; label: string }[] {
+export function filterable(storage: Storage): Filterable[] {
   const colonnes = storage.indexes.flatMap((index) => index.columns);
   const vues = new Set<string>();
-  const offertes = [{ column: KEY_COLUMN, label: storage.keys.join(" · ") }];
+  // La clé est du TEXTE en base, quelles que soient les valeurs qui la composent : elle
+  // y est rangée sous sa forme canonique, un tableau JSON.
+  const offertes: Filterable[] = [
+    { column: KEY_COLUMN, label: storage.keys.join(" · "), sqlType: "text" },
+  ];
   for (const colonne of colonnes) {
     if (vues.has(colonne)) {
       continue;
@@ -28,11 +37,48 @@ export function filterable(storage: Storage): { column: string; label: string }[
     // chemin que la personne a choisi la propriété, et « contact_phone » ne lui dirait
     // pas lequel de ses index elle interroge.
     const projection = storage.projections.find((p) => p.column === colonne);
-    offertes.push({ column: colonne, label: projection?.path ?? colonne });
+    offertes.push({
+      column: colonne,
+      label: projection?.path ?? colonne,
+      sqlType: projection?.sql_type ?? "text",
+    });
   }
   return offertes;
 }
 
+/**
+ * Les comparaisons offertes sur une propriété. Sur la CLÉ à plusieurs parties, « égale »
+ * est retiré : une seule valeur saisie ne peut pas dire de quelle partie il s'agit, et
+ * composer un tableau d'une valeur ne trouverait jamais rien (voir `storageKey`).
+ */
+function operators(storage: Storage, offerte: Filterable): readonly string[] {
+  const offerts = operatorsFor(offerte.sqlType);
+  if (offerte.column !== KEY_COLUMN || storage.keys.length <= 1) {
+    return offerts;
+  }
+  return offerts.filter((operateur) => operateur !== "eq" && operateur !== "ne");
+}
+
+/** Un critère vide par propriété filtrable, chacun sur sa comparaison par défaut. */
+export function emptyCriteria(storage: Storage): Criterion[] {
+  return filterable(storage).map((offerte) => ({
+    column: offerte.column,
+    operator: operators(storage, offerte)[0] ?? "eq",
+    value: "",
+  }));
+}
+
+/**
+ * La barre de filtres : UNE colonne par propriété filtrable (Gael, 04/11/2026).
+ *
+ * Remplace la liste de critères qu'on ajoutait un à un. Celle-ci ouvrait sur « choisir
+ * une propriété » et laissait taper une valeur sans en choisir aucune : le critère était
+ * alors silencieusement ignoré, et l'écran montrait tous les objets comme s'il avait
+ * filtré. Avec une colonne par propriété, il n'y a plus de critère incomplet à ignorer.
+ *
+ * La forme — un bandeau de champs au-dessus de la table — est celle de la maquette
+ * « Référentiel de comptes » du cadrage.
+ */
 export function StorageFilters({
   storage,
   criteria,
@@ -45,72 +91,43 @@ export function StorageFilters({
   const { t } = useTranslation();
   const offertes = filterable(storage);
 
-  function modifie(rank: number, change: Partial<Criterion>) {
-    onChange(criteria.map((c, i) => (i === rank ? { ...c, ...change } : c)));
+  function modifie(column: string, change: Partial<Criterion>) {
+    onChange(criteria.map((c) => (c.column === column ? { ...c, ...change } : c)));
   }
 
   return (
     <form
-      className="panel"
+      className="panel filters"
       aria-label={t("storages.filters.title")}
       onSubmit={(event) => event.preventDefault()}
     >
-      <ul className="plain-list">
-        {criteria.map((critere, rank) => (
-          <li key={rank} className="index-row">
-            <label className="field">
-              {t("storages.filters.property")}
+      {offertes.map((offerte) => {
+        const critere = criteria.find((c) => c.column === offerte.column);
+        const offerts = operators(storage, offerte);
+        return (
+          <div key={offerte.column} className="field filter-column">
+            <label htmlFor={`filtre-${offerte.column}`}>{offerte.label}</label>
+            <div className="filter-controls">
               <select
-                value={critere.column}
-                onChange={(e) => modifie(rank, { column: e.target.value })}
+                aria-label={t("storages.filters.operatorOn", { property: offerte.label })}
+                value={critere?.operator ?? offerts[0]}
+                onChange={(e) => modifie(offerte.column, { operator: e.target.value })}
               >
-                <option value="">{t("storages.filters.choose")}</option>
-                {offertes.map((offerte) => (
-                  <option key={offerte.column} value={offerte.column}>
-                    {offerte.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              {t("storages.filters.operator")}
-              <select
-                value={critere.operator}
-                onChange={(e) => modifie(rank, { operator: e.target.value })}
-              >
-                {OPERATORS.map((operateur) => (
+                {offerts.map((operateur) => (
                   <option key={operateur} value={operateur}>
                     {t(`storages.operators.${operateur}`)}
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="field">
-              {t("storages.filters.value")}
               <input
-                value={critere.value}
-                onChange={(e) => modifie(rank, { value: e.target.value })}
+                id={`filtre-${offerte.column}`}
+                value={critere?.value ?? ""}
+                onChange={(e) => modifie(offerte.column, { value: e.target.value })}
               />
-            </label>
-            <div className="actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => onChange(criteria.filter((_, i) => i !== rank))}
-              >
-                {t("storages.filters.remove", { rank: rank + 1 })}
-              </button>
             </div>
-          </li>
-        ))}
-      </ul>
-      <button
-        type="button"
-        className="btn btn-secondary"
-        onClick={() => onChange([...criteria, { column: "", operator: "eq", value: "" }])}
-      >
-        {t("storages.filters.add")}
-      </button>
+          </div>
+        );
+      })}
     </form>
   );
 }

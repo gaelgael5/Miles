@@ -28,9 +28,9 @@ MAX_PAGE_SIZE = 500
 # Les opérateurs offerts, et leur SQL. La liste est FERMÉE : c'est elle qui fait qu'aucun
 # fragment venu de l'appelant n'entre dans la requête.
 #
-# `prefixe` passe par `like`, et ses jokers sont neutralisés dans la VALEUR, par la
-# contre-oblique que `like` prend par défaut pour échappement. Sans cela, un « % »
-# écrit par l'appelant rendrait autre chose que le préfixe qu'il a demandé.
+# `prefixe` et `contient` passent par `like`, et leurs jokers sont neutralisés dans la
+# VALEUR, par la contre-oblique que `like` prend par défaut pour échappement. Sans cela,
+# un « % » écrit par l'appelant rendrait autre chose que ce qu'il a demandé.
 OPERATORS = {
     "eq": "=",
     "ne": "<>",
@@ -39,7 +39,13 @@ OPERATORS = {
     "lt": "<",
     "le": "<=",
     "prefixe": "like",
+    "contient": "like",
 }
+# Les comparaisons qui ne valent que sur du texte. `contient` est l'opérateur par DÉFAUT
+# de l'écran (Gael, 04/11/2026) : on cherche un fragment, pas une valeur exacte — et sur
+# la clé fonctionnelle, c'est lui qui traverse la forme canonique `["S-001"]` sans que
+# l'écran ait à la recomposer.
+TEXT_ONLY = ("prefixe", "contient")
 # La colonne de la clé fonctionnelle est filtrable comme les autres : c'est la première
 # chose qu'on cherche dans un storage, et elle porte déjà un index unique.
 KEY_COLUMN = "cle"
@@ -97,11 +103,11 @@ def build(
             # Nommée, pour que l'appelant sache laquelle : « un critère invalide » le
             # laisserait chercher lequel parmi trois.
             raise FilterError("propriete_non_filtrable", criterion.column)
-        if criterion.operator == "prefixe" and types[criterion.column] != "text":
+        if criterion.operator in TEXT_ONLY and types[criterion.column] != "text":
             # `like` ne s'applique pas à un nombre ni à un booléen : PostgreSQL
             # refuserait la requête, et un refus nommé ici dit laquelle des deux
             # choses est fausse — le critère, pas la base.
-            raise FilterError("prefixe_sur_valeur_non_textuelle", criterion.column)
+            raise FilterError("comparaison_textuelle_non_applicable", criterion.column)
         values.append(_value(criterion, types[criterion.column]))
         clauses.append(f"{quoted(criterion.column)} {OPERATORS[criterion.operator]} ${len(values)}")
     if sort is not None and sort not in filtrables:
@@ -147,11 +153,11 @@ _CASTS: dict[str, Callable[[str], object]] = {
 
 
 def _value(criterion: Criterion, sql_type: str) -> object:
-    if criterion.operator == "prefixe":
-        # Les jokers de `like` sont neutralisés : on cherche le préfixe demandé, pas le
+    if criterion.operator in TEXT_ONLY:
+        # Les jokers de `like` sont neutralisés : on cherche ce qui a été demandé, pas le
         # motif que la valeur dessine. Réservé aux colonnes de texte, vérifié plus haut.
         echappe = criterion.value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        return f"{echappe}%"
+        return f"{echappe}%" if criterion.operator == "prefixe" else f"%{echappe}%"
     cast = _CASTS.get(sql_type, str)
     try:
         return cast(criterion.value)

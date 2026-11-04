@@ -237,6 +237,31 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
    bord de la carte (vu sur l'auteur `apikey/34e1…` et sur la propriété `ingestion`). */
 .split-detail .facts { grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }
 .split-detail .facts dd { overflow-wrap: anywhere; }
+/* Un objet rendu dans le panneau : il se replie plutôt que de pousser une barre de
+   défilement horizontale sous la table. */
+.detail-json { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+
+/* Bandeau de colonnes d'une table en lignes, relevé sur la maquette « Référentiel de
+   comptes » : sans lui, les valeurs d'une ligne se lisent comme une suite de mots et
+   non comme des colonnes. */
+.row-head {
+  display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 18px;
+  background: var(--surface-alt); border-bottom: 1px solid var(--bordure);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--encre-faible);
+}
+/* Colonne de table à largeur souple, pour un nombre de colonnes que seul le paramétrage
+   connaît : `.cell` est figée à 170px, ce qui déborde dès la quatrième projection. */
+.cell-auto { flex: 1 1 130px; min-width: 0; overflow-wrap: anywhere; }
+/* Barre de filtres : une colonne par propriété filtrable, chacune avec sa comparaison
+   et sa valeur. Reprise de la maquette « Référentiel de comptes ». */
+/* La marge basse tient l'écart quand les colonnes passent à la ligne : `.filters` ne
+   pose aucun gap vertical, précisément parce qu'il vient de la marge des champs. */
+.filters .filter-column { flex: 1 1 220px; min-width: 0; margin-bottom: 14px; }
+.filters .filter-column label { font-size: 12px; font-weight: 500; color: var(--encre-douce); }
+.filter-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+.filter-controls select { flex: 0 1 auto; width: auto; margin-top: 0; }
+.filter-controls input { flex: 999 1 110px; min-width: 0; margin-top: 0; }
 /* Panneau en retrait DANS une carte : il ne doit pas se lire comme une seconde carte,
    d'où le fond doux et la bordure fine plutôt que le blanc sur gris. */
 .card-inset {

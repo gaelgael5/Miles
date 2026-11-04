@@ -125,10 +125,38 @@ class TestLaRequete:
             build(TABLE, [Criterion("postes", "gt", "beaucoup")])
         assert (refus.value.code, refus.value.detail) == ("valeur_hors_type", "postes:beaucoup")
 
-    def test_un_prefixe_sur_une_colonne_non_textuelle_est_refuse(self) -> None:
+    def test_contient_cherche_la_valeur_n_importe_ou_dans_la_colonne(self) -> None:
+        """L'opérateur par défaut de l'écran (Gael, 04/11/2026) : on cherche un fragment.
+
+        Les deux jokers encadrent la valeur, et ceux que la valeur PORTE sont neutralisés —
+        sans quoi « 100% » chercherait « 100 suivi de n'importe quoi ».
+        """
+        requete = build(TABLE, [Criterion("contact_phone", "contient", "02%03")])
+
+        assert '"contact_phone" like $1' in requete.sql
+        assert requete.values == ("%02\\%03%",)
+
+    def test_contient_trouve_une_cle_fonctionnelle_par_une_de_ses_parties(self) -> None:
+        """Ce que la personne tape, c'est « S-001 », pas la forme canonique `["S-001"]`.
+
+        C'est tout l'intérêt de « contient » sur la clé : il traverse le tableau JSON sans
+        que l'écran ait à le recomposer.
+        """
+        requete = build(TABLE, [Criterion("cle", "contient", "S-001")])
+
+        assert '"cle" like $1' in requete.sql
+        assert requete.values == ("%S-001%",)
+
+    @pytest.mark.parametrize("operateur", ["prefixe", "contient"])
+    def test_une_comparaison_textuelle_sur_une_colonne_non_textuelle_est_refusee(
+        self, operateur: str
+    ) -> None:
         with pytest.raises(FilterError) as refus:
-            build(TABLE, [Criterion("postes", "prefixe", "1")])
-        assert refus.value.code == "prefixe_sur_valeur_non_textuelle"
+            build(TABLE, [Criterion("postes", operateur, "1")])
+        assert (refus.value.code, refus.value.detail) == (
+            "comparaison_textuelle_non_applicable",
+            "postes",
+        )
 
     def test_le_tri_ne_porte_que_sur_une_colonne_declaree(self) -> None:
         with pytest.raises(FilterError) as refus:

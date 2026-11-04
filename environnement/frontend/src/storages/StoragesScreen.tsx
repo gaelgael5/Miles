@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { type Criterion, type Storage, useStorageObjects, useStorages } from "../api/storages";
-import { StorageFilters } from "./StorageFilters";
+import { StorageFilters, emptyCriteria } from "./StorageFilters";
 import { StorageObjects } from "./StorageObjects";
 
 /**
@@ -57,7 +57,9 @@ export function StoragesScreen() {
           promettrait un geste impossible, et le message de la ligne dit déjà
           pourquoi. */}
       {storage !== null && storage.refusal === null && storage.applied_at !== null && (
-        <StorageSearch storage={storage} />
+        // Remonté quand on change d'espace : les filtres sont ceux de SES colonnes, et
+        // la page courante celle de SA recherche.
+        <StorageSearch key={storage.name} storage={storage} />
       )}
     </section>
   );
@@ -145,7 +147,9 @@ function StorageRow({
 /** La recherche dans le storage ouvert : ses filtres, et ce qu'ils rendent. */
 function StorageSearch({ storage }: { storage: Storage }) {
   const { t } = useTranslation();
-  const [criteria, setCriteria] = useState<Criterion[]>([]);
+  // Un critère par propriété filtrable, tous vides : la barre de filtres les porte
+  // comme autant de colonnes, et il n'y a plus de critère à ajouter avant de chercher.
+  const [criteria, setCriteria] = useState<Criterion[]>(() => emptyCriteria(storage));
   const [page, setPage] = useState(1);
   const objects = useStorageObjects(storage.name, criteria, page, storage.applied_at !== null);
 

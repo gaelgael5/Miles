@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { request } from "@miles/socle-web";
 
+import { KEY_COLUMN, encodedKey } from "./storageKey";
+
 /**
  * Les espaces de stockage de cette stack, tels que la version servie les déclare.
  *
@@ -62,7 +64,26 @@ export interface Criterion {
   value: string;
 }
 
-export const OPERATORS = ["eq", "ne", "prefixe", "gt", "ge", "lt", "le"] as const;
+/**
+ * Les comparaisons offertes, par famille de type SQL — et rien d'autre.
+ *
+ * « contient » d'abord : c'est l'opérateur par DÉFAUT d'une colonne de texte (Gael,
+ * 04/11/2026), parce qu'on cherche un fragment bien plus souvent qu'une valeur exacte.
+ * Les comparaisons textuelles ne sont pas offertes sur un nombre ou un booléen : le
+ * serveur les refuse, et proposer ici ce qui sera refusé là-bas ferait découvrir le
+ * refus après coup.
+ */
+export const OPERATORS: Record<string, readonly string[]> = {
+  text: ["contient", "prefixe", "eq", "ne"],
+  bigint: ["eq", "ne", "gt", "ge", "lt", "le"],
+  numeric: ["eq", "ne", "gt", "ge", "lt", "le"],
+  boolean: ["eq", "ne"],
+};
+
+/** Les comparaisons offertes sur cette colonne, la première étant celle par défaut. */
+export function operatorsFor(sqlType: string): readonly string[] {
+  return OPERATORS[sqlType] ?? OPERATORS.text ?? [];
+}
 
 export function useStorages() {
   return useQuery({
@@ -84,9 +105,11 @@ export function useStorageObjects(
   page: number,
   enabled: boolean,
 ) {
+  // Un critère sans valeur n'est pas un critère : la barre de filtres porte une colonne
+  // par propriété filtrable, et la plupart restent vides.
   const f = criteria
     .filter((c) => c.column !== "" && c.value !== "")
-    .map((c) => `${c.column}:${c.operator}:${c.value}`);
+    .map((c) => `${c.column}:${c.operator}:${searchedValue(c)}`);
   const params = new URLSearchParams();
   for (const critere of f) {
     params.append("f", critere);
@@ -100,4 +123,11 @@ export function useStorageObjects(
         signal,
       }),
   });
+}
+
+/** Ce qui part au serveur : ce qui a été tapé, sauf sur la clé, qui a sa forme. */
+function searchedValue(criterion: Criterion): string {
+  return criterion.column === KEY_COLUMN
+    ? encodedKey(criterion.value, criterion.operator)
+    : criterion.value;
 }

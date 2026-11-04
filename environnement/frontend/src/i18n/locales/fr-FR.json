@@ -58,14 +58,19 @@
     "page": "Page {{page}} sur {{pages}}",
     "filters": {
       "title": "Filtres de recherche",
-      "property": "Propriété",
-      "operator": "Comparaison",
-      "value": "Valeur",
-      "choose": "Choisir une propriété",
-      "add": "Ajouter un filtre",
-      "remove": "Retirer le filtre {{rank}}"
+      "operatorOn": "Comparaison sur {{property}}"
+    },
+    "table": "Objets trouvés",
+    "columns": {
+      "key": "Clé",
+      "seen": "Vu le"
+    },
+    "detail": {
+      "title": "Objet",
+      "none": "Choisir une ligne pour voir son modèle."
     },
     "operators": {
+      "contient": "contient",
       "eq": "égale",
       "ne": "différente de",
       "prefixe": "commence par",
@@ -99,7 +104,7 @@
       "critere_malforme": "Un filtre est incomplet.",
       "operateur_inconnu": "Cette comparaison n'est pas offerte.",
       "valeur_hors_type": "La valeur donnée n'est pas du type de cette propriété.",
-      "prefixe_sur_valeur_non_textuelle": "« {{property}} » n'est pas du texte : « commence par » ne s'y applique pas.",
+      "comparaison_textuelle_non_applicable": "« {{property}} » n'est pas du texte : « contient » et « commence par » ne s'y appliquent pas.",
       "nom_invalide": "Un nom de propriété est invalide.",
       "unexpected": "La recherche a échoué. Voyez les journaux du service."
     }

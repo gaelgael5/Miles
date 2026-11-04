@@ -18,6 +18,7 @@ import asyncpg
 import pytest
 from miles_socle.testing.enrolment_double import EnrolmentDouble
 
+from environnement.ingestion.keys import key_of
 from tests.integration.bundles import VersionFabriquee, fabrique_parametrage
 from tests.integration.environnement_stack import EnvironnementStack, open_stack
 from tests.integration.versions import sert
@@ -29,35 +30,17 @@ WORKSPACE = "reseau-ferroviaire"
 # doit DISCRIMINER. Avec des valeurs toutes différentes, un filtre faux resterait vert.
 # Les dates franchissent un changement d'année et se suivent à un jour près : un tri qui
 # couperait l'ISO-8601 ou le relirait en nombre les mélangerait, et le test le verrait.
-COMPTES = [
-    (
-        "A-1",
-        {
-            "AccountId": "A-1",
-            "Postes": 3,
-            "Ouvert": "2026-01-09",
-            "Contact": {"Phone": "0102030405"},
-        },
-    ),
-    (
-        "A-2",
-        {
-            "AccountId": "A-2",
-            "Postes": 12,
-            "Ouvert": "2025-12-31",
-            "Contact": {"Phone": "0102999999"},
-        },
-    ),
-    (
-        "A-3",
-        {
-            "AccountId": "A-3",
-            "Postes": 7,
-            "Ouvert": "2026-01-10",
-            "Contact": {"Phone": "0600000000"},
-        },
-    ),
+OBJETS = [
+    {"AccountId": "A-1", "Postes": 3, "Ouvert": "2026-01-09", "Contact": {"Phone": "0102030405"}},
+    {"AccountId": "A-2", "Postes": 12, "Ouvert": "2025-12-31", "Contact": {"Phone": "0102999999"}},
+    {"AccountId": "A-3", "Postes": 7, "Ouvert": "2026-01-10", "Contact": {"Phone": "0600000000"}},
 ]
+# Les clés sont fabriquées par la FONCTION DE PRODUCTION, jamais écrites à la main : le
+# jeu d'essai portait « A-1 » là où l'ingestion écrit `["A-1"]`, une forme qui n'existe
+# dans aucune base. Les filtres passaient donc contre une clé inventée, et la recherche
+# par clé était fausse sur la vraie stack sans qu'aucun test ne puisse le voir
+# (Gael, 04/11/2026 : « le filtre ne fonctionne pas »).
+COMPTES = [(key_of(objet, ("$.AccountId",)), objet) for objet in OBJETS]
 
 
 async def _prepare(
@@ -87,13 +70,34 @@ async def test_la_cle_fonctionnelle_retrouve_un_objet(blank_db: str, tmp_path: P
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _prepare(stack, double, versions[1])
 
-        page = await _cherche(stack, f="cle:eq:A-2")
+        # La forme CANONIQUE, celle que l'ingestion écrit : un tableau JSON, même pour
+        # une clé d'une seule partie. L'écrire en toutes lettres ici est volontaire — si
+        # `key_of` change de forme, ce test doit rougir, pas suivre en silence.
+        page = await _cherche(stack, f='cle:eq:["A-2"]')
 
-        assert [o["cle"] for o in page["objects"]] == ["A-2"]
+        assert [o["cle"] for o in page["objects"]] == ['["A-2"]']
         assert page["total"] == 1
         assert page["objects"][0]["objet"]["Postes"] == 12
         # Les colonnes projetées voyagent avec l'objet : elles disent POURQUOI il est là.
         assert page["objects"][0]["columns"]["contact_phone"] == "0102999999"
+
+
+async def test_la_cle_se_retrouve_par_une_de_ses_parties_sans_sa_forme_canonique(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Ce que l'écran envoie par défaut : la personne tape « A-2 », pas `["A-2"]`.
+
+    C'est l'opérateur « contient » qui traverse la forme canonique. Sans lui, filtrer sur
+    la clé demandait de taper les crochets et les guillemets — autant dire ne pas filtrer.
+    """
+    versions = fabrique_parametrage(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _prepare(stack, double, versions[1])
+
+        page = await _cherche(stack, f="cle:contient:A-2")
+
+        assert [o["cle"] for o in page["objects"]] == ['["A-2"]']
 
 
 async def test_un_prefixe_sur_une_propriete_indexee_discrimine(
@@ -106,7 +110,7 @@ async def test_un_prefixe_sur_une_propriete_indexee_discrimine(
 
         page = await _cherche(stack, f="contact_phone:prefixe:0102")
 
-        assert sorted(o["cle"] for o in page["objects"]) == ["A-1", "A-2"]
+        assert sorted(o["cle"] for o in page["objects"]) == ['["A-1"]', '["A-2"]']
 
 
 async def test_une_comparaison_numerique_rend_l_ordre_des_nombres_et_non_des_textes(
@@ -124,7 +128,7 @@ async def test_une_comparaison_numerique_rend_l_ordre_des_nombres_et_non_des_tex
 
         page = await _cherche(stack, f="postes:gt:5", tri="postes")
 
-        assert [o["cle"] for o in page["objects"]] == ["A-3", "A-2"]
+        assert [o["cle"] for o in page["objects"]] == ['["A-3"]', '["A-2"]']
 
 
 async def test_des_criteres_combines_rendent_l_intersection(blank_db: str, tmp_path: Path) -> None:
@@ -135,7 +139,7 @@ async def test_des_criteres_combines_rendent_l_intersection(blank_db: str, tmp_p
 
         page = await _cherche(stack, f=["contact_phone:prefixe:0102", "postes:ge:10"])
 
-        assert [o["cle"] for o in page["objects"]] == ["A-2"]
+        assert [o["cle"] for o in page["objects"]] == ['["A-2"]']
 
 
 async def test_le_plan_d_execution_emprunte_l_index_declare(blank_db: str, tmp_path: Path) -> None:
@@ -193,7 +197,7 @@ async def test_la_pagination_ne_recouvre_rien_et_n_omet_rien(blank_db: str, tmp_
         assert len(deux["objects"]) == 1
         assert une["total"] == deux["total"] == 3
         vues = [o["cle"] for o in une["objects"]] + [o["cle"] for o in deux["objects"]]
-        assert sorted(vues) == ["A-1", "A-2", "A-3"]
+        assert sorted(vues) == ['["A-1"]', '["A-2"]', '["A-3"]']
 
 
 async def test_un_storage_vide_rend_une_page_vide_et_non_une_erreur(
@@ -330,7 +334,10 @@ async def test_une_propriete_ABSENTE_de_l_objet_vaut_null_et_un_filtre_d_egalite
     double = EnrolmentDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await sert(stack, double, versions[2])
-        for cle, objet in (("S-1", {"Id": "S-1", "Zipcode": "59000"}), ("S-2", {"Id": "S-2"})):
+        # Clés fabriquées comme en production, jamais à la main : c'est ce qui manquait
+        # au jeu d'essai, et ce qui laissait passer une recherche par clé fausse.
+        for objet in ({"Id": "S-1", "Zipcode": "59000"}, {"Id": "S-2"}):
+            cle = key_of(objet, ("$.Id",))
             await stack.pool.execute(
                 "INSERT INTO pudo.sites (cle, objet, empreinte, version_modele)"
                 " VALUES ($1, $2::jsonb, $3, 2)",
@@ -340,17 +347,17 @@ async def test_une_propriete_ABSENTE_de_l_objet_vaut_null_et_un_filtre_d_egalite
             )
 
         manquante = await stack.pool.fetchval(
-            "SELECT zipcode FROM pudo.sites WHERE cle = $1", "S-2"
+            "SELECT zipcode FROM pudo.sites WHERE cle = $1", '["S-2"]'
         )
         egalite = await _cherche(stack, storage="sites", f="zipcode:eq:59000")
         tous = await _cherche(stack, storage="sites")
 
         assert manquante is None
-        assert [o["cle"] for o in egalite["objects"]] == ["S-1"]
+        assert [o["cle"] for o in egalite["objects"]] == ['["S-1"]']
         # L'objet sans la propriété reste dans le storage : il est écarté du FILTRE, pas
         # de la table, et la colonne nulle voyage avec lui.
-        assert sorted(o["cle"] for o in tous["objects"]) == ["S-1", "S-2"]
-        sans = next(o for o in tous["objects"] if o["cle"] == "S-2")
+        assert sorted(o["cle"] for o in tous["objects"]) == ['["S-1"]', '["S-2"]']
+        sans = next(o for o in tous["objects"] if o["cle"] == '["S-2"]')
         assert sans["columns"]["zipcode"] is None
 
 
@@ -374,10 +381,10 @@ async def test_une_comparaison_sur_une_propriete_DATE_rend_l_ordre_chronologique
         chronologie = await _cherche(stack, tri="ouvert")
 
         # A-2 est ouvert le 31/12/2025 : exclu par la comparaison STRICTE.
-        assert [o["cle"] for o in apres_la_saint_sylvestre["objects"]] == ["A-1", "A-3"]
-        assert [o["cle"] for o in intervalle["objects"]] == ["A-3"]
+        assert [o["cle"] for o in apres_la_saint_sylvestre["objects"]] == ['["A-1"]', '["A-3"]']
+        assert [o["cle"] for o in intervalle["objects"]] == ['["A-3"]']
         # Le changement d'année est franchi dans le bon sens, et le 09 précède le 10.
-        assert [o["cle"] for o in chronologie["objects"]] == ["A-2", "A-1", "A-3"]
+        assert [o["cle"] for o in chronologie["objects"]] == ['["A-2"]', '["A-1"]', '["A-3"]']
 
 
 async def test_le_TRI_sur_une_propriete_indexee_emprunte_son_index(

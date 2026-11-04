@@ -58,14 +58,19 @@
     "page": "Page {{page}} of {{pages}}",
     "filters": {
       "title": "Search filters",
-      "property": "Property",
-      "operator": "Comparison",
-      "value": "Value",
-      "choose": "Choose a property",
-      "add": "Add a filter",
-      "remove": "Remove filter {{rank}}"
+      "operatorOn": "Comparison on {{property}}"
+    },
+    "table": "Objects found",
+    "columns": {
+      "key": "Key",
+      "seen": "Seen"
+    },
+    "detail": {
+      "title": "Object",
+      "none": "Pick a row to see its model."
     },
     "operators": {
+      "contient": "contains",
       "eq": "equals",
       "ne": "differs from",
       "prefixe": "starts with",
@@ -99,7 +104,7 @@
       "critere_malforme": "A filter is incomplete.",
       "operateur_inconnu": "This comparison is not offered.",
       "valeur_hors_type": "The given value is not of this property's type.",
-      "prefixe_sur_valeur_non_textuelle": "“{{property}}” is not text: “starts with” does not apply to it.",
+      "comparaison_textuelle_non_applicable": "“{{property}}” is not text: “contains” and “starts with” do not apply to it.",
       "nom_invalide": "A property name is invalid.",
       "unexpected": "The search failed. See the service logs."
     }
