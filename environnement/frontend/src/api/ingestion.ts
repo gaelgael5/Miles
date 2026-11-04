@@ -156,12 +156,33 @@ export function responsesOf(spec: Record<string, unknown>): ContractResponse[] {
     .sort((left, right) => left.status.localeCompare(right.status));
 }
 
+/**
+ * Essaie une méthode en déposant `body` tel quel.
+ *
+ * `File` autant que `string` : le mode fichier dépose un DOCUMENT choisi sur le disque
+ * (critère 21 de la story 0f14adbd), et le relais est le même — la route d'écran recopie
+ * le corps vers le point d'entrée. Le type de contenu annoncé dit ce qui est vraiment
+ * envoyé ; la route d'essai ne s'en sert pas, elle présente celui de l'ingestion.
+ */
 export function useTryMethod() {
   return useMutation({
-    mutationFn: ({ source, mode, body }: { source: string; mode: string; body: string }) =>
+    mutationFn: ({
+      source,
+      mode,
+      body,
+    }: {
+      source: string;
+      mode: string;
+      body: string | File;
+    }) =>
       request<Trial>(
         `/api/ingestion/try/${encodeURIComponent(source)}/${encodeURIComponent(mode)}`,
-        { method: "POST", body },
+        {
+          method: "POST",
+          body,
+          headers:
+            typeof body === "string" ? {} : { "Content-Type": "application/octet-stream" },
+        },
       ),
   });
 }

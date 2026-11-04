@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { ApiError } from "@miles/socle-web";
 
+import { FileTrialForm } from "./FileTrialForm";
 import {
   type ContractResponse,
   type Method,
@@ -80,6 +81,9 @@ function MethodCard({ method }: { method: Method }) {
     method.example === null ? "" : `${JSON.stringify(method.example, null, 2)}\n`,
   );
   const trial = useTryMethod();
+  // Le mode fichier dépose un DOCUMENT choisi sur le disque, et non un corps saisi : son
+  // découpage désigne un tableau dedans, et un document d'import ne se tape pas.
+  const fichier = method.mode === "fichier";
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -110,6 +114,14 @@ function MethodCard({ method }: { method: Method }) {
           bouton promettrait un essai qu'aucune saisie ne peut faire aboutir. */}
       {!method.served || method.model_refusal !== null ? (
         !method.served && <p className="muted">{t("ingestion.methods.notServed")}</p>
+      ) : fichier ? (
+        <FileTrialForm
+          method={method}
+          pending={trial.isPending}
+          onDeposit={(choisi) =>
+            trial.mutate({ source: method.source, mode: method.mode, body: choisi })
+          }
+        />
       ) : (
         <form onSubmit={submit} aria-label={t("ingestion.methods.form", { path: method.path })}>
           <label className="field">

@@ -26,9 +26,16 @@ const FICHIER: Method = {
   ...TABLEAU,
   mode: "fichier",
   path: "/ingest/magasins-import/fichier",
-  served: false,
-  example: null,
+  served: true,
+  // Le gabarit d'un mode fichier est un DOCUMENT : le découpage déclaré par la source
+  // désigne un tableau dedans, et c'est le serveur qui en dérive la forme.
+  example: { magasins: [{ code: "code", nom: "nom", postes: 0 }] },
 };
+// Un mode que le paramétrage déclare et que la stack ne sert pas encore. Aucun n'est dans
+// ce cas aujourd'hui — les trois sont servis depuis le 04/11/2026 —, mais le drapeau vient
+// du serveur, et l'écran doit continuer de l'honorer pour le prochain mode ajouté.
+const NON_SERVI: Method = { ...FICHIER, served: false, example: null };
+const ESSAI_FICHIER = "POST /api/ingestion/try/magasins-import/fichier";
 const ESSAI = "POST /api/ingestion/try/magasins-import/tableau";
 const ACCUSE = {
   id: "a".repeat(32),
@@ -154,8 +161,8 @@ describe("les méthodes du service d'ingestion", () => {
     expect(screen.getByText(/ligne 1 colonne 12/)).toBeInTheDocument();
   });
 
-  it("montre la troisième méthode sans bouton, et dit qu'elle n'est pas servie", async () => {
-    monte(methodes(FICHIER));
+  it("montre un mode non servi sans bouton, et dit pourquoi", async () => {
+    monte(methodes(NON_SERVI));
 
     expect(await screen.findByText(/is not served yet/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Deposit" })).not.toBeInTheDocument();
@@ -222,5 +229,57 @@ describe("les méthodes du service d'ingestion", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not be read/i);
     expect(screen.queryByText(/no method/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("la troisième méthode, le mode fichier", () => {
+  it("offre un CHOIX DE FICHIER, et non une zone de texte", async () => {
+    monte(methodes(FICHIER));
+
+    expect(await screen.findByLabelText(/Document to deposit/i)).toHaveAttribute("type", "file");
+    // Pas de corps à saisir : ce qu'on dépose est un document, pas un lot tapé à la main.
+    expect(screen.queryByLabelText(/Body to deposit/i)).not.toBeInTheDocument();
+    // Et la mention « pas encore servie » a disparu, puisque le mode l'est.
+    expect(screen.queryByText(/is not served yet/i)).not.toBeInTheDocument();
+  });
+
+  it("montre la forme ATTENDUE DU DOCUMENT, découpage compris", async () => {
+    monte(methodes(FICHIER));
+
+    // Le gabarit est celui du document — le tableau est là où le découpage le cherche —,
+    // et non celui d'un objet seul, qui n'aurait pas dit quoi déposer.
+    expect(await screen.findByText(/"magasins":/)).toBeInTheDocument();
+  });
+
+  it("ne dépose pas tant qu'aucun fichier n'est choisi", async () => {
+    monte(methodes(FICHIER));
+
+    expect(await screen.findByRole("button", { name: "Deposit" })).toBeDisabled();
+  });
+
+  it("relaie le fichier choisi et montre l'acquittement de prise en charge", async () => {
+    const calls = monte({
+      ...methodes(FICHIER),
+      [ESSAI_FICHIER]: {
+        status: 200,
+        body: {
+          status: 202,
+          body: { id: "b".repeat(32), state: "en_file", report: null, replayed: false },
+        },
+      },
+    });
+    const champ = (await screen.findByLabelText(/Document to deposit/i)) as HTMLInputElement;
+    const document = new File(['{"magasins": [{"code": "M-1"}]}'], "magasins.json", {
+      type: "application/json",
+    });
+
+    fireEvent.change(champ, { target: { files: [document] } });
+    fireEvent.click(screen.getByRole("button", { name: "Deposit" }));
+
+    expect(await screen.findByText(/HTTP response 202/)).toBeInTheDocument();
+    // L'accusé ne porte PAS de compte-rendu : l'import se déroule après, et l'écran ne
+    // doit pas faire lire un 202 comme un import sans objet.
+    expect(await screen.findByText(/"state": "en_file"/)).toBeInTheDocument();
+    expect(calls.some((appel) => appel.key === ESSAI_FICHIER)).toBe(true);
   });
 });

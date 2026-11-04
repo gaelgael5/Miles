@@ -21,9 +21,10 @@ from typing import Any
 
 from miles_socle.parametrage.example import example_of
 from miles_socle.parametrage.layout import MODEL_RE
+from miles_socle.transform.jpath import SplitRefusal, read_stream_split
 
 from environnement.hosting.gitstore import HostedTree
-from environnement.ingestion.model import BATCH, MODES, SERVED_MODES
+from environnement.ingestion.model import BATCH, FILE, MODES, SERVED_MODES
 from environnement.ingestion.resolve import exposes
 from environnement.sources.declarations import file_declared_sources
 from environnement.storages.declarations import file_model_schema
@@ -53,6 +54,9 @@ class Endpoint:
     # Faux pour un mode que le paramétrage déclare mais que la stack ne sert pas encore.
     # Distingué, et non masqué : l'afficher comme disponible promettrait un dépôt refusé.
     served: bool
+    # Le découpage que l'entrée déclare, tel quel. Porté jusqu'ici parce que le gabarit du
+    # mode fichier est un DOCUMENT, et que c'est le découpage qui dit où ses items vont.
+    split: str
 
 
 async def file_endpoints(tree: HostedTree, *, ingest_path: str) -> tuple[Endpoint, ...]:
@@ -74,6 +78,7 @@ async def file_endpoints(tree: HostedTree, *, ingest_path: str) -> tuple[Endpoin
                     mode=mode,
                     path=ingest_path.format(source=nom, mode=mode),
                     served=mode in SERVED_MODES,
+                    split=entree.split,
                 )
                 for mode in MODES
                 if exposes(entree, mode)
@@ -139,7 +144,7 @@ class IngestionMethods:
                     served=point.served,
                     schema=schema,
                     model_refusal=refus,
-                    example=_example(schema, point.mode),
+                    example=_example(schema, point.mode, point.split),
                 )
             )
         return tuple(methodes)
@@ -156,10 +161,34 @@ class IngestionMethods:
         return schema, None
 
 
-def _example(schema: Any | None, mode: str) -> Any | None:
+def _example(schema: Any | None, mode: str, split: str) -> Any | None:
     if schema is None or mode not in SERVED_MODES:
         return None
     gabarit = example_of(schema)
     # `tableau` dépose un TABLEAU d'objets, `element` un objet. Un seul élément suffit :
     # ce qu'on montre est la forme, et deux éléments identiques n'apprendraient rien.
-    return [gabarit] if mode == BATCH else gabarit
+    if mode == BATCH:
+        return [gabarit]
+    if mode == FILE:
+        return _document(gabarit, split)
+    return gabarit
+
+
+def _document(gabarit: Any, split: str) -> Any | None:
+    """Le DOCUMENT attendu en mode fichier : le gabarit, là où le découpage le cherche.
+
+    Un objet seul n'aurait rien appris : ce qu'on dépose est un document, et le découpage
+    désigne un tableau DEDANS. Montrer la forme du document est donc la seule façon de
+    dire quoi déposer — et elle se dérive du découpage, jamais d'une convention de nom.
+
+    Découpage illisible : aucun gabarit. Le dépôt sera refusé pour cette raison même, et
+    proposer un document qui ne colle pas à la déclaration enverrait corriger l'export là
+    où c'est le paramétrage qui est en cause.
+    """
+    lu = read_stream_split(split)
+    if isinstance(lu, SplitRefusal):
+        return None
+    porte: Any = [gabarit]
+    for key in reversed(lu.keys):
+        porte = [porte] if isinstance(key, int) else {key: porte}
+    return porte

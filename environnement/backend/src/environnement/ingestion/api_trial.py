@@ -163,6 +163,13 @@ async def try_method(source: str, mode: str, request: Request, service: Trial) -
     codes et leurs positions, et c'est précisément ce qu'on veut montrer. Le seul contrôle
     fait avant est la taille, parce qu'il est inutile de recopier un corps démesuré dans
     un appel interne pour le faire refuser à l'arrivée.
+
+    **Le mode fichier passe par ici comme les autres** (critère 21 de la story 0f14adbd) :
+    le corps est alors le document, et le relais est le même. La borne, en revanche, reste
+    celle de la MÉMOIRE — l'essai lit le corps entier pour le recopier dans un appel
+    interne, là où le vrai point d'entrée écrit son flux sur le disque sans le garder. Un
+    essai depuis l'écran sert à voir ce qu'un partenaire recevra, pas à éprouver un
+    gigaoctet : c'est ce que dit le refus, avec sa borne dedans.
     """
     corps = await request.body()
     if len(corps) > MAX_BODY_BYTES:

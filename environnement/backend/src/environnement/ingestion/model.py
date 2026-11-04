@@ -13,11 +13,17 @@ ELEMENT = "element"
 BATCH = "tableau"
 FILE = "fichier"
 MODES = (ELEMENT, BATCH, FILE)
-# Les modes que CE ticket sert. `fichier` est déclarable par le paramétrage et refusé
-# ici, nommément : son dépôt sur disque et son traitement en flux sont la story 0f14adbd.
-# Refusé plutôt qu'accepté sans effet — un acquittement sur un mode non branché
-# laisserait croire qu'un lot a été pris en charge.
-SERVED_MODES = (ELEMENT, BATCH)
+# Les modes que CETTE stack sert. Les trois depuis le 04/11/2026 : `fichier` était
+# déclarable par le paramétrage et refusé ici en attendant son dépôt sur disque et son
+# traitement en flux (story 0f14adbd), qui sont faits.
+#
+# LA DISTINCTION RESTE, et `mode_non_servi` est donc aujourd'hui inatteignable — c'est
+# dit pour que personne ne cherche le cas. Elle reste parce qu'elle n'est pas un vestige
+# de cette story : c'est le mécanisme par lequel un mode que le paramétrage sait déclarer
+# peut précéder son service ici, et le prochain mode ajouté en aura besoin le jour où il
+# sera écrit dans la grammaire des sources avant d'être branché. Un acquittement sur un
+# mode non branché laisserait croire qu'un lot a été pris en charge.
+SERVED_MODES = (ELEMENT, BATCH, FILE)
 
 RECEIVED_EVENT = "environment.ingestion_received"
 EVENT_TYPES = frozenset({RECEIVED_EVENT})

@@ -5,6 +5,7 @@ import json
 import pytest
 from miles_socle.parametrage.sources import MAX_BATCH, Entry, EntryModes, SourceDoc
 
+from environnement.ingestion import resolve
 from environnement.ingestion.model import (
     BATCH,
     ELEMENT,
@@ -107,10 +108,30 @@ class TestCeQuUneAdresseDesigne:
         assert target_of(declarees, "comptes", ELEMENT).entry.source_model == "pudo/compte"
         assert target_of(declarees, "comptes", BATCH).entry.source_model == "pudo/partenaire"
 
-    def test_le_mode_fichier_declare_est_refuse_comme_NON_SERVI(self) -> None:
+    def test_le_mode_fichier_est_SERVI_depuis_le_04_11_2026(self) -> None:
+        """Il était refusé « non servi » en attendant son dépôt sur disque et son
+        traitement en flux (story 0f14adbd). Les trois modes sont servis depuis.
+
+        La DISTINCTION reste éprouvée juste en dessous, sur un mode imaginaire : c'est le
+        mécanisme qui compte, et il n'a pas de cas réel aujourd'hui."""
+        cible = target_of(_declarees(_entree(fichier=True)), "comptes", FILE)
+
+        assert (cible.mode, cible.entry.modes.file) == (FILE, True)
+
+    def test_un_mode_declare_que_la_stack_ne_sert_pas_est_refuse_comme_NON_SERVI(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Distinct de « non déclaré » : le geste à faire n'est pas de cocher le mode,
         c'est d'attendre la story qui le sert. Accepter sans effet laisserait croire
-        qu'un lot a été pris en charge."""
+        qu'un lot a été pris en charge.
+
+        Éprouvé en RETIRANT un mode de la liste des modes servis, puisque les trois le
+        sont désormais. Ce n'est pas un test de confort : le jour où un quatrième mode
+        entre dans la grammaire des sources avant d'être branché, c'est ce refus qui dira
+        à l'appelant quoi attendre, et il doit déjà mordre.
+        """
+        monkeypatch.setattr(resolve, "SERVED_MODES", (ELEMENT, BATCH))
+
         with pytest.raises(IngestionRefusal) as refus:
             target_of(_declarees(_entree(fichier=True)), "comptes", FILE)
 
