@@ -187,6 +187,11 @@ async def open_stack(
             # comme en production ; seul le répertoire est sous `tmp_path`, pour partir
             # avec le test. Un test qui veut éprouver un refus de quota monte sa propre
             # borne en argument plutôt que de déformer celle-ci.
+            jours = (
+                retention_days
+                if retention_days is not None
+                else _defaut("ingestion_files_retention_days")
+            )
             fichiers = DepositedFiles(
                 root=tmp_path / "ingestion",
                 max_bytes=file_max_bytes or _defaut("ingestion_file_max_bytes"),
@@ -204,6 +209,7 @@ async def open_stack(
                     apply_seconds=apply_seconds or float(_defaut("ingestion_apply_seconds")),
                     detail_cap=IMPORT_DETAIL_CAP,
                     transform_budget=_budget_par_defaut(),
+                    retention_days=jours,
                 ),
             )
             socle.app.state.ingestion_file_imports = imports
@@ -220,9 +226,7 @@ async def open_stack(
                 socle.pool,
                 fichiers,
                 utc_now,
-                retention_days
-                if retention_days is not None
-                else _defaut("ingestion_files_retention_days"),
+                jours,
                 imports.resolve_drain,
             )
             socle.app.state.ingestion_maintenance = entretien

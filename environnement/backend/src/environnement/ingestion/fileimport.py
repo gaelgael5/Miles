@@ -56,6 +56,7 @@ from environnement.ingestion.store_imports import (
     db_claim_next,
     db_finish_import,
     db_mark_applying,
+    db_mark_file_purged,
     db_set_metadata,
 )
 from environnement.ingestion.stream import file_iter_items, file_read_metadata
@@ -84,6 +85,12 @@ class ImportLimits:
     apply_seconds: float
     detail_cap: int
     transform_budget: int
+    # Jours de conservation du document déposé. ZÉRO est une configuration VALIDE
+    # (critère 20) : le document est alors ôté dès la fin de son import, et aucun rejeu
+    # n'est possible sans nouvel export du partenaire. Connue ici et pas seulement de
+    # l'entretien, parce que « dès la fin de l'import » ne s'obtient pas en attendant le
+    # prochain passage de celui-ci.
+    retention_days: int
 
 
 @dataclass(frozen=True)
@@ -144,6 +151,22 @@ class FileImports:
         )
         lus, incident = await self._stage(conn, job, prepared, cible.entry, chemin, keys)
         await self._write(conn, job, cible.entry, prepared, lus, incident)
+        await self._purge_now(conn, job)
+
+    async def _purge_now(self, conn: Any, job: ImportJob) -> None:
+        """Ôte le document si la rétention est nulle (critère 20).
+
+        Ici et non à l'entretien : « supprimé dès la fin de l'import » est la promesse
+        d'une rétention à zéro, et attendre le prochain passage de l'entretien aurait
+        laissé le document sur le disque entre-temps — c'est-à-dire aurait fait de zéro
+        une durée indéterminée.
+        """
+        if self.limits.retention_days > 0:
+            return
+        await self.files.file_remove(job.file_name)
+        # Marqué APRÈS le disque : marqué d'abord, un arrêt entre les deux laisserait un
+        # fichier que plus rien ne désigne, donc hors de portée de la purge.
+        await db_mark_file_purged(conn, job.id, self.now())
 
     async def _stage(
         self,

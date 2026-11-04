@@ -159,10 +159,23 @@ def _pose_chaine(depot: Path, slug: str, etapes: list[tuple[str, str]]) -> None:
         (repertoire / f"{nom}.jslt").write_text(template, encoding="utf-8")
 
 
-def _source(nom: str, storage: str, modele: str, modes: tuple[bool, bool, bool]) -> str:
-    """Une source et son unique entrée web. Les trois modes dans l'ordre déclaré."""
+def _source(
+    nom: str,
+    storage: str,
+    modele: str,
+    modes: tuple[bool, bool, bool],
+    *,
+    decoupage: str | None = None,
+    transaction_unifiee: bool = False,
+    lot_ecriture: int | None = None,
+) -> str:
+    """Une source et son unique entrée web. Les trois modes dans l'ordre déclaré.
+
+    Les trois paramètres du mode gros fichier sont portés par l'ENTRÉE depuis la refonte
+    des sources du 25/10/2026, et non par la déclaration du storage.
+    """
     element, tableau, fichier = modes
-    return (
+    rendu = (
         f'nom: "{nom}"\n'
         f'libelle: "{nom.title()}"\n'
         f'storage: "{storage}"\n'
@@ -175,6 +188,12 @@ def _source(nom: str, storage: str, modele: str, modes: tuple[bool, bool, bool])
         f"      tableau: {str(tableau).lower()}\n"
         f"      fichier: {str(fichier).lower()}\n"
     )
+    if decoupage is not None:
+        rendu += f'    decoupage: "{decoupage}"\n'
+    rendu += f"    transaction_unifiee: {str(transaction_unifiee).lower()}\n"
+    if lot_ecriture is not None:
+        rendu += f"    lot_ecriture: {lot_ecriture}\n"
+    return rendu
 
 
 def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
@@ -354,6 +373,54 @@ def fabrique_import(tmp_path: Path) -> dict[int, VersionFabriquee]:
     git(*AUTHOR, "commit", "-q", "-m", "import v1", cwd=depot)
     git(*AUTHOR, "tag", "-a", "version/1", "-m", "v1", cwd=depot)
     paquet = tmp_path / "import-v1.bundle"
+    git("bundle", "create", str(paquet), "version/1", cwd=depot)
+    commit = git("rev-parse", "version/1^{commit}", cwd=depot).strip()
+    return {1: VersionFabriquee(1, commit, paquet.read_bytes(), ("storages/magasins.yaml",))}
+
+
+def fabrique_import_fichier(
+    tmp_path: Path,
+    *,
+    decoupage: str = "$.magasins[*]",
+    transaction_unifiee: bool = False,
+    lot_ecriture: int = 2,
+) -> dict[int, VersionFabriquee]:
+    """UNE version dont la source expose le mode GROS FICHIER (story 0f14adbd).
+
+    Le même storage et la même chaîne que `fabrique_import` : ce qui change est ce que
+    l'entrée déclare — le mode, le découpage, l'unification et le lot d'écriture. Un
+    `lot_ecriture` petit par défaut, pour qu'un test de quelques items exerce vraiment
+    le découpage en paquets au lieu de tout préparer d'un coup.
+    """
+    depot = tmp_path / "import-fichier"
+    git("init", "-q", "-b", "main", str(depot))
+    (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
+    (depot / "storages").mkdir()
+    (depot / "sources").mkdir()
+    (depot / "domains/pudo/messages/magasin.yaml").write_text(MAGASIN_MODELE, encoding="utf-8")
+    (depot / "domains/pudo/messages/magasin-import.yaml").write_text(
+        MAGASIN_ENTREE, encoding="utf-8"
+    )
+    (depot / "storages/magasins.yaml").write_text(
+        _storage("magasins", "pudo/magasin", "$.Code", [("ville", ["$.Ville"])]), encoding="utf-8"
+    )
+    (depot / "sources/magasins-import.yaml").write_text(
+        _source(
+            "magasins-import",
+            "magasins",
+            "pudo/magasin-import",
+            (False, False, True),
+            decoupage=decoupage,
+            transaction_unifiee=transaction_unifiee,
+            lot_ecriture=lot_ecriture,
+        ),
+        encoding="utf-8",
+    )
+    _pose_chaine(depot, "vers-magasins", [("convertir", MAGASIN_TEMPLATE)])
+    git("add", "-A", cwd=depot)
+    git(*AUTHOR, "commit", "-q", "-m", "import fichier v1", cwd=depot)
+    git(*AUTHOR, "tag", "-a", "version/1", "-m", "v1", cwd=depot)
+    paquet = tmp_path / "import-fichier-v1.bundle"
     git("bundle", "create", str(paquet), "version/1", cwd=depot)
     commit = git("rev-parse", "version/1^{commit}", cwd=depot).strip()
     return {1: VersionFabriquee(1, commit, paquet.read_bytes(), ("storages/magasins.yaml",))}

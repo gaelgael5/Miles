@@ -170,6 +170,7 @@ def create_app() -> FastAPI:
                 apply_seconds=settings.ingestion_apply_seconds,
                 detail_cap=IMPORT_DETAIL_CAP,
                 transform_budget=settings.transform_budget,
+                retention_days=settings.ingestion_files_retention_days,
             ),
         )
         app.state.ingestion_file_imports = imports
