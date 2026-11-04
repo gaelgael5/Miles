@@ -1,0 +1,126 @@
+from __future__ import annotations
+
+import json
+from collections.abc import Callable
+from datetime import datetime
+
+import structlog
+from miles_socle.apikeys.presentation import key_from_headers
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+from miles.apikeys.model import KeyPrincipal
+from miles.apikeys.service import ApiKeysService
+from miles.oauth.access import OAuthAccess
+from miles.oauth.model import ACCESS_PREFIX as OAUTH_ACCESS_PREFIX
+from miles.obo.service import Actor, ActorIdentitiesService
+from miles.obo.signature import ACTOR_HEADER, signed_actor
+
+log = structlog.get_logger(__name__)
+
+PRINCIPAL_STATE = "miles_principal"
+# Les services de Miles : dans l'app MCP montée, `request.app` est l'app du SDK, pas Miles.
+SERVICES_STATE = "miles_services"
+# La personne derrière l'appel, si le portail l'a signée (OBO) ; None : la clé seule.
+ACTOR_STATE = "miles_actor"
+
+
+def presented_key(headers: dict[bytes, bytes]) -> str | None:
+    """La clé présentée : `Authorization: Bearer` ou `X-API-Key`, jamais l'URL (critère 6).
+
+    La RÈGLE est au socle depuis le 02/11/2026 (deuxième usage : le point d'entrée
+    d'ingestion d'un environnement présente sa clé de la même façon). Ce qui reste ici est
+    la lecture des en-têtes ASGI, qui est propre à cette garde — elle est un middleware et
+    voit des octets, là où une route FastAPI voit un dictionnaire de chaînes.
+    """
+    return key_from_headers(
+        headers.get(b"authorization", b"").decode("latin-1"),
+        headers.get(b"x-api-key", b"").decode("latin-1"),
+    )
+
+
+class ApiKeyAuth:
+    """Garde de la surface MCP : sans clé active, rien ne passe (fail closed).
+
+    Hors de la passerelle des sessions, qui ne garde que /api : la surface MCP n'accepte
+    aucune session, et l'IHM n'accepte aucune clé (critère 9). Un seul refus, 401, quelle
+    que soit la raison, pour ne pas dire de l'extérieur si une clé existe (critère 5).
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        app_state = scope["app"].state
+        raw = presented_key(dict(scope["headers"]))
+        principal: KeyPrincipal | None = None
+        actor: Actor | None = None
+        if raw is not None and raw.startswith(OAUTH_ACCESS_PREFIX):
+            # Jeton OAuth (story 9f09cd8b) : la personne est celle qui a consenti, pas un
+            # acteur signé par un tiers ; l'en-tête OBO n'a donc rien à y ajouter.
+            oauth: OAuthAccess = app_state.oauth_access
+            resolved = await oauth.resolve_access(raw)
+            if resolved is not None:
+                principal, actor = resolved
+        elif raw is not None:
+            keys: ApiKeysService = app_state.api_keys
+            principal = await keys.resolve_authenticate(raw)
+            if principal is not None:
+                actor = await _actor(scope, raw, principal)
+        if principal is None or raw is None:
+            # Ni la clé ni son préfixe au journal : une clé mal saisie reste un secret.
+            log.info("mcp_acces_refuse", presented=raw is not None)
+            await _unauthorized(send, getattr(app_state, "public_url", None))
+            return
+        state = scope.setdefault("state", {})
+        state[PRINCIPAL_STATE] = principal
+        state[SERVICES_STATE] = app_state
+        state[ACTOR_STATE] = actor
+        await self.app(scope, receive, send)
+
+
+async def _actor(scope: Scope, raw: str, principal: KeyPrincipal) -> Actor | None:
+    """La personne signée par le portail ; None si rien de valide (contrat OBO v6).
+
+    Attribution, jamais autorisation : les droits restent ceux de la clé, et quiconque
+    détient la clé peut signer n'importe quel acteur. Seuls les en-têtes comptent, jamais
+    un acteur lu dans le corps d'un appel.
+    """
+    headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope["headers"]}
+    if ACTOR_HEADER not in headers:
+        return None
+    now: Callable[[], datetime] = scope["app"].state.api_keys.now
+    actor = signed_actor(headers, raw, now().timestamp())
+    if actor is None:
+        log.info("obo_signature_ignoree", key=principal.key_id)
+        return None
+    identities: ActorIdentitiesService = scope["app"].state.actor_identities
+    found = await identities.resolve_find(actor)
+    if found is None:
+        # Décision journalisée (critère 3) : un acteur signé que Miles ne connaît pas,
+        # c'est presque toujours un GUID pas encore recopié dans le profil Miles.
+        log.info("obo_acteur_inconnu", key=principal.key_id, actor=actor)
+    return found
+
+
+async def _unauthorized(send: Send, public_url: str | None) -> None:
+    body = json.dumps({"detail": "cle_requise"}).encode()
+    challenge = 'Bearer realm="miles-mcp"'
+    if public_url is not None:
+        # RFC 9728 §5.1 : c'est par ce lien qu'un client MCP (claude.ai) découvre où
+        # obtenir un jeton. Sans adresse publique configurée, on ne l'invente pas.
+        metadata = f"{public_url}/.well-known/oauth-protected-resource"
+        challenge += f', resource_metadata="{metadata}"'
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"www-authenticate", challenge.encode()),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})

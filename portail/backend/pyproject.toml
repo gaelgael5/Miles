@@ -1,0 +1,95 @@
+[project]
+name = "miles"
+version = "0.1.0"
+description = "Back-office Miles du terminal point relais"
+requires-python = ">=3.12"
+dependencies = [
+    "aiomqtt==2.5.1",
+    "argon2-cffi>=23.1",
+    "asyncpg>=0.30",
+    # Données CLDR. Dépendance d'EXÉCUTION depuis le 30/10/2026, et c'est une décision :
+    # les libellés des pays et des fuseaux sont dérivés au moment d'afficher, dans la
+    # culture du visiteur, plutôt que chargés en base. Les charger aurait voulu dire
+    # choisir pour quelles cultures — 249 pays × 800 cultures font deux cent mille lignes
+    # de SQL, et s'en tenir aux langues laisse sans libellé toute culture non prévue.
+    # Elle servait déjà à ENGENDRER la migration des cultures ; elle sert maintenant aussi
+    # à l'exécution. Version figée : une version de CLDR qui change renomme des pays.
+    "babel==2.17.0",
+    "cryptography>=44",
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "jsonschema==4.26.0",
+    "mcp==2.3.0",
+    "miles-socle[transform]",
+    "openapi-spec-validator==0.9.0",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "pyjwt[crypto]>=2.9",
+    "pyyaml>=6.0",
+    "structlog>=24.4",
+    "urban-json==0.2.1",
+    # Web Component <jslt-editor> et ses assets, servis par le backend (24/10/2026).
+    "urban-json-editor==0.3.0",
+    "uvicorn[standard]>=0.32",
+]
+
+[project.scripts]
+miles-migrate = "miles.cli:main"
+# Entièrement générique : le point d'entrée est celui du socle, sans glu côté produit.
+miles-admin = "miles_socle.auth.cli_admin:main"
+miles-contracts = "miles.published_contracts:main"
+
+[tool.uv.sources]
+# Le socle vit hors du répertoire du produit : il est partagé avec les autres produits
+# du dépôt (décision du 27/10/2026). Le chemin relatif vaut tel quel dans l'image, où
+# le socle arrive par un contexte de build additionnel copié dans /socle/python —
+# `/app/../../socle/python` et `portail/backend/../../socle/python` désignent le même
+# emplacement relatif, ce qui évite une seconde configuration pour Docker.
+miles-socle = { path = "../../socle/python", editable = true }
+
+[dependency-groups]
+dev = [
+    "asyncpg-stubs>=0.30",
+    "httpx>=0.27",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "types-jsonschema>=4.26.0.20261006",
+    "types-pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/miles"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = ["integration: exige une vraie base PostgreSQL (MILES_TEST_DATABASE_URL)"]
+# Les tests d'intégration ne tournent que sur demande explicite (-m integration),
+# sur une machine de test : le poste de dev n'a pas de PostgreSQL.
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Les tests manipulent des mots de passe d'essai, sans valeur hors des tests.
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["miles"]

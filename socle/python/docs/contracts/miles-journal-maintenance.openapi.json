@@ -1,0 +1,122 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Miles — entretien des journaux partitionnés",
+    "version": "1",
+    "description": "Route d'entretien des journaux partitionnés, appelée par un déclencheur PÉRIODIQUE DE L'HÔTE — une unité systemd posée par le script de déploiement du produit, pas un humain et pas un système tiers.\n\nServie à l'identique par les trois produits Miles — portail, module d'enrôlement, module d'environnement — parce que les trois portent la table `events`.\n\nUn passage fait deux choses, dans cet ordre : il pose les partitions manquantes du jour et des 7 jours suivants, puis retire celles qui ont dépassé `MILES_JOURNAL_RETENTION_DAYS`. Poser d'abord garantit qu'un entretien interrompu laisse l'écriture possible. Les deux tables du journal d'un même jour tombent dans la MÊME transaction : c'est l'atomicité qui tient l'invariant « aucun lien ne survit à l'event qu'il désigne », la clé étrangère ayant dû être retirée pour que la purge soit possible.\n\nTout le SQL de l'entretien est idempotent : le succès de l'appel ne dit donc rien de son effet, et c'est `changed` qui dit si la base a BOUGÉ.\n\nAuthentification par un secret de STACK présenté en `Authorization: Bearer <MILES_JOURNAL_MAINTENANCE_TOKEN>` — un secret système, pas une session : rien d'humain n'est derrière. **Fail closed sans distinguer les cas** : jeton absent, mal présenté, faux, ou route non configurée sur la stack rendent tous `401` avec `Bearer realm=\"miles-journal\"`. Dire « non configuré » renseignerait un appelant qui n'a rien à savoir.\n\nSi l'entretien ne tourne pas, rien ne tombe : l'écriture d'un event qui ne trouve pas sa partition la pose et réessaie une fois, sous point de sauvegarde. Un journal mal entretenu GROSSIT — ce qui se voit sur un disque et se répare — au lieu de faire tomber les écritures du produit.\n\nL'article docflow terminal-pr « Entretien des journaux partitionnés — route appelée par un déclencheur d'hôte » dit ce qui est garanti et ce qui casserait la compatibilité."
+  },
+  "paths": {
+    "/api/journal/maintenance": {
+      "post": {
+        "summary": "Entretenir le journal partitionné : poser l'avance, retirer ce qui a expiré",
+        "description": "Pose les partitions manquantes du jour et des jours d'avance, PUIS retire celles qui ont dépassé la rétention. Les deux tables d'un même jour tombent dans la même transaction. Tout le SQL est idempotent : `changed` dit si la base a bougé, le code HTTP ne le dit pas.",
+        "operationId": "post_maintenance_api_journal_maintenance_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`{\"detail\": \"jeton_requis\"}` — jeton absent, présenté sous un autre schéma que `Bearer`, faux, ou route non configurée sur cette stack. Les quatre cas sont indiscernables, par choix. En-tête : `Bearer realm=\"miles-journal\"`."
+          }
+        },
+        "security": [
+          {
+            "journalMaintenanceToken": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "MaintenanceOut": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "title": "Day"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Days"
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/TableOut"
+            },
+            "type": "array",
+            "title": "Tables"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "day",
+          "retention_days",
+          "changed",
+          "tables"
+        ],
+        "title": "MaintenanceOut"
+      },
+      "TableOut": {
+        "properties": {
+          "table": {
+            "type": "string",
+            "title": "Table"
+          },
+          "created": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Created"
+          },
+          "dropped": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dropped"
+          },
+          "remaining": {
+            "type": "integer",
+            "title": "Remaining"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "table",
+          "created",
+          "dropped",
+          "remaining"
+        ],
+        "title": "TableOut"
+      }
+    },
+    "securitySchemes": {
+      "journalMaintenanceToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Secret de stack `MILES_JOURNAL_MAINTENANCE_TOKEN`. Comparé par `hmac.compare_digest` : la comparaison d'un secret ne s'arrête pas au premier caractère qui diffère. Il ne passe jamais en argument de commande — le déclencheur le lit dans un fichier de configuration curl en 0600, qu'aucun `ps auxww` ni `systemctl cat` ne montre."
+      }
+    }
+  }
+}

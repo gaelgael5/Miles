@@ -1,0 +1,101 @@
+# Stack du module d'environnement : sa base, son back-office, son front. Rien n'est partagé
+# avec les deux autres produits — ni la base, ni le compte d'amorçage, ni le secret de
+# session (décision de Gael du 27/10/2026). Le nom du projet est distinct, de sorte que
+# les TROIS stacks cohabitent sur la même machine de test.
+#
+# Le volume de la base est ce qui porte l'identité du module : sa paire de clés y vit, et
+# c'est pourquoi un redéploiement — qui remplace les images, pas le volume — ne casse pas
+# l'appariement. Ne jamais le supprimer pour « repartir propre » : voir --reset-db.
+name: miles-environnement
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: environnement
+      POSTGRES_USER: environnement
+      # Généré sur l'hôte par dev-deploy.sh dans .env (non versionné), jamais dans l'image.
+      POSTGRES_PASSWORD: ${MILES_DB_PASSWORD:?MILES_DB_PASSWORD absent de .env — lancer dev-deploy.sh}
+    volumes:
+      - environnement-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U environnement -d environnement"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+      # Le socle partagé est hors du produit : il entre par un contexte additionnel
+      # plutôt qu'en élargissant le contexte à la racine, qui embarquerait les autres
+      # produits dans l'image.
+      additional_contexts:
+        socle: ../socle/python
+    environment:
+      MILES_DATABASE_URL: postgresql://environnement:${MILES_DB_PASSWORD:?}@db:5432/environnement
+      MILES_LOG_LEVEL: ${MILES_LOG_LEVEL:-info}
+      MILES_ENV_FILE: /run/miles/.env
+      MILES_ENV_BACKUP_FILE: /run/miles/.env.bak
+      MILES_COOKIE_SECURE: ${MILES_COOKIE_SECURE:-true}
+      # Clé des secrets de l'instance : générée une fois dans .env, jamais régénérée
+      # (les secrets en base deviendraient illisibles). Absente : le backend refuse de démarrer.
+      MILES_SECRETS_KEY: ${MILES_SECRETS_KEY:?MILES_SECRETS_KEY absent de .env — lancer dev-deploy.sh}
+      # Adresse publique (URL de retour OIDC) ; vide : la connexion OIDC est indisponible.
+      MILES_PUBLIC_URL: ${MILES_PUBLIC_URL:-}
+      # Rétention du journal partitionné, en jours, réglée BASE PAR BASE dans .env
+      # (enabler 8e86afbc). Vide : AUCUNE purge — un paramètre oublié laisse le journal
+      # grossir plutôt que de l'effacer sans retour.
+      MILES_JOURNAL_RETENTION_DAYS: ${MILES_JOURNAL_RETENTION_DAYS:-}
+      # Secret SYSTÈME qui ouvre la route d'entretien, appelée par le timer de l'hôte.
+      # Vide : la route est inerte et refuse tout. Fail closed — une route d'entretien
+      # ouverte laisserait n'importe qui RETIRER des partitions du journal.
+      MILES_JOURNAL_MAINTENANCE_TOKEN: ${MILES_JOURNAL_MAINTENANCE_TOKEN:-}
+      # Bornes d'exploitation du mode gros fichier (story 0f14adbd). Laissées aux défauts
+      # du code — 2 Gio par dépôt, 20 Gio de quota, 7 jours de conservation — et réglables
+      # base par base dans .env, comme la rétention du journal. La rétention borne la
+      # FENÊTRE DE REJEU : à zéro, un document est ôté dès la fin de son import, et aucun
+      # rejeu n'est possible sans nouvel export du partenaire.
+      MILES_INGESTION_FILE_MAX_BYTES: ${MILES_INGESTION_FILE_MAX_BYTES:-2147483648}
+      MILES_INGESTION_FILES_QUOTA_BYTES: ${MILES_INGESTION_FILES_QUOTA_BYTES:-21474836480}
+      MILES_INGESTION_FILES_RETENTION_DAYS: ${MILES_INGESTION_FILES_RETENTION_DAYS:-7}
+    volumes:
+      # Fichier par fichier, pas le dossier du dépôt : le backend y écrit le compte
+      # d'amorçage, et .env.bak sert à restaurer .env si cette écriture est interrompue.
+      # dev-deploy.sh crée les deux avant le démarrage. Ce .env est PROPRE au produit :
+      # l'administrateur du portail n'ouvre rien ici.
+      - ./.env:/run/miles/.env
+      - ./.env.bak:/run/miles/.env.bak
+      # L'arbre du paramétrage servi. Volume mappé sur l'hôte, préparé par
+      # dev-deploy.sh au nom de l'utilisateur du runtime : absent, docker le créerait
+      # au nom de root et le backend, non root, ne pourrait pas y écrire. Git fait foi
+      # — le supprimer coûte un ordre à renvoyer depuis l'enrôlement, rien de plus.
+      - ./.deploy/parametrage:/var/lib/miles/parametrage
+      # Les documents déposés en mode gros fichier. Volume mappé, et non un dossier du
+      # conteneur : ce qu'il porte est la fenêtre de rejeu d'un import, et un
+      # redéploiement ne doit pas obliger à redemander un export au partenaire. Préparé
+      # par dev-deploy.sh au nom de l'utilisateur du runtime, pour la même raison que
+      # l'arbre servi — docker le créerait au nom de root, et le backend n'y écrirait pas.
+      - ./.deploy/ingestion:/var/lib/miles/ingestion
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+      # Même mécanisme que pour le backend, avec le socle web.
+      additional_contexts:
+        socle-web: ../socle/web
+    ports:
+      - "${MILES_HTTP_PORT:-8082}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  environnement-db:

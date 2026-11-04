@@ -1,0 +1,319 @@
+/*
+ * Saisie des traductions (story 289c8d9f). Ces règles ne sont pas cosmétiques : chacune
+ * répond à un défaut qui ne se voit QUE sur certaines langues et certaines valeurs — donc
+ * tard, et sans qu'on comprenne pourquoi les autres lignes vont bien.
+ *
+ * Propres au portail, et non au socle : aucun autre produit ne saisit de traduction, et
+ * une feuille commune ferait porter aux trois une règle qui ne sert qu'à un.
+ */
+
+/*
+ * CHAÎNE DE REPLI DE POLICES LARGE. Le back-office s'affiche en polices système, et
+ * aucune ne couvre à la fois l'arabe, l'hébreu, le devanagari, le thaï et les
+ * idéogrammes. Sur un poste qui n'a pas la police, l'utilisateur voit des rectangles
+ * vides et croit que sa traduction est perdue. Les trois systèmes sont nommés parce
+ * qu'aucun ne porte les polices des autres.
+ */
+.value-field,
+.value-cell {
+  font-family:
+    system-ui,
+    "Segoe UI",
+    Roboto,
+    "Noto Sans",
+    "Noto Sans Arabic",
+    "Noto Sans Hebrew",
+    "Noto Sans Devanagari",
+    "Noto Sans Thai",
+    "Noto Sans CJK SC",
+    "Noto Sans CJK JP",
+    "Geeza Pro",
+    "Arial Hebrew",
+    "Kohinoor Devanagari",
+    Thonburi,
+    "PingFang SC",
+    "Hiragino Sans",
+    "Nirmala UI",
+    "Leelawadee UI",
+    "Microsoft YaHei",
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    sans-serif;
+}
+
+/*
+ * ISOLATION DE CHAQUE VALEUR. Un texte droite-à-gauche posé dans un tableau
+ * gauche-à-droite, à côté du slug et des autres langues, fait migrer la ponctuation de
+ * bord : une virgule, une parenthèse ou un chiffre passe de l'autre côté. Les gens
+ * concluent que la donnée est abîmée, alors que seul l'affichage l'est.
+ */
+.value-field,
+.value-cell {
+  unicode-bidi: isolate;
+}
+
+/*
+ * HAUTEUR DE LIGNE. L'arabe, le devanagari et le thaï demandent plus de place verticale
+ * que le latin. Une cellule à hauteur fixe coupe les signes diacritiques par le haut ou
+ * par le bas, et le texte paraît faux alors qu'il est juste. Donc une hauteur de ligne
+ * généreuse, et aucune hauteur fixe ni `overflow: hidden` sur ces éléments.
+ */
+.value-field,
+.value-cell {
+  line-height: 1.8;
+  min-height: 2.6em;
+  overflow: visible;
+}
+
+/* Un champ de valeur grandit avec son contenu : une valeur sur deux lignes se lit. */
+textarea.value-field {
+  resize: vertical;
+  width: 100%;
+}
+
+/* La colonne porte le code de culture, jamais son sens : l'en-tête reste dans le sens de
+   celui qui lit l'écran, et seules les cellules suivent leur culture. */
+.value-head {
+  display: block;
+  font-size: 0.85em;
+  font-weight: 600;
+  unicode-bidi: normal;
+}
+
+/* En lecture, la valeur est un bloc sous son code de culture, et reprend la graisse
+   normale : collée derrière son étiquette et en gras, elle se lisait « en-USpassword ». */
+.value-cell {
+  display: block;
+  font-weight: 400;
+}
+
+.value-head .rtl-tag {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* Les marques de direction sont invisibles : on les NOMME à côté du champ plutôt que de
+   laisser croire que la valeur porte un caractère de trop. */
+.marks {
+  font-size: 0.8em;
+  opacity: 0.8;
+  unicode-bidi: normal;
+}
+
+.trads-keys {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.trads-key-row {
+  align-items: start;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(10rem, 1fr) 3fr auto;
+}
+
+@media (width <= 60rem) {
+  .trads-key-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * Les valeurs d'une clé côte à côte quand la place le permet. Empilées, un contexte à
+ * plusieurs cultures faisait du formulaire d'ajout une page entière : la liste des clés
+ * sortait de l'écran, et on ne voyait plus que le formulaire (Gael, 30/10/2026).
+ */
+.trads-values {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+/*
+ * Les deux filtres côte à côte. La recherche prend deux fois la largeur du sélecteur de
+ * culture : elle reçoit des identifiants entiers, là où l'autre ne montre que des codes.
+ */
+.trads-filters {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: 2fr 1fr;
+}
+
+/* Sous cette largeur, deux colonnes rendraient chaque champ trop étroit pour son
+   contenu — et c'est la largeur, pas le type d'appareil, qui décide. */
+@media (width <= 48rem) {
+  .trads-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/*
+ * Un groupe repliable DANS le menu (Gael, 30/10/2026). Il ressemble à un lien — c'est le
+ * même niveau de lecture — mais porte le chevron des sections pour qu'on sache qu'il
+ * ouvre quelque chose. Sans ce repère, un groupe fermé se lit comme un écran qui ne
+ * répond pas.
+ */
+.sidebar-group-link::after {
+  content: "\203A";
+  display: inline-block;
+  margin-left: 0.4em;
+  transition: transform 0.15s;
+}
+
+.sidebar-group-link[aria-expanded="true"]::after {
+  transform: rotate(90deg);
+}
+
+/*
+ * Les entrées d'un sous-groupe sont en retrait (Gael, 30/10/2026). Sans lui, « Cultures »
+ * se lit au même niveau que « Secrets », et rien ne dit qu'elle appartient à
+ * « Globalisation » : le groupe paraissait n'être qu'une ligne de plus.
+ *
+ * Le décalage reprend celui des vues d'un workspace (`sidebar-sublink`, 64px), pour que
+ * les deux niveaux du menu se lisent à la même profondeur.
+ */
+.sidebar-grouped-link {
+  padding-left: 64px;
+}
+
+
+/*
+ * Le choix d'une culture : UN champ, et une liste qui se déplie à la frappe (Gael,
+ * 30/10/2026). La liste flotte au-dessus du contenu au lieu de le pousser — sans quoi
+ * le bouton d'ajout descendait hors de l'écran dès qu'on tapait une lettre.
+ */
+.culture-picker {
+  position: relative;
+}
+
+.culture-list {
+  background: var(--surface);
+  border: 1px solid var(--bordure-champ);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+  left: 0;
+  /* Bornée en hauteur : le catalogue compte plusieurs centaines d'entrées. */
+  max-height: 14rem;
+  overflow-y: auto;
+  position: absolute;
+  right: 0;
+  /* Juste sous le champ : `.field` porte 18px de marge basse que la liste recouvre. */
+  top: calc(100% - 14px);
+  z-index: 2;
+}
+
+.culture-option {
+  cursor: pointer;
+  font-weight: 400;
+  padding: 8px 12px;
+}
+
+/* Surlignage unique pour la souris ET le clavier : deux apparences différentes feraient
+   chercher laquelle dit ce qui sera choisi. */
+.culture-option.active {
+  background: var(--fond);
+}
+
+.culture-option[aria-selected="true"] {
+  background: var(--accent-fond);
+  font-weight: 600;
+}
+
+.culture-empty {
+  color: var(--encre-faible);
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+/* --- Couverture des traductions (story 82e60880) --- */
+
+/* La barre et son taux dans le même conteneur : le taux reste lisible quelle que soit la
+   couleur de fond, là où un texte posé SUR la barre devient illisible autour de 50 %. */
+.coverage-bar {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-width: 140px; position: relative;
+}
+.coverage-bar-fill {
+  height: 8px; min-width: 2px; border-radius: 4px; background: var(--accent);
+  /* Bornée à la moitié du conteneur : la barre informe, le compte exact est à côté. */
+  max-width: 70px; flex: 0 0 auto;
+}
+.coverage-bar-value { font-size: 12px; color: var(--encre-douce); font-variant-numeric: tabular-nums; }
+
+/* Le raccourci vers ce qui manque : un bouton, mais discret — ce n'est pas une alerte,
+   c'est un chemin. Une traduction absente est l'état normal d'une clé récente. */
+.coverage-missing {
+  display: block; margin-top: 4px; padding: 0; border: none; background: none;
+  color: var(--accent-fonce); font-size: 12px; text-decoration: underline; cursor: pointer;
+}
+.coverage-missing:hover { color: var(--accent); }
+
+/* --- Document source de test, déplié et cliquable (Gael, 31/10/2026) --- */
+
+/* Large : un document source tient rarement dans la largeur d'une confirmation, et un
+   arbre qui se replie à chaque niveau rend la lecture d'un chemin profond pénible. */
+.dialog-wide { max-width: 860px; width: 92vw; }
+.sample-tree { max-height: 60vh; overflow: auto; margin: 12px 0; }
+.sample-children { margin: 0; padding-left: 18px; border-left: 1px solid var(--bordure-champ); }
+.sample-node { list-style: none; }
+
+/* Toute la ligne est la cible du clic : viser une clé de trois caractères à la souris
+   est le genre de détail qui fait renoncer et recopier le chemin à la main. */
+.sample-pick {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 2px 6px; border: none; border-radius: 4px; background: none;
+  text-align: left; font-size: 13px; cursor: pointer;
+}
+.sample-pick:hover { background: var(--accent-fond); }
+.sample-picked { background: var(--succes-fond); }
+.sample-key { font-weight: 600; color: var(--encre); }
+.sample-kind { color: var(--encre-douce); font-size: 12px; }
+.sample-value { color: var(--accent-fonce); overflow-wrap: anywhere; }
+.sample-copied { color: var(--succes-encre); font-size: 11px; font-weight: 600; }
+
+/* --- Éditeur de template : gouttière et ligne fautive (Gael, 31/10/2026) --- */
+
+/* La gouttière et l'éditeur forment UNE boîte : deux bordures accolées feraient un
+   trait double au milieu du champ. */
+.template-editor { display: flex; align-items: stretch; margin-top: 6px; }
+/* Le retrait de 6px vit sur l'ASSEMBLAGE, pas sur l'hôte du composant. Celui du socle
+   (`.jslt-editor-host { margin-top: 6px }`) espaçait l'éditeur de son libellé quand il
+   était seul ; ici il ne poussait que le cadre, et le texte se retrouvait 6px sous ses
+   numéros — mesuré au pixel sur la capture de Gael (31/10/2026), sur chaque ligne. La
+   règle du socle n'est pas touchée : elle vaut toujours pour un éditeur sans gouttière. */
+.template-frame .jslt-editor-host { margin-top: 0; }
+.template-gutter {
+  flex: 0 0 auto; overflow: hidden; user-select: none;
+  border: 1px solid var(--bordure-champ); border-right: none; border-radius: 8px 0 0 8px;
+  background: var(--surface-alt); color: var(--encre-douce); text-align: right;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 0 8px; min-width: 40px;
+  /* `content-box` VOLONTAIRE, contre le `* { box-sizing: border-box }` du socle : la
+     hauteur posée par le composant React est celle de la zone de saisie, et les bordures
+     s'ajoutent alors d'elles-mêmes. En `border-box` il faudrait les retrancher en
+     JavaScript, et l'écart reviendrait au premier changement d'épaisseur. */
+  box-sizing: content-box;
+}
+/* Déplacée par `transform` et non par `scrollTop` : la gouttière n'a pas de barre de
+   défilement à elle, elle suit celle de la zone de saisie. */
+.template-gutter-lines { will-change: transform; }
+.gutter-line { white-space: pre; }
+.gutter-error { color: var(--danger); font-weight: 700; background: #fbefef; }
+
+/* `min-width: 0` : sans lui, un élément de flex refuse de rétrécir sous la largeur de
+   son contenu, et un template à longues lignes pousserait la gouttière hors de l'écran. */
+.template-frame { flex: 1 1 auto; position: relative; min-width: 0; overflow: hidden; }
+.template-frame jslt-editor .jslt-editor { border-radius: 0 8px 8px 0; }
+
+/* Par-dessus le texte et SOUS le curseur : `pointer-events: none` laisse passer le clic,
+   sans quoi on ne pourrait plus cliquer dans la ligne qu'il faut corriger. */
+.template-error-line {
+  position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none;
+  background: rgba(200, 60, 60, 0.13);
+  border-top: 1px solid rgba(200, 60, 60, 0.35);
+  border-bottom: 1px solid rgba(200, 60, 60, 0.35);
+}
+@media (prefers-color-scheme: dark) {
+  .gutter-error { background: #3a2626; }
+}

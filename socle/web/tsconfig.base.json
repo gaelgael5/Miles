@@ -1,0 +1,19 @@
+{
+  "//": "Options du compilateur communes aux trois fronts et au socle web. Étendu par chacun, jamais recopié : `strict` et `noUncheckedIndexedAccess` sont des règles du dépôt, pas des préférences de produit, et les voir écrites quatre fois c'est voir quatre endroits où elles peuvent diverger. Seul `include` reste au produit, puisqu'il nomme SES fichiers.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom"]
+  }
+}

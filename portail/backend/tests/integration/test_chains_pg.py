@@ -1,0 +1,261 @@
+from __future__ import annotations
+
+import base64
+from collections.abc import AsyncIterator
+from pathlib import Path
+from typing import Any
+
+import httpx
+import pytest
+
+from miles.datamodels.schema import normalized
+from tests.integration.work_stack import Forge, open_work_forge
+
+pytestmark = pytest.mark.integration
+
+ROUTE = "/api/workspaces/retrait/transformations"
+NORMALISER = '{ "ref": $.colis.ref, "kg": $.colis.poids#decimal }'
+ENRICHIR = '{ "pays": $.pays ?? "FR" }'
+STEPS = [
+    {"name": "normaliser", "template": NORMALISER, "target": None},
+    {"name": "enrichir", "template": ENRICHIR, "target": "$.origine"},
+]
+# Ce que l'API rend : une étape porte toujours ses deux modèles, nuls tant qu'on ne les
+# a pas choisis (24/10/2026). Envoyer sans eux reste admis, d'où les deux formes.
+READ_STEPS = [s | {"source_model": None, "destination_model": None, "alerts": []} for s in STEPS]
+
+
+@pytest.fixture
+async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
+    async with open_work_forge(blank_db, tmp_path) as opened:
+        yield opened
+
+
+async def _save(forge: Forge, steps: list[dict[str, Any]], label: str = "Import") -> httpx.Response:
+    body = {"label": label, "steps": steps}
+    return await forge.client.put(f"{ROUTE}/comptes-import", json=body, timeout=120)
+
+
+async def test_chain_is_written_as_a_directory_with_its_sequence_and_templates(
+    forge: Forge,
+) -> None:
+    saved = await _save(forge, STEPS)
+    read = await forge.client.get(f"{ROUTE}/comptes-import", timeout=120)
+    listed = await forge.client.get(ROUTE, timeout=120)
+
+    assert saved.status_code == 200, saved.text
+    assert read.json() == {"slug": "comptes-import", "label": "Import", "steps": READ_STEPS}
+    assert listed.json() == [{"slug": "comptes-import", "label": "Import", "steps": 2}]
+    assert await forge.file("transformations/comptes-import/normaliser.jslt") == NORMALISER
+    assert await forge.file("transformations/comptes-import/enrichir.jslt") == ENRICHIR
+    sequence = await forge.file("transformations/comptes-import/chain.json")
+    assert sequence is not None and '"target": "$.origine"' in sequence
+
+
+async def test_editing_replaces_the_sequence_and_drops_unused_templates(forge: Forge) -> None:
+    await _save(forge, STEPS)
+    before = await forge.commits()
+
+    replay = await _save(forge, STEPS)
+    edited = await _save(forge, [STEPS[1], {**STEPS[0], "name": "nettoyer"}])
+
+    assert replay.headers["x-miles-already-exists"] == "true"
+    assert edited.status_code == 200
+    assert await forge.commits() == before + 1
+    assert await forge.file("transformations/comptes-import/normaliser.jslt") is None
+    assert await forge.file("transformations/comptes-import/nettoyer.jslt") == NORMALISER
+    read = await forge.client.get(f"{ROUTE}/comptes-import", timeout=120)
+    assert [s["name"] for s in read.json()["steps"]] == ["enrichir", "nettoyer"]
+
+
+async def test_invalid_chain_is_refused_without_writing_and_names_each_step(forge: Forge) -> None:
+    before = await forge.commits()
+
+    refused = await _save(
+        forge,
+        [
+            {"name": "a", "template": '{ "x": $.a + 1 }'},
+            {"name": "b", "template": '{ "y": 1 }', "target": "$.l[*]"},
+        ],
+    )
+    bad_name = await _save(forge, [{"name": "../x", "template": "{}"}])
+
+    assert refused.status_code == 422
+    assert [(p["step"], p["code"]) for p in refused.json()["detail"]["problems"]] == [
+        (0, "hors_profil"),
+        (1, "cible_invalide"),
+    ]
+    assert bad_name.json()["detail"] == {"field": "steps", "reason": "nom_d_etape"}
+    assert await forge.commits() == before
+
+
+async def test_deleting_a_chain_removes_its_directory(forge: Forge) -> None:
+    await _save(forge, STEPS)
+
+    deleted = await forge.client.delete(f"{ROUTE}/comptes-import", timeout=120)
+    again = await forge.client.delete(f"{ROUTE}/comptes-import", timeout=120)
+
+    assert deleted.status_code == 204
+    assert (again.status_code, again.json()["detail"]) == (404, "chaine_inconnue")
+    assert await forge.file("transformations/comptes-import/chain.json") is None
+
+
+async def test_a_version_cannot_freeze_a_chain_broken_outside_miles(forge: Forge) -> None:
+    await _save(forge, STEPS)
+    await forge.publish()
+    path = "transformations/comptes-import/enrichir.jslt"
+    meta = await forge.api.get(
+        f"/api/v1/repos/miles/{forge.name}/contents/{path}", params={"ref": "back/retrait/edition"}
+    )
+    broken = base64.b64encode(b'{ "pays": $.pays + 1 }').decode()
+    changed = await forge.api.put(
+        f"/api/v1/repos/miles/{forge.name}/contents/{path}",
+        json={"branch": "back/retrait/edition", "sha": meta.json()["sha"], "content": broken},
+    )
+    assert changed.status_code == 200, changed.text
+
+    refused = await forge.client.post(
+        "/api/workspaces/retrait/versions", json={"label": "Chaîne cassée"}, timeout=120
+    )
+
+    assert refused.json()["detail"]["reports"] == [
+        {
+            "path": "transformations/comptes-import/chain.json",
+            "problems": [{"path": "enrichir", "code": "hors_profil", "detail": "operateur"}],
+        }
+    ]
+
+
+async def test_a_step_keeps_the_models_it_reads_and_produces(forge: Forge) -> None:
+    steps = [
+        {
+            "name": "normaliser",
+            "template": NORMALISER,
+            "target": None,
+            "source_model": "miles:/shared/brut",
+            "destination_model": "miles:/shared/compte",
+        }
+    ]
+
+    saved = await _save(forge, steps)
+    read = await forge.client.get(f"{ROUTE}/comptes-import", timeout=120)
+
+    assert saved.status_code in (200, 201), saved.text
+    step = read.json()["steps"][0]
+    assert step["source_model"] == "miles:/shared/brut"
+    assert step["destination_model"] == "miles:/shared/compte"
+
+
+async def test_a_model_reference_that_designates_nothing_is_refused(forge: Forge) -> None:
+    steps = [
+        {"name": "normaliser", "template": NORMALISER, "target": None, "source_model": "n'importe"}
+    ]
+
+    refused = await _save(forge, steps)
+
+    assert refused.status_code == 422, refused.text
+
+
+async def test_the_test_sample_lives_in_the_database_not_in_the_repository(
+    forge: Forge,
+) -> None:
+    """Choix du 24/10/2026 : un cas d'essai n'est pas du paramétrage."""
+    await _save(forge, STEPS)
+
+    empty = await forge.client.get(f"{ROUTE}/comptes-import/sample", timeout=120)
+    put = await forge.client.put(
+        f"{ROUTE}/comptes-import/sample", json={"sample": '{"nom": "Gaël"}'}, timeout=120
+    )
+    read = await forge.client.get(f"{ROUTE}/comptes-import/sample", timeout=120)
+
+    assert empty.json()["sample"] is None
+    assert put.status_code == 200, put.text
+    assert read.json()["sample"] == '{"nom": "Gaël"}'
+    # Rien n'en est parti dans le dépôt : ni fichier, ni commit de plus.
+    assert await forge.file("transformations/comptes-import/sample.json") is None
+
+
+async def test_saving_nothing_clears_the_sample(forge: Forge) -> None:
+    await forge.client.put(f"{ROUTE}/comptes-import/sample", json={"sample": "{}"}, timeout=120)
+
+    await forge.client.put(f"{ROUTE}/comptes-import/sample", json={"sample": None}, timeout=120)
+    read = await forge.client.get(f"{ROUTE}/comptes-import/sample", timeout=120)
+
+    assert read.json()["sample"] is None
+
+
+# --- L'écart entre ce que le template écrit et le modèle de destination (01/11/2026) ---
+
+MODELS = "/api/workspaces/retrait/data-models"
+CIBLE = normalized(
+    "title: Cible\ntype: object\nrequired: [ref]\nproperties:\n  ref:\n    type: string\n",
+    "shared",
+    "cible",
+)
+
+
+async def _declare_cible(forge: Forge) -> None:
+    created = await forge.client.post(
+        MODELS, json={"scope": "shared", "name": "cible", "content": CIBLE}, timeout=120
+    )
+    assert created.status_code in (200, 201), created.text
+
+
+def _step(template: str) -> dict[str, Any]:
+    return {
+        "name": "normaliser",
+        "template": template,
+        "target": None,
+        "source_model": None,
+        "destination_model": "miles:/shared/cible",
+    }
+
+
+async def test_a_step_that_writes_beside_its_model_is_flagged_without_being_refused(
+    forge: Forge,
+) -> None:
+    await _declare_cible(forge)
+
+    saved = await _save(forge, [_step('{ "reference": $.colis.ref }')])
+    read = await forge.client.get(f"{ROUTE}/comptes-import", timeout=120)
+
+    # Une ALERTE, jamais un refus (Gael, 01/11/2026) : la chaîne s'enregistre.
+    assert saved.status_code in (200, 201), saved.text
+    expected = [
+        {"path": "$.reference", "code": "propriete_hors_modele", "detail": None},
+        {"path": "$.ref", "code": "propriete_obligatoire_absente", "detail": None},
+    ]
+    # À l'enregistrement ET à la lecture : l'alerte doit survivre au rechargement.
+    assert saved.json()["steps"][0]["alerts"] == expected
+    assert read.json()["steps"][0]["alerts"] == expected
+
+
+async def test_a_step_that_writes_exactly_its_model_carries_no_alert(forge: Forge) -> None:
+    await _declare_cible(forge)
+
+    saved = await _save(forge, [_step('{ "ref": $.colis.ref }')])
+
+    assert saved.status_code in (200, 201), saved.text
+    assert saved.json()["steps"][0]["alerts"] == []
+
+
+async def test_a_destination_model_that_does_not_exist_yet_is_not_a_reproach(
+    forge: Forge,
+) -> None:
+    """Une absence n'est pas une contradiction : le modèle peut venir après la chaîne."""
+    saved = await _save(forge, [_step('{ "n_importe_quoi": $.colis.ref }')])
+
+    assert saved.status_code in (200, 201), saved.text
+    assert saved.json()["steps"][0]["alerts"] == []
+
+
+async def test_a_value_written_in_the_wrong_type_is_flagged_too(forge: Forge) -> None:
+    """« propriétés manquantes, propriétés non déclarées, mauvais type » (Gael, 01/11/2026)."""
+    await _declare_cible(forge)
+
+    saved = await _save(forge, [_step('{ "ref": 12 }')])
+
+    assert saved.status_code in (200, 201), saved.text
+    assert saved.json()["steps"][0]["alerts"] == [
+        {"path": "$.ref", "code": "nombre_inattendu", "detail": "string"}
+    ]

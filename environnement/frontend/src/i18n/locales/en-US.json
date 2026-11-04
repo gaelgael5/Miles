@@ -1,0 +1,225 @@
+{
+  "app": {
+    "sub": "Environment module",
+    "nav": {
+      "cultures": "Cultures",
+      "secrets": "Secrets",
+      "oidc": "OIDC connectors",
+      "events": "Event journal",
+      "health": "Service status",
+      "pairing": "Pairing",
+      "storages": "Storage spaces",
+      "apikeys": "API keys",
+      "ingestion": "Ingestion service"
+    },
+    "sections": {
+      "global": "Global"
+    }
+  },
+  "assignedEnvironment": {
+    "caption": "Assigned environment",
+    "help": "This name is set by an administrator of the enrolment module: it is the authoritative one, not the name this stack declares about itself.",
+    "loading": "Reading the assigned environment…",
+    "none": "The enrolment module has not linked us to any environment of its registry.",
+    "neverKnown": "The enrolment module could not be reached, and no environment has ever been read: which one is assigned to us is unknown.",
+    "stale": "Last known value, read on {{date}}: the enrolment module could not be reached to refresh it.",
+    "unavailable": "The assigned environment could not be read."
+  },
+  "peering": {
+    "lead": "This environment pairs with a single enrolment module, which is the sole authority over its device assignment.",
+    "form": {
+      "name": "Name of this environment"
+    },
+    "pending": {
+      "where": "The code is shown on the « Pairing » screen of {{url}}, next to the request carrying this environment's URL. It renews every thirty seconds."
+    },
+    "repair": {
+      "body": "The current pairing will be replaced. Devices the previous enrolment module assigned to this environment will no longer be assigned by it."
+    }
+  },
+  "storages": {
+    "title": "Storage spaces",
+    "loading": "Reading the storage spaces…",
+    "unreadable": "The storage spaces could not be read. See the service logs.",
+    "none": "The served version declares no storage space.",
+    "notApplied": "This space's table is not created yet: no object can be searched in it.",
+    "key": "Functional key: {{keys}}",
+    "version": "version {{number}}",
+    "noIndex": "No declared index: only the functional key can be filtered on.",
+    "search": "Search in “{{label}}”",
+    "searching": "Searching…",
+    "found": "{{count}} object found",
+    "found_other": "{{count}} objects found",
+    "empty": "No object matches.",
+    "seen": "seen on {{date}}",
+    "changed": "changed on {{date}}",
+    "previous": "Previous page",
+    "next": "Next page",
+    "page": "Page {{page}} of {{pages}}",
+    "filters": {
+      "title": "Search filters",
+      "property": "Property",
+      "operator": "Comparison",
+      "value": "Value",
+      "choose": "Choose a property",
+      "add": "Add a filter",
+      "remove": "Remove filter {{rank}}"
+    },
+    "operators": {
+      "eq": "equals",
+      "ne": "differs from",
+      "prefixe": "starts with",
+      "gt": "greater than",
+      "ge": "greater than or equal to",
+      "lt": "less than",
+      "le": "less than or equal to"
+    },
+    "origins": {
+      "import": "imported",
+      "manuel": "entered"
+    },
+    "refusals": {
+      "declaration_illisible": "This space's declaration cannot be read.",
+      "modele_invalide": "The declared model is not a valid “domain/name”.",
+      "modele_absent": "The declared model is missing from the served version.",
+      "nom_invalide": "This space's name cannot name a table.",
+      "propriete_inconnue": "An indexed property does not exist in the model — fix the index in the configuration.",
+      "propriete_non_scalaire": "An indexed property is not a single value: a container, or a path crossing an array.",
+      "colonne_en_collision": "Two indexed properties would give the same column.",
+      "trop_de_colonnes": "An index declares more than three columns, or none.",
+      "nom_d_index_invalide": "An index name cannot name an index in the database.",
+      "table_de_forme_inattendue": "A table of this name exists and does not have the expected shape: nothing was changed.",
+      "changement_de_type_requis": "The served version asks for a type change on an existing column: it was not applied.",
+      "application_refusee": "PostgreSQL refused this space's SQL.",
+      "unknown": "This space was refused ({{code}})."
+    },
+    "searchErrors": {
+      "propriete_non_filtrable": "“{{property}}” cannot be filtered on: only the functional key and the declared indexes can.",
+      "propriete_non_triable": "“{{property}}” is not a property to sort on.",
+      "critere_malforme": "A filter is incomplete.",
+      "operateur_inconnu": "This comparison is not offered.",
+      "valeur_hors_type": "The given value is not of this property's type.",
+      "prefixe_sur_valeur_non_textuelle": "“{{property}}” is not text: “starts with” does not apply to it.",
+      "nom_invalide": "A property name is invalid.",
+      "unexpected": "The search failed. See the service logs."
+    }
+  },
+  "apiKeys": {
+    "title": "Ingestion API keys",
+    "intro": "A key lets a third-party system push data to the sources granted to it. This environment manages its own: no other module knows them.",
+    "loading": "Reading keys…",
+    "unreadable": "This environment's keys could not be read.",
+    "none": "No key has been issued yet.",
+    "noSource": "The served version declares no source: there is nothing to grant, so no key to issue.",
+    "new": "Issue a key",
+    "label": "Label",
+    "sources": "Sources the key opens",
+    "issue": "Issue",
+    "issued": "Key issued",
+    "onlyOnce": "Copy it now: it is shown once and cannot be read again.",
+    "close": "I have copied the key",
+    "revoke": "Revoke",
+    "revoked": "Revoked on {{when}}",
+    "createdBy": "Issued by {{who}} on {{when}}",
+    "neverUsed": "never used",
+    "lastUsed": "last used on {{when}}",
+    "missingSources": "Granted on a source the served version no longer declares: {{sources}}",
+    "errors": {
+      "vide": "Pick at least one source: a key that opens nothing is useless.",
+      "source_inconnue": "The served version does not declare source “{{source}}”.",
+      "invalide": "This label is not accepted: a single line, 120 characters at most.",
+      "unknown": "The key could not be issued."
+    }
+  },
+  "ingestion": {
+    "title": "Ingestion service",
+    "loading": "Reading service state…",
+    "unreadable": "The ingestion service state could not be read.",
+    "health": "Service state",
+    "noVersion": "No configuration version is served: no source is declared, and no entry point exists.",
+    "version": "Version {{number}} · commit {{commit}}",
+    "servedAt": "served on {{when}}",
+    "keys": "{{active}} active key(s), {{unused}} never used",
+    "deposits": "{{total}} deposit(s) received, {{recent}} in the last 24h",
+    "neverCalled": "never called",
+    "lastCall": "last deposit on {{when}}",
+    "unreadableSources": "Sources declared but unreadable: {{sources}}",
+    "noEndpoint": "The served version declares no source entry: nothing is exposed.",
+    "notServed": "Mode “{{mode}}” is declared but not served yet: a deposit will be refused.",
+    "noBulkQueue": "Bulk deposits are not served yet: there is no queue to watch.",
+    "modes": {
+      "element": "single object",
+      "tableau": "batch",
+      "fichier": "file"
+    },
+    "states": {
+      "recu": "received",
+      "traite": "processed",
+      "rejete": "all rejected",
+      "en_file": "queued",
+      "en_cours": "importing",
+      "incomplet": "incomplete",
+      "echec": "failed"
+    },
+    "calls": {
+      "title": "Recent calls",
+      "filter": "Journal filter",
+      "source": "Source",
+      "allSources": "All sources",
+      "loading": "Reading the journal…",
+      "unreadable": "The call journal could not be read.",
+      "none": "No call received.",
+      "found": "{{count}} call(s)",
+      "objects": "{{count}} object(s)",
+      "size": "{{bytes}} bytes",
+      "by": "by {{label}} ({{prefix}})",
+      "unknownKey": "deleted key",
+      "version": "version {{number}}",
+      "page": "Page {{page}} of {{pages}}",
+      "previous": "Previous page",
+      "next": "Next page"
+    },
+    "methods": {
+      "loading": "Reading methods…",
+      "unreadable": "The service methods could not be read.",
+      "title": "Methods",
+      "none": "No method: the served version declares no source entry.",
+      "notServed": "This method is declared by the configuration and is not served yet: a deposit would be refused.",
+      "form": "Try {{path}}",
+      "body": "Body to deposit",
+      "deposit": "Deposit",
+      "depositing": "Depositing…",
+      "response": "Entry point response",
+      "responseStatus": "HTTP response {{status}}",
+      "failed": "The trial could not be sent. {{code}}",
+      "keyRevoked": "The key the back-office uses for its trials has been revoked. Issue a new one to try again; the old one stays visible on the keys page, with the deposits it carried.",
+      "reissue": "Issue a new back-office key",
+      "reissued": "Key issued",
+      "contract": "Responses declared by the published contract",
+      "modele_absent": "The served version does not carry the input model {{model}}: the expected shape cannot be shown.",
+      "modele_invalide": "The input model {{model}} is malformed in the source declaration.",
+      "file": "Document to deposit",
+      "fileHelp": "The document is written to the stack's disk, then split and imported outside the call: the response is an acknowledgement of intake, not a report. The import's outcome is in the call log below.",
+      "fileExample": "Expected shape of the document",
+      "open": "Signature and trial"
+    },
+    "signature": {
+      "headers": "Headers",
+      "required": "required",
+      "optional": "optional",
+      "body": "Body",
+      "modelSchema": "Input model {{model}}, as validation uses it",
+      "contractSchema": "Body the contract declares for this address",
+      "responses": "Responses",
+      "shape": "Body returned on {{status}}",
+      "responsesDetail": "What each response means",
+      "schemas": "Schemas"
+    },
+    "contract": {
+      "title": "Published contract, version {{version}} — read before wiring an integration",
+      "auth": "Authentication",
+      "spec": "Full OpenAPI specification",
+      "specHelp": "The very one versioned in the repository: enough to generate a client."
+    }
+  }
+}

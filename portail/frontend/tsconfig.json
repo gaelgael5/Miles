@@ -1,0 +1,5 @@
+{
+  "//": "Les options viennent du socle web : `strict` et `noUncheckedIndexedAccess` sont des règles du dépôt. Seul `include` est à ce produit, puisqu'il nomme SES fichiers.",
+  "extends": "@miles/socle-web/tsconfig.base.json",
+  "include": ["src", "vite.config.ts"]
+}

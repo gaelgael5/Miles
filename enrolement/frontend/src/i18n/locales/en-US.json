@@ -1,0 +1,252 @@
+{
+  "app": {
+    "sub": "Enrolment module",
+    "nav": {
+      "cultures": "Cultures",
+      "secrets": "Secrets",
+      "oidc": "OIDC connectors",
+      "events": "Event journal",
+      "health": "Service status",
+      "pairing": "Pairing",
+      "environments": "Environments",
+      "accounts": "Accounts"
+    },
+    "sections": {
+      "global": "Global",
+      "workspaces": "Workspaces"
+    },
+    "workspaces": {
+      "none": "No workspace hosted.",
+      "gone": "This workspace is no longer hosted by this environment."
+    }
+  },
+  "pairing": {
+    "title": "Environment pairing",
+    "lead": "Environments asking to connect, and those already paired.",
+    "loading": "Loading…",
+    "error": "The list could not be read.",
+    "requests": {
+      "title": "Pending requests",
+      "help": "Hand the code to whoever actually administers that environment: that gesture, and only it, is the acceptance. Pairing completes when they paste it on their side.",
+      "empty": "No pending request.",
+      "unnamed": "No declared name",
+      "captionReceived": "Received",
+      "captionExpires": "Expires",
+      "captionFingerprint": "Key fingerprint",
+      "showCode": "Show code",
+      "hideCode": "Hide code",
+      "reject": "Reject",
+      "expiresInMinutes": "in {{n}} min",
+      "expiresInSeconds": "in {{n}} s",
+      "expiresInHours": "in {{n}} h"
+    },
+    "code": {
+      "loading": "Reading the code…",
+      "gone": "This request no longer exists: it expired or was just rejected.",
+      "handOver": "Read out or paste this code to the environment's administrator.",
+      "label": "Pairing code",
+      "copy": "Copy code",
+      "renewsIn": "renews in {{n}} s",
+      "perishable": "The code changes with every window and is single-use. It cannot be printed or downloaded."
+    },
+    "reject": {
+      "title": "Reject this request?",
+      "confirm": "Reject",
+      "cancel": "Cancel",
+      "body": "The request from {{url}} will disappear and its code will stop working. The environment will have to ask again."
+    },
+    "paired": {
+      "captionSince": "Paired on",
+      "captionDevices": "Assigned devices",
+      "devicesUnknown": "—",
+      "contactCaption": "Reached at",
+      "contactHelp": "The address this module dials to notify the stack — of a revocation, for instance. It is part of no signature: only the origin the stack declares is verified. Change it if an intermediary stands in the way.",
+      "contactLabel": "Contact address",
+      "contactSubmit": "Save address",
+      "contactEdit": "Change contact address",
+      "contactError": "Address refused. An http(s) origin without a path is expected.",
+      "devicesUnknownHelp": "The device registry does not exist yet: this number is unknown, and is deliberately not shown as zero.",
+      "parametrageTitle": "Paired configuration module",
+      "parametrageEmpty": "No configuration module paired.",
+      "environnementsTitle": "Paired environments",
+      "environnementsEmpty": "No environment paired."
+    },
+    "revoke": {
+      "action": "Revoke pairing",
+      "title": "Revoke this pairing?",
+      "confirm": "Revoke",
+      "cancel": "Cancel",
+      "body": "The pairing of {{url}} to environment “{{label}}” ({{slug}}) will be broken.",
+      "bodyUnattached": "The pairing of {{url}} will be broken. It is not attached to any environment.",
+      "devices": "{{count}} device(s) will be put back to awaiting assignment and will no longer start until a human reassigns them.",
+      "devicesUnknown": "The device registry does not exist yet: the number of devices that will be put back to awaiting assignment is unknown, and is therefore not shown as zero.",
+      "keys": "This stack's key will be destroyed. To pair again it will have to knock anew, and a human will have to accept a fresh request.",
+      "environmentKept": "The environment stays in the registry: revoking applies to the pairing, not to it.",
+      "error": "Revocation failed. The reloaded list will show this pairing's real state.",
+      "bodyParametrage": "The pairing of configuration module {{url}} will be broken.",
+      "parametrageConfided": "Whatever was entrusted to it ceases to be, and it will have to ask again after a fresh pairing."
+    },
+    "designation": {
+      "caption": "Environment",
+      "missing": "To be linked",
+      "label": "Environment from the registry",
+      "none": "— choose an environment —",
+      "help": "Environments that are already paired are not offered: an environment carries at most one pairing.",
+      "designate": "Choose the environment",
+      "change": "Change the environment",
+      "submit": "Choose",
+      "required": "The code cannot be shown until an environment is chosen: showing it accepts the pairing, and we must know what to link it to.",
+      "create": "Declare an environment",
+      "createHelp": "The new environment will immediately be chosen for this request.",
+      "createSubmit": "Declare and choose",
+      "attach": "Link to an environment",
+      "attachHelp": "This pairing was concluded before environments were declared. Linking it touches neither the keys nor the pairing.",
+      "attachSubmit": "Link",
+      "errors": {
+        "taken": "Another pairing already carries this environment. Pick a different one, or revoke the existing pairing.",
+        "settled": "This pairing is settled: its environment is no longer changed from a request. Change it on the pairing itself, in the list of paired environments.",
+        "environmentGone": "This environment is no longer in the registry. Refresh the list.",
+        "requestGone": "This request is gone: it expired, or it was just rejected.",
+        "unexpected": "Choosing the environment failed. Try again, then check the logs.",
+        "devices": "This pairing carries devices: its environment is not changed with one click. Move the devices to the target environment first.",
+        "changedElsewhere": "This pairing's environment has just been changed elsewhere. Refresh the list before trying again.",
+        "speciesHasNoEnvironment": "This requester is not an environment: it receives no devices, and there is nothing to assign it."
+      }
+    },
+    "move": {
+      "action": "Change the environment",
+      "submit": "Pick this environment",
+      "help": "The environment can only be changed while this pairing carries no device. As soon as it carries one, the devices must be moved first.",
+      "title": "Change this pairing's environment?",
+      "confirm": "Change the environment",
+      "cancel": "Cancel",
+      "body": "The pairing of {{url}} will leave the “{{fromLabel}}” ({{fromSlug}}) environment for “{{toLabel}}” ({{toSlug}}).",
+      "keys": "The keys do not move: the stack stays paired and has nothing to redo.",
+      "devices": "No device is moved: this change is only allowed while this pairing carries none."
+    },
+    "species": {
+      "caption": "Kind",
+      "environnement": "Environment",
+      "environnementConsequence": "Receives devices from this module.",
+      "parametrage": "Configuration module",
+      "parametrageConsequence": "Will be entrusted with the git connections. Only one is ever paired."
+    },
+    "workspaces": {
+      "caption": "Exposed workspaces",
+      "noRepo": "Repository not configured yet",
+      "empty": "This configuration module has not entrusted us with any workspace yet.",
+      "error": "The exposed workspaces could not be read."
+    },
+    "workspacePlacement": {
+      "caption": "Hosted workspace",
+      "none": "None",
+      "submit": "Place",
+      "noneExposed": "No workspace exposed: have them entrusted from the configuration module.",
+      "notExposed": "No paired configuration module exposes this workspace. Exposed: {{exposed}}.",
+      "nothing": "none",
+      "error": "The workspace could not be placed."
+    }
+  },
+  "environments": {
+    "title": "Environments",
+    "lead": "The environments this module knows, and which stack is paired to each.",
+    "loading": "Loading…",
+    "error": "The list could not be read.",
+    "form": {
+      "createTitle": "Declare an environment",
+      "renameTitle": "Rename {{label}}",
+      "label": "Label",
+      "labelHelp": "What people read. It can be renamed at any time.",
+      "slug": "Slug",
+      "slugHelp": "What gets written: lowercase letters, digits and hyphens. Proposed from the label, yours to change — once changed, the label no longer rewrites it.",
+      "submitCreate": "Declare",
+      "submitRename": "Rename",
+      "cancel": "Cancel"
+    },
+    "list": {
+      "title": "Declared environments",
+      "empty": "No environment declared yet."
+    },
+    "actions": {
+      "rename": "Rename",
+      "delete": "Delete"
+    },
+    "delete": {
+      "title": "Delete this environment?",
+      "body": "{{label}} will disappear from the list. Devices can no longer be sent to it.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "errors": {
+      "label": "The label is empty, too long, or carries control characters.",
+      "slug": "A slug is made of lowercase letters, digits and hyphens — and it cannot be empty.",
+      "slugTaken": "Another environment already carries this slug.",
+      "paired": "This environment carries a pairing. Revoke it first.",
+      "absent": "This environment no longer exists.",
+      "unexpected": "The server refused, without saying why.",
+      "designated": "A pending pairing request points at this environment. Reject it, or choose a different environment, before deleting it."
+    }
+  },
+  "workspaces": {
+    "title": "{{workspace}}",
+    "lead": "Hosted by the {{label}} ({{slug}}) environment.",
+    "source": {
+      "title": "Where this configuration comes from",
+      "captionEnvironment": "Hosting environment",
+      "captionRepo": "Repository entrusted by the configuration module",
+      "noRepo": "Repository not configured yet"
+    },
+    "version": {
+      "title": "Hosted version",
+      "none": "No version is ordered for this environment. Pick one below: it will be pushed to the stack, which then comes and fetches its content.",
+      "nonePublished": "This workspace has no version saved in its repository. Versions are saved from the configuration module.",
+      "numbered": "Version {{number}}",
+      "captionOrdered": "Ordered version",
+      "captionServed": "What the stack answered",
+      "upToDate": "served",
+      "notApplied": "order received, version not served yet",
+      "asOf": "as of {{instant}}",
+      "resend": "Resend the order",
+      "choose": "Associate",
+      "current": "ordered",
+      "refusals": {
+        "pair_non_apparie": "no stack is paired with this environment",
+        "pair_injoignable": "the stack did not answer",
+        "pair_refuse": "the stack refused our signed call",
+        "reponse_illisible": "the stack answered something other than expected",
+        "origine_absente": "this module has no public address configured: it cannot sign anything",
+        "non_applique": "order received, version not served yet",
+        "aucun_pair": "the stack says it is paired with nobody",
+        "relais_injoignable": "the stack could not come and fetch the content",
+        "relais_refuse": "the content was refused to it",
+        "commit_inattendu": "the content received did not carry the ordered version: the stack rejected it",
+        "bundle_illisible": "the content received could not be opened",
+        "bundle_trop_volumineux": "the content exceeds what can travel",
+        "unknown": "the stack refused, saying “{{code}}”"
+      },
+      "errors": {
+        "noWorkspace": "No workspace is placed on this environment: there is no version to choose.",
+        "notConfided": "No paired configuration module exposes this workspace. Its repository was removed along with the pairing: pair the configuration module again.",
+        "noRepo": "This workspace's repository is not configured yet in the configuration module.",
+        "unknownVersion": "This version no longer exists in the repository. Refresh the list and pick another one.",
+        "repository": "The repository could not be read.",
+        "unexpected": "The request did not go through."
+      },
+      "reasons": {
+        "identifiants": "The confided credential was refused by the forge.",
+        "depot_inexistant": "The forge does not know this repository.",
+        "injoignable": "The forge did not answer.",
+        "protection": "The forge refused on a protection rule.",
+        "droit_refuse": "The confided credential may not read this repository.",
+        "echec": "git failed without saying why.",
+        "credential_illisible": "The confided credential no longer opens here: have it confided again from the configuration module.",
+        "unknown": "git said “{{code}}”."
+      }
+    },
+    "accounts": {
+      "title": "Accounts",
+      "lead": "Accounts of workspace {{workspace}}, hosted by {{label}}.",
+      "pending": "Accounts are stored on the environment stack, which will expose their search and pagination. This page will show them as soon as those routes exist."
+    }
+  }
+}

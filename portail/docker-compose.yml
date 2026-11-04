@@ -1,0 +1,98 @@
+name: miles
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: miles
+      POSTGRES_USER: miles
+      # Généré sur l'hôte par dev-deploy.sh dans .env (non versionné), jamais dans l'image.
+      POSTGRES_PASSWORD: ${MILES_DB_PASSWORD:?MILES_DB_PASSWORD absent de .env — lancer dev-deploy.sh}
+    volumes:
+      - miles-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miles -d miles"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+      # Le socle partagé est hors du produit : il entre par un contexte additionnel
+      # plutôt qu'en élargissant le contexte à la racine, qui embarquerait les autres
+      # produits dans l'image. Vérifié sur machine de test le 27/10/2026.
+      additional_contexts:
+        socle: ../socle/python
+    environment:
+      MILES_DATABASE_URL: postgresql://miles:${MILES_DB_PASSWORD:?}@db:5432/miles
+      MILES_LOG_LEVEL: ${MILES_LOG_LEVEL:-info}
+      MILES_ENV_FILE: /run/miles/.env
+      MILES_ENV_BACKUP_FILE: /run/miles/.env.bak
+      MILES_COOKIE_SECURE: ${MILES_COOKIE_SECURE:-true}
+      MILES_MQTT_HOST: mqtt
+      MILES_MQTT_PASSWORD: ${MILES_MQTT_PASSWORD:?MILES_MQTT_PASSWORD absent de .env — lancer dev-deploy.sh}
+      # Clé des secrets de l'instance : générée une fois dans .env, jamais régénérée
+      # (les secrets en base deviendraient illisibles). Absente : le backend refuse de démarrer.
+      MILES_SECRETS_KEY: ${MILES_SECRETS_KEY:?MILES_SECRETS_KEY absent de .env — lancer dev-deploy.sh}
+      # Adresse publique (URL de retour OIDC) ; vide : la connexion OIDC est indisponible.
+      MILES_PUBLIC_URL: ${MILES_PUBLIC_URL:-}
+      # Rétention du journal partitionné, en jours, réglée BASE PAR BASE dans .env
+      # (enabler 8e86afbc). Vide : AUCUNE purge — un paramètre oublié laisse le journal
+      # grossir plutôt que de l'effacer sans retour.
+      MILES_JOURNAL_RETENTION_DAYS: ${MILES_JOURNAL_RETENTION_DAYS:-}
+      # Secret SYSTÈME qui ouvre la route d'entretien, appelée par le timer de l'hôte.
+      # Vide : la route est inerte et refuse tout. Fail closed — une route d'entretien
+      # ouverte laisserait n'importe qui RETIRER des partitions du journal.
+      MILES_JOURNAL_MAINTENANCE_TOKEN: ${MILES_JOURNAL_MAINTENANCE_TOKEN:-}
+      # Copies de travail persistantes, une par branche de chaque workspace (Gael,
+      # 22/10/2026). Git fait foi : ce volume n'est qu'un cache qui évite de recloner.
+      MILES_WORKCOPIES_DIR: /var/lib/miles/workcopies
+    volumes:
+      # Fichier par fichier, pas le dossier du dépôt (décision du 19/10/2026) : le
+      # backend y écrit le compte d'amorçage, et .env.bak sert à restaurer .env si
+      # cette écriture est interrompue. dev-deploy.sh crée les deux avant le démarrage.
+      - ./.env:/run/miles/.env
+      - ./.env.bak:/run/miles/.env.bak
+      # Volume mappé sur l'hôte : préparé par dev-deploy.sh au nom de l'utilisateur du runtime.
+      - ./.deploy/workcopies:/var/lib/miles/workcopies
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    restart: unless-stopped
+
+  mqtt:
+    # Même image que scripts/run-integration-tests.sh et dev-deploy.sh : le broker
+    # éprouvé en test est celui qu'on livre.
+    image: eclipse-mosquitto:2.0.20
+    ports:
+      - "${MILES_MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      # Comptes et droits préparés par dev-deploy.sh (propriétaire mosquitto, 600).
+      - ./.deploy/mosquitto/passwd:/mosquitto/config/passwd:ro
+      - ./.deploy/mosquitto/acl:/mosquitto/config/acl:ro
+      - miles-mqtt:/mosquitto/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+      # Même mécanisme que pour le backend : le socle web est hors du produit et entre
+      # par un contexte additionnel, jamais en élargissant le contexte à la racine.
+      additional_contexts:
+        socle-web: ../socle/web
+    ports:
+      - "${MILES_HTTP_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  miles-db:
+  miles-mqtt:

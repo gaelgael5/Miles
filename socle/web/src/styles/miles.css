@@ -1,0 +1,384 @@
+/*
+ * Feuille de style du back-office, reprise des maquettes du cadrage (docflow terminal-pr,
+ * base « data-mockup-base v1 »). Les jetons sont ceux des maquettes, au nom près : les
+ * changer ici, c'est s'écarter du design validé — le refaire d'abord dans les maquettes.
+ */
+:root {
+  --fond: #f4f5f7;
+  --surface: #ffffff;
+  --surface-alt: #eef0f3;
+  --surface-douce: #fbfcfd;
+  --bordure: #dadde3;
+  --bordure-fine: #edeff2;
+  --bordure-carte: #e6e9ed;
+  --bordure-champ: #c3c9d2;
+  --encre: #1b1f26;
+  --encre-douce: #3a424f;
+  --encre-faible: #5a6372;
+  --accent: #1f5fa9;
+  --accent-fond: #edf2f9;
+  --accent-fonce: #164578;
+  --barre-faible: #9aa3b0;
+  --barre-tres-faible: #c7cdd6;
+  --barre-bouton: #2b3340;
+  --barre-bouton-bordure: #434c5c;
+  --danger: #7a1f1f;
+  --alerte-fond: #f7f3ea;
+  --alerte-bordure: #e3d6b8;
+  --alerte-encre: #6b4e12;
+  --succes-fond: #e8f1e9;
+  --succes-bordure: #bcd9c2;
+  --succes-encre: #155b33;
+  --succes-vif: #1e7a4c;
+  --avertissement: #8a5a00;
+  --police: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --police-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--police); color: var(--encre); background: var(--fond); }
+a { color: var(--accent); }
+a:hover { color: var(--accent-fonce); }
+code, .mono { font-family: var(--police-mono); font-size: 12.5px; }
+
+/* Ossature : barre supérieure, navigation latérale, contenu. */
+.shell { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar {
+  background: var(--encre); color: var(--surface); padding: 14px 28px;
+  display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+}
+.topbar-brand { font-weight: 700; font-size: 15px; letter-spacing: 0.01em; }
+.topbar-sub { font-size: 13px; color: var(--barre-faible); }
+.topbar-spacer { flex-grow: 1; }
+.topbar-user { font-size: 13px; color: var(--barre-tres-faible); }
+.topbar-button {
+  background: var(--barre-bouton); color: var(--surface); border: 1px solid var(--barre-bouton-bordure);
+  border-radius: 6px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.body { display: flex; flex-wrap: wrap; align-items: flex-start; flex-grow: 1; }
+.sidebar {
+  flex: 0 0 240px; background: var(--surface); border-right: 1px solid var(--bordure);
+  padding: 24px 0; align-self: stretch;
+}
+.sidebar-group + .sidebar-group { margin-top: 20px; }
+/* Titre de menu repliable : le chevron dit l'état, aria-expanded le porte. */
+.sidebar-section {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 20px 10px;
+  font: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-align: left;
+  text-transform: uppercase; color: var(--encre-faible); background: none; border: none;
+  cursor: pointer;
+}
+.sidebar-section::before {
+  content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor; transform: rotate(45deg); transition: transform 0.15s;
+}
+.sidebar-section[aria-expanded="false"]::before { transform: rotate(-45deg); }
+.sidebar-section:hover { color: var(--encre-douce); }
+/* Sous-menus nettement décalés sous leur titre, pour qu'on les lise comme ses éléments. */
+.sidebar-link {
+  display: block; width: 100%; text-align: left; padding: 9px 20px 9px 48px; font: inherit; font-size: 14px;
+  color: var(--encre-douce); background: none; border: none; border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.sidebar-link[aria-current="page"] {
+  font-weight: 600; color: var(--encre); background: var(--accent-fond);
+  border-left-color: var(--accent);
+}
+.content { flex: 999 1 560px; min-width: 0; padding: 32px 36px 48px; }
+/* Écrans hors portail (amorçage, connexion) : une colonne centrée, sans navigation. */
+.narrow { max-width: 720px; margin: 0 auto; padding: 48px 24px; width: 100%; }
+
+/* En-tête de page : titre, chapeau, action principale. */
+.page-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 28px; }
+.page-head > div { flex: 999 1 300px; min-width: 0; }
+/* Un groupe d'actions de l'en-tête reste à droite, à sa taille : la règle précédente
+   l'étirait comme le titre, et le bouton tombait au milieu de la page (caad743d). */
+.page-head > .actions { flex: 0 0 auto; margin-top: 0; margin-left: auto; }
+h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; }
+h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.lead { margin: 0; font-size: 14px; color: var(--encre-faible); }
+.section { margin-top: 36px; }
+
+/* Boutons. */
+.btn {
+  font: inherit; font-size: 14px; font-weight: 600; padding: 12px 20px; min-height: 44px;
+  border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary { background: var(--accent); color: var(--surface); border: none; }
+.btn-primary:hover { background: var(--accent-fonce); }
+.btn-secondary {
+  background: var(--surface); color: var(--encre-douce); border: 1px solid var(--bordure-champ);
+  font-weight: 500; font-size: 13px;
+}
+.btn-danger {
+  background: var(--surface); color: var(--danger); border: 1px solid var(--bordure-champ);
+  font-weight: 500; font-size: 13px;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-block { width: 100%; justify-content: center; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 20px; }
+
+/* Cartes et lignes de liste. */
+.card {
+  background: var(--surface); border: 1px solid var(--bordure); border-radius: 8px;
+  padding: 24px 26px; margin-bottom: 20px;
+}
+.card-list { background: var(--surface); border: 1px solid var(--bordure); border-radius: 8px; overflow: hidden; }
+.row {
+  display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 22px;
+  border-bottom: 1px solid var(--bordure-carte); align-items: flex-start;
+}
+.row:last-child { border-bottom: none; }
+/* Ligne de l'échantillon de test : seule dans sa carte, elle n'a pas de voisine
+   dont la séparer. */
+.row-sample { border-bottom: none; padding-left: 0; padding-right: 0; }
+/* Hôte du Web Component JSLT : il porte sa propre hauteur par ses variables CSS. */
+.jslt-editor-host { margin-top: 6px; }
+/* Vue ferroviaire : le dessin et les lignes partagent la MÊME grille, sinon les
+   pastilles ne tombent pas en face de leur commit. */
+.graph { display: flex; gap: 4px; align-items: flex-start; overflow-x: auto; }
+.graph-rails { flex: 0 0 auto; }
+.graph-rows { flex: 1 1 auto; list-style: none; margin: 0; padding: 0; min-width: 0; }
+.graph-row {
+  display: flex; align-items: center; gap: 8px; padding: 0 4px;
+  font-size: 13px; white-space: nowrap; overflow: hidden;
+}
+.graph-subject { overflow: hidden; text-overflow: ellipsis; }
+.graph-meta { margin-left: auto; font-size: 11px; color: var(--encre-faible); }
+.graph-edge { fill: none; stroke: var(--bordure); stroke-width: 2; }
+.graph-dot { fill: var(--surface); stroke: var(--bordure); stroke-width: 2; }
+/* Un commit pointé par une branche se repère d'un coup d'œil. */
+.graph-dot-ref { fill: var(--accent); stroke: var(--accent); }
+.jslt-editor-host jslt-editor { --jslt-ed-height: 520px; display: block; }
+.row-main { flex: 999 1 260px; min-width: 0; }
+.row-title { font-size: 16px; font-weight: 600; }
+/* Ligne ouvrable (fbe9b512) : le bouton du titre couvre la ligne ; les actions et les
+   refus passent au-dessus, pour que « Supprimer » n'ouvre pas l'élément. */
+.row-openable { position: relative; cursor: pointer; }
+.row-openable:hover { background: var(--fond); }
+.row-open {
+  background: none; border: none; padding: 0; margin: 0; color: inherit; font: inherit;
+  font-size: 16px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.row-open::after { content: ""; position: absolute; inset: 0; }
+.row-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row-openable .row-actions, .row-openable .row-detail,
+/* Le sélecteur de branche affichée reste utilisable sans ouvrir le paramétrage. */
+.row-openable .row-control { position: relative; z-index: 1; }
+.row-sub { margin-top: 6px; font-family: var(--police-mono); font-size: 12px; color: var(--encre-faible); }
+.cell { flex: 0 0 170px; }
+.caption {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--encre-faible); margin-bottom: 4px;
+}
+.value { font-size: 13px; }
+.muted { color: var(--encre-faible); font-size: 13px; }
+
+/* Formulaires. */
+.field { display: block; margin-bottom: 18px; font-size: 14px; font-weight: 600; }
+.field input, .field select, .field textarea {
+  display: block; width: 100%; margin-top: 8px; font-family: inherit; font-size: 14px;
+  font-weight: 400; padding: 10px 12px; min-height: 44px; border: 1px solid var(--bordure-champ);
+  border-radius: 6px; background: var(--surface); color: var(--encre);
+}
+.field textarea { font-family: var(--police-mono); font-size: 12.5px; }
+.field-check { display: flex; gap: 10px; align-items: center; font-size: 14px; margin-bottom: 6px; }
+.field-check input { width: 18px; height: 18px; }
+.help { margin: 8px 0 18px; font-size: 13px; color: var(--encre-faible); }
+/* La marge haute négative resserre l'aide SOUS le champ qu'elle décrit, en mordant dans la
+   marge basse de ce champ. Elle ne vaut donc QUE là : portée sans condition par `.help`,
+   elle remontait l'aide PAR-DESSUS ce qui la précède — un titre de carte, ou l'input
+   lui-même quand l'aide est écrite dans le champ (Gael, 28/10/2026, sur les deux écrans
+   d'appariement : le texte d'aide chevauchait le libellé et le cadre de saisie). */
+.field + .help, .picker-field + .help { margin-top: -10px; }
+/* Une aide écrite DANS le champ suit l'input, pas le libellé : la marge basse du champ
+   assure déjà la séparation avec le suivant. Et elle reprend la graisse normale : `.field`
+   met tout son contenu en 600 pour le libellé, ce qui rendait l'aide aussi lourde que lui. */
+.field > .help { margin: 6px 0 0; font-weight: 400; }
+fieldset { border: 1px solid var(--bordure-carte); border-radius: 6px; padding: 16px; margin: 0 0 18px; }
+.plain-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
+.step { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+.step-number {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--surface);
+  font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Pastilles, alertes, comptes rendus. */
+.badge {
+  display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 4px;
+  border: 1px solid var(--bordure-champ); color: var(--encre-douce); background: var(--surface-alt);
+}
+.badge-success { background: var(--succes-fond); border-color: var(--succes-bordure); color: var(--succes-encre); }
+.badge-accent { background: var(--accent-fond); border-color: var(--accent); color: var(--accent-fonce); }
+.badge-warning { background: var(--alerte-fond); border-color: var(--alerte-bordure); color: var(--avertissement); }
+.alert {
+  background: var(--alerte-fond); border: 1px solid var(--alerte-bordure); border-radius: 8px;
+  padding: 13px 16px; font-size: 13px; color: var(--alerte-encre); margin: 12px 0;
+}
+.alert-danger { background: #fbefef; border-color: #e7c4c4; color: var(--danger); }
+.notice {
+  background: var(--succes-fond); border: 1px solid var(--succes-bordure); border-radius: 8px;
+  padding: 13px 16px; font-size: 13px; color: var(--succes-encre); margin: 12px 0;
+}
+.checks { list-style: none; margin: 8px 0; padding: 0; }
+.checks li { padding: 10px 0; border-bottom: 1px solid var(--bordure-fine); font-size: 14px; }
+.checks li.ok::before { content: "✓ "; color: var(--succes-vif); font-weight: 700; }
+.checks li.ko { color: var(--danger); }
+.checks li.ko::before { content: "✗ "; font-weight: 700; }
+.panel { background: var(--surface-douce); border: 1px solid var(--bordure-carte); border-radius: 8px; padding: 16px 18px; margin-top: 16px; }
+.plain-list { list-style: none; margin: 0; padding: 0; }
+.row-actions { margin-top: 0; }
+/* Ce qui se déplie sous une ligne (formulaire, compte rendu, panneaux) prend toute la largeur. */
+.row-detail { flex: 1 1 100%; min-width: 0; }
+
+/* Fenêtre de confirmation. */
+.overlay {
+  position: fixed; inset: 0; background: rgba(27, 31, 38, 0.45); z-index: 10;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.dialog {
+  background: var(--surface); border: 1px solid var(--bordure); border-radius: 8px;
+  padding: 24px 26px; width: 100%; max-width: 480px; font-size: 14px;
+}
+.dialog-actions { justify-content: flex-end; }
+/* Retour d'un sous-écran vers sa liste. */
+.back { margin-bottom: 20px; }
+/* Liste accompagnée d'une action (sélecteur de secret et son « Créer un secret »). */
+.field-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.field-row select { flex: 1 1 240px; width: auto; }
+.field-row .btn { margin-top: 8px; }
+/* Fenêtre qui porte un formulaire entier : plus large, et la carte n'y redouble pas le cadre. */
+.dialog-wide { max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 0; }
+.dialog-wide .card { margin: 0; border: none; }
+
+/* YAML d'un modèle relu : montré tel qu'il est dans le dépôt, espaces et retours compris. */
+.code-block {
+  margin: 0; padding: 14px 16px; background: var(--surface-douce); border: 1px solid var(--bordure-carte);
+  border-radius: 6px; font-family: var(--police-mono); font-size: 12.5px; white-space: pre; overflow-x: auto;
+}
+/* Un code qu'on dicte de vive voix : il se lit à distance de l'écran, chiffre par chiffre.
+   À la taille du YAML, un 1 et un 7 mal lus font échouer l'appariement sans rien dire. */
+.code-block.code-large { font-size: 24px; font-weight: 700; letter-spacing: 0.18em; padding: 10px 18px; }
+/* Titre de carte et son action principale sur une ligne, l'action à droite. */
+.card-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.card-head h2 { margin: 0; }
+/* Choix exclusif (bouton radio) sur sa ligne, libellé cliquable. */
+.choice { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 14px; cursor: pointer; }
+/* Un workspace du menu : son nom se déplie sur ses vues, nettement décalées dessous. */
+.sidebar-workspace { display: flex; align-items: center; gap: 8px; }
+.sidebar-workspace::after {
+  content: ""; width: 5px; height: 5px; margin-left: auto; border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s;
+}
+.sidebar-workspace[aria-expanded="true"]::after { transform: rotate(45deg); }
+.sidebar-sublink { padding-left: 64px; font-size: 13.5px; }
+.sidebar-subsublink { padding-left: 80px; font-size: 13px; }
+
+/* Fiche « Mon profil » : libellé et valeur sur une ligne. */
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 12px; }
+.facts > div { display: contents; }
+.facts dt { color: var(--encre-faible); }
+.facts dd { margin: 0; }
+
+/* Bouton de copie : il confirme le clic par un petit rebond et une couleur, puis revient. */
+.copy-button { transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
+.copy-copied {
+  background: var(--succes-fond); color: var(--succes-encre); border-color: var(--succes-bordure);
+  animation: copy-pop 0.3s ease-out;
+}
+.copy-failed { color: var(--danger); border-color: var(--danger); animation: copy-shake 0.3s ease-out; }
+.copy-copied::before { content: "✓ "; font-weight: 700; }
+@keyframes copy-pop { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@keyframes copy-shake {
+  0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) { .copy-copied, .copy-failed { animation: none; } }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Édition d'un modèle (story 7208ba06) : arbre à gauche, YAML à droite ; empilés en étroit. */
+.model-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.model-editor textarea { min-height: 480px; }
+@media (max-width: 960px) { .model-editor { grid-template-columns: minmax(0, 1fr); } }
+.tree-node { border-left: 3px solid var(--bordure-carte); padding: 8px 0 8px 12px; margin-bottom: 12px; }
+.tree-nested { margin-left: 16px; padding-left: 12px; border-left: 2px dashed var(--bordure-carte); }
+/* Modèles référençables (e38806f3) : résumé sur sa ligne, puis une ligne par modèle. */
+.model-references summary { display: list-item; cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+.model-references .help { margin: 0 0 8px; }
+.model-references li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 6px 0; }
+.model-reference-uri { overflow-wrap: anywhere; }
+/* JSONJoy borne sa racine en `overflow: auto`, pensée pour un panneau de hauteur fixe :
+   ici la page défile, et ce rognage coupait la liste « Choisir une définition » qui
+   déborde du champ. On laisse déborder plutôt que de déplacer la liste. */
+.model-editor .jsonjoy, .model-editor .jsonjoy .grow.overflow-auto { overflow: visible; }
+
+/* Le champ qui ouvre l'arbre (Gael, 24/10/2026) : fermé il montre la sélection, ouvert
+   il flotte au-dessus du formulaire pour ne pas repousser le bouton d'enregistrement. */
+/* Pas `.field` : cette classe impose `width:100%; min-height:44px; padding; border` à
+   TOUT input qu'elle contient, ce qui transformait les cases à cocher de l'arbre en
+   pavés qui repoussaient les libellés hors de l'écran (Gael, 24/10/2026, sur mobile). */
+.picker-field { display: block; margin-bottom: 18px; font-size: 14px; }
+.path-picker { position: relative; margin-top: 8px; }
+.path-field {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  min-height: 44px; padding: 10px 12px; font-family: inherit; font-size: 14px;
+  font-weight: 400; text-align: left; background: var(--surface, #fff); cursor: pointer;
+  border: 1px solid var(--bordure-champ); border-radius: 6px; color: inherit;
+}
+.path-field:disabled { cursor: default; opacity: 0.6; }
+.path-popover {
+  position: absolute; z-index: 10; left: 0; right: 0; margin-top: 4px; max-height: 320px;
+  overflow: auto; padding: 10px 12px; background: var(--surface, #fff);
+  border: 1px solid var(--bordure-champ); border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Arbre des propriétés d'un modèle (Gael, 24/10/2026) : on coche un chemin au lieu de
+   le taper. L'indentation vient du niveau, pas d'un gabarit : un modèle profond reste
+   lisible sans que la colonne de droite ne sorte de l'écran. */
+.tree { margin: 0; padding-left: 0; }
+.tree .tree { padding-left: 18px; border-left: 1px solid var(--bordure-champ); margin-left: 7px; }
+.tree-row { display: flex; align-items: baseline; gap: 6px; padding: 2px 0; }
+.tree-twist {
+  flex: 0 0 16px; width: 16px; background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--encre-faible); font-size: 11px; line-height: 1.4;
+}
+.tree-pick {
+  display: flex; align-items: baseline; gap: 6px; font-weight: 400; cursor: pointer;
+  flex-wrap: wrap; min-width: 0;
+}
+/* Dimension explicite, et non héritée : une case reste une case quelle que soit la
+   plateforme, et quelles que soient les règles de formulaire qui l'entourent. */
+.tree-pick input[type="checkbox"] {
+  flex: 0 0 auto; width: 16px; height: 16px; min-height: 0; min-width: 0;
+  margin: 0; padding: 0; border-radius: 3px; align-self: center;
+}
+.tree-pick .caption { margin-bottom: 0; text-transform: none; letter-spacing: 0; }
+
+/* Un index additionnel : son nom, ses colonnes, et de quoi le retirer (Gael, 24/10/2026). */
+.index-row {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+  padding: 12px; margin-bottom: 10px;
+  border: 1px solid var(--bordure-champ); border-radius: 6px;
+}
+.index-row .field { flex: 1 1 180px; margin-bottom: 0; }
+.index-columns { flex: 2 1 240px; min-width: 0; }
+.index-columns .caption { display: block; margin-bottom: 4px; }
+
+/* Une entrée d'une source de données (Gael, 25/10/2026) : une carte par moyen d'arrivée,
+   pour qu'on voie d'un coup ce que chacune expose et par quelle chaîne elle passe. */
+.entry-card {
+  padding: 16px; margin-bottom: 12px;
+  border: 1px solid var(--bordure-carte); border-radius: 6px;
+}
+.entry-card h3 { margin: 0 0 12px; font-size: 15px; }
+
+/* Le visualiseur Swagger (Gael, 25/10/2026) : il apporte sa propre feuille, on ne lui
+   impose que la largeur et le retrait du bandeau, qui n'a pas lieu d'être ici. */
+.swagger-host { margin-top: 12px; }
+.swagger-host .swagger-ui .topbar { display: none; }
+.swagger-host .swagger-ui .info { margin: 16px 0; }

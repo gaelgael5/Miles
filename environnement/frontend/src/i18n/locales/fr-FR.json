@@ -1,0 +1,225 @@
+{
+  "app": {
+    "sub": "Module d'environnement",
+    "nav": {
+      "cultures": "Cultures",
+      "secrets": "Secrets",
+      "oidc": "Connecteurs OIDC",
+      "events": "Journal d'events",
+      "health": "État du service",
+      "pairing": "Appariement",
+      "storages": "Espaces de stockage",
+      "apikeys": "Clés d'API",
+      "ingestion": "Service d'ingestion"
+    },
+    "sections": {
+      "global": "Global"
+    }
+  },
+  "assignedEnvironment": {
+    "caption": "Environnement assigné",
+    "help": "Ce nom est posé par un administrateur du module d'enrôlement : c'est lui qui fait autorité, et non le nom que cette stack déclare sur elle-même.",
+    "loading": "Lecture de l'environnement assigné…",
+    "none": "Le module d'enrôlement ne nous a rattachés à aucun environnement de son référentiel.",
+    "neverKnown": "Le module d'enrôlement n'a pas pu être joint, et aucun environnement n'a jamais été lu : lequel nous est assigné n'est pas connu.",
+    "stale": "Dernière valeur connue, lue le {{date}} : le module d'enrôlement n'a pas pu être joint pour la rafraîchir.",
+    "unavailable": "L'environnement assigné n'a pas pu être lu."
+  },
+  "peering": {
+    "lead": "Cet environnement n'est apparié qu'à un seul module d'enrôlement, qui est l'autorité unique sur l'affectation de ses devices.",
+    "form": {
+      "name": "Nom de cet environnement"
+    },
+    "pending": {
+      "where": "Le code s'affiche sur l'écran « Appariement » de {{url}}, auprès de la demande portant l'URL de cet environnement. Il se renouvelle toutes les trente secondes."
+    },
+    "repair": {
+      "body": "L'appariement actuel sera remplacé. Les devices que le module d'enrôlement précédent avait affectés à cet environnement ne le seront plus par lui."
+    }
+  },
+  "storages": {
+    "title": "Espaces de stockage",
+    "loading": "Lecture des espaces de stockage…",
+    "unreadable": "Les espaces de stockage n'ont pas pu être lus. Voyez les journaux du service.",
+    "none": "La version servie ne déclare aucun espace de stockage.",
+    "notApplied": "La table de cet espace n'est pas encore posée : aucun objet ne peut y être cherché.",
+    "key": "Clé fonctionnelle : {{keys}}",
+    "version": "version {{number}}",
+    "noIndex": "Aucun index déclaré : seule la clé fonctionnelle est filtrable.",
+    "search": "Chercher dans « {{label}} »",
+    "searching": "Recherche…",
+    "found": "{{count}} objet trouvé",
+    "found_other": "{{count}} objets trouvés",
+    "empty": "Aucun objet ne correspond.",
+    "seen": "vu le {{date}}",
+    "changed": "modifié le {{date}}",
+    "previous": "Page précédente",
+    "next": "Page suivante",
+    "page": "Page {{page}} sur {{pages}}",
+    "filters": {
+      "title": "Filtres de recherche",
+      "property": "Propriété",
+      "operator": "Comparaison",
+      "value": "Valeur",
+      "choose": "Choisir une propriété",
+      "add": "Ajouter un filtre",
+      "remove": "Retirer le filtre {{rank}}"
+    },
+    "operators": {
+      "eq": "égale",
+      "ne": "différente de",
+      "prefixe": "commence par",
+      "gt": "supérieure à",
+      "ge": "supérieure ou égale à",
+      "lt": "inférieure à",
+      "le": "inférieure ou égale à"
+    },
+    "origins": {
+      "import": "importé",
+      "manuel": "saisi"
+    },
+    "refusals": {
+      "declaration_illisible": "La déclaration de cet espace n'est pas lisible.",
+      "modele_invalide": "Le modèle déclaré n'est pas un « domaine/nom » valide.",
+      "modele_absent": "Le modèle déclaré est absent de la version servie.",
+      "nom_invalide": "Le nom de cet espace ne peut pas nommer une table.",
+      "propriete_inconnue": "Une propriété indexée n'existe pas dans le modèle — corrigez l'index dans le paramétrage.",
+      "propriete_non_scalaire": "Une propriété indexée n'est pas une valeur unique : un conteneur ou un chemin qui traverse un tableau.",
+      "colonne_en_collision": "Deux propriétés indexées donneraient la même colonne.",
+      "trop_de_colonnes": "Un index déclare plus de trois colonnes, ou aucune.",
+      "nom_d_index_invalide": "Le nom d'un index ne peut pas nommer un index en base.",
+      "table_de_forme_inattendue": "Une table de ce nom existe et n'a pas la forme attendue : rien n'a été modifié.",
+      "changement_de_type_requis": "La version servie demande un changement de type sur une colonne existante : il n'a pas été appliqué.",
+      "application_refusee": "PostgreSQL a refusé le SQL de cet espace.",
+      "unknown": "Cet espace a été refusé ({{code}})."
+    },
+    "searchErrors": {
+      "propriete_non_filtrable": "« {{property}} » n'est pas filtrable : seuls la clé fonctionnelle et les index déclarés le sont.",
+      "propriete_non_triable": "« {{property}} » n'est pas une propriété sur laquelle trier.",
+      "critere_malforme": "Un filtre est incomplet.",
+      "operateur_inconnu": "Cette comparaison n'est pas offerte.",
+      "valeur_hors_type": "La valeur donnée n'est pas du type de cette propriété.",
+      "prefixe_sur_valeur_non_textuelle": "« {{property}} » n'est pas du texte : « commence par » ne s'y applique pas.",
+      "nom_invalide": "Un nom de propriété est invalide.",
+      "unexpected": "La recherche a échoué. Voyez les journaux du service."
+    }
+  },
+  "apiKeys": {
+    "title": "Clés d'API d'ingestion",
+    "intro": "Une clé permet à un système tiers de déposer des données sur les sources qu'on lui octroie. Cet environnement les gère seul : aucune n'est connue d'un autre module.",
+    "loading": "Lecture des clés…",
+    "unreadable": "Les clés de cet environnement n'ont pas pu être lues.",
+    "none": "Aucune clé n'a encore été émise.",
+    "noSource": "La version servie ne déclare aucune source : il n'y a rien à octroyer, donc aucune clé à émettre.",
+    "new": "Émettre une clé",
+    "label": "Libellé",
+    "sources": "Sources que la clé ouvre",
+    "issue": "Émettre",
+    "issued": "Clé émise",
+    "onlyOnce": "Recopiez-la maintenant : elle n'est montrée qu'une fois et ne pourra plus être relue.",
+    "close": "J'ai recopié la clé",
+    "revoke": "Révoquer",
+    "revoked": "Révoquée le {{when}}",
+    "createdBy": "Émise par {{who}} le {{when}}",
+    "neverUsed": "jamais utilisée",
+    "lastUsed": "dernier usage le {{when}}",
+    "missingSources": "Octroi sur une source que la version servie ne déclare plus : {{sources}}",
+    "errors": {
+      "vide": "Choisissez au moins une source : une clé qui n'ouvre rien ne sert à rien.",
+      "source_inconnue": "La version servie ne déclare pas la source « {{source}} ».",
+      "invalide": "Ce libellé n'est pas accepté : une seule ligne, 120 caractères au plus.",
+      "unknown": "La clé n'a pas pu être émise."
+    }
+  },
+  "ingestion": {
+    "title": "Service d'ingestion",
+    "loading": "Lecture de l'état du service…",
+    "unreadable": "L'état du service d'ingestion n'a pas pu être lu.",
+    "health": "État du service",
+    "noVersion": "Aucune version de paramétrage n'est servie : il n'y a donc aucune source déclarée, et aucun point d'entrée.",
+    "version": "Version {{number}} · commit {{commit}}",
+    "servedAt": "servie le {{when}}",
+    "keys": "{{active}} clé(s) active(s), dont {{unused}} jamais utilisée(s)",
+    "deposits": "{{total}} dépôt(s) reçu(s), {{recent}} depuis 24 h",
+    "neverCalled": "jamais appelé",
+    "lastCall": "dernier dépôt le {{when}}",
+    "unreadableSources": "Sources déclarées mais illisibles : {{sources}}",
+    "noEndpoint": "La version servie ne déclare aucune entrée de source : rien n'est exposé.",
+    "notServed": "Le mode « {{mode}} » est déclaré mais pas encore servi : un dépôt y sera refusé.",
+    "noBulkQueue": "Les dépôts de masse ne sont pas encore servis : il n'y a aucune file à surveiller.",
+    "modes": {
+      "element": "un objet",
+      "tableau": "un lot",
+      "fichier": "un fichier"
+    },
+    "states": {
+      "recu": "reçu",
+      "traite": "traité",
+      "rejete": "tout rejeté",
+      "en_file": "en file",
+      "en_cours": "import en cours",
+      "incomplet": "incomplet",
+      "echec": "échec"
+    },
+    "calls": {
+      "title": "Derniers appels",
+      "filter": "Filtre du journal",
+      "source": "Source",
+      "allSources": "Toutes les sources",
+      "loading": "Lecture du journal…",
+      "unreadable": "Le journal des appels n'a pas pu être lu.",
+      "none": "Aucun appel reçu.",
+      "found": "{{count}} appel(s)",
+      "objects": "{{count}} objet(s)",
+      "size": "{{bytes}} octets",
+      "by": "par {{label}} ({{prefix}})",
+      "unknownKey": "clé effacée",
+      "version": "version {{number}}",
+      "page": "Page {{page}} sur {{pages}}",
+      "previous": "Page précédente",
+      "next": "Page suivante"
+    },
+    "methods": {
+      "loading": "Lecture des méthodes…",
+      "unreadable": "Les méthodes du service n'ont pas pu être lues.",
+      "title": "Méthodes",
+      "none": "Aucune méthode : la version servie ne déclare aucune entrée de source.",
+      "notServed": "Cette méthode est déclarée par le paramétrage et n'est pas encore servie : un dépôt y serait refusé.",
+      "form": "Essayer {{path}}",
+      "body": "Corps à déposer",
+      "deposit": "Déposer",
+      "depositing": "Dépôt en cours…",
+      "response": "Réponse du point d'entrée",
+      "responseStatus": "Réponse HTTP {{status}}",
+      "failed": "L'essai n'a pas pu partir. {{code}}",
+      "keyRevoked": "La clé que le back-office emploie pour ses essais a été révoquée. En réémettre une pour pouvoir essayer de nouveau ; l'ancienne reste visible dans la page des clés, avec les dépôts qu'elle a portés.",
+      "reissue": "Réémettre la clé du back-office",
+      "reissued": "Clé réémise",
+      "contract": "Réponses déclarées par le contrat publié",
+      "modele_absent": "La version servie ne porte pas le modèle d'entrée {{model}} : la forme attendue ne peut pas être montrée.",
+      "modele_invalide": "Le modèle d'entrée {{model}} est mal formé dans la déclaration de la source.",
+      "file": "Document à déposer",
+      "fileHelp": "Le document est posé sur le disque de la stack, puis découpé et importé hors de l'appel : la réponse est un acquittement de prise en charge, pas un compte-rendu. L'issue de l'import se lit dans le journal des appels, ci-dessous.",
+      "fileExample": "Forme attendue du document",
+      "open": "Signature et essai"
+    },
+    "signature": {
+      "headers": "En-têtes",
+      "required": "obligatoire",
+      "optional": "facultatif",
+      "body": "Corps",
+      "modelSchema": "Modèle d'entrée {{model}}, tel que la validation l'emploie",
+      "contractSchema": "Corps déclaré par le contrat pour cette adresse",
+      "responses": "Réponses",
+      "shape": "Corps rendu en {{status}}",
+      "responsesDetail": "Ce que chaque réponse dit",
+      "schemas": "Schémas"
+    },
+    "contract": {
+      "title": "Contrat publié, version {{version}} — à lire avant de brancher une intégration",
+      "auth": "Authentification",
+      "spec": "Spécification OpenAPI complète",
+      "specHelp": "Celle-là même qui est versionnée dans le dépôt : de quoi engendrer un client."
+    }
+  }
+}

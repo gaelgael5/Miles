@@ -1,0 +1,252 @@
+{
+  "app": {
+    "sub": "Module d'enrôlement",
+    "nav": {
+      "cultures": "Cultures",
+      "secrets": "Secrets",
+      "oidc": "Connecteurs OIDC",
+      "events": "Journal d'events",
+      "health": "État du service",
+      "pairing": "Appariement",
+      "environments": "Environnements",
+      "accounts": "Comptes"
+    },
+    "sections": {
+      "global": "Global",
+      "workspaces": "Workspaces"
+    },
+    "workspaces": {
+      "none": "Aucun workspace hébergé.",
+      "gone": "Ce workspace n'est plus hébergé par cet environnement."
+    }
+  },
+  "pairing": {
+    "title": "Appariement des environnements",
+    "lead": "Les environnements qui demandent à se connecter, et ceux qui sont appariés.",
+    "loading": "Chargement…",
+    "error": "La liste n'a pas pu être lue.",
+    "requests": {
+      "title": "Demandes en attente",
+      "help": "Transmettre le code à la personne qui administre réellement cet environnement : c'est ce geste, et lui seul, qui vaut acceptation. L'appariement se conclut quand elle le colle chez elle.",
+      "empty": "Aucune demande en attente.",
+      "unnamed": "Nom non déclaré",
+      "captionReceived": "Reçue le",
+      "captionExpires": "Expire",
+      "captionFingerprint": "Empreinte de clé",
+      "showCode": "Afficher le code",
+      "hideCode": "Masquer le code",
+      "reject": "Refuser",
+      "expiresInMinutes": "dans {{n}} min",
+      "expiresInSeconds": "dans {{n}} s",
+      "expiresInHours": "dans {{n}} h"
+    },
+    "code": {
+      "loading": "Lecture du code…",
+      "gone": "Cette demande n'existe plus : elle a expiré ou vient d'être refusée.",
+      "handOver": "Dicter ou coller ce code à l'administrateur de l'environnement.",
+      "label": "Code d'appariement",
+      "copy": "Copier le code",
+      "renewsIn": "se renouvelle dans {{n}} s",
+      "perishable": "Le code change à chaque fenêtre et ne sert qu'une fois. Il n'est ni imprimable ni téléchargeable."
+    },
+    "reject": {
+      "title": "Refuser cette demande ?",
+      "confirm": "Refuser",
+      "cancel": "Annuler",
+      "body": "La demande de {{url}} disparaîtra et son code cessera de valoir. L'environnement devra redemander."
+    },
+    "paired": {
+      "captionSince": "Apparié le",
+      "captionDevices": "Devices affectés",
+      "devicesUnknown": "—",
+      "contactCaption": "Joint à l'adresse",
+      "contactHelp": "L'adresse que ce module compose pour prévenir la stack — d'une révocation, par exemple. Elle n'entre dans aucune signature : seule l'origine que la stack déclare est vérifiée. À changer si un intermédiaire s'interpose.",
+      "contactLabel": "Adresse de contact",
+      "contactSubmit": "Enregistrer l'adresse",
+      "contactEdit": "Changer l'adresse de contact",
+      "contactError": "Adresse refusée. Une origine http(s) sans chemin est attendue.",
+      "devicesUnknownHelp": "Le référentiel des devices n'existe pas encore : ce nombre n'est pas connu, et n'est donc pas affiché comme zéro.",
+      "parametrageTitle": "Module de paramétrage apparié",
+      "parametrageEmpty": "Aucun module de paramétrage apparié.",
+      "environnementsTitle": "Environnements appariés",
+      "environnementsEmpty": "Aucun environnement apparié."
+    },
+    "revoke": {
+      "action": "Révoquer l'appariement",
+      "title": "Révoquer cet appariement ?",
+      "confirm": "Révoquer",
+      "cancel": "Annuler",
+      "body": "L'appariement de {{url}} à l'environnement « {{label}} » ({{slug}}) va être rompu.",
+      "bodyUnattached": "L'appariement de {{url}} va être rompu. Il n'est rattaché à aucun environnement.",
+      "devices": "{{count}} device(s) seront remis en attente d'affectation et ne démarreront plus jusqu'à ce qu'un humain les réaffecte.",
+      "devicesUnknown": "Le référentiel des devices n'existe pas encore : le nombre de devices qui seront remis en attente n'est pas connu, et n'est donc pas affiché comme zéro.",
+      "keys": "La clé de cette stack sera détruite. Pour se réapparier, elle devra frapper de nouveau et un humain devra accepter une demande neuve.",
+      "environmentKept": "L'environnement reste au référentiel : la révocation porte sur l'appariement, pas sur lui.",
+      "error": "La révocation a échoué. La liste relue dira l'état réel de cet appariement.",
+      "bodyParametrage": "L'appariement du module de paramétrage {{url}} va être rompu.",
+      "parametrageConfided": "Ce qui lui avait été confié cesse de l'être, et il devra tout redemander après un appariement neuf."
+    },
+    "designation": {
+      "caption": "Environnement",
+      "missing": "À rattacher",
+      "label": "Environnement du référentiel",
+      "none": "— choisir un environnement —",
+      "help": "Les environnements déjà appariés ne sont pas proposés : un environnement ne porte qu'un appariement.",
+      "designate": "Désigner l'environnement",
+      "change": "Changer l'environnement",
+      "submit": "Désigner",
+      "required": "Le code ne peut pas être affiché tant qu'aucun environnement n'est désigné : l'afficher, c'est accepter l'appariement, et il faut savoir à quoi le rattacher.",
+      "create": "Déclarer un environnement",
+      "createHelp": "Le nouvel environnement sera aussitôt désigné pour cette demande.",
+      "createSubmit": "Déclarer et désigner",
+      "attach": "Rattacher à un environnement",
+      "attachHelp": "Cet appariement a été conclu avant que les environnements ne soient déclarés. Le rattacher ne touche ni aux clés ni à l'appariement.",
+      "attachSubmit": "Rattacher",
+      "errors": {
+        "taken": "Un autre appariement porte déjà cet environnement. Choisissez-en un autre, ou révoquez l'appariement existant.",
+        "settled": "Cet appariement est conclu : son environnement ne se change plus depuis une demande. Changez-le sur l'appariement lui-même, dans la liste des environnements appariés.",
+        "environmentGone": "Cet environnement n'est plus dans le référentiel. Rafraîchissez la liste.",
+        "requestGone": "Cette demande a disparu : elle a expiré, ou elle vient d'être refusée.",
+        "unexpected": "La désignation a échoué. Réessayez, puis consultez les journaux.",
+        "devices": "Cet appariement porte des devices : son environnement ne se change pas d'un clic. Déplacez d'abord les devices vers l'environnement visé.",
+        "changedElsewhere": "L'environnement de cet appariement vient d'être changé ailleurs. Rafraîchissez la liste avant de recommencer.",
+        "speciesHasNoEnvironment": "Ce demandeur n'est pas un environnement : il ne reçoit pas de devices, et il n'y a rien à lui désigner."
+      }
+    },
+    "move": {
+      "action": "Changer l'environnement",
+      "submit": "Choisir cet environnement",
+      "help": "Le changement n'est possible que tant que cet appariement ne porte aucun device. Dès qu'il en porte, il faut d'abord déplacer les devices.",
+      "title": "Changer l'environnement de cet appariement ?",
+      "confirm": "Changer l'environnement",
+      "cancel": "Annuler",
+      "body": "L'appariement de {{url}} va quitter l'environnement « {{fromLabel}} » ({{fromSlug}}) pour « {{toLabel}} » ({{toSlug}}).",
+      "keys": "Les clés ne bougent pas : la stack reste appariée et n'a rien à refaire.",
+      "devices": "Aucun device n'est déplacé : ce changement n'est permis que tant que cet appariement n'en porte aucun."
+    },
+    "species": {
+      "caption": "Espèce",
+      "environnement": "Environnement",
+      "environnementConsequence": "Reçoit des devices de ce module.",
+      "parametrage": "Module de paramétrage",
+      "parametrageConsequence": "Se verra confier les connexions git. Il n'en est apparié qu'un seul."
+    },
+    "workspaces": {
+      "caption": "Workspaces exposés",
+      "noRepo": "Dépôt pas encore configuré",
+      "empty": "Ce module de paramétrage ne nous a encore confié aucun workspace.",
+      "error": "Les workspaces exposés n'ont pas pu être lus."
+    },
+    "workspacePlacement": {
+      "caption": "Workspace hébergé",
+      "none": "Aucun",
+      "submit": "Placer",
+      "noneExposed": "Aucun workspace exposé : faites-les confier depuis le module de paramétrage.",
+      "notExposed": "Ce workspace n'est exposé par aucun module de paramétrage apparié. Exposés : {{exposed}}.",
+      "nothing": "aucun",
+      "error": "Le workspace n'a pas pu être placé."
+    }
+  },
+  "environments": {
+    "title": "Environnements",
+    "lead": "Les environnements que ce module connaît, et la stack appariée à chacun.",
+    "loading": "Chargement…",
+    "error": "La liste n'a pas pu être lue.",
+    "form": {
+      "createTitle": "Déclarer un environnement",
+      "renameTitle": "Renommer {{label}}",
+      "label": "Libellé",
+      "labelHelp": "Ce qui se lit. Il se renomme à tout moment.",
+      "slug": "Slug",
+      "slugHelp": "Ce qui s'écrit : minuscules, chiffres et traits d'union. Proposé depuis le libellé, libre à vous de le changer — une fois changé, le libellé ne le réécrit plus.",
+      "submitCreate": "Déclarer",
+      "submitRename": "Renommer",
+      "cancel": "Annuler"
+    },
+    "list": {
+      "title": "Environnements déclarés",
+      "empty": "Aucun environnement déclaré."
+    },
+    "actions": {
+      "rename": "Renommer",
+      "delete": "Supprimer"
+    },
+    "delete": {
+      "title": "Supprimer cet environnement ?",
+      "body": "{{label}} disparaîtra de la liste. Plus aucun device ne pourra y être envoyé.",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "errors": {
+      "label": "Le libellé est vide, trop long, ou porte des caractères de contrôle.",
+      "slug": "Un slug est fait de minuscules, de chiffres et de traits d'union — et il ne peut pas être vide.",
+      "slugTaken": "Un autre environnement porte déjà ce slug.",
+      "paired": "Cet environnement porte un appariement. Révoquez-le d'abord.",
+      "absent": "Cet environnement n'existe plus.",
+      "unexpected": "Le serveur a refusé, sans dire pourquoi.",
+      "designated": "Une demande d'appariement en attente désigne cet environnement. Refusez-la, ou désignez-en un autre, avant de le supprimer."
+    }
+  },
+  "workspaces": {
+    "title": "{{workspace}}",
+    "lead": "Hébergé par l'environnement {{label}} ({{slug}}).",
+    "source": {
+      "title": "D'où vient ce paramétrage",
+      "captionEnvironment": "Environnement qui l'héberge",
+      "captionRepo": "Dépôt confié par le module de paramétrage",
+      "noRepo": "Dépôt pas encore configuré"
+    },
+    "version": {
+      "title": "Version hébergée",
+      "none": "Aucune version n'est ordonnée à cet environnement. Choisissez-en une ci-dessous : elle sera poussée à la stack, qui viendra chercher son contenu.",
+      "nonePublished": "Ce workspace n'a aucune version enregistrée dans son dépôt. Les versions s'enregistrent depuis le module de paramétrage.",
+      "numbered": "Version {{number}}",
+      "captionOrdered": "Version ordonnée",
+      "captionServed": "Ce que la stack a répondu",
+      "upToDate": "servie",
+      "notApplied": "ordre reçu, version pas encore servie",
+      "asOf": "au {{instant}}",
+      "resend": "Renvoyer l'ordre",
+      "choose": "Associer",
+      "current": "ordonnée",
+      "refusals": {
+        "pair_non_apparie": "aucune stack n'est appariée à cet environnement",
+        "pair_injoignable": "la stack n'a pas répondu",
+        "pair_refuse": "la stack a refusé notre appel signé",
+        "reponse_illisible": "la stack a répondu autre chose que ce qu'on attendait",
+        "origine_absente": "ce module n'a pas d'adresse publique configurée : il ne peut rien signer",
+        "non_applique": "ordre reçu, version pas encore servie",
+        "aucun_pair": "la stack ne se dit appariée à personne",
+        "relais_injoignable": "la stack n'a pas pu venir chercher le contenu",
+        "relais_refuse": "le contenu lui a été refusé",
+        "commit_inattendu": "le contenu reçu ne portait pas la version ordonnée : la stack l'a rejeté",
+        "bundle_illisible": "le contenu reçu n'a pas pu être ouvert",
+        "bundle_trop_volumineux": "le contenu dépasse ce qui peut voyager",
+        "unknown": "la stack a refusé en disant « {{code}} »"
+      },
+      "errors": {
+        "noWorkspace": "Aucun workspace n'est placé sur cet environnement : il n'y a pas de version à choisir.",
+        "notConfided": "Aucun module de paramétrage apparié n'expose ce workspace. Son dépôt nous a été retiré avec l'appariement : réappariez le module de paramétrage.",
+        "noRepo": "Le dépôt de ce workspace n'est pas encore configuré dans le module de paramétrage.",
+        "unknownVersion": "Cette version n'existe plus dans le dépôt. Rafraîchissez la liste et choisissez-en une autre.",
+        "repository": "Le dépôt n'a pas pu être lu.",
+        "unexpected": "La demande n'a pas abouti."
+      },
+      "reasons": {
+        "identifiants": "Le credential confié a été refusé par la forge.",
+        "depot_inexistant": "La forge ne connaît pas ce dépôt.",
+        "injoignable": "La forge n'a pas répondu.",
+        "protection": "La forge a refusé au nom d'une règle de protection.",
+        "droit_refuse": "Le credential confié n'a pas le droit de lire ce dépôt.",
+        "echec": "git a échoué sans dire pourquoi.",
+        "credential_illisible": "Le credential confié ne s'ouvre plus ici : faites-le reconfier depuis le module de paramétrage.",
+        "unknown": "git a dit « {{code}} »."
+      }
+    },
+    "accounts": {
+      "title": "Comptes",
+      "lead": "Comptes du workspace {{workspace}}, hébergé par {{label}}.",
+      "pending": "Les comptes sont stockés sur la stack d'environnement, qui exposera leur recherche et leur pagination. Cette page les affichera dès que ces routes existeront."
+    }
+  }
+}

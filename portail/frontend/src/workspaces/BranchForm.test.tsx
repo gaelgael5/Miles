@@ -1,0 +1,81 @@
+import { fireEvent, screen, within } from "@testing-library/react";
+
+import "../i18n/i18n";
+import { mockApi } from "@miles/socle-web/testing";
+import { BARE, CONFIGURED, fill, renderWorkspaces } from "./workspaceFixtures";
+
+const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
+const ROUTE = "/api/workspaces/retrait/branches";
+const BASE = { slug: "atelier", label: "atelier", branch: "back/retrait/atelier", base: true };
+const ESSAI = { slug: "essai-de-gael", label: "Essai de Gaël", branch: "back/retrait/essai-de-gael", base: false };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+/** « Nouvelle branche » vit dans le paramétrage depuis le 24/10/2026, plus sur la ligne. */
+async function openForm() {
+  renderWorkspaces();
+  fireEvent.click(await screen.findByRole("button", { name: "Retrait de colis" }));
+  fireEvent.click(await screen.findByRole("button", { name: "New branch" }));
+}
+
+describe("BranchForm", () => {
+  it("creates a branch from the base with its label and proposed slug, then opens it", async () => {
+    const calls = mockApi({
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`POST ${ROUTE}`]: { status: 201, body: ESSAI },
+      [`PUT ${ROUTE}/view`]: { status: 200, body: ESSAI },
+      [`GET ${ROUTE}`]: { status: 200, body: [BASE, ESSAI] },
+      "GET /api/workspaces/retrait/versions?branch=essai-de-gael": { status: 200, body: [] },
+    });
+    await openForm();
+    expect(screen.getByText(/head of the base branch back\/retrait\/atelier/)).toBeInTheDocument();
+
+    fill("Label", "Essai de Gaël");
+    expect(screen.getByLabelText("Slug")).toHaveValue("essai-de-gael");
+    fireEvent.click(screen.getByText("Create the branch"));
+
+    expect(
+      await screen.findByRole("heading", { name: "Retrait de colis — branch essai-de-gael" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("back/retrait/essai-de-gael")).toBeInTheDocument();
+    expect(calls.find((c) => c.key === `POST ${ROUTE}`)?.body).toEqual({
+      label: "Essai de Gaël",
+      slug: "essai-de-gael",
+    });
+    // Créée pour y travailler : elle devient la branche regardée.
+    expect(calls.find((c) => c.key === `PUT ${ROUTE}/view`)?.body).toEqual({
+      branch: "essai-de-gael",
+    });
+  });
+
+  it("names the occupant of a taken slug, and the invalid slug", async () => {
+    mockApi({
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`POST ${ROUTE}`]: [
+        { status: 409, body: { detail: { code: "slug_pris", by: "back/retrait/essai" } } },
+        { status: 422, body: { detail: { field: "slug" } } },
+      ],
+    });
+    await openForm();
+    fill("Label", "Essai");
+
+    fireEvent.click(screen.getByText("Create the branch"));
+    expect(
+      await screen.findByText("This slug or branch is already taken by “back/retrait/essai”."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Create the branch"));
+    expect(await screen.findByText(/Slug: lowercase letters/)).toBeInTheDocument();
+  });
+
+  it("is not offered on a workspace without base branch", async () => {
+    mockApi({
+      "GET /api/workspaces": { status: 200, body: [{ ...BARE, id: "caisse", name: "Caisse" }] },
+    });
+    renderWorkspaces();
+    const row = (await screen.findByText("Caisse")).closest("li") as HTMLElement;
+
+    expect(within(row).queryByRole("button", { name: "New branch" })).not.toBeInTheDocument();
+  });
+});

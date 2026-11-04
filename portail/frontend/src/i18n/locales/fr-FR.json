@@ -1,0 +1,1429 @@
+{
+  "app": {
+    "nav": {
+      "workspaces": "Workspaces",
+      "security": "Services de sécurité",
+      "oidc": "Connecteurs OIDC",
+      "cultures": "Cultures",
+      "countries": "Pays",
+      "timezones": "Fuseaux horaires",
+      "secrets": "Secrets",
+      "events": "Journal d'events",
+      "health": "État du service",
+      "gitConnections": "Connexions git",
+      "allWorkspaces": "Tous les workspaces",
+      "workspaceOnBranch": "{{name}} ({{branch}})",
+      "apiKeys": "Clés d'API",
+      "oauthClients": "Clients OAuth",
+      "pairing": "Appariement"
+    },
+    "sub": "Back-office",
+    "sections": {
+      "global": "Global",
+      "workspaces": "Workspaces"
+    },
+    "groups": {
+      "globalisation": "Globalisation",
+      "agent": "Agent"
+    }
+  },
+  "security": {
+    "title": "Service de sécurité racine",
+    "intro": "Le service de sécurité (Keycloak) authentifie les utilisateurs du portail et aussi les terminaux de tous les workspaces : s'il est indisponible, aucun terminal ne démarre. Un seul service pour l'installation ; les workspaces y font référence.",
+    "loading": "Chargement du service de sécurité…",
+    "verify": "Vérifier",
+    "edit": "Modifier",
+    "secretBy": "Secret client : secret « {{slug}} » (sa valeur n'est jamais affichée).",
+    "fields": {
+      "id": "Identifiant",
+      "baseUrl": "Adresse",
+      "realm": "Realm",
+      "clientId": "Identifiant client",
+      "clientSecret": "Secret client"
+    },
+    "form": {
+      "newTitle": "Déclarer le service de sécurité",
+      "editTitle": "Modifier le service de sécurité",
+      "save": "Enregistrer et vérifier",
+      "cancel": "Annuler",
+      "dependents_one": "{{count}} installation enrôlée dépend de ce service. Je comprends que la modification la touche.",
+      "dependents_other": "{{count}} installations enrôlées dépendent de ce service. Je comprends que la modification les touche."
+    },
+    "outcomes": {
+      "unchecked": "Service de sécurité {{id}} : pas encore vérifié.",
+      "ok": "Service de sécurité {{id}} : joignable, realm reconnu, accès accordé.",
+      "realm_inconnu": "Service de sécurité {{id}} : joignable, mais le realm est inconnu.",
+      "injoignable": "Le service de sécurité {{id}} est injoignable. Les terminaux ne peuvent pas démarrer.",
+      "refuse": "Service de sécurité {{id}} : joignable, mais le client ou son secret est refusé."
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
+        "base_url": "Adresse : une adresse https, sans requête ni fragment.",
+        "realm": "Realm : lettres, chiffres, point, tiret ou souligné.",
+        "client_id": "Identifiant client : obligatoire, 200 caractères au plus.",
+        "client_secret_slug": "Choisissez un secret déclaré de type « Secret client du service de sécurité racine »."
+      },
+      "unreachable": "Impossible de charger le service de sécurité.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    }
+  },
+  "workspaces": {
+    "title": "Workspaces",
+    "intro": "Un workspace par application métier. Il se crée par son nom ; son dépôt git, son accès et son service de sécurité se règlent ensuite dans son paramétrage.",
+    "add": "Créer un workspace",
+    "empty": "Aucun workspace pour l'instant.",
+    "fields": {
+      "id": "Identifiant",
+      "name": "Nom",
+      "securityService": "Service de sécurité racine",
+      "noSecurityService": "— Aucun pour l'instant —",
+      "defaultCulture": "Culture par défaut"
+    },
+    "form": {
+      "title": "Nouveau workspace",
+      "submit": "Créer le workspace",
+      "cancel": "Annuler",
+      "idHelp": "Déduit du nom ; modifiable avant la création.",
+      "writesForReal": "Le test écrit vraiment : il crée la branche et le tag {{branch}}, pousse un commit, puis retire les deux. Sur un dépôt vide, Miles crée d'abord la branche main.",
+      "testing": "Essai des cinq droits avec la branche {{branch}}…",
+      "defaultCultureHelp": "La langue dans laquelle une valeur sera exigée sur chaque clé de traduction de ce workspace. Elle se change ensuite dans le paramétrage."
+    },
+    "card": {
+      "recheck": "Retester les accès",
+      "captionRepository": "Dépôt",
+      "noRepository": "Dépôt à paramétrer",
+      "open": "Paramétrer le workspace {{name}}",
+      "captionSecurity": "Sécurité",
+      "captionWorkBranch": "Branche de travail",
+      "settings": "Paramétrer",
+      "dataModels": "Modèles de données",
+      "contracts": "Contrats",
+      "branch": "Branches et versions",
+      "transformations": "Transformations",
+      "storages": "Storages",
+      "accountReference": "Référence de compte",
+      "sources": "Sources de données",
+      "trads": "Traductions",
+      "tradsCoverage": "Couverture"
+    },
+    "rights": {
+      "lire": "Lire et récupérer",
+      "creer_branche": "Créer une branche",
+      "pousser": "Pousser un commit",
+      "poser_tag": "Poser un tag de version",
+      "supprimer_branche": "Supprimer une branche"
+    },
+    "reasons": {
+      "identifiants": "refusé : les identifiants sont invalides",
+      "depot_inexistant": "refusé : le dépôt n'existe pas",
+      "injoignable": "la forge est injoignable",
+      "protection": "refusé par une règle de protection couvrant miles-verification-* : ajustez la protection de branche ou de tag",
+      "droit_refuse": "refusé : le jeton n'a pas le droit d'écrire sur ce dépôt",
+      "echec": "échec"
+    },
+    "check": {
+      "ok": "OK",
+      "initialized": "Le dépôt était vide : Miles a créé la branche {{branch}}.",
+      "existing_one": "Le dépôt a déjà {{count}} branche ; rien n'a été écrasé.",
+      "existing_other": "Le dépôt a déjà {{count}} branches ; rien n'a été écrasé.",
+      "residualBranch": "La branche {{name}} n'a pas pu être retirée : supprimez-la à la main, puis retestez.",
+      "residualTag": "Le tag {{name}} n'a pas pu être retiré : supprimez-le à la main."
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
+        "name": "Nom : 1 à 200 caractères.",
+        "repo_url": "Dépôt : une adresse de la forme https://github.com/organisation/depot.",
+        "git_connection_id": "Cette connexion n'existe pas, ou son accès est inutilisable.",
+        "security_service_id": "Ce service de sécurité n'existe pas.",
+        "verification_suffix": "Nom de vérification invalide.",
+        "default_culture": "Culture par défaut invalide ou inconnue."
+      },
+      "conflict": {
+        "identifiant_pris": "Cet identifiant est déjà pris par un autre workspace.",
+        "depot_deja_associe": "Ce dépôt appartient déjà à un autre workspace.",
+        "depot_non_configure": "Enregistrez d'abord un dépôt.",
+        "branche_de_travail_existante": "Une branche de travail est ouverte : le dépôt ne peut plus changer."
+      },
+      "accessRefused": "L'accès au dépôt est insuffisant : rien n'a été enregistré.",
+      "unreachable": "Impossible de charger les workspaces.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office.",
+      "reasons": {
+        "hors_connexion": "Ce dépôt n'est pas sous l'adresse de la connexion choisie."
+      }
+    },
+    "work": {
+      "title": "Branche de travail",
+      "none": "Pas encore de branche de travail : ouvrez-la quand vous commencez à fabriquer le paramétrage.",
+      "name": "Nom de la branche de travail (back/{{workspace}}/…)",
+      "open": "Ouvrir la branche de travail",
+      "adopt": "Reprendre cette branche existante",
+      "current": "Branche de travail : {{branch}}",
+      "outcome": {
+        "initialisee": "La branche de travail est ouverte et a reçu l'arborescence de paramétrage et son manifest.json.",
+        "conforme": "La branche de travail est ouverte ; le dépôt avait déjà une arborescence conforme, rien n'a été écrasé.",
+        "reprise": "La branche existante a été reprise telle quelle : son arborescence est conforme et rien n'y a été écrit.",
+        "reprise_initialisee": "La branche existante était vide : elle a été reprise et a reçu l'arborescence de paramétrage et son manifest.json."
+      },
+      "nonConform": "L'arborescence du dépôt n'est pas conforme : rien n'a été modifié.",
+      "manifest": {
+        "absent": "manifest.json est absent.",
+        "invalide": "manifest.json est invalide."
+      },
+      "environmentDir": "{{dir}}/ ressemble à un dossier d'environnement : un environnement est une branche, pas un dossier.",
+      "unexpected": "Inattendu : {{path}}",
+      "conflict": {
+        "branche_de_travail_existante": "Ce workspace a déjà une branche de travail.",
+        "branche_existante": "Une branche de ce nom existe déjà dans le dépôt ; elle n'a pas été touchée."
+      },
+      "access": {
+        "identifiants": "Le dépôt refuse les identifiants : vérifiez le jeton d'accès, puis recommencez.",
+        "depot_inexistant": "Le dépôt n'existe plus.",
+        "injoignable": "La forge est injoignable.",
+        "protection": "Une règle de protection refuse la branche de travail.",
+        "droit_refuse": "Le jeton ne peut plus écrire sur le dépôt.",
+        "echec": "Le dépôt a refusé l'opération."
+      }
+    },
+    "settings": {
+      "title": "Paramétrage — {{name}}",
+      "back": "← Retour aux workspaces",
+      "repoTitle": "Dépôt git",
+      "connection": "Connexion git",
+      "noConnection": "— Choisir une connexion —",
+      "noConnections": "Aucune connexion git déclarée : déclarez-en une dans le menu Connexions git.",
+      "repoUrl": "Dépôt",
+      "repoHelp": "Le dépôt doit se trouver sous {{base}}.",
+      "saveRepo": "Tester les accès et enregistrer",
+      "current": "Dépôt enregistré : {{url}} (connexion {{connection}}).",
+      "lockedByWorkBranch": "Le dépôt ne peut plus changer : une branche de travail y est ouverte.",
+      "securityTitle": "Service de sécurité",
+      "saveSecurity": "Enregistrer",
+      "saved": "Enregistré.",
+      "needsRepository": "Enregistrez d'abord un dépôt : la branche de travail s'y ouvre."
+    },
+    "delete": {
+      "title": "Supprimer le workspace",
+      "explain": "Miles oublie ce workspace : son dépôt git et toutes ses branches restent intacts. Le déclarer à nouveau sur la même adresse y retrouve tout.",
+      "action": "Supprimer le workspace",
+      "cancel": "Annuler",
+      "confirm": "Supprimer « {{name}} » du back-office ? Le dépôt git n'est pas touché.",
+      "held": "{{by}} a la main sur une branche : son travail non publié serait perdu. Qu'il publie ou relâche, ou déverrouillez-le d'abord.",
+      "failed": "La suppression a échoué."
+    },
+    "nav": {
+      "all_dataModels": "Tous les modèles",
+      "all_contracts": "Tous les contrats",
+      "all_trads": "Contextes"
+    }
+  },
+  "gitConnections": {
+    "title": "Connexions git",
+    "intro": "Connexions aux forges git : l'adresse de la forge ou d'une organisation, et le PAT par lequel Miles y accède. Chaque workspace choisit la sienne dans son paramétrage.",
+    "add": "Ajouter une connexion",
+    "empty": "Aucune connexion déclarée.",
+    "loading": "Chargement des connexions…",
+    "fields": {
+      "label": "Libellé",
+      "id": "Identifiant",
+      "baseUrl": "Adresse de la forge ou de l'organisation",
+      "token": "PAT (jeton d'accès)"
+    },
+    "form": {
+      "newTitle": "Nouvelle connexion",
+      "editTitle": "Modifier la connexion « {{label}} »",
+      "submit": "Enregistrer la connexion",
+      "saveEdit": "Enregistrer",
+      "cancel": "Annuler",
+      "baseUrlHelp": "Les dépôts des workspaces devront se trouver sous cette adresse.",
+      "testedFirst_one": "{{count}} workspace utilise cette connexion : un changement d'adresse ou d'accès y est d'abord éprouvé, et n'est appliqué que s'il garde ses cinq droits.",
+      "testedFirst_other": "{{count}} workspaces utilisent cette connexion : un changement d'adresse ou d'accès est d'abord éprouvé sur chacun, et n'est appliqué que s'ils gardent tous leurs cinq droits.",
+      "tokenHelp": "Miles accède à git en HTTPS par ce seul PAT. Sur GitHub : un jeton fine-grained avec Contents en lecture et écriture sur le dépôt, ou un jeton classic avec la portée repo."
+    },
+    "list": {
+      "captionAccess": "PAT",
+      "captionUsage": "Workspaces",
+      "usedBy_one": "{{count}} workspace",
+      "usedBy_other": "{{count}} workspaces",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer cette connexion ?",
+      "body": "La connexion « {{label}} » sera supprimée ; son PAT reste déclaré.",
+      "confirm": "Supprimer définitivement"
+    },
+    "errors": {
+      "invalid": {
+        "id": "Identifiant : 2 à 63 caractères, lettres minuscules, chiffres et tirets.",
+        "label": "Libellé : 1 à 200 caractères.",
+        "base_url": "Adresse : https://github.com ou https://github.com/organisation, sans dépôt.",
+        "token_secret_slug": "Choisissez un PAT : il doit exister et être un jeton git.",
+        "verification_suffix": "Nom de vérification invalide."
+      },
+      "conflict": {
+        "identifiant_pris": "Cet identifiant est déjà pris par une autre connexion."
+      },
+      "inUse": "Cette connexion est utilisée par les workspaces : {{list}}.",
+      "access": "Le workspace {{workspace}} perdrait l'accès à son dépôt ({{reason}}) : rien n'a été modifié.",
+      "outside": "Le dépôt du workspace {{workspace}} ne serait plus sous cette adresse : rien n'a été modifié.",
+      "unreachable": "Impossible de charger les connexions.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    }
+  },
+  "dataModels": {
+    "back": "← Retour aux workspaces",
+    "title": "Modèles de données — {{name}}",
+    "intro": "Descriptions d'objets en YAML, écrites dans la branche de travail",
+    "add": "Ajouter un modèle",
+    "loading": "Lecture de la branche de travail…",
+    "empty": "Aucun modèle de données dans la branche de travail.",
+    "fields": {
+      "domain": "Domaine",
+      "content": "Schéma (YAML)",
+      "label": "Label",
+      "slug": "Slug"
+    },
+    "form": {
+      "title": "Nouveau modèle de données",
+      "domainHelp": "Transverse : shared/messages, partagé par tous les domaines. On ne promeut au transverse qu'au second usage réel par un autre domaine. Un domaine absent de la liste s'ajoute par « Ajouter un domaine ».",
+      "submit": "Créer le modèle",
+      "cancel": "Annuler",
+      "slugHelp": "Proposé d'après le label ; c'est le nom du modèle et de son fichier, figé une fois créé. Lettres minuscules, chiffres, tirets et soulignés."
+    },
+    "list": {
+      "captionScope": "Emplacement",
+      "shared": "Transverse",
+      "delete": "Supprimer"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer ce modèle ?",
+      "body": "{{path}} sera retiré de la branche de travail par un commit.",
+      "confirm": "Supprimer"
+    },
+    "errors": {
+      "syntax": "YAML invalide, ligne {{line}}, colonne {{column}} : {{message}}",
+      "grammar": "Le modèle ne respecte pas la grammaire :",
+      "inUse": "D'autres modèles utilisent celui-ci : {{list}}.",
+      "access": "Le dépôt n'accepte plus cette opération ({{reason}}). La branche de travail est intacte.",
+      "invalid": {
+        "scope": "Domaine : lettres minuscules, chiffres, tirets et soulignés.",
+        "name": "Slug invalide : lettres minuscules, chiffres, tirets et soulignés.",
+        "git_connection_id": "La connexion git du workspace est inutilisable.",
+        "repo_url": "L'adresse du dépôt du workspace est invalide.",
+        "label": "Label : obligatoire, 120 caractères au plus, sur une seule ligne.",
+        "domain": "Nom de domaine : lettres minuscules, chiffres, tirets et soulignés, 63 caractères au plus, en commençant par une lettre ou un chiffre."
+      },
+      "conflict": {
+        "nom_pris": "Un autre modèle porte déjà ce nom à cet emplacement.",
+        "branche_de_travail_absente": "Ouvrez d'abord une branche de travail.",
+        "branche_de_travail_introuvable": "La branche de travail n'existe plus dans le dépôt. Elle n'est pas recréée d'office.",
+        "branche_modifiee": "La branche de travail a changé entre-temps : rien n'a été écrit. Réessayez.",
+        "depot_non_configure": "Ce workspace n'a pas encore de dépôt.",
+        "modele_inconnu": "Ce modèle n'existe plus.",
+        "branche_inconnue": "Cette branche n'est pas connue du workspace.",
+        "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier.",
+        "nom_fige": "Le nom du modèle (nom:) ne change pas : il est figé à la création.",
+        "domaine_inconnu": "Ce domaine n'existe pas dans la branche : ajoutez-le d'abord."
+      },
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    },
+    "problems": {
+      "_sans_message": "problème « {{code}} » signalé ici{{detail}} — ce refus n'a pas encore de message : signalez-le",
+      "aucun_mode": "aucun mode de réception coché : cette entrée n'expose aucune méthode, elle ne recevra rien",
+      "booleen_attendu": "true ou false attendu",
+      "borne_exclusive_sans_borne": "borne exclusive déclarée sans la borne qu'elle qualifie",
+      "chaine_absente": "aucune chaîne nommée : une entrée transforme ce qu'elle reçoit avant de l'écrire",
+      "chaine_arrive_ailleurs": "la chaîne arrive au modèle « {{detail}} », pas à celui du storage visé",
+      "chaine_inconnue": "la chaîne « {{detail}} » n'existe pas dans cette branche",
+      "chaine_invalide": "la chaîne ne compile pas ({{detail}})",
+      "chaine_part_d_ailleurs": "la chaîne part du modèle « {{detail}} », pas de celui que l'entrée déclare recevoir",
+      "chaine_sans_etape": "la chaîne « {{detail}} » n'a aucune étape : elle ne transforme rien",
+      "champ_inconnu": "le champ « {{detail}} » n'existe pas dans le modèle du storage des comptes",
+      "chemin_de_propriete_attendu": "« {{detail}} » n'est pas un chemin de propriété (attendu : $.propriete, ou $.objet.propriete)",
+      "cible_invalide": "cible « {{detail}} » : un chemin de propriétés est attendu ($.objet.propriete)",
+      "cle_doublee": "la même clé est déclarée deux fois",
+      "cle_hors_type": "réservé au type {{detail}}",
+      "cle_inconnue": "clé inconnue",
+      "cle_vide": "aucune clé : sans clé, un objet ne se reconnaît pas d'une écriture à l'autre, et chaque import empilerait des doublons",
+      "colonne_doublee": "la colonne « {{detail}} » est déjà dans cet index : la seconde n'apporte rien",
+      "contrat_sans_fichier": "contrat déclaré sans aucun fichier OpenAPI : il ne décrit rien",
+      "declaration_invalide": "déclaration illisible, ou son nom diffère du nom du fichier",
+      "decoupage_absent": "découpage absent : en mode fichier, il faut dire où sont les items (un chemin finissant par [*])",
+      "document_non_objet": "le document doit être un objet",
+      "dossier_d_environnement": "dossier nommé comme un environnement : un environnement est une branche",
+      "emplacement_inattendu": "emplacement inattendu : à la racine, seuls contracts/, domains/, shared/, sources/, storages/, transformations/, trads/ et comptes/reference.yaml sont attendus",
+      "enchainement_invalide": "chain.json est illisible, ou son slug diffère du dossier qui le porte",
+      "fichier_de_chaine_inattendu": "fichier que chain.json ne déclare pas : ajoutez-le aux étapes ou retirez-le",
+      "fichier_de_contrat_inattendu": "fichier inattendu dans un contrat",
+      "fichier_illisible": "comptes/reference.yaml ne se lit pas",
+      "hors_profil": "le template sort du profil d'écriture admis : {{detail}}",
+      "id_different_du_fichier": "l'$id ne correspond pas au fichier (attendu : {{detail}})",
+      "imbrication_trop_profonde": "listes imbriquées sur plus de {{detail}} niveaux",
+      "index_sans_colonne": "l'index « {{detail}} » n'a aucune colonne : il n'indexe rien",
+      "jpath_illisible": "chemin « {{detail}} » illisible",
+      "libelle_vide": "libellé vide",
+      "liste_non_vide_attendue": "une liste non vide est attendue",
+      "lot_trop_petit": "lot d'écriture de {{detail}} : il en faut au moins 1, sinon rien n'est jamais enregistré",
+      "manifeste_absent": "manifest.json est absent",
+      "manifeste_invalide": "manifest.json est invalide",
+      "metadonnees_de_contrat_invalides": "métadonnées du contrat (slug, sens) invalides",
+      "mode_non_servi": "le mode « {{detail}} » n'est pas encore servi : seul l'e-mail l'est aujourd'hui",
+      "modele_de_contrat_interdit": "un modèle de contrat ne se désigne pas depuis un pivot : passez par une chaîne de transformations ({{detail}})",
+      "modele_derive_orphelin": "modèle dérivé d'une version de contrat qui n'existe plus",
+      "modele_illisible": "le modèle « {{detail}} » ne se lit pas",
+      "modele_inconnu": "le modèle « {{detail}} » n'existe pas ou n'est pas visible d'ici",
+      "modele_invalide": "modèle « {{detail}} » : la forme attendue est miles:/<portée>/<nom>",
+      "modeles_derives_desynchronises": "les modèles dérivés ne correspondent plus au contrat : régénérez-les depuis sa version",
+      "nom_de_propriete_invalide": "nom de propriété invalide (lettres minuscules, chiffres et _)",
+      "nom_de_schema_inconvertible": "le schéma « {{detail}} » n'a pas de nom de modèle possible (lettres minuscules, chiffres et _)",
+      "nom_different_du_fichier": "le nom diffère de celui du fichier ({{detail}})",
+      "nom_double": "un autre index porte déjà le nom « {{detail}} »",
+      "nom_invalide": "nom invalide (lettres minuscules, chiffres, - et _)",
+      "noms_de_schema_en_collision": "deux schémas donneraient le même modèle que « {{detail}} » : un seul fichier serait écrit",
+      "non_streamable": "ce chemin ne se lit pas en flux : {{detail}}",
+      "non_supporte": "construction que le moteur ne sait pas encore faire : {{detail}}",
+      "objet_attendu": "le schéma racine doit décrire un objet (type: object)",
+      "obligatoire": "obligatoire",
+      "openapi_illisible": "OpenAPI illisible ({{detail}})",
+      "openapi_invalide": "{{detail}}",
+      "propriete_inconnue": "la propriété « {{detail}} » n'existe pas dans le modèle de ce storage",
+      "proprietes_vides": "aucune propriété : le schéma est encore un brouillon",
+      "reference_externe": "« {{detail}} » : seuls les modèles de Miles (miles:/…) et les définitions du schéma (#/…) se désignent",
+      "reference_interne_introuvable": "« {{detail}} » ne désigne aucune partie de ce schéma (pour un autre modèle : miles:/…, sans « # »)",
+      "reference_non_convertible": "« {{detail}} » ne désigne pas un schéma du contrat : seuls les components.schemas deviennent des modèles",
+      "schema_invalide": "non conforme à JSON Schema 2020-12 : {{detail}}",
+      "schema_trop_profond": "schéma imbriqué sur plus de {{detail}} niveaux",
+      "slug_different_du_dossier": "le slug diffère de son dossier ({{detail}})",
+      "storage_absent": "aucune donnée cible : une source écrit dans un storage, et il faut le nommer",
+      "storage_illisible": "la déclaration du storage « {{detail}} » ne se lit pas",
+      "storage_inconnu": "le storage « {{detail}} » n'existe pas dans cette branche",
+      "syntaxe": "template illisible : {{detail}}",
+      "tableau_interdit": "« {{detail}} » désigne un tableau : une clé ou une colonne d'index doit désigner UNE valeur, sans quoi l'unicité de la ligne d'index est perdue",
+      "template_absent": "le template déclaré par chain.json est absent du dossier",
+      "texte_attendu": "texte attendu",
+      "trop_de_colonnes": "{{detail}} colonnes : c'est plus que ce qu'un index accepte",
+      "type_inconnu": "type « {{detail}} » inconnu",
+      "valeur_attendue": "« {{detail}} » désigne un objet : une clé ou une colonne d'index doit désigner une valeur, pas un conteneur",
+      "valeurs_en_double": "valeurs en double",
+      "valeurs_textuelles_attendues": "les valeurs doivent être du texte (mettez on, off, yes, no entre guillemets)",
+      "version_invalide": "version : un entier à partir de 1",
+      "version_non_prise_en_charge": "version OpenAPI {{detail}} non prise en charge",
+      "yaml_invalide": "YAML invalide ({{detail}})"
+    },
+    "editor": {
+      "title": "YAML du modèle",
+      "back": "← Retour aux modèles",
+      "help": "Modélisez par l'éditeur visuel ou par le YAML : les deux se suivent, et rien n'est écrit avant « Enregistrer ». Le schéma suit JSON Schema 2020-12 ; $schema et $id sont posés par Miles. Un schéma sans propriété est un brouillon : il s'enregistre, mais bloque l'enregistrement d'une version.",
+      "save": "Enregistrer",
+      "saved": "Modèle enregistré dans votre espace : publiez pour le pousser.",
+      "unsaved": "Modifications non enregistrées",
+      "leaveTitle": "Quitter sans enregistrer ?",
+      "leaveBody": "Vos modifications ne sont qu'en mémoire : elles seront perdues.",
+      "leave": "Quitter",
+      "saveShortcut": "Ctrl+S (⌘S sur Mac)"
+    },
+    "schema": {
+      "visual": "Éditeur visuel",
+      "unreadable": "YAML illisible : {{message}}. Corrigez-le à droite pour retrouver l'éditeur visuel.",
+      "references": "Modèles référençables",
+      "referencesHelp": "Pour désigner un autre modèle, donnez à une propriété le type « $ref » et collez son URI.",
+      "copy": "Copier l'URI",
+      "externalRef": "« {{uri}} » ne désigne pas un modèle de Miles.",
+      "version": "version {{version}}",
+      "versionHelp": "Tenue par le système : +1 à chaque enregistrement qui change le schéma. Sans rapport avec les versions de la branche.",
+      "refDescription": "Désigne un autre schéma : une définition de ce document (#/$defs/…), ou un autre modèle par son URI (miles:/…), à copier depuis « Modèles référençables » — sans « # » devant.",
+      "refPlaceholder": "#/$defs/<nom> ou miles:/shared/<nom>",
+      "refBroken": "Cette référence ne désigne rien : ni une définition de ce document, ni un modèle de Miles."
+    },
+    "addDomain": "Ajouter un domaine",
+    "domainForm": {
+      "title": "Nouveau domaine",
+      "name": "Nom du domaine",
+      "help": "Le nom du répertoire domains/<nom>/ : lettres minuscules, chiffres, tirets et soulignés, 63 caractères au plus. Il se choisit ensuite dans la liste à la création d'un modèle.",
+      "submit": "Ajouter le domaine",
+      "added": "Domaine {{name}} ajouté : il se choisit maintenant à la création d'un modèle."
+    },
+    "import": {
+      "action": "Import intelligent",
+      "title": "Import intelligent",
+      "explain": "Collez un échantillon de document : Miles en déduit la forme du modèle. Rien n'est enregistré — le schéma arrive dans l'éditeur, et c'est « Enregistrer » qui décide.",
+      "format": "Format de l'échantillon",
+      "formats": {
+        "json": "JSON",
+        "yaml": "YAML"
+      },
+      "file": "Depuis un fichier",
+      "sample": "Échantillon",
+      "submit": "Déduire le modèle",
+      "cancel": "Annuler",
+      "unreadable": "L'échantillon ne se lit pas (ligne {{line}}, colonne {{column}}).",
+      "failed": "La déduction a échoué.",
+      "noObject": "L'échantillon ne contient aucun objet : un modèle décrit toujours un objet.",
+      "unwrapped": "L'échantillon était une liste : le modèle décrit un de ses éléments, tous fusionnés."
+    }
+  },
+  "versions": {
+    "title": "Versions de la branche de travail",
+    "save": "Enregistrer une version",
+    "checking": "Vérification de ce qui bloque…",
+    "submit": "Enregistrer la version",
+    "empty": "Aucune version enregistrée.",
+    "fields": {
+      "label": "Libellé"
+    },
+    "labelHelp": "Fige l'état courant de la branche de travail, après vérification de tout le paramétrage. Dites à quoi sert cette version : vous la relirez dans six mois.",
+    "number": "Version {{number}}",
+    "tree": "Arborescence du dépôt",
+    "restore": "Revenir à cette version",
+    "restored": "Retour à cette version, par un nouveau commit {{commit}}.",
+    "restoreConfirm": {
+      "title": "Revenir à la version {{number}} ?",
+      "body": "La branche de travail retrouve le contenu de « {{label}} » par un nouveau commit. Les versions suivantes restent, rien n'est effacé.",
+      "confirm": "Revenir à cette version"
+    },
+    "errors": {
+      "invalid": "Le paramétrage ne passe pas les règles : rien n'a été figé.",
+      "label": "Une version porte un libellé, sur une ligne, de 200 caractères au plus.",
+      "conflict": {
+        "rien_a_figer": "Rien n'a changé depuis la dernière version : rien à figer.",
+        "version_concurrente": "Une autre version a été enregistrée au même moment : rien n'a été figé. Réessayez.",
+        "deja_a_cette_version": "La branche de travail a déjà ce contenu.",
+        "publication_requise": "Des modifications ne sont pas encore publiées : publiez-les, puis enregistrez la version.",
+        "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier.",
+        "parametrage_invalide": "Le paramétrage ne passe pas les règles : corrigez-les avant d'enregistrer une version."
+      },
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    }
+  },
+  "contracts": {
+    "title": "Contrats OpenAPI — {{name}}",
+    "intro": "Déclarés ici (label, slug, sens), puis alimentés par les fichiers du tiers : chaque fichier devient une version qui coexiste avec les précédentes.",
+    "add": "Déclarer un contrat",
+    "empty": "Aucun contrat déclaré dans la branche de travail.",
+    "fields": {
+      "content": "Contrat OpenAPI (YAML ou JSON)",
+      "slug": "Slug",
+      "sens": "Sens",
+      "label": "Label"
+    },
+    "form": {
+      "title": "Déclarer un contrat",
+      "submit": "Déclarer le contrat",
+      "slugHelp": "Proposé d'après le label. Modifiable maintenant seulement : une fois le contrat déclaré, slug, label et sens sont figés."
+    },
+    "sens": {
+      "externe": "Externe — appel d'un service distant",
+      "interne": "Interne — webhook reçu"
+    },
+    "warnings": {
+      "aucune_operation": "Ce contrat n'a aucune opération : c'est licite, mais probablement le mauvais fichier."
+    },
+    "list": {
+      "captionSens": "Sens",
+      "captionOperations": "Opérations",
+      "operations_one": "{{count}} opération",
+      "operations_other": "{{count}} opérations",
+      "noOperation": "Aucune opération",
+      "captionVersions": "Versions",
+      "versions_one": "{{count}} version (dernière v{{latest}})",
+      "versions_other": "{{count}} versions (dernière v{{latest}})",
+      "noFile": "Aucun fichier",
+      "open": "Ouvrir"
+    },
+    "errors": {
+      "unreadable": "Fichier illisible, ligne {{line}}, colonne {{column}} : {{message}}",
+      "invalid": "Ce fichier n'est pas un document OpenAPI valide :",
+      "version": "La version OpenAPI {{found}} n'est pas prise en charge. Acceptées : {{accepted}}.",
+      "taken": "Ce slug est déjà pris par le contrat « {{by}} ».",
+      "field": {
+        "slug": "Slug : lettres minuscules, chiffres et tirets, de 2 à 63 caractères.",
+        "slug_vide": "Il ne reste rien d'utilisable du titre : donnez un slug.",
+        "sens": "Choisissez le sens : externe ou interne.",
+        "label": "Label : 120 caractères au plus, sur une seule ligne.",
+        "label_vide": "Donnez un label au contrat."
+      },
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office.",
+      "remote": {
+        "adresse_invalide": "Adresse refusée : http:// ou https://, un nom d'hôte, et aucun identifiant dedans.",
+        "adresse_interdite": "Cette adresse mène au back-office lui-même (boucle locale, métadonnées du cloud) : refusée.",
+        "injoignable": "L'adresse est injoignable depuis le back-office.",
+        "statut": "L'adresse a répondu le statut {{status}} au lieu du contrat.",
+        "trop_volumineux": "Le fichier dépasse 2 Mo.",
+        "trop_de_redirections": "Trop de redirections : le contrat n'a pas été atteint.",
+        "encodage": "La réponse n'est pas du texte : est-ce bien un contrat ?"
+      },
+      "file": "Le fichier n'a pas pu être lu.",
+      "notFound": "Ce contrat n'est pas déclaré dans la branche de travail.",
+      "derivation": "Les schémas de ce contrat ne se convertissent pas en modèles ; rien n'a été écrit :"
+    },
+    "source": {
+      "file": "Depuis un fichier",
+      "url": "Depuis une adresse",
+      "fetch": "Récupérer",
+      "urlHelp": "Lue par le back-office, en http ou https, puis affichée ci-dessous avant tout import."
+    },
+    "back": "Retour aux contrats",
+    "integrate": {
+      "title": "Intégrer un fichier",
+      "read": "Lire le fichier",
+      "submit": "Intégrer en nouvelle version",
+      "done": "Intégré en version v{{number}}.",
+      "open": "Intégrer une version",
+      "close": "Fermer",
+      "where": "Vérifiez ce qui a été lu, puis « Intégrer en nouvelle version » en haut de la page (ou Ctrl+S).",
+      "models": "Modèles qui seront écrits : {{list}}"
+    },
+    "versions": {
+      "title": "Versions",
+      "empty": "Aucun fichier intégré : une version du paramétrage ne pourra pas être enregistrée tant que ce contrat n'en a pas.",
+      "unreadable": "fichier illisible",
+      "deposited": "Déposée le {{date}} par {{by}}",
+      "outside": "Déposée hors de Miles : date inconnue",
+      "new": "Nouvelle",
+      "unmapped": "Non mappée",
+      "removed": "Exposées par la v{{number}}, plus par celle-ci (leurs mappings servent encore la v{{number}}) :",
+      "swagger": "Voir en Swagger"
+    },
+    "delete": {
+      "action": "Supprimer le contrat",
+      "title": "Supprimer le contrat {{slug}} ?",
+      "body_zero": "Sa déclaration sera retirée de la branche. Il n'a aucune version intégrée.",
+      "body_one": "Sa déclaration et sa version intégrée seront retirées de la branche, en un commit à votre nom.",
+      "body_other": "Sa déclaration et ses {{count}} versions intégrées seront retirées de la branche, en un commit à votre nom."
+    },
+    "derivation": {
+      "nom_de_schema_inconvertible": "ce nom de schéma ne donne pas de nom de modèle ({{detail}})",
+      "noms_de_schema_en_collision": "donne le même nom de modèle que le schéma « {{detail}} »",
+      "reference_non_convertible": "référence qui ne désigne pas un schéma du contrat ({{detail}})",
+      "borne_exclusive_sans_borne": "exclusiveMinimum/Maximum vaut true sans borne à exclure",
+      "schema_trop_profond": "schéma imbriqué au-delà de {{detail}} niveaux",
+      "schema_invalide": "schéma invalide en JSON Schema 2020-12 : {{detail}}"
+    }
+  },
+  "branches": {
+    "add": "Nouvelle branche",
+    "title": "{{name}} — branche {{branch}}",
+    "base": "Branche de base",
+    "form": {
+      "title": "Nouvelle branche de travail — {{name}}",
+      "from": "Tirée de la tête de la branche de base {{branch}}. Ce que vous y modifiez y reste.",
+      "slugHelp": "Proposé d'après le label ; figé une fois la branche créée. Branche git : back/{{workspace}}/{{slug}}.",
+      "submit": "Créer la branche"
+    },
+    "fields": {
+      "label": "Label",
+      "slug": "Slug"
+    },
+    "errors": {
+      "field": {
+        "label": "Label : obligatoire, 120 caractères au plus, sur une seule ligne.",
+        "slug": "Slug : lettres minuscules, chiffres et tirets, 40 caractères au plus."
+      },
+      "taken": "Ce slug ou cette branche est déjà pris par « {{by}} ».",
+      "unexpected": "La branche n'a pas pu être créée. Voir les journaux du back-office.",
+      "view": "La branche à afficher n'a pas pu être choisie."
+    },
+    "viewed": "Branche affichée",
+    "rootReadOnly": "Vous êtes sur la branche racine du workspace : elle est en lecture seule. Pour modifier modèles, contrats, chaînes ou sources, créez ou choisissez une branche enfant dans « Tous les workspaces ». Enregistrer une version reste possible ici.",
+    "graph": {
+      "title": "Branches",
+      "lead": "Les commits de toutes les branches de ce workspace, du plus récent au plus ancien.",
+      "empty": "Aucun commit à montrer : ce workspace n'a pas encore de branche.",
+      "unreadable": "Le dépôt n'a pas répondu : le graphe ne peut pas être lu."
+    }
+  },
+  "profile": {
+    "branches": "Branche affichée par workspace",
+    "noBranch": "Aucun workspace n'a encore de branche de travail.",
+    "git": {
+      "title": "Identité git",
+      "intro": "Pour modifier le paramétrage d'une branche, vous travaillez sous votre propre compte git : enregistrez un jeton d'accès personnel pour chaque connexion git. Il est vérifié auprès de la forge, chiffré, et jamais réaffiché.",
+      "none": "Aucun jeton enregistré pour cette connexion.",
+      "noConnection": "Aucune connexion git n'est encore déclarée.",
+      "account": "Compte {{login}} ({{name}}) —",
+      "noreply": "Adresse « noreply » de GitHub : le compte n'expose aucun e-mail lisible",
+      "write": {
+        "true": "peut écrire",
+        "false": "ne peut pas écrire",
+        "unknown": "non vérifié (la forge n'a pas répondu)"
+      },
+      "form": "Jeton personnel pour {{name}}",
+      "token": "Jeton d'accès personnel",
+      "tokenHelp": "Droits nécessaires : contenu en lecture et écriture sur les dépôts, et lecture des adresses e-mail du compte.",
+      "save": "Vérifier et enregistrer",
+      "replace": "Vérifier et remplacer",
+      "remove": "Retirer le jeton",
+      "removeTitle": "Retirer votre identité git ?",
+      "removeBody": "Votre jeton pour {{name}} sera supprimé. Il faudra en enregistrer un nouveau avant de modifier une branche de cette connexion.",
+      "errors": {
+        "jeton_refuse": "La forge a refusé ce jeton.",
+        "forge_injoignable": "La forge est injoignable.",
+        "reponse_inattendue": "La forge a répondu de façon inattendue.",
+        "forge": "Cette forge n'est pas prise en charge.",
+        "empty": "Saisissez un jeton.",
+        "unexpected": "Le jeton n'a pas pu être enregistré. Voir les journaux du back-office.",
+        "holding": "Vous avez la main sur la branche {{branch}} du workspace {{workspace}} : rendez-la d'abord, sinon vos modifications non publiées ne pourraient plus l'être.",
+        "removal": "Le jeton n'a pas pu être retiré. Voir les journaux du back-office."
+      }
+    },
+    "actor": {
+      "title": "Identité pour le portail (OBO)",
+      "field": "Identifiant d'acteur (GUID)",
+      "help": "Collez ici le même identifiant que dans votre profil du portail, ou générez-en un et recopiez-le là-bas. Quand l'agent du portail travaille pour vous, Miles vous reconnaît par lui et signe vos modifications « via » la clé de l'agent.",
+      "generate": "Générer",
+      "copy": "Copier",
+      "save": "Enregistrer",
+      "saved": "Identifiant enregistré.",
+      "remove": "Retirer",
+      "errors": {
+        "taken": "Cet identifiant est déjà pris par quelqu'un d'autre.",
+        "invalid": "Lettres, chiffres, points, tirets, deux-points et soulignés seulement, 128 caractères au plus.",
+        "unexpected": "L'identifiant n'a pas pu être enregistré. Voir les journaux du back-office."
+      }
+    },
+    "shelves": {
+      "title": "Branches rangées",
+      "help": "Votre travail non publié, rangé sur la forge quand l'administrateur vous a déverrouillé. Reprenez la main sur la branche dans « Tous les workspaces » pour le retrouver.",
+      "item": "{{workspace}} — branche {{branch}}, rangée le {{date}} :",
+      "error": "Vos rangements n'ont pas pu être lus."
+    }
+  },
+  "chains": {
+    "title": "Chaînes de transformations — {{name}}",
+    "intro": "Des étapes ordonnées appliquées à un message : chaque étape applique son template au message produit par la précédente, puis le remplace ou pose son résultat à un chemin cible. Les flux désignent une chaîne par son slug.",
+    "add": "Nouvelle chaîne",
+    "empty": "Aucune chaîne de transformations dans cette branche.",
+    "unreadable": "Enchaînement illisible",
+    "captionSteps": "Étapes",
+    "steps_one": "{{count}} étape",
+    "steps_other": "{{count}} étapes",
+    "back": "Retour aux transformations",
+    "form": {
+      "title": "Nouvelle chaîne de transformations",
+      "slugHelp": "Proposé d'après le label ; figé une fois la chaîne créée, puisque les flux la désignent par lui.",
+      "submit": "Créer la chaîne"
+    },
+    "fields": {
+      "label": "Label",
+      "slug": "Slug",
+      "stepName": "Nom de l'étape",
+      "template": "Template JSLT",
+      "target": "Chemin cible (facultatif)",
+      "sample": "Message échantillon (JSON, facultatif)",
+      "sourceModel": "Modèle source",
+      "destinationModel": "Modèle de destination"
+    },
+    "editor": {
+      "steps": "Étapes, dans l’ordre",
+      "noStep": "Aucune étape : la chaîne rend le message tel quel.",
+      "step": "Étape {{rank}}",
+      "up": "Monter",
+      "down": "Descendre",
+      "remove": "Retirer",
+      "add": "Ajouter une étape",
+      "targetHelp": "Vide : le résultat du template devient le message. Renseigné : le résultat est posé à ce chemin du message, les objets manquants étant créés.",
+      "test": "Essayer sur un échantillon",
+      "run": "Lancer",
+      "sampleInvalid": "L'échantillon n'est pas un JSON valide.",
+      "failed": "La chaîne échoue à l'étape {{rank}} : {{code}} {{path}}",
+      "after": "Après l'étape {{rank}}",
+      "save": "Enregistrer la chaîne",
+      "saved": "Chaîne enregistrée.",
+      "delete": "Supprimer la chaîne",
+      "deleteTitle": "Supprimer cette chaîne ?",
+      "deleteBody": "Le répertoire transformations/{{slug}} sera retiré de la branche.",
+      "unsaved": "Modifications non enregistrées",
+      "saveShortcut": "Ctrl+S, ou ⌘S sur Mac",
+      "refused": "L'enregistrement a été refusé. Voici ce qui bloque :"
+    },
+    "problems": {
+      "syntaxe": "Template illisible, ligne {{line}}, colonne {{column}} : {{detail}}",
+      "hors_profil": "Constructions hors du profil d'écriture :",
+      "cible_invalide": "La cible « {{detail}} » n’est pas un chemin unique ($ suivi de noms et d’indices).",
+      "violation": "{{construction}} {{detail}} (ligne {{line}}, colonne {{column}})",
+      "non_supporte": "Construction lisible mais pas encore prise en charge par le moteur : {{detail}}"
+    },
+    "alerts": {
+      "flag": "Écart",
+      "flagHelp": "Le template de cette étape n'écrit pas ce que son modèle de destination déclare.",
+      "title_one": "{{count}} écart avec le modèle de destination :",
+      "title_other": "{{count}} écarts avec le modèle de destination :",
+      "propriete_hors_modele": "{{path}} : le template écrit cette propriété, le modèle de destination ne la déclare pas.",
+      "propriete_obligatoire_absente": "{{path}} : le modèle la déclare obligatoire, le template ne l'écrit pas.",
+      "objet_inattendu": "{{path}} : le template écrit un objet, le modèle annonce « {{detail}} ».",
+      "tableau_inattendu": "{{path}} : le template écrit un tableau, le modèle annonce « {{detail}} ».",
+      "texte_inattendu": "{{path}} : le template écrit un texte, le modèle annonce « {{detail}} ».",
+      "nombre_inattendu": "{{path}} : le template écrit un nombre que le modèle n'accepte pas ici — il annonce « {{detail}} ».",
+      "booleen_inattendu": "{{path}} : le template écrit un booléen, le modèle annonce « {{detail}} ».",
+      "nul_inattendu": "{{path}} : le template écrit null, le modèle annonce « {{detail}} » et ne l'accepte pas.",
+      "unknown": "{{path}} : {{code}}"
+    },
+    "errors": {
+      "field": {
+        "label": "Label : obligatoire, 120 caractères au plus, sur une ligne.",
+        "slug": "Slug : lettres minuscules, chiffres et tirets, de 2 à 63 caractères.",
+        "steps": "Noms d'étapes : lettres minuscules, chiffres et tirets, tous différents."
+      },
+      "unexpected": "La chaîne n'a pas pu être enregistrée. Voir les journaux du back-office.",
+      "unreadable": "Cette chaîne ne peut pas être lue."
+    },
+    "sample": {
+      "title": "Échantillon source de test",
+      "none": "Aucun échantillon enregistré.",
+      "saved": "Enregistré — {{size}} caractères.",
+      "add": "Enregistrer un échantillon",
+      "change": "Modifier",
+      "clear": "Effacer",
+      "paste": "Coller depuis le presse-papiers",
+      "pasteFailed": "Le navigateur a refusé la lecture du presse-papiers ; collez à la main dans le champ.",
+      "explain": "Un cas d'essai, gardé par Miles et non dans le dépôt git. Il ne suit donc ni une publication, ni un retour en arrière de la branche.",
+      "save": "Enregistrer l'échantillon",
+      "cancel": "Annuler"
+    },
+    "steps": {
+      "noModel": "—",
+      "summary": "{{source}} → {{destination}}",
+      "back": "Retour à la chaîne",
+      "fill": "Remplir depuis le modèle de destination",
+      "fillHelp": "Remplace le template par le gabarit JSON du modèle de destination : sa structure, avec au moins un élément par tableau.",
+      "run": "Exécuter (Ctrl+F5)",
+      "runHelp": "Exécute ce template seul sur l'échantillon source de test. Ctrl+F5, ou ⌘F5 sur Mac.",
+      "result": "Résultat de l'étape",
+      "sampleLoading": "échantillon en cours de lecture",
+      "sampleReady": "échantillon enregistré",
+      "sampleMissing": "aucun échantillon",
+      "cannotRunLoading": "L'échantillon source n'est pas encore lu : l'exécution porterait sur rien. Réessayez dans un instant.",
+      "cannotRunSample": "L'échantillon source de cette chaîne n'est pas du JSON lisible. Corrigez-le sur l'écran de la chaîne, puis revenez ici."
+    },
+    "explorer": {
+      "title": "Document source de test",
+      "intro": "Cliquez sur une propriété : son chemin JSONPath s'insère dans le template, là où vous écriviez.",
+      "insertHelp": "Insérer {{path}}",
+      "shortcut": "Ctrl+. dans l'éditeur (⌘. sur Mac) ouvre le document source : un clic sur une propriété insère son chemin au curseur.",
+      "object": "{{count}} propriété(s)",
+      "array": "{{count}} élément(s)",
+      "close": "Fermer",
+      "noSample": "L'échantillon source n'est pas du JSON lisible : il n'y a aucun document à parcourir. Corrigez-le sur l'écran de la chaîne."
+    }
+  },
+  "sources": {
+    "title": "Sources de données — {{name}}",
+    "intro": "Une source de données déclare COMMENT on remplit un storage : quel storage on alimente, où sont les items dans le document reçu, et quelle chaîne de transformations met chaque item en forme. Ce qui est stocké — le modèle, la clé fonctionnelle, les propriétés indexables — se déclare dans « Storages ».",
+    "add": "Nouvelle source",
+    "empty": "Aucune source de données sur cette branche.",
+    "unreadable": "Déclaration illisible",
+    "back": "Retour aux sources",
+    "form": {
+      "title": "Nouvelle source de données",
+      "submit": "Déclarer la source",
+      "choose": "Choisir…",
+      "storageHelp": "Le storage où les objets atterrissent : c'est l'identification de la donnée dans le stockage. Avec le libellé et l'identifiant, il suffit à enregistrer la source — les entrées s'ajoutent ensuite.",
+      "splitHelp": "Où sont les items dans le fichier déposé, par exemple $.accounts[*]. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*] — le fichier est lu en flux, sans retour en arrière.",
+      "nameHelp": "Identifiant de la source, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclarée.",
+      "entrySourceModelHelp": "Le modèle de ce qui arrivera sur la méthode. C'est lui qui la type.",
+      "entryChainHelp": "La chaîne qui part du modèle source à sa première étape et arrive au modèle de la donnée cible à sa dernière.",
+      "modesHelp": "Au moins une méthode, sinon l'entrée n'expose rien.",
+      "removeEntry": "Retirer l'entrée {{rank}}",
+      "writeBatchHelp": "Combien d'objets sont lus d'affilée avant d'être enregistrés. 1 écrit chaque objet dès sa lecture. Ce réglage dit TOUS LES COMBIEN on écrit ; la case au-dessus dit QUAND on valide — les deux sont indépendants."
+    },
+    "fields": {
+      "name": "Nom",
+      "storage": "Donnée cible",
+      "unifiedTransaction": "Une seule transaction pour tout l'import",
+      "label": "Libellé",
+      "modes": "Méthodes d'entrée",
+      "entrySourceModel": "Modèle source de l'entrée {{rank}}",
+      "entryChain": "Chaîne de transformation de l'entrée {{rank}}",
+      "entrySplit": "Chaîne de découpage de l'entrée {{rank}}",
+      "writeBatch": "Lectures avant enregistrement de l'entrée {{rank}}"
+    },
+    "editor": {
+      "save": "Enregistrer la source",
+      "saved": "Source enregistrée.",
+      "savedRewrite": "Source enregistrée. La chaîne a changé : le prochain import réécrira tous les objets.",
+      "delete": "Supprimer la source",
+      "deleteTitle": "Supprimer cette source ?",
+      "deleteBody": "Le fichier sources/{{name}}.yaml sera retiré de la branche.",
+      "swagger": "Voir l'API en Swagger"
+    },
+    "problems": {
+      "nom_invalide": "Nom : lettres minuscules, chiffres et tirets, sans doublon.",
+      "storage_absent": "Le storage alimenté est obligatoire : on ne le devine pas.",
+      "storage_inconnu": "Le storage « {{detail}} » n'existe pas sur cette branche.",
+      "decoupage_absent": "Le chemin de découpage est obligatoire.",
+      "jpath_illisible": "Chemin illisible « {{detail}} ».",
+      "non_streamable": "Non streamable — {{detail}} : en mode gros fichier, le document se lit une fois, sans retour en arrière.",
+      "declaration_invalide": "Déclaration illisible : une source écrite sous l'ancienne forme (modèle, clé, filtrables) doit désormais désigner un storage.",
+      "chaine_inconnue": "La chaîne « {{detail}} » n'existe pas sur cette branche.",
+      "chaine_invalide": "La chaîne est invalide : {{detail}}.",
+      "libelle_vide": "Le libellé est obligatoire.",
+      "modele_invalide": "Le modèle source « {{detail}} » n'est pas de la forme portée/nom.",
+      "modele_inconnu": "Le modèle source « {{detail}} » n'existe pas sur cette branche.",
+      "type_inconnu": "Moyen d'arrivée inconnu : « {{detail}} ».",
+      "chaine_absente": "La chaîne de transformation est obligatoire.",
+      "aucun_mode": "Au moins une méthode d'entrée doit être cochée, sinon l'entrée n'expose rien.",
+      "chaine_sans_etape": "La chaîne « {{detail}} » ne porte aucune étape.",
+      "chaine_part_d_ailleurs": "La chaîne part de « {{detail}} », pas du modèle source déclaré.",
+      "chaine_arrive_ailleurs": "La chaîne arrive à « {{detail}} », pas au modèle de la donnée cible.",
+      "lot_trop_petit": "Il faut au moins une lecture avant enregistrement ({{detail}} n'écrirait jamais rien)."
+    },
+    "errors": {
+      "nom_pris": "Une autre source porte déjà ce nom sur la branche.",
+      "nom_fige": "Une source ne se renomme pas.",
+      "unexpected": "La source n'a pas pu être enregistrée. Voir les journaux du back-office.",
+      "unreadable": "Cette source ne peut pas être lue."
+    },
+    "entries": {
+      "title": "Entrées",
+      "empty": "Aucune entrée : cette source ne reçoit encore rien.",
+      "add": "Ajouter une source",
+      "chooseKind": "Quel moyen d'arrivée ?",
+      "count_one": "{{count}} entrée",
+      "count_other": "{{count}} entrées"
+    },
+    "kinds": {
+      "web": "Entrée web"
+    },
+    "modes": {
+      "element": "Élément seul — intégration d'un item",
+      "batch": "Tableau — {{max}} éléments au maximum",
+      "file": "Upload de fichier — rangé en temporaire, puis lu en flux"
+    }
+  },
+  "apiKeys": {
+    "title": "Clés d'API",
+    "intro": "Clés de service que la gateway MCP du portail présente pour atteindre Miles sur /mcp/. Une clé n'ouvre rien par défaut : donnez-lui la lecture ou l'écriture, workspace par workspace. Miles ne garde que l'empreinte de chaque clé.",
+    "add": "Émettre une clé",
+    "empty": "Aucune clé d'API pour l'instant.",
+    "form": {
+      "title": "Nouvelle clé d'API",
+      "submit": "Émettre la clé",
+      "grantsHelp": "Sans droit, la clé ne voit pas le workspace. L'écriture permet à l'agent de modifier les branches enfants du workspace ; la branche de base reste en lecture seule."
+    },
+    "fields": {
+      "label": "Libellé",
+      "grants": "Droits"
+    },
+    "access": {
+      "none": "Aucun droit",
+      "lecture": "lecture",
+      "ecriture": "écriture"
+    },
+    "issued": {
+      "title": "Clé « {{label}} » émise",
+      "once": "Copiez-la maintenant : elle n'est montrée que cette fois. Miles n'en garde que l'empreinte ; une clé perdue se révoque et se remplace, elle ne se relit jamais.",
+      "secret": "Clé d'API",
+      "copy": "Copier la clé",
+      "done": "Je l'ai copiée"
+    },
+    "list": {
+      "revoked": "révoquée",
+      "issued": "émise le {{date}} par {{by}}",
+      "noGrant": "aucun",
+      "lastUsed": "Dernier usage",
+      "never": "jamais",
+      "editGrants": "Modifier les droits",
+      "saveGrants": "Enregistrer les droits",
+      "revoke": "Révoquer"
+    },
+    "revokeConfirm": {
+      "title": "Révoquer « {{label}} » ?",
+      "body": "Tout appel qui présente cette clé sera refusé dès maintenant. C'est définitif : émettez une nouvelle clé si besoin."
+    },
+    "errors": {
+      "invalid": {
+        "label": "Libellé : obligatoire, 120 caractères au plus, sur une ligne.",
+        "grants": "Droits : un workspace est inconnu ou cité deux fois."
+      },
+      "unexpected": "Les clés d'API n'ont pas pu être traitées. Voir les journaux du back-office."
+    },
+    "endpoint": {
+      "title": "Adresse du service MCP",
+      "url": "Adresse à déclarer",
+      "copy": "Copier l'adresse",
+      "unset": "MILES_PUBLIC_URL n'est pas configurée sur cette instance : le service MCP répond sur {{path}} de l'adresse publique de Miles.",
+      "help": "Déclarez cette adresse dans la gateway MCP du portail, avec la barre finale, et présentez la clé en « Authorization: Bearer <clé> » ou « X-API-Key: <clé> ». Jamais la clé dans l'adresse."
+    }
+  },
+  "oauth": {
+    "title": "Clients OAuth",
+    "intro": "Clients autorisés à se connecter au service MCP de Miles au nom d'une personne, comme claude web. Chaque personne choisit, au consentement, ce que le client pourra faire en son nom.",
+    "add": "Déclarer un client",
+    "empty": "Aucun client OAuth déclaré.",
+    "endpoints": {
+      "title": "Connecter claude web",
+      "mcpUrl": "Adresse du serveur MCP",
+      "help": "Dans claude.ai, ajoutez un connecteur personnalisé avec cette adresse, choisissez « Use your own OAuth client » et collez le client ID d'un client ci-dessous. Laissez le secret vide : les clients de Miles sont publics et utilisent PKCE.",
+      "unset": "MILES_PUBLIC_URL n'est pas configurée sur cette instance : OAuth reste fermé tant que Miles ne connaît pas son adresse publique."
+    },
+    "form": {
+      "title": "Nouveau client OAuth",
+      "submit": "Déclarer le client",
+      "redirectHelp": "Une adresse de retour par ligne, exactement comme le client l'envoie. HTTPS seulement (HTTP seulement vers localhost). Les adresses de claude.ai sont proposées."
+    },
+    "fields": {
+      "label": "Libellé",
+      "redirectUris": "Adresses de retour"
+    },
+    "list": {
+      "copyId": "Copier le client ID",
+      "delete": "Supprimer"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer « {{label}} » ?",
+      "body": "Toutes les autorisations données à ce client sont révoquées aussitôt : ses jetons cessent de fonctionner."
+    },
+    "grants": {
+      "title": "Applications autorisées",
+      "empty": "Vous n'avez autorisé aucune application.",
+      "revoke": "Révoquer"
+    },
+    "consent": {
+      "title": "Autoriser une application",
+      "intro": "« {{client}} » demande à utiliser Miles en votre nom. Choisissez ce qu'il pourra faire.",
+      "returnTo": "Vous serez ensuite renvoyé vers {{host}}.",
+      "grants": "Droits accordés",
+      "noRights": "Vous n'avez aucun droit à déléguer dans Miles : vous ne pouvez que refuser.",
+      "approve": "Autoriser",
+      "deny": "Refuser",
+      "refused": {
+        "client_inconnu": "Cette application n'est pas déclarée dans Miles.",
+        "adresse_de_retour_inconnue": "L'adresse de retour de cette application n'est pas celle déclarée dans Miles.",
+        "oauth_non_configure": "OAuth n'est pas configuré sur cette instance (MILES_PUBLIC_URL).",
+        "droit_excessif": "Vous ne pouvez pas accorder plus que vos propres droits.",
+        "unexpected": "L'autorisation n'a pas pu être traitée. Voir les journaux du back-office."
+      }
+    },
+    "errors": {
+      "invalid": {
+        "label": "Libellé : obligatoire, 120 caractères au plus, sur une ligne.",
+        "redirect_uris": "Adresses de retour : HTTPS sans fragment (HTTP seulement vers localhost), au moins une."
+      },
+      "unexpected": "Les clients OAuth n'ont pas pu être traités. Voir les journaux du back-office."
+    }
+  },
+  "holds": {
+    "caption": "Main",
+    "take": "Prendre la main",
+    "mine": "Vous avez la main",
+    "heldBy": "Tenue par {{holder}}",
+    "unpublished_one": "{{count}} modification non publiée",
+    "unpublished_other": "{{count}} modifications non publiées",
+    "publish": "Publier",
+    "published_one": "{{count}} modification publiée.",
+    "published_other": "{{count}} modifications publiées.",
+    "release": "Rendre la main",
+    "notice": {
+      "free": "Personne n'a la main sur cette branche : prenez-la dans « Tous les workspaces » pour la modifier.",
+      "heldBy": "{{holder}} a la main sur cette branche : vous la voyez telle qu'elle est publiée, sans pouvoir la modifier."
+    },
+    "errors": {
+      "branche_tenue": "{{by}} a déjà la main sur cette branche.",
+      "deja_une_branche": "Vous avez déjà la main sur la branche {{branch}} du workspace {{workspace}} : rendez-la d'abord.",
+      "identite_git_requise": "Enregistrez d'abord votre jeton git personnel pour la connexion de ce workspace, dans « Mon profil ».",
+      "branche_racine_lecture_seule": "La branche racine est en lecture seule : personne n'en prend la main.",
+      "branche_modifiee": "La branche a bougé dans la forge depuis votre dernière publication : rien n'a été écrasé, vos modifications restent ici.",
+      "prise_de_main_requise": "Vous n'avez pas la main sur cette branche.",
+      "prise_concurrente": "Une autre prise de main a eu lieu au même moment : réessayez.",
+      "unexpected": "L'opération a échoué. Voir les journaux du back-office.",
+      "jeton_personnel_refuse": "La forge refuse le jeton personnel de la personne qui tient la branche : rien n'a été rangé ni supprimé, la branche reste tenue. Elle doit renouveler son jeton dans « Mon profil ».",
+      "rangement_existant": "Un rangement existe déjà pour cette personne sur cette branche : il n'est jamais écrasé, rien n'a été fait.",
+      "branche_libre": "Personne ne tient cette branche : rien à déverrouiller.",
+      "conflit_de_reprise": "Votre travail rangé heurte la branche à jour ({{files}}) : rien n'a été écrit, le rangement reste sur la forge et la branche n'est pas tenue."
+    },
+    "unlock": "Déverrouiller",
+    "unlockConfirm": {
+      "title": "Déverrouiller {{holder}} ?",
+      "body": "Son travail non publié sera rangé sur la forge, sur une branche à son nom, avec son propre jeton ; son espace sur le serveur sera supprimé et la branche libérée. En reprenant la main, il retrouvera son travail fusionné dans la branche à jour."
+    },
+    "unlocked": {
+      "shelved": "Branche libérée ; le travail non publié est rangé sur {{branch}}.",
+      "free": "Branche libérée ; il n'y avait rien à ranger."
+    },
+    "shelvedMine": "Vous avez du travail rangé sur cette branche : en reprenant la main, il sera fusionné dans la branche à jour.",
+    "resume": "Reprendre la main"
+  },
+  "contractModels": {
+    "nav": {
+      "interne": "Contrats internes",
+      "externe": "Contrats externes"
+    },
+    "title": {
+      "interne": "Modèles des contrats internes — {{name}}",
+      "externe": "Modèles des contrats externes — {{name}}"
+    },
+    "intro": "Un modèle par schéma du fichier OpenAPI, pour chaque version du contrat. Dérivés par Miles à l'intégration, en lecture seule : un contrat est subi.",
+    "empty": {
+      "interne": "Aucun contrat interne dans cette branche.",
+      "externe": "Aucun contrat externe dans cette branche."
+    },
+    "noSchema": "Cette version ne déclare aucun schéma (components/schemas).",
+    "stale": "Les modèles de cette version ne correspondent plus au fichier du contrat (absents, en trop ou retouchés dans git). Ils bloquent l'enregistrement d'une version tant qu'ils ne sont pas redérivés.",
+    "underivable": "Les schémas de cette version ne se convertissent pas en modèles : voir la validation de la branche.",
+    "rederive": "Redériver les modèles",
+    "back": "← Retour aux modèles du contrat",
+    "derivedFrom": "dérivé du contrat {{slug}}, version {{version}}",
+    "readOnly": "Modèle dérivé du contrat : il se lit, il ne s'édite pas. Il change avec une nouvelle version du contrat.",
+    "captionModels": "Modèles",
+    "backToContracts": "← Retour aux contrats",
+    "contractTitle": "Modèles du contrat « {{label}} »",
+    "noVersion": "Aucune version intégrée : ce contrat n'a pas encore de modèle."
+  },
+  "accounts": {
+    "title": "Référence de compte — {{name}}",
+    "intro": "Le stockage dont les objets sont les comptes que l'on associera aux devices. Une branche n'en désigne qu'un. Le modèle n'est pas à choisir : le stockage le déclare déjà, et il s'affiche ici.",
+    "notServed": "Réglage déclaré, pas encore servi : rien n'interroge ce stockage pour l'instant, et aucun code n'est envoyé.",
+    "choose": "Choisir…",
+    "none": "Aucune référence de compte n'est déclarée sur cette branche.",
+    "noModel": "—",
+    "noStorage": "Aucun stockage sur cette branche : il faut en déclarer un avant de pouvoir le désigner comme référence de compte.",
+    "storageHelp": "Les stockages de cette branche. C'est celui-ci que le back-office interrogera pour reconnaître la personne qui se présente sur le terminal.",
+    "save": "Enregistrer la référence",
+    "saved": "Référence de compte enregistrée.",
+    "remove": "Retirer la référence",
+    "removeTitle": "Retirer la référence de compte ?",
+    "removeBody": "Le fichier comptes/reference.yaml sera retiré de la branche. C'est un commit : la suppression se relit et se défait.",
+    "fields": {
+      "storage": "Stockage des comptes",
+      "model": "Modèle des comptes, déclaré par le stockage",
+      "mode": "Mode d'envoi du code",
+      "addressField": "Champ qui contient l'adresse d'envoi"
+    },
+    "problems": {
+      "fichier_illisible": "Le fichier {{path}} existe mais n'a pas la forme attendue. Tant qu'il est ainsi, aucune référence de compte ne vaut.",
+      "storage_inconnu": "Le fichier {{path}} désigne le stockage « {{storage}} », que cette branche ne porte pas. Le réglage est resté tel quel : à corriger ici, ou dans le dépôt.",
+      "storage_illisible": "Le stockage « {{storage}} », désigné par {{path}}, a une déclaration illisible. Le modèle des comptes ne peut donc pas être lu.",
+      "unexpected": "Le fichier {{path}} pose un problème que cet écran ne sait pas nommer.",
+      "mode_non_servi": "Le fichier {{path}} déclare le mode d'envoi « {{storage}} », qui n'est pas encore servi. Rien ne partira par ce mode.",
+      "champ_inconnu": "Le fichier {{path}} désigne le champ d'adresse {{storage}}, que le modèle des comptes ne porte pas.",
+      "chemin_de_propriete_attendu": "Le fichier {{path}} porte un champ d'adresse qui ne désigne pas une propriété ({{storage}}).",
+      "valeur_attendue": "Le champ d'adresse {{storage}}, déclaré dans {{path}}, désigne un objet. Une adresse est une valeur simple.",
+      "tableau_interdit": "Le champ d'adresse {{storage}}, déclaré dans {{path}}, désigne un tableau. Une adresse est une valeur simple.",
+      "modele_illisible": "Le modèle {{storage}}, déclaré par le stockage, est illisible : le champ d'adresse ne peut pas être vérifié.",
+      "modele_invalide": "Le stockage déclare un modèle mal formé ({{storage}})."
+    },
+    "errors": {
+      "storage_inconnu": "Ce stockage n'existe pas sur cette branche. Ceux qui existent : {{existants}}.",
+      "unexpected": "La référence de compte n'a pas pu être lue ou enregistrée.",
+      "mode_non_servi": "Ce mode d'envoi n'est pas encore servi. Ceux qui le sont : {{servis}}.",
+      "champ_inconnu": "Le champ {{detail}} n'existe pas dans le modèle des comptes.",
+      "chemin_de_propriete_attendu": "{{detail}} ne désigne pas une propriété du modèle.",
+      "valeur_attendue": "{{detail}} désigne un objet. Une adresse d'envoi est une valeur simple.",
+      "tableau_interdit": "{{detail}} désigne un tableau. Une adresse d'envoi est une valeur simple.",
+      "modele_illisible": "Le modèle {{detail}} du stockage est illisible : le champ d'adresse ne peut pas être vérifié.",
+      "modele_invalide": "Le stockage déclare un modèle mal formé ({{detail}})."
+    },
+    "modes": {
+      "whatsapp": "WhatsApp",
+      "viber": "Viber",
+      "signal": "Signal",
+      "sms": "SMS",
+      "email": "E-mail"
+    },
+    "modeNotServed": "{{mode}} — pas encore servi",
+    "addressHelp": "Les propriétés simples du modèle des comptes. C'est vers ce champ que partira le code d'enregistrement ; un tableau ou un objet ne s'envoie pas, et n'est donc pas proposé.",
+    "noField": "Le modèle {{model}} n'a aucune propriété simple qui puisse porter une adresse d'envoi."
+  },
+  "storages": {
+    "title": "Storages — {{name}}",
+    "intro": "Un storage est une collection d'objets JSON stockés en base. Il déclare le modèle des objets, la clé fonctionnelle qui les reconnaît d'une écriture à l'autre, et les propriétés sur lesquelles on pourra les filtrer. Il vit sans source : on y écrira aussi par API ou par MCP.",
+    "add": "Nouveau storage",
+    "empty": "Aucun storage sur cette branche.",
+    "unreadable": "Déclaration illisible",
+    "back": "Retour aux storages",
+    "form": {
+      "title": "Nouveau storage",
+      "submit": "Déclarer le storage",
+      "choose": "Choisir…",
+      "keysHelp": "Coche les propriétés qui identifient un objet d'une écriture à l'autre. Seules les valeurs sont cochables : un tableau ou un objet ne se compare pas.",
+      "nameHelp": "Identifiant du storage, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclaré.",
+      "noKey": "Aucune propriété cochée.",
+      "indexesHelp": "Ajoute autant d'index que nécessaire, puis choisis leurs colonnes dans l'arbre du modèle. Trois colonnes au plus par index, et leur ordre compte : un index composite sert les filtres sur sa première colonne, puis sur ses deux premières, et ainsi de suite.",
+      "addIndex": "Ajouter un index",
+      "removeIndex": "Retirer l'index {{rank}}",
+      "noColumn": "Aucune colonne choisie."
+    },
+    "fields": {
+      "name": "Nom",
+      "model": "Modèle des objets",
+      "keys": "Clé fonctionnelle",
+      "label": "Libellé",
+      "indexes": "Index additionnels",
+      "indexName": "Nom de l'index {{rank}}",
+      "indexColumns": "Colonnes ({{count}} sur {{max}})",
+      "indexColumnsLabel": "Colonnes de l'index {{name}}"
+    },
+    "editor": {
+      "save": "Enregistrer le storage",
+      "saved": "Storage enregistré.",
+      "savedRewrite": "Storage enregistré. Le modèle ou les propriétés indexables ont changé : le prochain import réécrira tous les objets et leur index.",
+      "delete": "Supprimer le storage",
+      "deleteTitle": "Supprimer ce storage ?",
+      "deleteBody": "Le fichier storages/{{name}}.yaml sera retiré de la branche."
+    },
+    "problems": {
+      "nom_invalide": "Nom : lettres minuscules, chiffres et tirets, sans doublon.",
+      "nom_double": "Le nom « {{detail}} » est déclaré deux fois.",
+      "modele_invalide": "Le modèle « {{detail}} » n'est pas de la forme portée/nom.",
+      "modele_inconnu": "Le modèle « {{detail}} » n'existe pas sur cette branche.",
+      "cle_vide": "Au moins un chemin de clé est requis : sans clé, les objets ne se réconcilient pas.",
+      "cle_doublee": "Le même chemin de clé est déclaré deux fois.",
+      "chemin_de_propriete_attendu": "« {{detail}} » doit être un chemin de noms de propriétés depuis $, sans indice de tableau.",
+      "propriete_inconnue": "« {{detail}} » ne désigne rien dans le modèle du storage.",
+      "tableau_interdit": "« {{detail}} » désigne un tableau : il faut une seule valeur par objet, sinon la ligne d'index n'est plus unique.",
+      "valeur_attendue": "« {{detail}} » désigne un objet, pas une valeur.",
+      "declaration_invalide": "Déclaration illisible : le fichier a été retouché hors de Miles.",
+      "libelle_vide": "Le libellé est obligatoire.",
+      "index_sans_colonne": "L'index « {{detail}} » ne porte aucune colonne : il n'indexerait rien.",
+      "trop_de_colonnes": "Trop de colonnes ({{detail}}) : trois au plus par index.",
+      "colonne_doublee": "La colonne « {{detail}} » est déclarée deux fois dans le même index."
+    },
+    "errors": {
+      "nom_pris": "Un autre storage porte déjà ce nom sur la branche.",
+      "nom_fige": "Un storage ne se renomme pas.",
+      "storage_utilise": "Ce storage est désigné par des sources de données : {{sources}}. Retirez-les d'abord.",
+      "unexpected": "Le storage n'a pas pu être enregistré. Voir les journaux du back-office.",
+      "unreadable": "Ce storage ne peut pas être lu."
+    }
+  },
+  "paths": {
+    "absent": "n'est plus dans le modèle — décochez-le",
+    "chooseModelFirst": "Choisis d'abord le modèle des objets : l'arbre de ses propriétés s'affichera ici.",
+    "collapse": "Replier {{name}}",
+    "done": "Terminé",
+    "empty": "Ce modèle ne déclare aucune propriété.",
+    "expand": "Déplier {{name}}",
+    "unreadable": "Les propriétés de ce modèle n'ont pas pu être lues."
+  },
+  "swagger": {
+    "back": "Retour",
+    "unreadable": "Le document n'a pas pu être lu."
+  },
+  "peering": {
+    "lead": "Ce module de paramétrage n'est apparié qu'à un seul module d'enrôlement : deux autorités sur les mêmes secrets ne laisseraient plus de réponse unique à « qui nous a confié celui-ci ».",
+    "form": {
+      "name": "Nom de ce module de paramétrage"
+    }
+  },
+  "confiding": {
+    "loading": "Lecture des connexions confiées…",
+    "unavailable": "L'état du confiage n'a pas pu être lu.",
+    "caption": "Connexions git confiées",
+    "count_one": "{{count}} connexion",
+    "count_other": "{{count}} connexions",
+    "help": "Les connexions git sont saisies ici, une seule fois, et transmises au module d'enrôlement qui les détient pour les environnements. Aucun environnement ne reçoit jamais le jeton lui-même.",
+    "captionTransmitted": "Transmises le",
+    "revision": "révision {{revision}}",
+    "never": "Rien n'a encore été transmis à ce module d'enrôlement.",
+    "stale": "Le module d'enrôlement ne détient plus ce que nous avons : une transmission n'est pas arrivée, ou l'appariement a été rompu. Retransmettre ci-dessous — c'est sans effet s'il est déjà à jour.",
+    "transmit": "Retransmettre maintenant",
+    "refused": "La transmission a été refusée ou le module d'enrôlement est injoignable. Rien n'a changé de son côté."
+  },
+  "countries": {
+    "title": "Pays",
+    "intro": "La liste des pays est donnée : elle vient de l'ISO 3166 et ne se modifie pas. Activez ceux dont cette installation se sert.",
+    "filter": "Filtrer par nom ou par code",
+    "selected": "{{count}} sélectionné(s)",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "active": "Actif",
+    "keepRows": "Désactiver un pays ne le supprime pas : il cesse d'être proposé, et le réactiver le retrouve tel quel.",
+    "loading": "Chargement des pays…",
+    "noMatch": "Aucun pays ne correspond à « {{filter}} ».",
+    "errors": {
+      "unreachable": "La liste des pays n'a pas pu être lue.",
+      "change": "Le changement a été refusé. Rien n'a été modifié."
+    },
+    "timezones": {
+      "open": "Fuseaux horaires",
+      "loading": "Lecture des fuseaux de ce pays…",
+      "unreachable": "Les fuseaux de ce pays n'ont pas pu être lus.",
+      "help": "Les fuseaux que la base IANA donne à ce pays. Les retenir ici revient exactement à les retenir depuis l'écran des fuseaux horaires : c'est le même état.",
+      "retained": "Retenu",
+      "sharedWith": "Ce fuseau sert aussi : {{countries}}. Le retenir ici le retient pour ces pays aussi.",
+      "changeFailed": "Le changement a été refusé. Rien n'a été modifié."
+    }
+  },
+  "timezones": {
+    "title": "Fuseaux horaires",
+    "intro": "La liste des fuseaux est donnée : elle vient de la base IANA et ne se modifie pas. Activez ceux dont cette installation se sert.",
+    "filter": "Filtrer par identifiant, nom ou pays",
+    "byCountry": "Ne montrer que les fuseaux d'un pays (code ISO3)",
+    "selected": "{{count}} sélectionné(s)",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "active": "Actif",
+    "keepRows": "Désactiver un fuseau ne le supprime pas : il cesse d'être proposé, et le réactiver le retrouve tel quel. Le décalage horaire n'est pas stocké — il dépend de la date et des règles d'heure d'été.",
+    "loading": "Chargement des fuseaux…",
+    "noMatch": "Aucun fuseau ne correspond.",
+    "errors": {
+      "unreachable": "La liste des fuseaux n'a pas pu être lue.",
+      "change": "Le changement a été refusé. Rien n'a été modifié."
+    }
+  },
+  "workspaceCultures": {
+    "title": "Cultures du paramétrage",
+    "intro": "Les langues dans lesquelles on traduit ce que ce workspace décrit. Distinctes des cultures actives de l'application, qui sont les langues du back-office lui-même.",
+    "defaultNote": "Valeur exigée sur chaque clé du référentiel de traductions.",
+    "isDefault": "Par défaut",
+    "additional": "Culture additionnelle",
+    "addTitle": "Ajouter une culture",
+    "add": "Ajouter",
+    "promote": "Mettre par défaut",
+    "remove": "Retirer",
+    "cancel": "Annuler",
+    "removeTitle": "Retirer une culture",
+    "removeConfirm": "Retirer {{culture}} des cultures de ce workspace ?",
+    "filesKept": "Ses fichiers de traduction restent dans le dépôt : ses valeurs réapparaîtront si vous la remettez.",
+    "filter": "Filtrer les cultures",
+    "noMatch": "Aucune culture ne correspond à « {{filter}} ».",
+    "errors": {
+      "incomplete": "{{missing}} clé(s) n'ont pas de valeur en {{culture}} : complétez-les avant d'en faire la culture par défaut.",
+      "unreadable": "Le fichier {{path}} n'est pas lisible : corrigez-le dans le dépôt.",
+      "unknown": "Cette culture n'est pas au catalogue.",
+      "shape": "Ce code de culture n'a pas une forme valide.",
+      "unreachable": "Les cultures de ce workspace n'ont pas pu être lues.",
+      "catalogue": "Le catalogue des cultures n'a pas pu être lu.",
+      "unexpected": "Le changement n'a pas pu être enregistré."
+    },
+    "filterPlaceholder": "Taper pour filtrer, puis cliquer une culture",
+    "more": "…et {{count}} autre(s) : affinez le filtre."
+  },
+  "trads": {
+    "title": "Traductions",
+    "intro": "Les contextes de traduction de cette branche. Un contexte regroupe les clés d'un même usage, et il est le répertoire sous lequel elles vivent.",
+    "add": "Ajouter un contexte",
+    "keys": "Clés",
+    "empty": "Vide",
+    "none": "Aucun contexte de traduction sur cette branche.",
+    "loading": "Lecture des contextes…",
+    "coverageTitle": "Clés traduites en {{culture}}",
+    "fields": {
+      "label": "Libellé",
+      "name": "Nom technique"
+    },
+    "form": {
+      "title": "Nouveau contexte",
+      "submit": "Créer le contexte",
+      "cancel": "Annuler",
+      "nameHelp": "Nom du répertoire dans le dépôt, et ce que le paramétrage référencera : il est figé après création. Minuscules, chiffres, tiret et souligné."
+    },
+    "relabel": {
+      "action": "Renommer",
+      "title": "Libellé de {{name}}",
+      "submit": "Enregistrer le libellé"
+    },
+    "remove": {
+      "action": "Supprimer",
+      "title": "Supprimer « {{label}} »",
+      "submit": "Supprimer le contexte",
+      "counting": "Lecture de ce que la suppression emporte…",
+      "empty": "« {{label}} » ne contient aucune clé.",
+      "populated": "{{keys}} clé(s) et {{values}} valeur(s), toutes cultures confondues, vont disparaître.",
+      "revertible": "C'est un commit sur la branche de travail : la suppression se relit, se revoit et se défait comme toute autre modification du paramétrage."
+    },
+    "errors": {
+      "taken": "Ce nom technique est déjà pris par le contexte « {{label}} ».",
+      "contexte_inconnu": "Ce contexte n'existe pas sur cette branche.",
+      "branche_racine_lecture_seule": "La branche racine est en lecture seule : travaillez dans une branche enfant.",
+      "invalidName": "Nom technique invalide : minuscules, chiffres, tiret et souligné, en commençant par une lettre ou un chiffre.",
+      "invalidLabel": "Libellé invalide : une seule ligne, 120 caractères au plus.",
+      "unreadable": "Le fichier {{path}} n'est pas lisible : corrigez-le dans le dépôt.",
+      "unexpected": "L'opération n'a pas pu être effectuée.",
+      "culture_du_workspace": "Cette culture fait encore partie du workspace : retirez-la des réglages avant de faire le ménage.",
+      "culture_sans_fichier": "Aucun fichier de traduction pour cette culture dans ce contexte."
+    },
+    "openHint": "Ouvrir un contexte pour saisir ses clés.",
+    "obsolete": {
+      "caption": "Cultures retirées",
+      "badge": "{{culture}} — {{count}} valeur(s)",
+      "clean": "Faire le ménage",
+      "title": "Retirer les traductions en {{culture}}",
+      "confirm": "{{count}} valeur(s) en {{culture}} vont disparaître du dépôt. Cette culture n'est plus dans les réglages du workspace : ses valeurs ne reviendront pas si vous la remettez."
+    }
+  },
+  "tradsCoverage": {
+    "title": "Couverture des traductions",
+    "intro": "Ce qui est traduit, et ce qui manque, sur la branche regardée. Une traduction absente n'est pas une erreur : c'est l'état normal d'une clé qu'on vient d'ajouter.",
+    "branch": "Branche lue : {{branch}}",
+    "keysTotal": "{{count}} clé(s) sur cette branche",
+    "loading": "Lecture de la couverture…",
+    "byCulture": "Par culture",
+    "byContext": "Par contexte",
+    "translated": "Traduites",
+    "contextKeys": "Clés",
+    "emptyContext": "Vide",
+    "percent": "{{percent}} %",
+    "isDefault": "Culture par défaut",
+    "low": "Très peu traduite (moins de {{threshold}} %)",
+    "lowHelp": "Cette culture est déjà visible par des utilisateurs réels, à qui le terminal affiche {{culture}} faute de traduction.",
+    "inconsistent": "{{count}} clé(s) sans valeur dans la culture par défaut : c'est une incohérence du dépôt, pas un travail de traduction.",
+    "inconsistentHelp": "Une clé ne peut pas être créée sans valeur dans la culture par défaut du workspace : ces clés viennent d'une modification faite hors de Miles.",
+    "openUntranslated": "{{count}} à traduire",
+    "openUntranslatedTitle": "Ouvrir « {{context}} » filtré sur les clés sans valeur en {{culture}}"
+  },
+  "tradsKeys": {
+    "title": "Traductions — {{context}}",
+    "intro": "Les clés de ce contexte et leurs valeurs. Chaque champ est dans sa langue : la valeur de la culture par défaut est obligatoire, les autres sont facultatives.",
+    "back": "← Retour aux contextes",
+    "add": "Ajouter une clé",
+    "count": "{{count}} clé(s)",
+    "loading": "Lecture des clés…",
+    "none": "Aucune clé dans ce contexte.",
+    "noMatch": "Aucune clé ne correspond à ce filtre.",
+    "untranslated": "Non traduit",
+    "rightToLeft": "(droite à gauche)",
+    "requiredTag": "(obligatoire)",
+    "marks": "Contient des marques de direction invisibles : {{marks}}",
+    "previous": "Page précédente",
+    "next": "Page suivante",
+    "range": "{{from}}–{{to}} sur {{total}}",
+    "fields": {
+      "slug": "Identifiant de la clé"
+    },
+    "filter": {
+      "search": "Filtrer par identifiant",
+      "untranslated": "Non traduit en",
+      "anyCulture": "Toutes les clés"
+    },
+    "form": {
+      "title": "Nouvelle clé",
+      "submit": "Ajouter la clé",
+      "cancel": "Annuler",
+      "slugHelp": "Ce que le paramétrage référencera : minuscules, chiffres, tiret et souligné. Le renommer plus tard est une rupture, pas une correction."
+    },
+    "edit": {
+      "action": "Modifier",
+      "title": "Valeurs de {{slug}}",
+      "submit": "Enregistrer"
+    },
+    "rename": {
+      "action": "Renommer",
+      "title": "Renommer {{slug}}",
+      "submit": "Renommer la clé",
+      "warning": "Renommer un identifiant peut casser des références, et le produit ne sait pas encore lesquelles pointent cette clé."
+    },
+    "remove": {
+      "action": "Supprimer",
+      "title": "Supprimer {{slug}}",
+      "submit": "Supprimer la clé",
+      "warning": "Supprimer un identifiant peut casser des références, et le produit ne sait pas encore lesquelles pointent cette clé.",
+      "values": "{{count}} valeur(s) vont disparaître, dans toutes les cultures du contexte."
+    },
+    "errors": {
+      "direction_forcee": "Valeur refusée : elle contient des caractères qui la feraient s'afficher autrement qu'elle n'est écrite ({{found}}). Retirez-les et réessayez.",
+      "valeur_par_defaut_obligatoire": "La valeur en {{culture}} est obligatoire : c'est la culture par défaut du workspace.",
+      "culture_hors_workspace": "{{culture}} ne fait pas partie des cultures de ce workspace.",
+      "slug_pris": "L'identifiant {{slug}} est déjà pris dans ce contexte.",
+      "cle_inconnue": "La clé {{slug}} n'existe pas dans ce contexte.",
+      "slug_invalide": "Identifiant invalide : minuscules, chiffres, tiret et souligné, en commençant par une lettre ou un chiffre.",
+      "trads_illisible": "Le fichier {{path}} n'est pas lisible : corrigez-le dans le dépôt.",
+      "branche_a_bouge": "La branche a changé pendant l'enregistrement : rien n'a été écrit. Rechargez et réessayez — aucune valeur n'a été perdue.",
+      "contexte_inconnu": "Ce contexte n'existe pas sur cette branche.",
+      "branche_racine_lecture_seule": "La branche racine est en lecture seule : travaillez dans une branche enfant.",
+      "unexpected": "L'opération n'a pas pu être effectuée."
+    }
+  }
+}

@@ -1,0 +1,28 @@
+[project]
+name = "miles-architecture"
+version = "0.1.0"
+description = "Tests d'architecture du dépôt : la frontière entre le socle et les trois produits"
+requires-python = ">=3.12"
+# Aucune dépendance de production : ce paquet ne part dans aucune image. Il lit les
+# fichiers source du dépôt et ne charge jamais le code des produits, pour pouvoir
+# s'exécuter sans qu'aucun environnement de produit soit installé.
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["architecture"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"architecture/**" = ["S101"]

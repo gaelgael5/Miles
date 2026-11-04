@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Miles
+node_modules/
+.deploy/
+# Sauvegarde de .env écrite par le backend : mêmes secrets que .env.
+.env.bak

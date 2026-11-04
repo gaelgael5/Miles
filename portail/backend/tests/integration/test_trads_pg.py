@@ -1,0 +1,469 @@
+from __future__ import annotations
+
+import json
+from collections.abc import AsyncIterator
+from pathlib import Path
+
+import httpx
+import pytest
+
+from tests.integration.work_stack import EDITION, Forge, open_work_forge
+
+pytestmark = pytest.mark.integration
+
+ROUTE = "/api/workspaces/retrait/trads"
+CULTURES = "/api/workspaces/retrait/cultures"
+TRADS_DIR = "trads"
+
+
+@pytest.fixture
+async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
+    async with open_work_forge(blank_db, tmp_path) as opened:
+        yield opened
+
+
+async def _add(
+    forge: Forge, name: str = "accueil", label: str = "Écrans d'accueil"
+) -> httpx.Response:
+    return await forge.client.post(ROUTE, json={"name": name, "label": label}, timeout=120)
+
+
+async def _files(forge: Forge, context: str = "accueil") -> list[str]:
+    """Les fichiers que le dépôt porte sous `trads/<context>/`, ou rien s'il n'existe pas.
+
+    Par l'API `contents`, dont le `ref` est en QUERY : `git/trees/{ref}` prend le ref dans
+    le CHEMIN, et les slashes de `back/retrait/edition` y cassaient l'URL — Gitea rendait
+    404 sur l'adresse elle-même, pas sur la branche. Mesuré, pas déduit.
+
+    Publie d'abord : l'administrateur a la main sur la branche, et ses commits restent
+    locaux jusque-là (story 9def0adc). Lire la forge sans publier mesurerait l'état
+    d'avant le geste.
+    """
+    if forge.held:
+        await forge.publish()
+    listed = await forge.api.get(
+        f"/api/v1/repos/miles/{forge.name}/contents/{TRADS_DIR}/{context}",
+        params={"ref": forge.edited},
+    )
+    if listed.status_code == 404:
+        return []
+    assert listed.status_code == 200, listed.text
+    return sorted(entry["name"] for entry in listed.json())
+
+
+async def _seed(forge: Forge, files: dict[str, str]) -> None:
+    """Pose des fichiers de traduction dans la branche enfant, hors de Miles.
+
+    Hors de Miles exprès : les clés arrivent par l'écran de saisie, qui est un autre
+    ticket. Ce qui se mesure ici, c'est que la liste et la suppression lisent le DÉPÔT.
+
+    Publie ce qui est en attente avant de semer : sans cela, le semis et les commits
+    locaux partiraient du même parent et la publication suivante serait refusée.
+    """
+    await forge.seed(files)
+
+
+async def _cultures(forge: Forge, *codes: str) -> None:
+    for code in codes:
+        added = await forge.client.post(CULTURES, json={"culture": code})
+        assert added.status_code == 200, added.text
+
+
+# --- Critères 1 à 4 : créer, nommer, figer ---
+
+
+async def test_creating_a_context_makes_its_directory_in_the_branch(forge: Forge) -> None:
+    created = await _add(forge)
+
+    assert created.status_code == 201, created.text
+    assert created.json() == {
+        "name": "accueil",
+        "label": "Écrans d'accueil",
+        "keys": 0,
+        "translated": {},
+        "obsolete": {},
+    }
+    assert await _files(forge) == ["contexte.yaml"]
+    listed = (await forge.client.get(ROUTE, timeout=120)).json()
+    assert [(c["name"], c["label"]) for c in listed] == [("accueil", "Écrans d'accueil")]
+
+
+@pytest.mark.parametrize(
+    "hostile", ["../evasion", "a/b", "..", ".", "Accueil", "mes écrans", "accueil ", ""]
+)
+async def test_invalid_technical_name_is_refused_before_touching_the_repository(
+    forge: Forge, hostile: str
+) -> None:
+    """C'est un nom de répertoire : il ne doit jamais pouvoir sortir de `trads/`."""
+    refused = await _add(forge, hostile)
+
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == {"field": "name", "reason": "forme"}
+    # Rien n'a été créé : la liste que l'écran voit est toujours vide.
+    assert (await forge.client.get(ROUTE, timeout=120)).json() == []
+
+
+async def test_technical_name_already_taken_names_the_existing_context(forge: Forge) -> None:
+    await _add(forge)
+
+    refused = await _add(forge, "accueil", "Un autre libellé")
+
+    assert refused.status_code == 409
+    assert refused.json()["detail"] == {"code": "contexte_pris", "label": "Écrans d'accueil"}
+
+
+async def test_the_label_changes_and_the_technical_name_has_no_route_to_change(
+    forge: Forge,
+) -> None:
+    await _add(forge)
+
+    renamed = await forge.client.put(
+        f"{ROUTE}/accueil", json={"label": "Accueil du terminal"}, timeout=120
+    )
+
+    assert renamed.status_code == 200, renamed.text
+    listed = (await forge.client.get(ROUTE, timeout=120)).json()
+    assert listed[0]["label"] == "Accueil du terminal"
+    assert listed[0]["name"] == "accueil"
+    # Le nom technique entre dans le chemin et dans tout ce qui référencera ses clés :
+    # aucune route ne le change, et le corps de renommage n'accepte que le libellé.
+    assert (
+        await forge.client.put(f"{ROUTE}/accueil", json={"name": "autre", "label": "x"})
+    ).status_code == 422
+
+
+@pytest.mark.parametrize("hostile", ["", "   ", "sur\ndeux lignes"])
+async def test_invalid_label_is_refused(forge: Forge, hostile: str) -> None:
+    refused = await _add(forge, "accueil", hostile)
+
+    assert refused.status_code == 422
+    assert refused.json()["detail"]["field"] == "label"
+
+
+async def test_relabelling_an_unknown_context_is_a_named_refusal(forge: Forge) -> None:
+    answered = await forge.client.put(f"{ROUTE}/absent", json={"label": "x"}, timeout=120)
+
+    assert (answered.status_code, answered.json()["detail"]) == (409, "contexte_inconnu")
+
+
+# --- Critères 7, 8, 9 : la liste, et le dépôt qui fait foi ---
+
+
+async def test_the_list_shows_keys_and_coverage_per_workspace_culture(forge: Forge) -> None:
+    await _cultures(forge, "fr-FR", "ar-MA")
+    await _add(forge)
+    await _seed(
+        forge,
+        {
+            "trads/accueil/en-US.yaml": "titre: Hello\nadieu: Bye\n",
+            "trads/accueil/fr-FR.yaml": "titre: Bonjour\nadieu: Au revoir\n",
+            "trads/accueil/ar-MA.yaml": "titre: مرحبا\n",
+        },
+    )
+
+    listed = (await forge.client.get(ROUTE, timeout=120)).json()
+
+    assert listed[0]["keys"] == 2
+    # en-US est la culture par défaut du workspace de test, et vient en premier.
+    assert listed[0]["translated"] == {"en-US": 2, "fr-FR": 2, "ar-MA": 1}
+
+
+async def test_an_empty_context_is_zero_on_zero_rather_than_fully_covered(forge: Forge) -> None:
+    """Zéro clé traduite sur zéro clé n'est pas une bonne nouvelle (critère 8)."""
+    await _add(forge, "vide", "Encore vide")
+
+    listed = (await forge.client.get(ROUTE, timeout=120)).json()
+
+    assert (listed[0]["keys"], listed[0]["translated"]) == (0, {"en-US": 0})
+
+
+async def test_a_directory_present_in_git_without_a_declared_context_is_listed(
+    forge: Forge,
+) -> None:
+    """Le dépôt fait foi, pas un enregistrement parallèle (critère 9)."""
+    await _seed(forge, {"trads/venu-dailleurs/en-US.yaml": "titre: Hello\n"})
+
+    listed = (await forge.client.get(ROUTE, timeout=120)).json()
+
+    # Sans fichier de métadonnées, le nom technique fait office de libellé.
+    assert listed == [
+        {
+            "name": "venu-dailleurs",
+            "label": "venu-dailleurs",
+            "keys": 1,
+            "translated": {"en-US": 1},
+            "obsolete": {},
+        }
+    ]
+
+
+async def test_contexts_are_listed_in_a_stable_order(forge: Forge) -> None:
+    for name in ("zone", "accueil", "erreurs"):
+        assert (await _add(forge, name, f"Libellé {name}")).status_code == 201
+
+    listed = (await forge.client.get(ROUTE, timeout=120)).json()
+
+    assert [c["name"] for c in listed] == ["accueil", "erreurs", "zone"]
+
+
+async def test_an_unreadable_translation_file_names_the_file(forge: Forge) -> None:
+    await _seed(forge, {"trads/accueil/en-US.yaml": "titre: [non fermé\n"})
+
+    answered = await forge.client.get(ROUTE, timeout=120)
+
+    assert answered.status_code == 422
+    assert answered.json()["detail"] == {
+        "code": "trads_illisible",
+        "path": "trads/accueil/en-US.yaml",
+    }
+
+
+# --- Critères 5 et 6 : supprimer ---
+
+
+async def test_deleting_an_empty_context_removes_its_directory(forge: Forge) -> None:
+    await _add(forge, "vide", "Encore vide")
+
+    removed = await forge.client.delete(f"{ROUTE}/vide", timeout=120)
+
+    assert removed.status_code == 200, removed.text
+    assert removed.json() == {"keys": 0, "values": 0}
+    assert await _files(forge, "vide") == []
+    assert (await forge.client.get(ROUTE, timeout=120)).json() == []
+
+
+async def test_the_removal_preview_announces_keys_and_values_across_cultures(
+    forge: Forge,
+) -> None:
+    """Les deux nombres : dix clés en cinq langues font disparaître cinquante valeurs."""
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(
+        forge,
+        {
+            "trads/accueil/en-US.yaml": "titre: Hello\nadieu: Bye\n",
+            "trads/accueil/fr-FR.yaml": "titre: Bonjour\n",
+        },
+    )
+
+    preview = await forge.client.get(f"{ROUTE}/accueil/removal", timeout=120)
+
+    assert preview.json() == {"keys": 2, "values": 3}
+
+
+async def test_deleting_a_populated_context_takes_every_culture_file_with_it(
+    forge: Forge,
+) -> None:
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(
+        forge,
+        {
+            "trads/accueil/en-US.yaml": "titre: Hello\nadieu: Bye\n",
+            "trads/accueil/fr-FR.yaml": "titre: Bonjour\n",
+        },
+    )
+
+    removed = await forge.client.delete(f"{ROUTE}/accueil", timeout=120)
+
+    assert removed.json() == {"keys": 2, "values": 3}
+    assert await _files(forge) == []
+
+
+async def test_deleting_one_context_leaves_the_others_untouched(forge: Forge) -> None:
+    await _add(forge, "accueil", "Accueil")
+    await _add(forge, "erreurs", "Erreurs")
+    await _seed(forge, {"trads/erreurs/en-US.yaml": "refus: Refusé\n"})
+
+    assert (await forge.client.delete(f"{ROUTE}/accueil", timeout=120)).status_code == 200
+
+    listed = (await forge.client.get(ROUTE, timeout=120)).json()
+    assert [c["name"] for c in listed] == ["erreurs"]
+    assert listed[0]["keys"] == 1
+
+
+async def test_deleting_an_unknown_context_is_a_named_refusal(forge: Forge) -> None:
+    answered = await forge.client.delete(f"{ROUTE}/absent", timeout=120)
+
+    assert (answered.status_code, answered.json()["detail"]) == (409, "contexte_inconnu")
+
+
+# `..` NON ENCODÉ est absent du jeu : httpx normalise le chemin AVANT de l'envoyer, et la
+# requête partait vers la suppression du WORKSPACE — refusée par un 409 qui n'avait rien à
+# voir, et qui aurait réussi sans la prise de main. Le test mesurait autre chose que ce
+# qu'il croyait. Encodé, il atteint vraiment la route et sa garde de forme.
+@pytest.mark.parametrize("hostile", ["%2E%2E", "a%2Fb", "%2E", "Accueil"])
+async def test_deleting_through_a_hostile_name_is_refused(forge: Forge, hostile: str) -> None:
+    await _add(forge)
+
+    answered = await forge.client.delete(f"{ROUTE}/{hostile}", timeout=120)
+
+    # Refus, jamais une suppression hors de `trads/` : 404 si la route ne correspond pas,
+    # 422 si le nom atteint la garde de forme. Et le contexte voisin est intact.
+    assert answered.status_code in (404, 422)
+    assert await _files(forge) == ["contexte.yaml"]
+
+
+# --- La branche, les droits, le journal ---
+
+
+async def test_contexts_are_those_of_the_branch_being_looked_at(forge: Forge) -> None:
+    """Deux branches peuvent ne pas avoir les mêmes contextes."""
+    await _add(forge)
+
+    on_root = await forge.client.get(ROUTE, params={"branch": "atelier"}, timeout=120)
+
+    assert on_root.json() == []
+    assert len((await forge.client.get(ROUTE, timeout=120)).json()) == 1
+
+
+async def test_the_root_branch_refuses_to_be_written(forge: Forge) -> None:
+    refused = await forge.client.post(
+        ROUTE, json={"name": "accueil", "label": "Accueil"}, params={"branch": "atelier"}
+    )
+
+    assert (refused.status_code, refused.json()["detail"]) == (
+        409,
+        "branche_racine_lecture_seule",
+    )
+
+
+async def test_contexts_are_closed_without_a_session(forge: Forge) -> None:
+    async with forge.portal.anonymous() as anonymous:
+        assert (await anonymous.get(ROUTE)).status_code == 401
+        assert (await anonymous.post(ROUTE, json={"name": "x", "label": "x"})).status_code == 401
+        assert (await anonymous.put(f"{ROUTE}/x", json={"label": "y"})).status_code == 401
+        assert (await anonymous.delete(f"{ROUTE}/x")).status_code == 401
+
+
+async def test_each_gesture_is_journaled_with_the_context_and_the_branch(forge: Forge) -> None:
+    await _add(forge)
+    await forge.client.put(f"{ROUTE}/accueil", json={"label": "Accueil"}, timeout=120)
+    await forge.client.delete(f"{ROUTE}/accueil", timeout=120)
+
+    rows = await forge.portal.pool.fetch(
+        "SELECT type, properties FROM events WHERE type LIKE 'trads_context.%' ORDER BY written_at"
+    )
+    journaled = [(r["type"], _properties(r["properties"])) for r in rows]
+
+    assert [t for t, _ in journaled] == [
+        "trads_context.created",
+        "trads_context.relabelled",
+        "trads_context.deleted",
+    ]
+    assert all(p["context"] == "accueil" for _, p in journaled)
+    assert all(p["branch"] == f"back/retrait/{EDITION}" for _, p in journaled)
+    assert journaled[2][1]["keys"] == 0
+
+
+def _properties(raw: object) -> dict[str, object]:
+    # asyncpg rend une colonne `jsonb` en CHAÎNE, pas en dictionnaire (LESSONS.md).
+    return json.loads(raw) if isinstance(raw, str) else dict(raw)  # type: ignore[arg-type]
+
+
+# --- Faire le ménage des cultures retirées (Gael, 30/10/2026) ---
+
+
+async def test_a_culture_left_out_of_the_workspace_is_counted_as_obsolete(forge: Forge) -> None:
+    """Retirer une culture garde ses fichiers, exprès. Sans ce compte, personne ne saurait
+    qu'ils sont encore là."""
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(
+        forge,
+        {
+            "trads/accueil/en-US.yaml": "titre: Hello\n",
+            "trads/accueil/fr-FR.yaml": "titre: Bonjour\nadieu: Au revoir\n",
+        },
+    )
+    assert (await forge.client.delete(f"{CULTURES}/fr-FR")).status_code == 200
+
+    listed = (await forge.client.get(ROUTE, timeout=120)).json()
+
+    assert listed[0]["obsolete"] == {"fr-FR": 2}
+    assert "fr-FR" not in listed[0]["translated"]
+
+
+async def test_removing_an_obsolete_culture_takes_its_file_out_of_the_repository(
+    forge: Forge,
+) -> None:
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(
+        forge,
+        {
+            "trads/accueil/en-US.yaml": "titre: Hello\n",
+            "trads/accueil/fr-FR.yaml": "titre: Bonjour\nadieu: Au revoir\n",
+        },
+    )
+    await forge.client.delete(f"{CULTURES}/fr-FR")
+
+    removed = await forge.client.delete(f"{ROUTE}/accueil/obsolete/fr-FR", timeout=120)
+
+    assert removed.status_code == 200, removed.text
+    # Le nombre de valeurs perdues, pour que l'écran ait pu le dire avant de le faire.
+    assert removed.json() == {"keys": 0, "values": 2}
+    assert await _files(forge) == ["contexte.yaml", "en-US.yaml"]
+    assert (await forge.client.get(ROUTE, timeout=120)).json()[0]["obsolete"] == {}
+
+
+async def test_a_culture_still_in_the_workspace_cannot_be_cleaned_up(forge: Forge) -> None:
+    """Le geste est un NETTOYAGE : le laisser porter sur une traduction active en ferait
+    une destruction silencieuse."""
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(forge, {"trads/accueil/fr-FR.yaml": "titre: Bonjour\n"})
+
+    refused = await forge.client.delete(f"{ROUTE}/accueil/obsolete/fr-FR", timeout=120)
+
+    assert (refused.status_code, refused.json()["detail"]) == (409, "culture_du_workspace")
+    assert "fr-FR.yaml" in await _files(forge)
+
+
+async def test_the_default_culture_cannot_be_cleaned_up_either(forge: Forge) -> None:
+    await _add(forge)
+    await _seed(forge, {"trads/accueil/en-US.yaml": "titre: Hello\n"})
+
+    refused = await forge.client.delete(f"{ROUTE}/accueil/obsolete/en-US", timeout=120)
+
+    assert (refused.status_code, refused.json()["detail"]) == (409, "culture_du_workspace")
+
+
+async def test_cleaning_a_culture_without_any_file_is_a_named_refusal(forge: Forge) -> None:
+    await _add(forge)
+
+    answered = await forge.client.delete(f"{ROUTE}/accueil/obsolete/th-TH", timeout=120)
+
+    assert (answered.status_code, answered.json()["detail"]) == (409, "culture_sans_fichier")
+
+
+# Même raison : `..` non encodé n'arrive jamais jusqu'ici.
+@pytest.mark.parametrize("hostile", ["%2E%2E", "FR", "fr_FR"])
+async def test_cleaning_through_a_hostile_culture_code_is_refused(
+    forge: Forge, hostile: str
+) -> None:
+    """Le code devient un segment de `trads/<contexte>/<culture>.yaml`, et la suppression
+    écrit : il ne doit jamais viser un fichier hors de `trads/`."""
+    answered = await forge.client.delete(f"{ROUTE}/accueil/obsolete/{hostile}", timeout=120)
+
+    assert answered.status_code in (404, 422)
+
+
+async def test_cleaning_an_obsolete_culture_is_journaled(forge: Forge) -> None:
+    await _cultures(forge, "fr-FR")
+    await _add(forge)
+    await _seed(forge, {"trads/accueil/fr-FR.yaml": "titre: Bonjour\n"})
+    await forge.client.delete(f"{CULTURES}/fr-FR")
+
+    await forge.client.delete(f"{ROUTE}/accueil/obsolete/fr-FR", timeout=120)
+
+    row = await forge.portal.pool.fetchrow(
+        "SELECT properties FROM events WHERE type = 'trads_context.obsolete_removed'"
+    )
+    assert row is not None
+    properties = _properties(row["properties"])
+    assert (properties["context"], properties["culture"], properties["values"]) == (
+        "accueil",
+        "fr-FR",
+        1,
+    )

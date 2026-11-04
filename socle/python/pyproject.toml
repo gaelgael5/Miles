@@ -1,0 +1,100 @@
+[project]
+name = "miles-socle"
+version = "0.1.0"
+description = "Socle technique partagé des produits Miles : amorçage, OIDC, sessions, cultures, secrets, journal d'events, accès PostgreSQL"
+requires-python = ">=3.12"
+# Strictement ce que le socle importe. Les dépendances propres à un produit — mcp,
+# aiomqtt, jsonschema, urban-json… — restent chez lui : un socle qui les tirerait
+# imposerait au module d'enrôlement des paquets dont il n'a aucun usage.
+dependencies = [
+    "argon2-cffi>=23.1",
+    "asyncpg>=0.30",
+    "cryptography>=44",
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "pydantic>=2.9",
+    # La configuration est devenue affaire du socle : il porte la classe de base que les
+    # trois produits étendent, avec le préfixe d'environnement, extra="forbid" et les
+    # défauts de sécurité. Les produits l'avaient déjà tous les trois en dépendance.
+    "pydantic-settings>=2.6",
+    "pyjwt[crypto]>=2.9",
+    # Le paramétrage versionné est écrit en YAML, et DEUX produits le lisent depuis le
+    # 02/11/2026 : le module de paramétrage qui l'écrit, le module d'environnement qui
+    # lit la version qu'il héberge. Le lecteur strict est donc ici.
+    "pyyaml>=6.0",
+    "structlog>=24.4",
+]
+
+# Le contrat publié de la route d'entretien du journal est engendré depuis le code, comme
+# ceux des produits. Il est ici parce que la route est ici : publiée depuis un produit,
+# elle l'aurait été trois fois.
+[project.scripts]
+miles-socle-contracts = "miles_socle.journal.published_contract:main"
+
+[project.optional-dependencies]
+# `miles_socle.testing` est livré DANS le paquet — les trois produits ont chacun leur suite
+# et aucun ne peut importer celle d'un autre — mais ses fixtures et son harnais ont besoin
+# de pytest et de httpx. Déclarés en extra et non en dépendance : l'image de production
+# installe le socle sans eux, et rien en production n'importe ce sous-paquet.
+testing = [
+    "httpx>=0.27",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+]
+# `miles_socle.transform` évalue du JSLT, et DEUX produits en ont besoin depuis le
+# 03/11/2026 : le module de paramétrage qui écrit les templates, le module d'environnement
+# qui les applique aux objets reçus (enabler b2a215ee). En EXTRA et non en dépendance, pour
+# la raison écrite plus haut : le module d'enrôlement ne transforme rien, et ne doit pas
+# installer le moteur. Un produit qui importe ce sous-paquet sans l'extra échoue à
+# l'import, au démarrage — jamais sur un chemin de données.
+transform = [
+    "urban-json==0.2.1",
+]
+
+[dependency-groups]
+dev = [
+    "asyncpg-stubs>=0.30",
+    "types-pyyaml>=6.0",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/miles_socle"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = ["integration: exige une vraie base PostgreSQL (MILES_TEST_DATABASE_URL)"]
+# Même règle que les produits : les tests d'intégration ne tournent que sur demande
+# explicite, sur une machine de test — le poste de dev n'a pas de PostgreSQL.
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Les tests manipulent des mots de passe d'essai, sans valeur hors des tests.
+"tests/**" = ["S101", "S105", "S106"]
+# `testing/` porte les valeurs d'essai des trois produits : c'est sa raison d'être, et
+# elles n'ont aucune portée hors des suites de tests.
+"src/miles_socle/testing/**" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["miles_socle"]

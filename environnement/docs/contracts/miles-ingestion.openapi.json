@@ -1,0 +1,593 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Miles — ingestion de données dans un environnement",
+    "version": "1",
+    "description": "Point d'entrée par lequel un système tiers DÉPOSE des objets JSON dans un environnement Miles. Réception, pas collecte : Miles n'appelle personne.\n\nL'adresse désigne une SOURCE du paramétrage servi et le MODE d'appel. La source dit où les objets atterrissent, par quel modèle on les décrit et quelle chaîne les transforme ; le mode dit comment on dépose — `element` pour un objet, `tableau` pour un lot, `fichier` pour un DOCUMENT dont le jpath de découpage déclaré par la source désigne les items. Ce qu'une source expose est déclaré dans son paramétrage : un mode non coché est refusé, jamais accepté sans effet.\n\n**Les deux premiers modes répondent de façon SYNCHRONE** et portent le sort de chaque objet. Le mode `fichier`, lui, rend un acquittement de PRISE EN CHARGE en `202` : le document est posé sur le disque de la stack, puis découpé et transformé hors de l'appel, item par item, sans jamais être chargé entier en mémoire. Son `report` est donc nul, et l'issue de l'import se lit dans l'historique des ingestions de l'environnement. Le document est conservé un temps paramétrable, ce qui borne la fenêtre de rejeu après un changement de template.\n\nAuthentification par clé d'API propre à cet environnement, présentée en `Authorization: Bearer <clé>` ou en `X-API-Key`. Une clé n'ouvre que les sources qu'on lui a octroyées, et l'octroi est revérifié contre la version servie à chaque appel : une source retirée du paramétrage ferme le point d'entrée.\n\n`Idempotency-Key` rend un rejeu sûr : la même valeur réémise rend le MÊME accusé, en 200 au lieu de 201, sans rien enregistrer deux fois. Sans cet en-tête, deux dépôts identiques sont deux ingestions — c'est l'écriture qui déduplique, par empreinte, pas la réception.\n\nLe lot est conservé tel quel AVANT d'être transformé, puis traité dans l'appel : l'accusé porte le sort de CHAQUE objet. Trois issues, et la distinction entre les deux premières est la raison d'être de ce dispositif — `ecrit` (créé, ou corps réécrit parce que l'empreinte du modèle transformé a changé), `inchange` (même empreinte : aucun corps réécrit, aucune date de modification touchée, seule la date de dernière vue avance), `rejete` (rien n'a été écrit pour cet objet, et `reason` dit pourquoi).\n\n**Un réimport à l'identique n'écrit donc rien**, et une variation non significative de la source non plus : l'empreinte porte sur le modèle TRANSFORMÉ, jamais sur le message reçu. Un changement d'ordre des clés ou d'un champ qu'aucun template ne lit laisse la base intacte.\n\n**Chaque objet est indépendant** : celui qui est fautif est rejeté seul, les autres sont écrits. Deux objets de même clé dans un même lot : le dernier valide gagne, et `report.anomalies` le signale. Un objet dont la ligne existante est d'origine MANUELLE n'est jamais écrasé par un import : il est rejeté, nommément.\n\nCorps en `application/json`, 8388608 octets au plus. L'article docflow terminal-pr « Contrats d'interface » dit ce qui est garanti et ce qui ne l'est pas."
+  },
+  "paths": {
+    "/ingest/{source}/fichier": {
+      "post": {
+        "tags": [
+          "ingestion"
+        ],
+        "summary": "Déposer un DOCUMENT sur une entrée de source, en mode gros fichier",
+        "description": "Le document est posé sur le disque de la stack, puis découpé et transformé item par item, hors de l'appel. La réponse n'est donc PAS un compte-rendu : c'est un acquittement de prise en charge, et `report` y est nul. L'issue de l'import se lit dans l'historique des ingestions, par l'identifiant rendu ici.\n\nLe document entier n'est jamais chargé en mémoire : les items sont émis un par un au jpath de découpage que l'entrée de source déclare, et chacun traverse la chaîne individuellement. Le document est CONSERVÉ un temps paramétrable, ce qui borne la fenêtre de rejeu après un changement de template.",
+        "operationId": "deposit_file_ingest__source__fichier_post",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Rend un rejeu sûr : la même valeur réémise rend le MÊME accusé, en 200 au lieu de 201 (202 pour le mode fichier), sans rien enregistrer deux fois. Sa portée est la clé de l'appelant. Caractères admis : lettres, chiffres, `.`, `_`, `:` et `-`."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgementOut"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Rejeu : la clé d'idempotence a retrouvé ce dépôt. Le document n'est pas reposé sur le disque, et aucun second import n'est mis en file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgementOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`cle_idempotence_invalide` : la clé devient une clé d'unicité.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`authentification_requise`. UN SEUL code pour toutes les raisons — clé absente, mal formée, inconnue, révoquée, sans octroi sur cette source, ou source retirée de la version servie. Les distinguer offrirait un oracle.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`source_inconnue` : l'adresse ne désigne rien.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La version servie ne permet pas ce dépôt : `mode_non_declare` (l'entrée ne coche pas le mode fichier), `mode_ambigu`, `source_illisible`, `aucune_version_servie`, `cible_non_servie` — le storage, son modèle, la chaîne, ou un découpage qui ne se lit pas en flux ; `detail` dit lequel.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`fichier_trop_grand` (la borne est dans `detail`) ou `quota_de_disque_atteint` (le disque de la stack est partagé par tous les storages de l'environnement). Les deux sont rendus AVANT la lecture du corps quand l'appelant annonce sa taille.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`type_de_contenu_inattendu` : `application/json` ou `application/octet-stream`. Le contenu reste du JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cleApiEnEntete": []
+          },
+          {
+            "cleApiEnPorteur": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Le document entier. Le jpath de découpage déclaré par l'entrée de source désigne le TABLEAU de ses items ; chaque item traverse la chaîne individuellement, et le document n'est jamais chargé entier en mémoire. Les clés placées hors de ce tableau — avant comme après — sont lues comme métadonnées du document.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingest/{source}/{mode}": {
+      "post": {
+        "tags": [
+          "ingestion"
+        ],
+        "summary": "Déposer un lot d'objets sur une entrée de source",
+        "description": "Dépose un lot d'objets JSON sur l'entrée que cette adresse désigne.",
+        "operationId": "deposit_ingest__source___mode__post",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Mode"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Rend un rejeu sûr : la même valeur réémise rend le MÊME accusé, en 200 au lieu de 201 (202 pour le mode fichier), sans rien enregistrer deux fois. Sa portée est la clé de l'appelant. Caractères admis : lettres, chiffres, `.`, `_`, `:` et `-`."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgementOut"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Rejeu : la clé d'idempotence a retrouvé ce dépôt. Rien n'est créé.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgementOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps vide (`corps_vide`), JSON invalide avec sa position (`json_invalide`), forme attendue non respectée (`objet_attendu`, `tableau_attendu`), clé d'idempotence mal formée (`cle_idempotence_invalide`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`authentification_requise`. UN SEUL code pour toutes les raisons — clé absente, mal formée, inconnue, révoquée, sans octroi sur cette source, ou source retirée de la version servie. Les distinguer offrirait un oracle.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`mode_inconnu`, `source_inconnue` : l'adresse ne désigne rien.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La version servie ne permet pas ce dépôt : `mode_non_declare` (l'entrée ne coche pas ce mode), `mode_ambigu` (deux entrées l'exposent), `mode_non_servi` (déclaré, pas encore branché), `source_illisible`, `aucune_version_servie`, `cible_non_servie` (le storage, son modèle ou la chaîne manquent de la version servie — `detail` dit lequel).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`lot_trop_grand` (plus d'objets que le plafond du mode tableau, qui est dit dans `detail`) ou `corps_trop_grand` (taille en octets).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`type_de_contenu_inattendu` : seul `application/json` est reçu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefusalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "**Le lot est reçu et persisté, mais TOUS ses objets ont été rejetés** : aucune ligne n'a été écrite, et aucune date de dernière vue n'a avancé. Le corps est l'accusé complet, `state` vaut `rejete`, et `report.objects` dit pour chaque objet pourquoi — `cle_non_extractible`, `transformation_en_echec`, `modele_non_respecte`, `objet_d_origine_manuelle`. Un lot dont UN SEUL objet aboutit rend 201.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgementOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cleApiEnEntete": []
+          },
+          {
+            "cleApiEnPorteur": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "L'objet (mode `element`) ou le tableau d'objets (mode `tableau`, 200 au plus), dans la forme du modèle d'entrée que l'entrée de source déclare. La page de service d'un environnement montre ce schéma, résolu, pour chaque méthode.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "description": "mode `element`"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "maxItems": 200,
+                    "description": "mode `tableau`"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AcknowledgementOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "object_count": {
+            "type": "integer",
+            "title": "Object Count"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "replayed": {
+            "type": "boolean",
+            "title": "Replayed"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "mode",
+          "object_count",
+          "received_at",
+          "state",
+          "replayed",
+          "report"
+        ],
+        "title": "AcknowledgementOut",
+        "description": "L'accusé : ce qui est reçu, et ce que le traitement en a fait."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ObjectOutcomeOut": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "position",
+          "outcome",
+          "key",
+          "reason",
+          "detail"
+        ],
+        "title": "ObjectOutcomeOut",
+        "description": "Le sort d'UN objet du lot. `position` est son rang, 0 pour le premier.\n\nLe rang est là pour les objets dont la clé n'a pas pu être extraite : c'est alors la\nseule prise de l'appelant pour retrouver lequel de ses objets est en cause."
+      },
+      "RefusalDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "RefusalDetail",
+        "description": "La raison d'un refus. `code` est STABLE : c'est sur lui qu'un appelant se branche."
+      },
+      "RefusalOut": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/RefusalDetail"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "RefusalOut"
+      },
+      "ReportOut": {
+        "properties": {
+          "received": {
+            "type": "integer",
+            "title": "Received"
+          },
+          "written": {
+            "type": "integer",
+            "title": "Written"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectOutcomeOut"
+            },
+            "type": "array",
+            "title": "Objects"
+          },
+          "anomalies": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Anomalies"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "received",
+          "written",
+          "unchanged",
+          "rejected",
+          "objects",
+          "anomalies"
+        ],
+        "title": "ReportOut",
+        "description": "Le compte-rendu du lot : les comptes, le sort de chaque objet, les anomalies.\n\n`unchanged` est distinct de `written`, et c'est tout l'objet de l'écriture\ndifférentielle : un réimport à l'identique ne réécrit aucun corps et ne touche aucune\ndate de modification — il n'avance que la date de dernière vue."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "cleApiEnEntete": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "Clé d'API propre à cet environnement. Elle n'ouvre que les sources qu'on lui a octroyées, et l'octroi est revérifié contre la version servie à chaque appel."
+      },
+      "cleApiEnPorteur": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "La même clé, présentée en `Authorization: Bearer <clé>`."
+      }
+    }
+  }
+}
