@@ -253,9 +253,12 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 .steps .step-now { border: 2px solid var(--accent); padding: 11px 13px; color: var(--encre); font-weight: 600; }
 .step-mark {
   flex: 0 0 20px; width: 20px; height: 20px; line-height: 20px; text-align: center;
-  border-radius: 10px; background: var(--succes-fond); color: var(--succes-encre);
+  border-radius: 10px; background: var(--surface-alt); color: var(--encre-faible);
   font-weight: 600; font-size: 12px;
 }
+/* Faite en vert, courante en accent, À VENIR en gris : le vert par défaut faisait passer
+   pour acquise une étape qu'on n'avait pas encore faite. */
+.steps .step-done .step-mark { background: var(--succes-fond); color: var(--succes-encre); }
 .steps .step-now .step-mark { background: var(--accent); color: var(--surface); }
 /* L'échéance d'une demande, à côté de son état : la maquette la met en `--avertissement`
    et non en rouge — elle annonce une fin, elle ne signale pas une faute. */

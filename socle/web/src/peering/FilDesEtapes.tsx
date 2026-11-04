@@ -26,7 +26,11 @@ export function FilDesEtapes({ courante }: { courante: 1 | 2 }) {
       {([1, 2, 3] as const).map((rang) => (
         <li
           key={rang}
-          className={rang === courante ? "step-now" : undefined}
+          // TROIS états, et pas deux : faite, courante, à venir. Avec la seule marque
+          // « courante », les étapes à venir portaient la pastille verte des étapes
+          // faites — l'écran disait « coller le code » déjà fait alors qu'on attendait
+          // encore l'acceptation. Vu dans un vrai navigateur, invisible sous jsdom.
+          className={rang === courante ? "step-now" : rang < courante ? "step-done" : undefined}
           // `aria-current` et non la seule couleur : l'étape courante doit s'entendre.
           aria-current={rang === courante ? "step" : undefined}
         >
