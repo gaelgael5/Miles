@@ -253,6 +253,10 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 /* Colonne de table à largeur souple, pour un nombre de colonnes que seul le paramétrage
    connaît : `.cell` est figée à 170px, ce qui déborde dès la quatrième projection. */
 .cell-auto { flex: 1 1 130px; min-width: 0; overflow-wrap: anywhere; }
+/* La première colonne d'une table : plus large que les autres, mais SANS les pousser
+   hors de la ligne — `.row-main` grandit à 999 et renvoyait la dernière colonne à la
+   ligne suivante, sous la première. Invisible sous jsdom, qui ne calcule rien. */
+.cell-key { flex: 2 1 180px; min-width: 0; }
 /* Barre de filtres : une colonne par propriété filtrable, chacune avec sa comparaison
    et sa valeur. Reprise de la maquette « Référentiel de comptes ». */
 /* La marge basse tient l'écart quand les colonnes passent à la ligne : `.filters` ne
@@ -260,8 +264,11 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .filters .filter-column { flex: 1 1 220px; min-width: 0; margin-bottom: 14px; }
 .filters .filter-column label { font-size: 12px; font-weight: 500; color: var(--encre-douce); }
 .filter-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
-.filter-controls select { flex: 0 1 auto; width: auto; margin-top: 0; }
-.filter-controls input { flex: 999 1 110px; min-width: 0; margin-top: 0; }
+/* Deux classes dans le sélecteur, et c'est nécessaire : `.field select` pose une largeur
+   de 100 % plus bas dans la feuille, et à spécificité égale c'est la DERNIÈRE qui gagne —
+   la comparaison prenait toute la colonne et renvoyait la valeur à la ligne. */
+.filters .filter-controls select { flex: 0 1 150px; width: auto; margin-top: 0; }
+.filters .filter-controls input { flex: 999 1 110px; min-width: 0; width: auto; margin-top: 0; }
 /* Panneau en retrait DANS une carte : il ne doit pas se lire comme une seconde carte,
    d'où le fond doux et la bordure fine plutôt que le blanc sur gris. */
 .card-inset {

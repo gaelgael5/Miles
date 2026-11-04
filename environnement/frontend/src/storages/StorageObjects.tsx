@@ -113,7 +113,7 @@ export function StorageObjects({
                 dessine : sans lui, les valeurs projetées ne se lisent pas comme des
                 colonnes mais comme une suite de mots. */}
             <div className="row-head">
-              <div className="row-main">{t("storages.columns.key")}</div>
+              <div className="cell-auto cell-key">{t("storages.columns.key")}</div>
               {storage.projections.map((projection) => (
                 <div key={projection.column} className="cell-auto">
                   {projection.path}
@@ -129,7 +129,7 @@ export function StorageObjects({
                     objet.cle === ouvert ? " row-selected" : ""
                   }`}
                 >
-                  <div className="row-main">
+                  <div className="cell-auto cell-key">
                     <button
                       type="button"
                       className="row-open mono"
