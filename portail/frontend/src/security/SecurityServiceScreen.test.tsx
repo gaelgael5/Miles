@@ -63,7 +63,10 @@ describe("SecurityServiceScreen", () => {
     fill("Client secret", "kc");
     fireEvent.click(screen.getByText("Save and verify"));
 
-    expect(await screen.findByText(/reachable, realm recognised/)).toBeInTheDocument();
+    // Joignable, l'état se lit dans la pastille à côté du nom : la phrase entière est
+    // réservée aux pannes, pour qu'une bannière verte permanente n'apprenne pas à ne
+    // plus lire les bannières.
+    expect(await screen.findByText("Reachable")).toBeInTheDocument();
     expect(calls.find((c) => c.key === "POST /api/security-services")?.body).toEqual({
       id: "racine",
       base_url: SERVICE.base_url,

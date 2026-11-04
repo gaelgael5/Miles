@@ -66,6 +66,13 @@
       },
       "unreachable": "Impossible de charger le service de sécurité.",
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
+    },
+    "badges": {
+      "unchecked": "Jamais vérifié",
+      "ok": "Joignable",
+      "realm_inconnu": "Realm inconnu",
+      "injoignable": "Injoignable",
+      "refuse": "Client refusé"
     }
   },
   "workspaces": {

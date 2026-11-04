@@ -66,6 +66,13 @@
       },
       "unreachable": "The security service could not be loaded.",
       "unexpected": "The operation failed. See the back-office logs."
+    },
+    "badges": {
+      "unchecked": "Never checked",
+      "ok": "Reachable",
+      "realm_inconnu": "Unknown realm",
+      "injoignable": "Unreachable",
+      "refuse": "Client refused"
     }
   },
   "workspaces": {

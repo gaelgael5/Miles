@@ -125,9 +125,18 @@ function ServiceCard({ service }: { service: SecurityService }) {
   if (editing) {
     return <SecurityForm service={service} onDone={() => setEditing(false)} />;
   }
+  const joignable = outcome === "ok";
   return (
     <div className="card">
-      <div className="row-title">{service.id}</div>
+      {/* L'état en PASTILLE à côté du nom, comme la maquette : il se lit d'un coup d'œil,
+          là où la phrase entière demandait de descendre sous les champs pour savoir si le
+          service répond. La phrase reste, mais seulement quand elle annonce une panne. */}
+      <div className="card-head">
+        <h2 className="row-title">{service.id}</h2>
+        <span className={joignable ? "badge badge-success" : outcome === null ? "badge" : "badge badge-warning"}>
+          {t(outcome === null ? "security.badges.unchecked" : `security.badges.${outcome}`)}
+        </span>
+      </div>
       <div className="row-sub">
         {service.kind} · {service.base_url}
       </div>
@@ -145,15 +154,14 @@ function ServiceCard({ service }: { service: SecurityService }) {
           <div className="value">{t("security.secretBy", { slug: service.client_secret_slug })}</div>
         </div>
       </div>
-      {/* La panne la plus structurante du dispositif : nommée, reconnaissable d'emblée. */}
-      <p
-        className={outcome === "ok" ? "notice" : "alert"}
-        role={outcome !== null && outcome !== "ok" ? "alert" : "status"}
-      >
-        {t(outcome === null ? "security.outcomes.unchecked" : `security.outcomes.${outcome}`, {
-          id: service.id,
-        })}
-      </p>
+      {/* La panne la plus structurante du dispositif : nommée, reconnaissable d'emblée.
+          Seulement quand il y en a une — joignable, la pastille le dit déjà, et une
+          bannière verte permanente apprend à ne plus lire les bannières. */}
+      {outcome !== null && !joignable && (
+        <p className="alert" role="alert">
+          {t(`security.outcomes.${outcome}`, { id: service.id })}
+        </p>
+      )}
       <div className="actions">
         <button type="button" className="btn btn-primary" disabled={verify.isPending} onClick={() => verify.mutate(undefined)}>
           {t("security.verify")}
