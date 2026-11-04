@@ -24,52 +24,94 @@ function refusalKey(error: unknown): string {
   return "events.errors.unexpected";
 }
 
-function EventRow({ event }: { event: JournalEvent }) {
-  const { t } = useTranslation();
+/**
+ * Une ligne du journal : le strict nécessaire pour RECONNAÎTRE un event.
+ *
+ * Réduite le 04/11/2026 (Gael : « les items sont trop gros »). Elle portait aussi la date
+ * fonctionnelle, les objets concernés et toutes les propriétés — quatre à dix lignes par
+ * event, si bien qu'un écran n'en montrait que trois. Or on PARCOURT un journal : ce
+ * qu'il faut par ligne, c'est de quoi décider laquelle ouvrir. Le reste est à droite.
+ */
+function EventRow({
+  event,
+  selected,
+  onOpen,
+}: {
+  event: JournalEvent;
+  selected: boolean;
+  onOpen: () => void;
+}) {
   const instant = useInstant();
-  const objets = event.objects
-    .map((objet) => `${objet.kind}/${objet.id} #${objet.sequence}`)
-    .join(" · ");
-  const proprietes = Object.entries(event.properties);
+
   return (
-    <li className="row">
+    <li className={`row row-compact row-openable${selected ? " row-selected" : ""}`}>
       <div className="row-main">
-        <div className="row-title">
-          <span className="mono">{event.type}</span>
-        </div>
+        <button type="button" className="row-open mono" aria-current={selected} onClick={onOpen}>
+          {event.type}
+        </button>
         <div className="row-sub">
           {instant(event.written_at)} · {event.author_directory}/{event.author_subject}
         </div>
       </div>
-      <div className="cell">
-        <div className="caption">{t("events.fields.functionalAt")}</div>
-        <div className="value">
-          {instant(event.functional_at)}
-          {/* La date métier est en fait celle de l'écriture : le dire, sinon le lecteur la
-              prend pour une date fournie par l'appelant. */}
-          {event.functional_at_source === "write_time" && (
-            <span className="badge">{t("events.writeTime")}</span>
-          )}
-        </div>
-      </div>
-      <div className="cell">
-        <div className="caption">{t("events.fields.objects")}</div>
-        <div className="value">{objets === "" ? "—" : objets}</div>
-      </div>
-      {proprietes.length > 0 && (
-        // Affichées, jamais filtrables : rien ne déclare quelles clefs d'un type d'event
-        // sont interrogeables, et où cette déclaration vit n'est pas tranché (ticket
-        // 461f0cf1). Un filtre écrit ici devancerait cette décision.
-        <dl className="facts row-detail">
-          {proprietes.map(([clef, valeur]) => (
-            <div key={clef}>
-              <dt className="caption">{clef}</dt>
-              <dd className="value mono">{JSON.stringify(valeur)}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
     </li>
+  );
+}
+
+/** Tout ce que la ligne ne porte plus, sur la ligne qu'on a choisie. */
+function EventDetail({ event }: { event: JournalEvent | undefined }) {
+  const { t } = useTranslation();
+  const instant = useInstant();
+
+  if (event === undefined) {
+    return (
+      <aside className="split-detail card-inset" aria-label={t("events.detail.title")}>
+        <p className="help">{t("events.detail.none")}</p>
+      </aside>
+    );
+  }
+  const objets = event.objects
+    .map((objet) => `${objet.kind}/${objet.id} #${objet.sequence}`)
+    .join(" · ");
+  return (
+    <aside className="split-detail card-inset" aria-label={t("events.detail.title")}>
+      <h3 className="mono">{event.type}</h3>
+      {/* Les propriétés sont dans la MÊME liste de faits que les dates et les objets :
+          elles décrivent l'event au même titre, et un titre de section au-dessus d'elles
+          nommerait « propriétés » un filtre qui n'existe pas (ticket 461f0cf1). */}
+      <dl className="facts">
+        <div>
+          <dt className="caption">{t("events.fields.writtenAt")}</dt>
+          <dd className="value">{instant(event.written_at)}</dd>
+        </div>
+        <div>
+          <dt className="caption">{t("events.fields.functionalAt")}</dt>
+          <dd className="value">
+            {instant(event.functional_at)}
+            {/* La date métier est en fait celle de l'écriture : le dire, sinon le lecteur
+                la prend pour une date fournie par l'appelant. */}
+            {event.functional_at_source === "write_time" && (
+              <span className="badge">{t("events.writeTime")}</span>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="caption">{t("events.fields.author")}</dt>
+          <dd className="value">
+            {event.author_directory}/{event.author_subject}
+          </dd>
+        </div>
+        <div>
+          <dt className="caption">{t("events.fields.objects")}</dt>
+          <dd className="value">{objets === "" ? "—" : objets}</dd>
+        </div>
+        {Object.entries(event.properties).map(([clef, valeur]) => (
+          <div key={clef}>
+            <dt className="caption">{clef}</dt>
+            <dd className="value mono">{JSON.stringify(valeur)}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
   );
 }
 
@@ -78,6 +120,10 @@ export function EventsScreen() {
   const instant = useInstant();
   const [filtre, setFiltre] = useState<EventsFilter>({});
   const [page, setPage] = useState(1);
+  // L'event ouvert à droite, par son identifiant. L'identifiant et non l'event : la page
+  // suivante porte d'autres events, et un event recopié ici survivrait à la liste qui
+  // l'a montré — on lirait le détail d'une ligne qui n'est plus à l'écran.
+  const [ouvert, setOuvert] = useState<string | null>(null);
   const events = useEvents(filtre, page);
 
   function change(champ: keyof EventsFilter, valeur: string) {
@@ -89,6 +135,7 @@ export function EventsScreen() {
 
   const total = events.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / EVENTS_PAGE_SIZE));
+  const choisi = events.data?.events.find((event) => event.id === ouvert);
 
   return (
     <section className="card" aria-labelledby="events-title">
@@ -152,11 +199,21 @@ export function EventsScreen() {
           {events.data.events.length === 0 ? (
             <p className="muted">{t("events.none")}</p>
           ) : (
-            <ul className="card-list">
-              {events.data.events.map((event) => (
-                <EventRow key={event.id} event={event} />
-              ))}
-            </ul>
+            <div className="split">
+              <ul className="card-list split-list">
+                {events.data.events.map((event) => (
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    selected={event.id === ouvert}
+                    onOpen={() => setOuvert(event.id)}
+                  />
+                ))}
+              </ul>
+              {/* Le détail est DÉRIVÉ de la page affichée : changer de page ou de filtre
+                  le referme tout seul, au lieu de montrer un event absent de la liste. */}
+              <EventDetail event={choisi} />
+            </div>
           )}
           {pages > 1 && (
             <div className="actions">

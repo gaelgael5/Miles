@@ -331,8 +331,14 @@
     "next": "Next",
     "page": "Page {{page}} of {{pages}}",
     "fields": {
+      "writtenAt": "Written on",
       "functionalAt": "Functional date",
+      "author": "Author",
       "objects": "Objects"
+    },
+    "detail": {
+      "title": "Event details",
+      "none": "Pick a row to see its details."
     },
     "filters": {
       "type": "Event type",

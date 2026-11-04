@@ -57,7 +57,9 @@ function monte(routes: Routes) {
 const UN_EVENT: Routes = { "GET /api/events": { status: 200, body: page() } };
 
 describe("l'écran du journal d'events", () => {
-  it("renders one row per event, with its type, author and objects", async () => {
+  it("renders one COMPACT row per event: what it takes to pick one", async () => {
+    // Réduite le 04/11/2026 (« les items sont trop gros ») : un journal se parcourt, et
+    // la ligne ne porte plus que de quoi décider laquelle ouvrir.
     monte(UN_EVENT);
 
     // Attendu sur une valeur qui n'existe QUE chargée : le cadre, le titre et les filtres
@@ -67,12 +69,56 @@ describe("l'écran du journal d'events", () => {
     const ligne = within(screen.getByRole("listitem"));
     expect(ligne.getByText("secret.created")).toBeInTheDocument();
     expect(ligne.getByText(/local\/admin/)).toBeInTheDocument();
-    expect(ligne.getByText("secret/pat-forge #1")).toBeInTheDocument();
+    expect(ligne.queryByText("secret/pat-forge #1")).not.toBeInTheDocument();
+    expect(ligne.queryByText('"pat-forge"')).not.toBeInTheDocument();
+  });
+
+  it("opens the details on the right when a row is clicked", async () => {
+    monte(UN_EVENT);
+    expect(await screen.findByText(/1 event\(s\)/)).toBeInTheDocument();
+    // Avant le clic, le panneau invite à choisir : il ne montre pas un event au hasard.
+    expect(screen.getByText("Pick a row to see its details.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "secret.created" }));
+
+    const detail = within(screen.getByRole("complementary", { name: "Event details" }));
+    expect(detail.getByText("secret/pat-forge #1")).toBeInTheDocument();
+    expect(detail.getByText("slug")).toBeInTheDocument();
+    // La ligne ouverte se distingue : sans marque, on perd de vue ce que le panneau décrit.
+    expect(screen.getByRole("button", { name: "secret.created" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+  });
+
+  it("closes the details when the page no longer carries that event", async () => {
+    // Le détail est DÉRIVÉ de la page affichée : un event recopié dans un état aurait
+    // survécu à la liste qui l'a montré, et on lirait le détail d'une ligne absente.
+    // Deux réponses rejouées dans l'ordre : la seconde ne porte plus l'event ouvert.
+    // Avec une doublure qui rend toujours la même page, l'assertion serait vraie sans
+    // rien prouver — la ligne serait encore là.
+    monte({
+      "GET /api/events": [
+        { status: 200, body: page() },
+        { status: 200, body: page({ events: [DATE_D_ECRITURE] }) },
+      ],
+    });
+    expect(await screen.findByText(/1 event\(s\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "secret.created" }));
+    expect(screen.getByText("secret/pat-forge #1")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Event type"), { target: { value: "autre" } });
+
+    expect(
+      await screen.findByRole("button", { name: "storage.materialised" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Pick a row to see its details.")).toBeInTheDocument();
   });
 
   it("shows the properties without offering any filter on them", async () => {
     monte(UN_EVENT);
     expect(await screen.findByText(/1 event\(s\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "secret.created" }));
 
     // Affichées…
     expect(screen.getByText("slug")).toBeInTheDocument();
@@ -108,6 +154,7 @@ describe("l'écran du journal d'events", () => {
       "GET /api/events": { status: 200, body: page({ events: [DATE_D_ECRITURE] }) },
     });
     expect(await screen.findByText(/1 event\(s\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "storage.materialised" }));
 
     expect(screen.getByText("write time")).toBeInTheDocument();
   });
@@ -201,9 +248,11 @@ describe("l'écran du journal d'events", () => {
       // trouverait alors deux éléments — pour une raison sans rapport avec le défaut.
       const ligne = within(screen.getByRole("listitem"));
       expect(ligne.getByText(/02\/11\/2026/)).toBeInTheDocument();
-      // Et la date FONCTIONNELLE, dans la même culture : les deux colonnes passent par
-      // le même point de formatage.
-      expect(ligne.getByText(/28\/10\/2026/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "secret.created" }));
+      // Et la date FONCTIONNELLE, dans la même culture : les deux passent par le même
+      // point de formatage.
+      const detail = within(screen.getByRole("complementary", { name: "Détail de l'event" }));
+      expect(detail.getByText(/28\/10\/2026/)).toBeInTheDocument();
     } finally {
       await act(() => i18n.changeLanguage("en-US"));
     }

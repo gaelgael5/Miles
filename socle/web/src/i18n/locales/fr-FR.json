@@ -331,8 +331,14 @@
     "next": "Suivants",
     "page": "Page {{page}} sur {{pages}}",
     "fields": {
+      "writtenAt": "Écrit le",
       "functionalAt": "Date fonctionnelle",
+      "author": "Auteur",
       "objects": "Objets concernés"
+    },
+    "detail": {
+      "title": "Détail de l'event",
+      "none": "Choisir une ligne pour voir son détail."
     },
     "filters": {
       "type": "Type d'event",
