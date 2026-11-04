@@ -83,15 +83,35 @@ function LabelField({
 }) {
   const { t } = useTranslation();
   const fallback = culture.code === FALLBACK;
+  // La forme de la maquette : une ligne par culture, le CODE dans une colonne fixe et le
+  // champ à côté. Empilés en `.field`, les libellés « Libellé — fr-BE — français
+  // (Belgique) » occupaient trois lignes chacun et le code ne s'alignait nulle part ;
+  // c'est pourtant par le code qu'on cherche la ligne à remplir.
   return (
-    <>
-      <label className="field">
-        {t("oidc.fields.labelIn", { culture: `${culture.code} — ${culture.label_native}` })}
-        {fallback && ` ${t("oidc.form.fallbackLabel")}`}
-        <input required={fallback} value={value} onChange={(e) => onChange(e.target.value)} />
+    <li className={fallback ? "row row-compact row-soft" : "row row-compact"}>
+      <code className="row-code">{culture.code}</code>
+      <label className="row-main plain-label">
+        {/* Le nom accessible garde la mention « repli, obligatoire » que la pastille
+            abrège : lue seule, « Repli » ne dit pas que ce champ-là ne peut pas rester
+            vide, et c'est la seule contrainte de cette table. */}
+        <span className="visually-hidden">
+          {t("oidc.fields.labelIn", { culture: `${culture.code} — ${culture.label_native}` })}
+          {fallback && ` ${t("oidc.form.fallbackLabel")}`}
+        </span>
+        <input
+          required={fallback}
+          value={value}
+          placeholder={fallback ? undefined : t("oidc.form.labelPlaceholder")}
+          onChange={(e) => onChange(e.target.value)}
+        />
       </label>
-      {duplicate && <p className="muted" role="status">{t("oidc.form.duplicateLabel", { culture: culture.code })}</p>}
-    </>
+      {fallback && <span className="badge badge-accent">{t("oidc.form.fallbackBadge")}</span>}
+      {duplicate && (
+        <p className="muted row-detail" role="status">
+          {t("oidc.form.duplicateLabel", { culture: culture.code })}
+        </p>
+      )}
+    </li>
   );
 }
 
@@ -130,8 +150,11 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
           <input required value={draft.id} onChange={(e) => set("id", e.target.value)} />
         </label>
       )}
-      <fieldset>
+      <fieldset className="plain-fieldset">
         <legend>{t("oidc.fields.label")}</legend>
+        {/* Encadré comme la maquette l'encadre : un seul cadre autour de la table des
+            libellés, au lieu du cadre de `fieldset` PLUS celui de chaque champ. */}
+        <ul className="card-list plain-list label-table">
         {cultures.map((culture) => (
           <LabelField
             key={culture.code}
@@ -143,6 +166,7 @@ export function ConnectorForm({ connector, others, onDone }: ConnectorFormProps)
             onChange={(value) => setLabel(culture.code, value)}
           />
         ))}
+        </ul>
       </fieldset>
       <label className="field">
         {t("oidc.fields.issuer")}

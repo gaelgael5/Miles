@@ -98,8 +98,10 @@ export function ConnectorsScreen() {
               porte sur ce qu'on est en train de lire. Dans la liste, elle demandait de
               viser la bonne ligne pour un geste qui ne se rattrape pas. */}
           {edited !== undefined && (
-            <>
-              <div className="actions">
+            // Dans un panneau, et non posée nue sous la carte : seule au bas de l'écran,
+            // elle flottait sans rien dire de ce sur quoi elle porte.
+            <div className="panel">
+              <div className="actions row-actions">
                 <button
                   type="button"
                   className="btn btn-danger"
@@ -112,7 +114,7 @@ export function ConnectorsScreen() {
               {remove.isError && (
                 <p className="alert" role="alert">{t(deleteErrorKey(remove.error))}</p>
               )}
-            </>
+            </div>
           )}
           {editing === null && connectors.isSuccess && connectors.data.length > 0 && (
             <p className="help">{t("oidc.list.pick")}</p>

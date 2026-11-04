@@ -278,6 +278,18 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
 .pick-now .pick-title { color: var(--encre); }
 .pick-sub { display: block; margin-top: 3px; font-size: 12px; color: var(--encre-faible); }
 
+/* Table des libellés par culture (maquette « Connecteurs OIDC ») : le champ occupe sa
+   colonne sans le libellé en gras de `.field` — c'est le code, à gauche, qui dit de
+   quelle culture il s'agit, et le répéter en toutes lettres au-dessus de chaque champ
+   faisait trois lignes par culture. Le libellé reste porté pour les lecteurs d'écran. */
+.label-table { margin-bottom: 18px; }
+.plain-label { display: block; }
+.plain-label input {
+  display: block; width: 100%; font-family: inherit; font-size: 14px; font-weight: 400;
+  padding: 10px 12px; min-height: 44px; border: 1px solid var(--bordure-champ);
+  border-radius: 6px; background: var(--surface); color: var(--encre);
+}
+
 /* Pastilles, alertes, comptes rendus. */
 .badge {
   display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 4px;

@@ -148,7 +148,7 @@
     "deactivate": "Deactivate the selection",
     "keepValues": "Deactivating a culture deletes nothing: values entered for it are kept and come back if it is reactivated.",
     "active": "Active",
-    "fallbackNote": "(fallback of the installation, always active)",
+    "fallbackNote": "Fallback — always active",
     "loading": "Loading cultures…",
     "noMatch": "No culture matches “{{filter}}”.",
     "errors": {
@@ -186,7 +186,9 @@
       "recognizeAdminGrants": "When checked, an account of this directory carrying the bootstrap administrator's email becomes root administrator. Check it only on a directory where nobody chooses their own address.",
       "manageAssociationsGrants": "When checked, identities of this directory can be associated with an identity carrying the same address, proposed by one account and accepted by the other within seven days.",
       "fallbackLabel": "(fallback, required)",
-      "duplicateLabel": "Another connector already has this label in {{culture}}: the two buttons will look the same."
+      "duplicateLabel": "Another connector already has this label in {{culture}}: the two buttons will look the same.",
+      "labelPlaceholder": "Not set — falls back to en-US",
+      "fallbackBadge": "Fallback"
     },
     "list": {
       "add": "Add a connector",

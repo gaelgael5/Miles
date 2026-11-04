@@ -148,7 +148,7 @@
     "deactivate": "Désactiver la sélection",
     "keepValues": "Désactiver une culture ne supprime rien : les valeurs saisies pour elle sont conservées et reviennent si on la réactive.",
     "active": "Active",
-    "fallbackNote": "(repli de l'installation, toujours active)",
+    "fallbackNote": "Repli — toujours active",
     "loading": "Chargement des cultures…",
     "noMatch": "Aucune culture ne correspond à « {{filter}} ».",
     "errors": {
@@ -186,7 +186,9 @@
       "recognizeAdminGrants": "Cochée, un compte de cet annuaire portant l'e-mail de l'administrateur d'amorçage devient administrateur racine. Ne la cochez que sur un annuaire où personne ne choisit son adresse.",
       "manageAssociationsGrants": "Cochée, les identités de cet annuaire peuvent être associées à une identité de même adresse, sur proposition d'un compte acceptée par l'autre sous sept jours.",
       "fallbackLabel": "(repli, obligatoire)",
-      "duplicateLabel": "Un autre connecteur porte déjà ce libellé en {{culture}} : les deux boutons se ressembleront."
+      "duplicateLabel": "Un autre connecteur porte déjà ce libellé en {{culture}} : les deux boutons se ressembleront.",
+      "labelPlaceholder": "Non renseigné — repli sur en-US",
+      "fallbackBadge": "Repli"
     },
     "list": {
       "add": "Ajouter un connecteur",

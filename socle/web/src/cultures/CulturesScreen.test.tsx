@@ -51,8 +51,11 @@ describe("CulturesScreen", () => {
 
     const fallback = await screen.findByRole("checkbox", { name: /en-US/ });
     expect(fallback).toBeDisabled();
-    expect(screen.getByText("(fallback of the installation, always active)")).toBeInTheDocument();
-    expect(screen.getAllByText("Active")).toHaveLength(1);
+    expect(screen.getByText("Fallback — always active")).toBeInTheDocument();
+    // UNE pastille par ligne : le repli porte la sienne, et ne redit pas « Active ». Seul
+    // en-US est actif dans ce jeu, donc plus aucune pastille « Active » n'est attendue.
+    expect(screen.queryByText("Active")).toBeNull();
+    expect(screen.getByText("1 active")).toBeInTheDocument();
   });
 
   it("says so when the filter matches nothing", async () => {

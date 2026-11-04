@@ -51,8 +51,14 @@ function CultureRow({
       <div className="row-main">
         {culture.label_native} — {culture.label_en}
       </div>
-      {culture.active && <span className="badge badge-success">{t("cultures.active")}</span>}
-      {isFallback && <span className="badge badge-accent">{t("cultures.fallbackNote")}</span>}
+      {/* UNE pastille par ligne, comme la maquette. Le repli est actif par construction :
+          afficher « Active » puis « Repli — toujours active » faisait lire deux états là
+          où il n'y en a qu'un, et la ligne s'allongeait d'autant. */}
+      {isFallback ? (
+        <span className="badge badge-accent">{t("cultures.fallbackNote")}</span>
+      ) : (
+        culture.active && <span className="badge badge-success">{t("cultures.active")}</span>
+      )}
     </li>
   );
 }
