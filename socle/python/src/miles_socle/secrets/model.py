@@ -19,6 +19,13 @@ SECRET_TYPES = (
     # l'environnement et le module d'enrôlement rangent chacun la sienne (ticket
     # 8c95ecc7) — et son usage déclaré interdit à la base de la supprimer.
     "MODULE_SIGNING_KEY",
+    # Clé d'API que le back-office d'un environnement détient POUR LUI-MÊME, afin
+    # d'essayer ses propres points d'entrée d'ingestion depuis son écran de service
+    # (ticket a78551e5). Un essai doit emprunter la vraie porte — en-tête, vérification de
+    # la clé, octrois relus contre la version servie — et la valeur ne doit jamais
+    # atteindre le navigateur : elle est donc gardée ici, et son usage déclaré interdit à
+    # la base de la supprimer.
+    "INGEST_BACKOFFICE_KEY",
 )
 CONSUMER_KIND_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,99}$")
 MAX_LABEL_LENGTH = 200

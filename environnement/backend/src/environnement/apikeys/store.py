@@ -131,6 +131,19 @@ async def db_revoke(conn: KeyDb, key_id: str, now: datetime) -> None:
     await conn.execute("UPDATE api_keys SET revoked_at = $2 WHERE id = $1", key_id, now)
 
 
+async def db_key_of_digest(conn: KeyDb, digest: bytes) -> StoredKey | None:
+    """La clé portant cette empreinte, **révoquée comprise**. Pour un appelant qui doit
+    distinguer « révoquée » de « inconnue ».
+
+    `db_key_by_digest` ne le permet pas, et c'est voulu : la vérification d'un dépôt ne
+    doit pas même charger une clé révoquée. Mais le back-office, qui détient sa propre
+    clé, doit pouvoir dire « quelqu'un l'a révoquée » plutôt que de rendre un refus
+    d'authentification nu, qu'on chercherait du côté du paramétrage.
+    """
+    row = await conn.fetchrow(f"{_SELECT} WHERE k.digest = $1 GROUP BY k.id", digest)
+    return None if row is None else _stored(row)
+
+
 async def db_key_by_digest(conn: KeyDb, digest: bytes) -> StoredKey | None:
     """La clé non révoquée portant cette empreinte, s'il y en a une.
 

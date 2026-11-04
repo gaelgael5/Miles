@@ -127,7 +127,8 @@
       "OIDC_CLIENT_SECRET": "OIDC connector client secret",
       "SECURITY_SERVICE_CLIENT_SECRET": "Root security service client secret",
       "GIT_TOKEN": "Git service account token",
-      "MODULE_SIGNING_KEY": "Module signing private key"
+      "MODULE_SIGNING_KEY": "Module signing private key",
+      "INGEST_BACKOFFICE_KEY": "Back-office API key for its own ingestion trials"
     },
     "deleteConfirm": {
       "title": "Delete this secret?",
