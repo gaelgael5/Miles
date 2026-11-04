@@ -3,20 +3,25 @@ import { useTranslation } from "react-i18next";
 
 import { IngestionCalls } from "./IngestionCalls";
 import { IngestionMethods } from "./IngestionMethods";
+import { SourceContract } from "./SourceContract";
 
 /**
- * Les deux vues d'une source, dans l'ordre où on s'en sert : le CONTRAT qu'elle promet,
- * puis ce qu'elle a REÇU. On branche une intégration avant d'avoir des appels à lire, et
- * une page qui s'ouvrirait sur un journal vide n'aurait rien à dire le premier jour.
+ * Les trois vues d'une source, dans l'ordre où on s'en sert : le CONTRAT qu'elle promet,
+ * l'ESSAI qui le vérifie, puis ce qu'elle a REÇU. On branche une intégration avant
+ * d'avoir des appels à lire, et une page qui s'ouvrirait sur un journal vide n'aurait
+ * rien à dire le premier jour.
+ *
+ * L'essai est à part du contrat parce que le contrat est rendu par un composant Swagger
+ * standard, dont le « Try it out » ne peut pas servir : il partirait sans clé d'API.
  */
-const ONGLETS = ["contract", "calls"] as const;
+const ONGLETS = ["contract", "trial", "calls"] as const;
 type Onglet = (typeof ONGLETS)[number];
 
 const tabId = (onglet: Onglet) => `ingestion-source-tab-${onglet}`;
 const panelId = (onglet: Onglet) => `ingestion-source-panel-${onglet}`;
 
 /**
- * Une source d'ingestion, page à part (Gael, 04/11/2026) : son contrat, et ses logs.
+ * Une source d'ingestion, page à part (Gael, 04/11/2026) : son contrat, son essai, ses logs.
  *
  * La page du service listait les méthodes de TOUTES les sources et un journal commun
  * filtrable. Le partenaire qu'on équipe, lui, n'en intègre qu'UNE : il lui faut ses
@@ -80,6 +85,8 @@ export function SourceScreen({ source }: { source: string }) {
       </div>
       <div role="tabpanel" id={panelId(onglet)} aria-labelledby={tabId(onglet)}>
         {onglet === "contract" ? (
+          <SourceContract source={source} />
+        ) : onglet === "trial" ? (
           <IngestionMethods source={source} />
         ) : (
           // Remonté quand la source change : le journal garde sa page courante, et

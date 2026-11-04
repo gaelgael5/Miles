@@ -38,65 +38,6 @@ const FICHIER: Method = {
 // du serveur, et l'écran doit continuer de l'honorer pour le prochain mode ajouté.
 const NON_SERVI: Method = { ...FICHIER, served: false, example: null };
 const ESSAI_FICHIER = "POST /api/ingestion/try/magasins-import/fichier";
-// Le contrat tel que la route le sert : sa description, ses schémas de sécurité, et une
-// opération par gabarit — avec ses en-têtes, son corps et ses réponses.
-const CONTRAT = {
-  status: 200,
-  body: {
-    info: { version: "1", description: "Réception, pas collecte : Miles n'appelle personne." },
-    components: {
-      securitySchemes: {
-        cleApiEnEntete: { type: "apiKey", in: "header", name: "X-API-Key", description: "Clé." },
-      },
-      schemas: { AcknowledgementOut: { type: "object", properties: { id: { type: "string" } } } },
-    },
-    paths: {
-      "/ingest/{source}/{mode}": {
-        post: {
-          description: "Dépose un lot d'objets.",
-          parameters: [
-            { name: "source", in: "path", required: true },
-            {
-              name: "Idempotency-Key",
-              in: "header",
-              required: false,
-              description: "Rend un rejeu sûr.",
-            },
-          ],
-          requestBody: {
-            required: true,
-            content: { "application/json": { schema: { type: "object" } } },
-          },
-          responses: {
-            "201": {
-              description: "Lot reçu et traité.",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/AcknowledgementOut" },
-                },
-              },
-            },
-            "401": { description: "authentification_requise." },
-          },
-        },
-      },
-      "/ingest/{source}/fichier": {
-        post: {
-          description: "Dépose un document.",
-          parameters: [{ name: "source", in: "path", required: true }],
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": { schema: { type: "object" } },
-              "application/octet-stream": { schema: { type: "string", format: "binary" } },
-            },
-          },
-          responses: { "202": { description: "Document pris en charge." } },
-        },
-      },
-    },
-  },
-};
 const ESSAI = "POST /api/ingestion/try/magasins-import/tableau";
 const ACCUSE = {
   id: "a".repeat(32),
@@ -116,10 +57,7 @@ const ACCUSE = {
 };
 
 function monte(routes: Routes) {
-  const calls = mockApi({
-    "GET /api/ingestion/contract": { status: 200, body: {} },
-    ...routes,
-  });
+  const calls = mockApi(routes);
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <IngestionMethods source="magasins-import" />
@@ -251,80 +189,6 @@ describe("les méthodes du service d'ingestion", () => {
     expect(dit).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Key issued" })).toBeDisabled();
     expect(calls.some((appel) => appel.key === "POST /api/ingestion/self-key")).toBe(true);
-  });
-
-  it("montre la SIGNATURE de chaque méthode, lue du contrat publié", async () => {
-    // La page de contrat : en-têtes, types de contenu, réponses et leurs formes. C'est ce
-    // qui permet de préparer une intégration SANS essayer (Gael, 04/11/2026).
-    monte({ ...methodes(TABLEAU), "GET /api/ingestion/contract": CONTRAT });
-
-    const bloc = (await screen.findByText(/\/ingest\/magasins-import\/tableau/)).closest(
-      "li",
-    ) as HTMLElement;
-    // Une LIGNE par chose — en-têtes, corps, codes de réponse : la page se parcourt.
-    expect(within(bloc).getByText(/Idempotency-Key \(optional\)/)).toBeInTheDocument();
-    expect(within(bloc).getByText("Body", { selector: "span.caption" }).parentElement?.textContent).toContain(
-      "application/json",
-    );
-    expect(within(bloc).getByText("Responses", { selector: "span.caption" }).parentElement
-        ?.textContent).toContain(
-      "201 · 401",
-    );
-    // Et ce que chaque réponse dit, derrière un repli.
-    expect(within(bloc).getByText(/Lot reçu et traité/)).toBeInTheDocument();
-  });
-
-  it("montre les réponses de la MÉTHODE, et non celles d'une autre", async () => {
-    // Le mode fichier rend 202 et un accusé sans compte-rendu ; les deux autres rendent
-    // 201 et le sort de chaque objet. Les mélanger ferait promettre à l'un ce que l'autre
-    // tient.
-    monte({ ...methodes(TABLEAU, FICHIER), "GET /api/ingestion/contract": CONTRAT });
-
-    const fichier = (await screen.findByText(/\/ingest\/magasins-import\/fichier/)).closest(
-      "li",
-    ) as HTMLElement;
-    // Sa ligne de réponses ne porte QUE les siennes : 202, et pas le 201 du mode tableau.
-    const codes = within(fichier).getByText("Responses", { selector: "span.caption" })
-      .parentElement as HTMLElement;
-    expect(codes.textContent).toBe("Responses 202");
-    expect(within(fichier).getByText(/Document pris en charge/)).toBeInTheDocument();
-    // Et son corps propre : un flux d'octets est admis en plus du JSON. Lu sur la LIGNE
-    // du corps — le schéma déclaré, derrière le repli des schémas, porte le même texte.
-    const corps = within(fichier).getByText("Body", { selector: "span.caption" })
-      .parentElement as HTMLElement;
-    expect(corps.textContent).toContain("application/octet-stream");
-  });
-
-  it("montre le schéma du MODÈLE d'entrée, celui que la validation emploie", async () => {
-    monte({ ...methodes(TABLEAU), "GET /api/ingestion/contract": CONTRAT });
-
-    const bloc = (await screen.findByText(/\/ingest\/magasins-import\/tableau/)).closest(
-      "li",
-    ) as HTMLElement;
-
-    expect(within(bloc).getByText(/Input model pudo\/magasin/i)).toBeInTheDocument();
-  });
-
-  it("dit comment s'authentifier, et ce que le contrat garantit, avant tout appel", async () => {
-    // La partie « connexions en amont » : elle se prépare sans accès et sans essai.
-    monte({ ...methodes(TABLEAU), "GET /api/ingestion/contract": CONTRAT });
-
-    expect(await screen.findByText(/Published contract, version 1/i)).toBeInTheDocument();
-    expect(screen.getByText("X-API-Key")).toBeInTheDocument();
-    // En PROSE, et pas seulement dans la spécification brute dépliable : c'est le texte
-    // qu'on lit avant de brancher quoi que ce soit.
-    const dit = screen.getAllByText(/Réception, pas collecte/);
-    expect(dit.some((noeud) => noeud.tagName === "P")).toBe(true);
-  });
-
-  it("reste muet sur le contrat quand il n'a pas pu être lu", async () => {
-    // Un complément de lecture : son absence n'empêche ni de lire les méthodes ni d'en
-    // essayer une, et une alerte ici ferait croire que le service va mal.
-    monte({ ...methodes(TABLEAU), "GET /api/ingestion/contract": { status: 500, body: {} } });
-
-    expect(await screen.findByLabelText(/Body to deposit/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Responses declared/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("distingue une lecture des méthodes en échec d'une absence de méthode", async () => {

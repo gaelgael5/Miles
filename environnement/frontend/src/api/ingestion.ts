@@ -116,63 +116,6 @@ export interface Trial {
   body: unknown;
 }
 
-/** Une réponse déclarée par le contrat publié : son statut, ce qu'elle signifie, sa forme. */
-export interface ContractResponse {
-  status: string;
-  description: string;
-  /** Le schéma du corps rendu, renvois résolus. Nul pour une réponse sans corps. */
-  schema: unknown | null;
-}
-
-/** Un en-tête ou un paramètre que l'opération déclare. */
-export interface ContractParameter {
-  name: string;
-  in: string;
-  required: boolean;
-  description: string;
-}
-
-/** Une façon de s'authentifier, telle que le contrat la déclare. */
-export interface ContractSecurity {
-  name: string;
-  /** « apiKey » ou « http » : ce qui dit OÙ la clé se présente. */
-  type: string;
-  /** Le nom de l'en-tête pour une clé d'API ; vide pour un porteur. */
-  header: string;
-  description: string;
-}
-
-/**
- * La SIGNATURE d'une méthode, lue du contrat publié.
- *
- * Lue et non recopiée dans l'écran : un en-tête ajouté, un corps changé, un refus de plus
- * apparaissent ici sans qu'on touche à la page. Recopier en aurait fait une seconde
- * vérité, qui aurait divergé au premier changement — et c'est précisément ce qu'un
- * intégrateur ne peut pas vérifier depuis l'extérieur.
- */
-export interface Signature {
-  summary: string;
-  description: string;
-  parameters: ContractParameter[];
-  /** Les types de contenu acceptés, et le schéma du corps pour chacun. */
-  body: { contentType: string; schema: unknown }[];
-  bodyDescription: string;
-  bodyRequired: boolean;
-  responses: ContractResponse[];
-}
-
-/** Le contrat publié, tel que la page de service le lit. */
-export interface Contract {
-  /** Ce que le contrat dit de lui-même : authentification, idempotence, modes, garanties. */
-  description: string;
-  version: string;
-  security: ContractSecurity[];
-  /** Les signatures, par gabarit d'opération — la clé que porte chaque méthode. */
-  operations: Record<string, Signature>;
-  /** La spec entière, pour qui veut engendrer un client. */
-  spec: Record<string, unknown>;
-}
-
 export function useIngestionMethods() {
   return useQuery({
     queryKey: ["ingestion", "methods"],
@@ -180,103 +123,19 @@ export function useIngestionMethods() {
   });
 }
 
+/**
+ * Le contrat publié, rendu TEL QUEL : c'est le document que le visualiseur Swagger lit.
+ *
+ * Il n'est plus analysé ici depuis le 04/11/2026 — la page en tirait elle-même en-têtes,
+ * corps et réponses, ce qu'un composant swagger standard fait mieux et sans que nous ayons
+ * à suivre les évolutions d'OpenAPI.
+ */
 export function useIngestionContract() {
   return useQuery({
     queryKey: ["ingestion", "contract"],
-    queryFn: async ({ signal }) => {
-      const spec = await request<Record<string, unknown>>("/api/ingestion/contract", {
-        signal,
-      });
-      return contractOf(spec);
-    },
+    queryFn: ({ signal }) =>
+      request<Record<string, unknown>>("/api/ingestion/contract", { signal }),
   });
-}
-
-type Dict = Record<string, unknown>;
-
-function dict(value: unknown): Dict {
-  return value !== null && typeof value === "object" ? (value as Dict) : {};
-}
-
-function text(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-/**
- * Le renvoi `$ref` résolu contre les composants du contrat.
- *
- * Résolu ICI et non laissé à l'affichage : une page qui montrerait
- * `#/components/schemas/AcknowledgementOut` n'aurait rien dit de la forme rendue, et
- * l'intégrateur devrait ouvrir le fichier à côté — ce que la page existe pour éviter.
- * Un seul niveau de renvoi est suivi : au-delà, ce sont les schémas imbriqués que le
- * lecteur déplie, et les suivre tous ici recopierait le contrat entier dans chaque forme.
- */
-function resolved(value: unknown, spec: Dict): unknown {
-  const renvoi = text(dict(value).$ref);
-  if (renvoi === "") {
-    return value;
-  }
-  const nom = renvoi.split("/").pop() ?? "";
-  const schemas = dict(dict(spec.components).schemas);
-  return schemas[nom] ?? value;
-}
-
-/** La signature d'une opération : ses en-têtes, son corps, ses réponses. */
-export function signatureOf(operation: Dict, spec: Dict): Signature {
-  const corps = dict(dict(operation.requestBody).content);
-  const reponses = dict(operation.responses);
-  return {
-    summary: text(operation.summary),
-    description: text(operation.description),
-    parameters: (Array.isArray(operation.parameters) ? operation.parameters : [])
-      .map((brut) => dict(brut))
-      .filter((parametre) => parametre.in !== "path")
-      .map((parametre) => ({
-        name: text(parametre.name),
-        in: text(parametre.in),
-        required: parametre.required === true,
-        description: text(parametre.description),
-      })),
-    body: Object.entries(corps).map(([contentType, media]) => ({
-      contentType,
-      schema: resolved(dict(media).schema, spec),
-    })),
-    bodyDescription: text(dict(operation.requestBody).description),
-    bodyRequired: dict(operation.requestBody).required === true,
-    responses: Object.entries(reponses)
-      .map(([status, brut]) => {
-        const media = dict(dict(dict(brut).content)["application/json"]);
-        return {
-          status,
-          description: text(dict(brut).description),
-          schema: media.schema === undefined ? null : resolved(media.schema, spec),
-        };
-      })
-      .sort((gauche, droite) => gauche.status.localeCompare(droite.status)),
-  };
-}
-
-/** Le contrat publié, lu : sa description, ses authentifications, ses signatures. */
-export function contractOf(spec: Record<string, unknown>): Contract {
-  const chemins = dict(spec.paths);
-  const schemes = dict(dict(spec.components).securitySchemes);
-  return {
-    description: text(dict(spec.info).description),
-    version: text(dict(spec.info).version),
-    security: Object.entries(schemes).map(([name, brut]) => ({
-      name,
-      type: text(dict(brut).type),
-      header: text(dict(brut).name),
-      description: text(dict(brut).description),
-    })),
-    operations: Object.fromEntries(
-      Object.entries(chemins).map(([chemin, item]) => [
-        chemin,
-        signatureOf(dict(dict(item).post), spec),
-      ]),
-    ),
-    spec,
-  };
 }
 
 export function useTryMethod() {

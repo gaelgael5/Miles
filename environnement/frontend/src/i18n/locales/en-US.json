@@ -216,10 +216,12 @@
       "intro": "An ingestion source: what it promises to whoever wires it, and what it has received.",
       "tabs": "Source views",
       "contract": "Contract",
+      "trial": "Trial",
       "calls": "Call log"
     },
     "contract": {
-      "title": "Published contract, version {{version}} — read before wiring an integration",
+      "loading": "Reading the published contract…",
+      "unreadable": "The published contract could not be read.",
       "auth": "Authentication",
       "spec": "Full OpenAPI specification",
       "specHelp": "The very one versioned in the repository: enough to generate a client."

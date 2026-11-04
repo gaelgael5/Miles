@@ -3,44 +3,34 @@ import { useTranslation } from "react-i18next";
 
 import { ApiError } from "@miles/socle-web";
 
-import { ContractHeader } from "./ContractHeader";
 import { FileTrialForm } from "./FileTrialForm";
-import { MethodSignature } from "./MethodSignature";
 import {
   type Method,
-  type Signature,
   type Trial,
-  useIngestionContract,
   useIngestionMethods,
   useReissueSelfKey,
   useTryMethod,
 } from "../api/ingestion";
 
 /**
- * Les méthodes d'UNE source, présentées comme une page de contrat, essayables sur place.
+ * L'essai des méthodes d'UNE source : une adresse, un corps, un dépôt.
  *
- * Gael, 04/11/2026, après avoir vu une page qui ne savait qu'essayer : « je t'ai demandé
- * une page swagger. L'intérêt, c'est qu'en plus du test, il y a aussi les signatures pour
- * tester et faire l'intégration, et la description des contrats pour faire les connexions
- * en amont. » D'où l'ordre de la page : ce que le contrat dit de lui-même, puis la
- * SIGNATURE de chaque méthode — en-têtes, corps attendu, réponses et leurs formes —, et
- * l'essai en dernier.
- *
- * **Tout ce qui décrit vient du contrat PUBLIÉ**, lu à l'ouverture : la page ne recopie
- * rien. Un en-tête ajouté, un corps changé, un refus de plus apparaissent sans qu'on y
- * touche, et c'est la seule façon qu'une page de contrat ne mente pas sur le contrat.
+ * **Ce bloc ne DÉCRIT plus rien** depuis que l'onglet voisin montre le contrat dans un
+ * visualiseur Swagger (Gael, 04/11/2026) : en-têtes, corps attendu, réponses et schémas
+ * y sont, et les redire ici aurait fait deux présentations de la même chose — celle
+ * qu'on régénère et celle qu'on oublie.
  *
  * **L'essai dépose pour de vrai.** Aucun garde-fou, décidé le 04/11/2026 : il transforme,
  * écrit, fait avancer la date de dernière vue et produit ses events, comme n'importe quel
- * appel de partenaire. La trace est le journal des appels, juste en dessous.
+ * appel de partenaire. La trace est le journal, dans le troisième onglet.
  *
  * **Aucune clé à fournir.** Le back-office détient la sienne et frappe sa propre route :
- * la valeur ne descend jamais jusqu'ici.
+ * la valeur ne descend jamais jusqu'ici. C'est aussi pourquoi le « Try it out » de
+ * Swagger reste éteint — il partirait sans clé.
  */
 export function IngestionMethods({ source }: { source: string }) {
   const { t } = useTranslation();
   const methods = useIngestionMethods();
-  const contract = useIngestionContract();
   // Filtrées ICI et non demandées filtrées au serveur : la route rend les méthodes de la
   // version servie, et une source est précisément une tranche de cette réponse. Un
   // paramètre de plus aurait fait une seconde requête par source, pour une liste que la
@@ -71,16 +61,9 @@ export function IngestionMethods({ source }: { source: string }) {
       <div className="card-head">
         <h2 id="ingestion-methods-title">{t("ingestion.methods.title")}</h2>
       </div>
-      {/* Muet si le contrat n'a pas pu être lu : c'est un complément de lecture, et son
-          absence n'empêche ni de lire les méthodes ni d'en essayer une. */}
-      {contract.data !== undefined && <ContractHeader contract={contract.data} />}
       <ul className="plain-list">
         {propres.map((method) => (
-          <MethodCard
-            key={`${method.source}:${method.mode}`}
-            method={method}
-            signature={contract.data?.operations[method.operation]}
-          />
+          <MethodCard key={`${method.source}:${method.mode}`} method={method} />
         ))}
       </ul>
     </section>
@@ -96,13 +79,7 @@ function refusalOf(error: unknown): string | null {
   return typeof detail?.code === "string" ? detail.code : null;
 }
 
-function MethodCard({
-  method,
-  signature,
-}: {
-  method: Method;
-  signature: Signature | undefined;
-}) {
+function MethodCard({ method }: { method: Method }) {
   const { t } = useTranslation();
   const trial = useTryMethod();
 
@@ -129,13 +106,10 @@ function MethodCard({
         </p>
       )}
       {/* REPLIÉ par défaut (Gael, 04/11/2026 : « la présentation de la page est trop
-          chargée »). La ligne au-dessus suffit à parcourir les méthodes ; la signature et
-          l'essai sont ce qu'on ouvre quand on travaille sur l'une d'elles. La signature
-          AVANT l'essai : on prépare une intégration en la lisant, on la vérifie en
-          essayant — l'inverse ferait d'une page de contrat un bac à sable. */}
+          chargée »). La ligne au-dessus suffit à parcourir les méthodes ; on n'ouvre que
+          celle qu'on dépose. */}
       <details>
         <summary>{t("ingestion.methods.open")}</summary>
-        <MethodSignature method={method} signature={signature} />
         <MethodTrial method={method} trial={trial} />
       </details>
       {trial.isError && <TrialFailure error={trial.error} />}

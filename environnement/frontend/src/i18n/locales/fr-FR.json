@@ -216,10 +216,12 @@
       "intro": "Une source d'ingestion : ce qu'elle promet à qui la branche, et ce qu'elle a reçu.",
       "tabs": "Vues de la source",
       "contract": "Contrat",
+      "trial": "Essai",
       "calls": "Journal"
     },
     "contract": {
-      "title": "Contrat publié, version {{version}} — à lire avant de brancher une intégration",
+      "loading": "Lecture du contrat publié…",
+      "unreadable": "Le contrat publié n'a pas pu être lu.",
       "auth": "Authentification",
       "spec": "Spécification OpenAPI complète",
       "specHelp": "Celle-là même qui est versionnée dans le dépôt : de quoi engendrer un client."

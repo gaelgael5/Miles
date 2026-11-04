@@ -40,9 +40,31 @@ const APPEL: Call = {
   state: "recu",
 };
 
+const CONTRAT = {
+  info: { version: "1", description: "Réception, pas collecte : Miles n'appelle personne." },
+  components: {
+    securitySchemes: {
+      cleApiEnEntete: { type: "apiKey", in: "header", name: "X-API-Key", description: "Clé." },
+    },
+  },
+  paths: {
+    "/ingest/{source}/{mode}": {
+      post: {
+        description: "Dépose un lot d'objets.",
+        parameters: [
+          { name: "source", in: "path", required: true },
+          { name: "Idempotency-Key", in: "header", required: false },
+        ],
+        requestBody: { required: true, content: { "application/json": { schema: {} } } },
+        responses: { "201": { description: "Lot reçu et traité." } },
+      },
+    },
+  },
+};
+
 const SURFACE: Routes = {
   "GET /api/ingestion/methods": { status: 200, body: { methods: [TABLEAU, AUTRE] } },
-  "GET /api/ingestion/contract": { status: 200, body: {} },
+  "GET /api/ingestion/contract": { status: 200, body: CONTRAT },
   "GET /api/ingestion/calls": {
     status: 200,
     body: { calls: [APPEL], total: 1, page: 1, page_size: 50, sources: ["comptes-pudo"] },
@@ -75,13 +97,13 @@ async function ouvreLeJournal() {
 }
 
 describe("la page d'une source d'ingestion", () => {
-  it("s'ouvre sur le contrat de CETTE source, et ignore les méthodes des autres", async () => {
+  it("s'ouvre sur le contrat de CETTE source, donné à un visualiseur Swagger", async () => {
     monte();
 
-    expect(await screen.findByText(/\/ingest\/comptes-pudo\/tableau/)).toBeInTheDocument();
-    // La raison d'être de la page : on équipe un partenaire sur UNE source, et les
-    // adresses des autres n'ont rien à faire sous ses yeux.
-    expect(screen.queryByText(/\/ingest\/sites-pudo\/tableau/)).not.toBeInTheDocument();
+    // Le document donné au visualiseur porte l'adresse RÉELLE de la source, et non le
+    // gabarit du contrat publié : c'est elle qu'un partenaire appelle.
+    const donne = JSON.parse((await screen.findByTestId("swagger-spec")).textContent ?? "{}");
+    expect(Object.keys(donne.paths)).toEqual(["/ingest/comptes-pudo/tableau"]);
     expect(screen.getByRole("tab", { name: "Contract" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -93,6 +115,27 @@ describe("la page d'une source d'ingestion", () => {
 
     expect(await screen.findByText(/declares no entry for this source/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("dit que le contrat publié n'a pas pu être lu, sans rendre un contrat amputé", async () => {
+    // Un contrat partiel se lirait « cette source n'expose que ça », et c'est pire que
+    // pas de contrat du tout.
+    monte({ "GET /api/ingestion/contract": { status: 500, body: {} } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not be read/i);
+    expect(screen.queryByTestId("swagger-spec")).not.toBeInTheDocument();
+  });
+
+  it("essaie les méthodes de la source dans l'onglet voisin, pas dans le contrat", async () => {
+    // Le « Try it out » de Swagger partirait sans clé d'API : l'essai qui dépose pour de
+    // vrai est à part, avec la clé du back-office.
+    monte();
+    fireEvent.click(await screen.findByRole("tab", { name: "Trial" }));
+
+    expect(await screen.findByText(/\/ingest\/comptes-pudo\/tableau/)).toBeInTheDocument();
+    // On équipe un partenaire sur UNE source : les adresses des autres n'ont rien à
+    // faire sous ses yeux.
+    expect(screen.queryByText(/\/ingest\/sites-pudo\/tableau/)).not.toBeInTheDocument();
   });
 
   it("ouvre le journal de la source dans l'autre onglet", async () => {
@@ -126,13 +169,13 @@ describe("la page d'une source d'ingestion", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
-  it("montre le contrat et le journal séparément, jamais les deux à la fois", async () => {
+  it("montre un onglet à la fois, jamais deux", async () => {
     monte();
 
     await ouvreLeJournal();
 
     expect(await screen.findByText("1 call(s)")).toBeInTheDocument();
-    expect(screen.queryByText(/\/ingest\/comptes-pudo\/tableau/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("swagger-spec")).not.toBeInTheDocument();
   });
 
   it("change d'onglet aux flèches, et ne garde qu'une entrée au clavier dans la barre", async () => {
@@ -141,9 +184,9 @@ describe("la page d'une source d'ingestion", () => {
 
     fireEvent.keyDown(contrat, { key: "ArrowRight" });
 
-    const journal = screen.getByRole("tab", { name: "Call log" });
-    expect(journal).toHaveAttribute("aria-selected", "true");
-    expect(journal).toHaveAttribute("tabindex", "0");
+    const essai = screen.getByRole("tab", { name: "Trial" });
+    expect(essai).toHaveAttribute("aria-selected", "true");
+    expect(essai).toHaveAttribute("tabindex", "0");
     // L'onglet inactif sort de l'ordre de tabulation : sinon la tabulation traverse la
     // barre avant d'atteindre les formulaires d'essai.
     expect(contrat).toHaveAttribute("tabindex", "-1");
