@@ -172,6 +172,26 @@
       "page": "Page {{page}} of {{pages}}",
       "previous": "Previous page",
       "next": "Next page"
+    },
+    "methods": {
+      "loading": "Reading methods…",
+      "unreadable": "The service methods could not be read.",
+      "title": "Methods",
+      "none": "No method: the served version declares no source entry.",
+      "notServed": "This method is declared by the configuration and is not served yet: a deposit would be refused.",
+      "form": "Try {{path}}",
+      "body": "Body to deposit",
+      "deposit": "Deposit",
+      "depositing": "Depositing…",
+      "response": "Entry point response",
+      "responseStatus": "HTTP response {{status}}",
+      "failed": "The trial could not be sent. {{code}}",
+      "keyRevoked": "The key the back-office uses for its trials has been revoked. Issue a new one to try again; the old one stays visible on the keys page, with the deposits it carried.",
+      "reissue": "Issue a new back-office key",
+      "reissued": "Key issued",
+      "contract": "Responses declared by the published contract",
+      "modele_absent": "The served version does not carry the input model {{model}}: the expected shape cannot be shown.",
+      "modele_invalide": "The input model {{model}} is malformed in the source declaration."
     }
   }
 }

@@ -20,7 +20,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
-from miles_socle.apikeys.presentation import key_from_headers
+from miles_socle.apikeys.presentation import API_KEY_HEADER, key_from_headers
 from pydantic import BaseModel, ConfigDict
 
 from environnement.ingestion.model import (
@@ -252,7 +252,7 @@ async def deposit(
             source=source,
             mode=mode,
             presented=key_from_headers(
-                request.headers.get("authorization"), request.headers.get("x-api-key")
+                request.headers.get("authorization"), request.headers.get(API_KEY_HEADER)
             ),
             content_type=request.headers.get("content-type"),
             body=corps,

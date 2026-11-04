@@ -32,6 +32,7 @@ from miles_socle.secrets.api_secrets import types_router as secret_types_router
 from miles_socle.secrets.crypto import SecretCipher, parse_secrets_key
 
 from environnement.apikeys.api_apikeys import router as api_keys_router
+from environnement.apikeys.self_key import SelfKeyService
 from environnement.apikeys.service import ApiKeysService
 from environnement.config import Settings
 from environnement.event_types import code_event_types
@@ -43,8 +44,11 @@ from environnement.identity.api_identity import router as environment_router
 from environnement.identity.service import IdentityService
 from environnement.ingestion.api_ingest import router as ingest_router
 from environnement.ingestion.api_overview import router as ingestion_overview_router
+from environnement.ingestion.api_trial import router as ingestion_trial_router
+from environnement.ingestion.methods import IngestionMethods
 from environnement.ingestion.overview import IngestionOverview
 from environnement.ingestion.service import IngestionService
+from environnement.ingestion.trial import IngestionTrial
 from environnement.storages.api_storages import router as storages_router
 from environnement.storages.service import StoragesService
 
@@ -122,6 +126,17 @@ def create_app() -> FastAPI:
         # L'écran de l'ingestion : lecture seule, et le MÊME arbre encore — ce qu'il
         # annonce comme points d'entrée doit être ce que le dépôt accepte vraiment.
         app.state.ingestion_overview = IngestionOverview(pool, tree, app.state.api_keys, utc_now)
+        # Ce que chaque méthode ATTEND, pour que l'écran se lise comme un contrat : le
+        # MÊME arbre encore, puisque le schéma montré doit être celui que la validation
+        # emploiera.
+        app.state.ingestion_methods = IngestionMethods(tree)
+        # La clé que le back-office détient POUR LUI-MÊME, afin d'essayer ses propres
+        # points d'entrée (ticket a78551e5). Elle emprunte le vérificateur de clés comme
+        # n'importe quel partenaire, et sa valeur est gardée dans le magasin de secrets.
+        app.state.ingestion_self_key = SelfKeyService(pool, app.state.api_keys, app.state.secrets)
+        app.state.ingestion_trial = IngestionTrial(
+            pool, app.state.ingestion_self_key, catalog, utc_now
+        )
         # La pose d'une version matérialise les tables de ses storages. Un crochet, et
         # non un appel direct : l'hébergement sait poser un arbre et dire qu'il vient
         # de le poser, il n'a rien à savoir des storages.
@@ -183,6 +198,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(storages_router)
     app.include_router(api_keys_router)
     app.include_router(ingestion_overview_router)
+    app.include_router(ingestion_trial_router)
     # HORS de `/api`, donc hors du portillon de sessions : la seule surface de ce
     # module ouverte à un système TIERS, et elle s'authentifie elle-même par clé
     # d'API avant de lire quoi que ce soit. `test_app.py` garde cette liste : toute

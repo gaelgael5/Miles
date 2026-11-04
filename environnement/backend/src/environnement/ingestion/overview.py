@@ -21,8 +21,8 @@ import asyncpg
 from environnement.apikeys.service import ApiKeysService
 from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.store import db_get_hosted_version
+from environnement.ingestion.methods import Endpoint, file_endpoints
 from environnement.ingestion.model import MODES, SERVED_MODES
-from environnement.ingestion.resolve import exposes
 from environnement.ingestion.store import (
     Call,
     db_call_count,
@@ -37,20 +37,6 @@ from environnement.sources.declarations import file_declared_sources
 RECENT_WINDOW = timedelta(days=1)
 PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
-
-
-@dataclass(frozen=True)
-class Endpoint:
-    """Un point d'entrée réellement exposé, avec l'adresse que le tiers doit appeler."""
-
-    source: str
-    storage: str
-    entry_model: str
-    mode: str
-    path: str
-    # Faux pour un mode que le paramétrage déclare mais que la stack ne sert pas encore.
-    # Distingué, et non masqué : l'afficher comme disponible promettrait un dépôt refusé.
-    served: bool
 
 
 @dataclass(frozen=True)
@@ -95,28 +81,14 @@ class IngestionOverview:
         """
         hebergee = await db_get_hosted_version(self.pool)
         declarees = await file_declared_sources(self.tree.file_text, await self.tree.file_paths())
-        points: list[Endpoint] = []
-        for nom, doc in sorted(declarees.readable.items()):
-            for entree in doc.entries:
-                points += [
-                    Endpoint(
-                        source=nom,
-                        storage=doc.storage,
-                        entry_model=entree.source_model,
-                        mode=mode,
-                        path=ingest_path.format(source=nom, mode=mode),
-                        served=mode in SERVED_MODES,
-                    )
-                    for mode in MODES
-                    if exposes(entree, mode)
-                ]
+        points = await file_endpoints(self.tree, ingest_path=ingest_path)
         actives, neuves = await db_key_counts(self.pool)
         comptes = await db_counts(self.pool, self.now() - RECENT_WINDOW)
         return Health(
             version_number=None if hebergee is None else hebergee.ordered_number,
             version_commit=None if hebergee is None else hebergee.ordered_commit,
             version_served_at=None if hebergee is None else hebergee.served_at,
-            endpoints=tuple(points),
+            endpoints=points,
             unreadable_sources=declarees.unreadable,
             active_keys=actives,
             never_used_keys=neuves,

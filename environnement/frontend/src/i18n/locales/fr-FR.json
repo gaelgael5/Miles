@@ -172,6 +172,26 @@
       "page": "Page {{page}} sur {{pages}}",
       "previous": "Page précédente",
       "next": "Page suivante"
+    },
+    "methods": {
+      "loading": "Lecture des méthodes…",
+      "unreadable": "Les méthodes du service n'ont pas pu être lues.",
+      "title": "Méthodes",
+      "none": "Aucune méthode : la version servie ne déclare aucune entrée de source.",
+      "notServed": "Cette méthode est déclarée par le paramétrage et n'est pas encore servie : un dépôt y serait refusé.",
+      "form": "Essayer {{path}}",
+      "body": "Corps à déposer",
+      "deposit": "Déposer",
+      "depositing": "Dépôt en cours…",
+      "response": "Réponse du point d'entrée",
+      "responseStatus": "Réponse HTTP {{status}}",
+      "failed": "L'essai n'a pas pu partir. {{code}}",
+      "keyRevoked": "La clé que le back-office emploie pour ses essais a été révoquée. En réémettre une pour pouvoir essayer de nouveau ; l'ancienne reste visible dans la page des clés, avec les dépôts qu'elle a portés.",
+      "reissue": "Réémettre la clé du back-office",
+      "reissued": "Clé réémise",
+      "contract": "Réponses déclarées par le contrat publié",
+      "modele_absent": "La version servie ne porte pas le modèle d'entrée {{model}} : la forme attendue ne peut pas être montrée.",
+      "modele_invalide": "Le modèle d'entrée {{model}} est mal formé dans la déclaration de la source."
     }
   }
 }

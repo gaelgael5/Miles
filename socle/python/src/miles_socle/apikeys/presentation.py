@@ -9,6 +9,11 @@ lire un en-tête » — chaque cadre le fait à sa façon — mais **ce qu'on re
 from __future__ import annotations
 
 BEARER = "bearer"
+# Le nom de l'en-tête dédié. Une constante plutôt qu'un littéral répété : depuis le
+# 04/11/2026 il y a un ÉCRIVAIN en plus des lecteurs — le back-office d'un environnement
+# frappe sa propre route d'ingestion avec sa clé —, et deux littéraux auraient divergé au
+# premier renommage, sans que rien ne paraisse faux de part ni d'autre.
+API_KEY_HEADER = "X-API-Key"
 
 
 def key_from_headers(authorization: str | None, api_key: str | None) -> str | None:

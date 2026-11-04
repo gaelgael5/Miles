@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from miles_socle.testing.files import ADMIN_PASSWORD, ADMIN_USERNAME, BASE_ENV, admin_env, write_env
 from miles_socle.testing.stack import open_socle_stack, utc_now
 
+from environnement.apikeys.self_key import SelfKeyService
 from environnement.apikeys.service import ApiKeysService
 from environnement.app import build_app
 from environnement.config import DEFAULT_MIGRATIONS_DIR, Settings
@@ -18,8 +19,10 @@ from environnement.event_types import code_event_types
 from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
 from environnement.identity.service import IdentityService
+from environnement.ingestion.methods import IngestionMethods
 from environnement.ingestion.overview import IngestionOverview
 from environnement.ingestion.service import IngestionService
+from environnement.ingestion.trial import IngestionTrial
 from environnement.storages.service import StoragesService
 
 # Réexportés : les tests d'intégration du produit s'en servent, et ils viennent du socle
@@ -55,6 +58,9 @@ class EnvironnementStack:
     api_keys: ApiKeysService
     ingestion: IngestionService
     ingestion_overview: IngestionOverview
+    ingestion_methods: IngestionMethods
+    ingestion_self_key: SelfKeyService
+    ingestion_trial: IngestionTrial
     tree: HostedTree
 
     def anonymous(self) -> httpx.AsyncClient:
@@ -139,6 +145,18 @@ async def open_stack(
             # ce que le dépôt accepte vraiment.
             apercu = IngestionOverview(socle.pool, tree, api_keys, utc_now)
             socle.app.state.ingestion_overview = apercu
+            # Ce que chaque méthode attend, et l'essai depuis l'écran. Le MÊME arbre
+            # encore : le schéma que la page montre doit être celui que la validation du
+            # dépôt emploiera, sinon l'écran promet une forme que le service refuse.
+            methodes = IngestionMethods(tree)
+            socle.app.state.ingestion_methods = methodes
+            # La clé que le back-office détient pour lui-même. Elle passe par le MÊME
+            # vérificateur que n'importe quel partenaire, et sa valeur est rangée dans
+            # le magasin de secrets du socle.
+            self_key = SelfKeyService(socle.pool, api_keys, socle.app.state.secrets)
+            socle.app.state.ingestion_self_key = self_key
+            essai = IngestionTrial(socle.pool, self_key, socle.catalog, utc_now)
+            socle.app.state.ingestion_trial = essai
             # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît
             # au premier USAGE. Un montage qui la créerait d'avance cacherait justement le
             # cas que la machine de test a révélé.
@@ -154,6 +172,9 @@ async def open_stack(
                 api_keys,
                 ingestion,
                 apercu,
+                methodes,
+                self_key,
+                essai,
                 tree,
             )
 

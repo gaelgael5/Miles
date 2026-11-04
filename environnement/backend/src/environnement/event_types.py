@@ -9,6 +9,7 @@ from environnement.apikeys import model as api_keys_events
 from environnement.hosting import model as hosting_events
 from environnement.identity import service as identity_events
 from environnement.ingestion import model as ingestion_events
+from environnement.ingestion import trial as trial_events
 from environnement.ingestion import writeback as writeback_events
 from environnement.storages import model as storages_events
 
@@ -32,5 +33,6 @@ def code_event_types() -> frozenset[str]:
         | storages_events.EVENT_TYPES
         | api_keys_events.EVENT_TYPES
         | ingestion_events.EVENT_TYPES
+        | trial_events.EVENT_TYPES
         | writeback_events.EVENT_TYPES
     )

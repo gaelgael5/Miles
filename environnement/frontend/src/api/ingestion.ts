@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { request } from "@miles/socle-web";
 
 /**
@@ -72,5 +72,106 @@ export function useIngestionCalls(source: string, page: number) {
   return useQuery({
     queryKey: ["ingestion", "calls", source, page],
     queryFn: ({ signal }) => request<CallPage>(`/api/ingestion/calls?${params}`, { signal }),
+  });
+}
+
+/**
+ * Ce que chaque méthode d'ingestion ATTEND, pour que l'écran se lise comme un contrat.
+ *
+ * `request_schema` est le modèle d'entrée que l'entrée de source déclare, renvois
+ * résolus. Nul quand la version servie ne le porte pas — et `model_refusal` dit alors
+ * lequel manque, plutôt qu'un corps vide qui se lirait comme « cette méthode n'attend
+ * rien ».
+ */
+export interface Method {
+  source: string;
+  storage: string;
+  entry_model: string;
+  mode: string;
+  path: string;
+  /** Faux pour un mode déclaré que la stack ne sert pas encore : montré, sans bouton. */
+  served: boolean;
+  request_schema: unknown | null;
+  model_refusal: string | null;
+  example: unknown | null;
+}
+
+/**
+ * Ce que le point d'entrée a répondu à un essai, rendu tel quel.
+ *
+ * `status` est celui du DÉPÔT, pas celui de la route d'écran : un lot entièrement rejeté
+ * rend 422 au partenaire, et la page doit le montrer comme tel plutôt que comme une
+ * panne. La route d'écran répond donc 200 en portant ce 422.
+ */
+export interface Trial {
+  status: number;
+  body: unknown;
+}
+
+/** Une réponse déclarée par le contrat publié : son statut et ce qu'elle signifie. */
+export interface ContractResponse {
+  status: string;
+  description: string;
+}
+
+const INGEST_OPERATION = "/ingest/{source}/{mode}";
+
+export function useIngestionMethods() {
+  return useQuery({
+    queryKey: ["ingestion", "methods"],
+    queryFn: ({ signal }) =>
+      request<{ methods: Method[] }>("/api/ingestion/methods", { signal }),
+  });
+}
+
+/**
+ * Les réponses du contrat PUBLIÉ, lues et non recopiées.
+ *
+ * Recopier les codes de refus dans l'écran en ferait une seconde vérité, qui divergerait
+ * au premier refus ajouté. On lit donc ce que le dépôt versionné porte — c'est la même
+ * fonction qui engendre le fichier.
+ */
+export function useIngestionContract() {
+  return useQuery({
+    queryKey: ["ingestion", "contract"],
+    queryFn: async ({ signal }) => {
+      const spec = await request<Record<string, unknown>>("/api/ingestion/contract", {
+        signal,
+      });
+      return responsesOf(spec);
+    },
+  });
+}
+
+/** Les réponses de l'opération de dépôt, triées par statut croissant. */
+export function responsesOf(spec: Record<string, unknown>): ContractResponse[] {
+  const paths = spec.paths as Record<string, unknown> | undefined;
+  const operation = (paths?.[INGEST_OPERATION] as Record<string, unknown> | undefined)?.post;
+  const responses = (operation as Record<string, unknown> | undefined)?.responses;
+  if (responses === undefined || responses === null || typeof responses !== "object") {
+    return [];
+  }
+  return Object.entries(responses as Record<string, { description?: string }>)
+    .map(([status, body]) => ({ status, description: body.description ?? "" }))
+    .sort((left, right) => left.status.localeCompare(right.status));
+}
+
+export function useTryMethod() {
+  return useMutation({
+    mutationFn: ({ source, mode, body }: { source: string; mode: string; body: string }) =>
+      request<Trial>(
+        `/api/ingestion/try/${encodeURIComponent(source)}/${encodeURIComponent(mode)}`,
+        { method: "POST", body },
+      ),
+  });
+}
+
+/**
+ * Réémet la clé du back-office, après une révocation. Rien n'est rendu de la clé : sa
+ * valeur reste au serveur.
+ */
+export function useReissueSelfKey() {
+  return useMutation({
+    mutationFn: () => request<undefined>("/api/ingestion/self-key", { method: "POST" }),
   });
 }

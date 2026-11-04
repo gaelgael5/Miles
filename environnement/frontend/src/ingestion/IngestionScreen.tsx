@@ -4,6 +4,7 @@ import { useInstant } from "@miles/socle-web";
 
 import { type Health, useIngestionHealth } from "../api/ingestion";
 import { IngestionCalls } from "./IngestionCalls";
+import { IngestionMethods } from "./IngestionMethods";
 
 /**
  * L'écran du service d'ingestion : son état de santé, et le journal des appels
@@ -38,6 +39,9 @@ export function IngestionScreen() {
         <h1 id="ingestion-title">{t("ingestion.title")}</h1>
       </div>
       <ServiceHealth health={health.data} />
+      {/* Les méthodes AVANT le journal : on vient ici pour savoir quoi appeler, et
+          le journal répond à « qu'est-ce qui est arrivé », qui vient après. */}
+      <IngestionMethods />
       <IngestionCalls />
     </section>
   );
@@ -86,33 +90,6 @@ function ServiceHealth({ health }: { health: Health }) {
         <p className="alert" role="status">
           {t("ingestion.unreadableSources", { sources: health.unreadable_sources.join(" · ") })}
         </p>
-      )}
-      {health.endpoints.length === 0 ? (
-        <p className="help">{t("ingestion.noEndpoint")}</p>
-      ) : (
-        <ul className="plain-list">
-          {health.endpoints.map((point) => (
-            <li key={`${point.source}:${point.mode}`} className="row">
-              <div className="row-main">
-                <span className="row-title mono">{point.path}</span>
-                <div className="row-sub">
-                  <span className="mono">{point.entry_model}</span>
-                  {" → "}
-                  <span className="mono">{point.storage}</span>
-                </div>
-              </div>
-              {/* Un mode déclaré mais pas encore servi est DISTINGUÉ : l'afficher comme
-                  disponible promettrait un dépôt qui sera refusé. */}
-              {!point.served && (
-                <p className="muted row-detail">
-                  {t("ingestion.notServed", {
-                    mode: t(`ingestion.modes.${point.mode}`, point.mode),
-                  })}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
       )}
       {health.bulk_modes.length > 0 && (
         // Et on ne met AUCUN compteur sur une file qui n'existe pas : « pas encore

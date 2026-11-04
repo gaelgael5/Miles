@@ -29,14 +29,6 @@ const SERVIE: Health = {
   last_deposit_at: "2026-11-02T09:30:00Z",
   bulk_modes: [],
 };
-const FICHIER = {
-  source: "comptes-pudo",
-  storage: "accounts",
-  entry_model: "pudo/accounts",
-  mode: "fichier",
-  path: "/ingest/comptes-pudo/fichier",
-  served: false,
-};
 const APPEL: Call = {
   id: "a".repeat(32),
   source: "comptes-pudo",
@@ -51,8 +43,15 @@ const APPEL: Call = {
   state: "recu",
 };
 
+// Ce que l'écran interroge TOUJOURS, et qui n'est pas le sujet de la plupart des tests :
+// le bloc des méthodes a ses propres essais, dans `IngestionMethods.test.tsx`.
+const SURFACE: Routes = {
+  "GET /api/ingestion/methods": { status: 200, body: { methods: [] } },
+  "GET /api/ingestion/contract": { status: 200, body: {} },
+};
+
 function monte(routes: Routes) {
-  const calls = mockApi(routes);
+  const calls = mockApi({ ...SURFACE, ...routes });
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <IngestionScreen />
@@ -92,16 +91,6 @@ describe("l'écran du service d'ingestion", () => {
     expect(screen.getByText(/7 deposit\(s\) received, 3 in the last 24h/)).toBeInTheDocument();
   });
 
-  it("donne l'adresse complète de chaque point d'entrée, et ce qu'elle alimente", async () => {
-    // C'est la seule façon de répondre à « où est-ce que je pousse ? » sans faire lire
-    // un fichier de paramétrage.
-    monte(UN_APPEL);
-
-    expect(await screen.findByText("/ingest/comptes-pudo/tableau")).toBeInTheDocument();
-    expect(screen.getByText("pudo/accounts")).toBeInTheDocument();
-    expect(screen.getByText("accounts")).toBeInTheDocument();
-  });
-
   it("dit qu'aucune version n'est servie, plutôt que de rendre un écran vide", async () => {
     monte({
       ...VIDE,
@@ -114,23 +103,6 @@ describe("l'écran du service d'ingestion", () => {
     expect(await screen.findByText(/No configuration version is served/)).toBeInTheDocument();
     // L'état normal d'une stack neuve : aucune alerte.
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("distingue un mode déclaré mais pas encore servi", async () => {
-    // L'afficher comme disponible promettrait un dépôt qui sera refusé.
-    monte({
-      ...VIDE,
-      "GET /api/ingestion/health": {
-        status: 200,
-        body: {
-          ...SERVIE,
-          endpoints: [FICHIER],
-          bulk_modes: ["fichier"],
-        },
-      },
-    });
-
-    expect(await screen.findByText(/declared but not served yet/)).toBeInTheDocument();
   });
 
   it("ne met AUCUN compteur sur une file qui n'existe pas", async () => {
