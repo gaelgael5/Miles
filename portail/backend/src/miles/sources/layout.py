@@ -32,8 +32,7 @@ from miles_socle.parametrage.sources import (
     read_source,
     source_path,
 )
-from miles_socle.transform.jpath import read_path
-from urban_json.jsonpath import IndexSelector, NameSelector, WildcardSelector
+from miles_socle.transform.jpath import SplitRefusal, read_stream_split
 
 from miles.datamodels.layout import MODEL_RE
 
@@ -141,9 +140,11 @@ def _entry_problems(rank: int, entry: Entry) -> list[SourceProblem]:
 def _split_problems(where: str, split: str, needed: bool) -> list[SourceProblem]:
     """Le jpath de découpage doit se lire en flux : on ne revient pas en arrière en SAX.
 
-    Admis : des noms ou des indices depuis la racine, puis un seul joker final qui désigne
-    les items du tableau. Refusés : un filtre (il faudrait voir l'item entier avant de le
-    garder), une descente `..` (non bornée), un joker qui ne termine pas le chemin.
+    **La règle est au socle** (`read_stream_split`) depuis le 04/11/2026, deuxième usage :
+    le module d'environnement en dérive le chemin des items pour lire le document, et une
+    seconde copie de la règle aurait fini par accepter ici ce qu'il refuse là. Ce qui reste
+    ICI est ce qui n'a de sens qu'à la saisie : l'EXIGENCE du découpage, qui dépend du mode
+    coché, et la mise en forme du refus pour l'écran qui édite.
 
     Exigé par le seul mode fichier : c'est le seul où l'on reçoit un DOCUMENT et où il
     faut dire où sont les items. Hors de ce mode il est admis vide, et vérifié s'il est là.
@@ -151,22 +152,7 @@ def _split_problems(where: str, split: str, needed: bool) -> list[SourceProblem]
     field = f"{where}.decoupage"
     if not split.strip():
         return [SourceProblem(field, "decoupage_absent")] if needed else []
-    path = read_path(split)
-    if path is None:
-        return [SourceProblem(field, "jpath_illisible", split)]
-    segments = path.compiled.segments
-    if not segments:
-        return [SourceProblem(field, "non_streamable", "le chemin doit désigner un tableau")]
-    for rank, segment in enumerate(segments):
-        last = rank == len(segments) - 1
-        if segment.is_recursive:
-            return [SourceProblem(field, "non_streamable", "descente « .. » non bornée")]
-        selector = segment.selectors[0] if len(segment.selectors) == 1 else None
-        if last and isinstance(selector, WildcardSelector):
-            return []
-        if not isinstance(selector, (NameSelector, IndexSelector)):
-            reason = "un filtre exige l'item entier avant de le garder"
-            if isinstance(selector, WildcardSelector):
-                reason = "le joker doit terminer le chemin"
-            return [SourceProblem(field, "non_streamable", reason)]
-    return [SourceProblem(field, "non_streamable", "le chemin doit finir par [*]")]
+    lu = read_stream_split(split)
+    if isinstance(lu, SplitRefusal):
+        return [SourceProblem(field, lu.code, lu.detail)]
+    return []
