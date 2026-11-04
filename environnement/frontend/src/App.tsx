@@ -20,6 +20,8 @@ import {
 
 import { ApiKeysScreen } from "./apikeys/ApiKeysScreen";
 import { IngestionScreen } from "./ingestion/IngestionScreen";
+import { SourceScreen } from "./ingestion/SourceScreen";
+import { SourcesNav } from "./ingestion/SourcesNav";
 import { EnvironnementAssigne } from "./pairing/EnvironnementAssigne";
 import { StoragesScreen } from "./storages/StoragesScreen";
 
@@ -76,12 +78,24 @@ function BackOffice({ me, profil, onQuitterProfil }: {
 }) {
   const { t } = useTranslation();
   const [page, setPage] = useState<Page>("health");
+  // La source d'ingestion ouverte, le cas échéant. Hors de `page` et non un écran de
+  // plus : son nom vient du serveur, et la table des écrans ne porte que ce que le code
+  // déclare. Une source choisie n'est jamais lue sans sa page — tout autre choix de menu
+  // la remet à null juste au-dessous.
+  const [source, setSource] = useState<string | null>(null);
   const { Ecran } = ECRANS.find((ecran) => ecran.nom === page) ?? ECRANS[0];
 
   function ouvrir(nom: Page) {
     // Tout choix dans le menu referme le profil, ouvert depuis la barre du haut.
     onQuitterProfil();
     setPage(nom);
+    setSource(null);
+  }
+
+  function ouvrirSource(nom: string) {
+    onQuitterProfil();
+    setPage("ingestion");
+    setSource(nom);
   }
 
   return (
@@ -91,20 +105,38 @@ function BackOffice({ me, profil, onQuitterProfil }: {
           <span className="sidebar-section">{t("app.sections.global")}</span>
           <div>
             {ECRANS.map(({ nom }) => (
-              <button
-                key={nom}
-                type="button"
-                className="sidebar-link"
-                aria-current={!profil && page === nom ? "page" : undefined}
-                onClick={() => ouvrir(nom)}
-              >
-                {t(`app.nav.${nom}`)}
-              </button>
+              <div key={nom}>
+                <button
+                  type="button"
+                  className="sidebar-link"
+                  aria-current={!profil && page === nom && source === null ? "page" : undefined}
+                  onClick={() => ouvrir(nom)}
+                >
+                  {t(`app.nav.${nom}`)}
+                </button>
+                {/* Les sources servies, sous le service qui les expose (Gael,
+                    04/11/2026). Elles ne sont pas dans la table des écrans : leur liste
+                    vient de la version servie, pas du code. */}
+                {nom === "ingestion" && (
+                  <SourcesNav
+                    selected={profil ? null : source}
+                    onOpen={(choisie) => ouvrirSource(choisie)}
+                  />
+                )}
+              </div>
             ))}
           </div>
         </div>
       </nav>
-      <main className="content">{profil ? <ProfileShell me={me} /> : <Ecran />}</main>
+      <main className="content">
+        {profil ? (
+          <ProfileShell me={me} />
+        ) : source === null ? (
+          <Ecran />
+        ) : (
+          <SourceScreen source={source} />
+        )}
+      </main>
     </div>
   );
 }

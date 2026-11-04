@@ -1,0 +1,214 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { i18n } from "@miles/socle-web";
+import { type Routes, mockApi } from "@miles/socle-web/testing";
+
+import "../i18n/i18n";
+import type { Call, Method } from "../api/ingestion";
+import { SourceScreen } from "./SourceScreen";
+
+const TABLEAU: Method = {
+  source: "comptes-pudo",
+  storage: "accounts",
+  entry_model: "pudo/accounts",
+  mode: "tableau",
+  path: "/ingest/comptes-pudo/tableau",
+  operation: "/ingest/{source}/{mode}",
+  served: true,
+  request_schema: { type: "object" },
+  model_refusal: null,
+  example: [{ code: "code" }],
+};
+// Une méthode d'une AUTRE source : c'est elle qui rend le filtrage mesurable.
+const AUTRE: Method = {
+  ...TABLEAU,
+  source: "sites-pudo",
+  storage: "sites",
+  path: "/ingest/sites-pudo/tableau",
+};
+const APPEL: Call = {
+  id: "a".repeat(32),
+  source: "comptes-pudo",
+  mode: "tableau",
+  entry_model: "pudo/accounts",
+  object_count: 42,
+  size_bytes: 1337,
+  version_number: 4,
+  key_label: "Transporteur",
+  key_prefix: "mlk_kkkkkkkk",
+  received_at: "2026-11-02T09:30:00Z",
+  state: "recu",
+};
+
+const SURFACE: Routes = {
+  "GET /api/ingestion/methods": { status: 200, body: { methods: [TABLEAU, AUTRE] } },
+  "GET /api/ingestion/contract": { status: 200, body: {} },
+  "GET /api/ingestion/calls": {
+    status: 200,
+    body: { calls: [APPEL], total: 1, page: 1, page_size: 50, sources: ["comptes-pudo"] },
+  },
+};
+
+function monte(routes: Routes = {}, source = "comptes-pudo") {
+  const calls = mockApi({ ...SURFACE, ...routes });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const vue = render(
+    <QueryClientProvider client={client}>
+      <SourceScreen source={source} />
+    </QueryClientProvider>,
+  );
+  // Le client est rendu pour les essais qui RÉAFFICHENT la page sur une autre source :
+  // en reprendre un neuf viderait le cache, et la page repartirait de zéro pour une
+  // raison étrangère à ce qu'ils mesurent.
+  const revoir = (autre: string) =>
+    vue.rerender(
+      <QueryClientProvider client={client}>
+        <SourceScreen source={autre} />
+      </QueryClientProvider>,
+    );
+  return { calls, revoir };
+}
+
+/** L'onglet du journal, ouvert : les deux tiers des essais commencent par là. */
+async function ouvreLeJournal() {
+  fireEvent.click(await screen.findByRole("tab", { name: "Call log" }));
+}
+
+describe("la page d'une source d'ingestion", () => {
+  it("s'ouvre sur le contrat de CETTE source, et ignore les méthodes des autres", async () => {
+    monte();
+
+    expect(await screen.findByText(/\/ingest\/comptes-pudo\/tableau/)).toBeInTheDocument();
+    // La raison d'être de la page : on équipe un partenaire sur UNE source, et les
+    // adresses des autres n'ont rien à faire sous ses yeux.
+    expect(screen.queryByText(/\/ingest\/sites-pudo\/tableau/)).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Contract" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("dit qu'une source sans entrée dans la version servie n'a aucune méthode", async () => {
+    monte({}, "sites-pudo-absente");
+
+    expect(await screen.findByText(/declares no entry for this source/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ouvre le journal de la source dans l'autre onglet", async () => {
+    const { calls } = monte();
+
+    await ouvreLeJournal();
+
+    expect(await screen.findByText("1 call(s)")).toBeInTheDocument();
+    const journal = within(screen.getByRole("region", { name: "Recent calls" }));
+    expect(journal.getByText(/42 object\(s\)/)).toBeInTheDocument();
+    expect(journal.getByText(/1337 bytes/)).toBeInTheDocument();
+    // Le préfixe de la clé, jamais sa valeur.
+    expect(journal.getByText(/by Transporteur \(mlk_kkkkkkkk\)/)).toBeInTheDocument();
+    // Le journal est borné à la source de la page : sans ce paramètre, la page montrerait
+    // les dépôts de tout le monde sous le nom d'un seul partenaire.
+    await waitFor(() =>
+      expect(calls.map((appel) => appel.key)).toContain(
+        "GET /api/ingestion/calls?page=1&source=comptes-pudo",
+      ),
+    );
+  });
+
+  it("n'offre aucun filtre de source dans le journal : le menu la désigne", async () => {
+    monte();
+
+    await ouvreLeJournal();
+    await screen.findByText("1 call(s)");
+
+    // Deux façons de choisir la même chose auraient divergé : la source du filtre
+    // n'aurait pas été celle que le menu montre comme courante.
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("montre le contrat et le journal séparément, jamais les deux à la fois", async () => {
+    monte();
+
+    await ouvreLeJournal();
+
+    expect(await screen.findByText("1 call(s)")).toBeInTheDocument();
+    expect(screen.queryByText(/\/ingest\/comptes-pudo\/tableau/)).not.toBeInTheDocument();
+  });
+
+  it("change d'onglet aux flèches, et ne garde qu'une entrée au clavier dans la barre", async () => {
+    monte();
+    const contrat = await screen.findByRole("tab", { name: "Contract" });
+
+    fireEvent.keyDown(contrat, { key: "ArrowRight" });
+
+    const journal = screen.getByRole("tab", { name: "Call log" });
+    expect(journal).toHaveAttribute("aria-selected", "true");
+    expect(journal).toHaveAttribute("tabindex", "0");
+    // L'onglet inactif sort de l'ordre de tabulation : sinon la tabulation traverse la
+    // barre avant d'atteindre les formulaires d'essai.
+    expect(contrat).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("écrit la date du journal dans la culture de l'INTERFACE, pas celle du navigateur", async () => {
+    // Forcé en français : les tests du dépôt tournent en en-US, où le défaut d'origine
+    // — `toLocaleString()` sans culture — était rigoureusement invisible (bug 4f53012d).
+    await i18n.changeLanguage("fr-FR");
+    try {
+      monte();
+      fireEvent.click(await screen.findByRole("tab", { name: "Journal" }));
+
+      expect(await screen.findByText("1 appel(s)")).toBeInTheDocument();
+      const journal = within(screen.getByRole("region", { name: "Derniers appels" }));
+      // 02/11, et non 11/02 : l'appel a été reçu le 2 novembre. Sur ce journal la date
+      // EST l'information de la colonne, et un lecteur français y lisait le 11 février.
+      expect(journal.getByText(/^02\/11\/2026/)).toBeInTheDocument();
+    } finally {
+      // Dans `act` : l'écran est encore monté, et le retour à en-US le fait rendre.
+      await act(() => i18n.changeLanguage("en-US"));
+    }
+  });
+
+  it("dit « aucun appel » sans en faire une erreur", async () => {
+    monte({
+      "GET /api/ingestion/calls": {
+        status: 200,
+        body: { calls: [], total: 0, page: 1, page_size: 50, sources: ["comptes-pudo"] },
+      },
+    });
+
+    await ouvreLeJournal();
+
+    expect(await screen.findByText("No call received.")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("distingue une lecture en échec d'un journal vide", async () => {
+    // Les confondre ferait conclure que tout va bien au pire moment pour le conclure.
+    monte({ "GET /api/ingestion/calls": { status: 500, body: {} } });
+
+    await ouvreLeJournal();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not be read");
+    expect(screen.queryByText("No call received.")).not.toBeInTheDocument();
+  });
+
+  it("revient à la première page quand on passe à une autre source", async () => {
+    // Rester en page 3 d'une source qui n'en a qu'une afficherait un vide qu'on prendrait
+    // pour « ce partenaire n'a rien déposé ». Éprouvé en allant d'abord à la page 2 :
+    // sans ce détour, l'assertion « page 1 » serait vraie sans rien prouver.
+    const { revoir } = monte({
+      "GET /api/ingestion/calls": {
+        status: 200,
+        body: { calls: [APPEL], total: 120, page: 1, page_size: 50, sources: ["comptes-pudo"] },
+      },
+    });
+    await ouvreLeJournal();
+    expect(await screen.findByText("Page 1 of 3")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(await screen.findByText("Page 2 of 3")).toBeInTheDocument();
+
+    revoir("sites-pudo");
+
+    expect(await screen.findByText("Page 1 of 3")).toBeInTheDocument();
+  });
+});

@@ -115,6 +115,23 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .lead { margin: 0; font-size: 14px; color: var(--encre-faible); }
 .section { margin-top: 36px; }
 
+/* Onglets d'une page, relevés sur la maquette « Parc — connexion des terminaux » (bloc
+   `onglets`) : c'est là que le cadrage dessine la bascule entre deux vues d'une même
+   page. Les valeurs sont les siennes, y compris la hauteur de 44px — la cible tactile
+   que toutes les maquettes tiennent. L'onglet actif est l'ACCENT souligné, et non un
+   fond : dans les maquettes le fond d'accent appartient à l'élément de menu courant, et
+   lui en donner un second sens ferait lire la barre comme une navigation. */
+.tabs {
+  display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--bordure);
+  margin-bottom: 26px;
+}
+.tab {
+  padding: 12px 18px; font: inherit; font-size: 14px; color: var(--encre-douce);
+  background: none; border: none; border-bottom: 2px solid transparent; min-height: 44px;
+  display: inline-flex; align-items: center; cursor: pointer;
+}
+.tab[aria-selected="true"] { font-weight: 600; color: var(--accent); border-bottom-color: var(--accent); }
+
 /* Boutons. */
 .btn {
   font: inherit; font-size: 14px; font-weight: 600; padding: 12px 20px; min-height: 44px;

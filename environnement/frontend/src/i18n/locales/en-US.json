@@ -163,9 +163,6 @@
     },
     "calls": {
       "title": "Recent calls",
-      "filter": "Journal filter",
-      "source": "Source",
-      "allSources": "All sources",
       "loading": "Reading the journal…",
       "unreadable": "The call journal could not be read.",
       "none": "No call received.",
@@ -183,7 +180,7 @@
       "loading": "Reading methods…",
       "unreadable": "The service methods could not be read.",
       "title": "Methods",
-      "none": "No method: the served version declares no source entry.",
+      "none": "No method: the served version declares no entry for this source.",
       "notServed": "This method is declared by the configuration and is not served yet: a deposit would be refused.",
       "form": "Try {{path}}",
       "body": "Body to deposit",
@@ -214,6 +211,12 @@
       "shape": "Body returned on {{status}}",
       "responsesDetail": "What each response means",
       "schemas": "Schemas"
+    },
+    "source": {
+      "intro": "An ingestion source: what it promises to whoever wires it, and what it has received.",
+      "tabs": "Source views",
+      "contract": "Contract",
+      "calls": "Call log"
     },
     "contract": {
       "title": "Published contract, version {{version}} — read before wiring an integration",

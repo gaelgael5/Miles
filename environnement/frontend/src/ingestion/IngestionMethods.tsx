@@ -17,7 +17,7 @@ import {
 } from "../api/ingestion";
 
 /**
- * Les méthodes d'ingestion présentées comme une page de contrat, essayables sur place.
+ * Les méthodes d'UNE source, présentées comme une page de contrat, essayables sur place.
  *
  * Gael, 04/11/2026, après avoir vu une page qui ne savait qu'essayer : « je t'ai demandé
  * une page swagger. L'intérêt, c'est qu'en plus du test, il y a aussi les signatures pour
@@ -37,10 +37,15 @@ import {
  * **Aucune clé à fournir.** Le back-office détient la sienne et frappe sa propre route :
  * la valeur ne descend jamais jusqu'ici.
  */
-export function IngestionMethods() {
+export function IngestionMethods({ source }: { source: string }) {
   const { t } = useTranslation();
   const methods = useIngestionMethods();
   const contract = useIngestionContract();
+  // Filtrées ICI et non demandées filtrées au serveur : la route rend les méthodes de la
+  // version servie, et une source est précisément une tranche de cette réponse. Un
+  // paramètre de plus aurait fait une seconde requête par source, pour une liste que la
+  // page voisine a déjà en cache.
+  const propres = (methods.data?.methods ?? []).filter((method) => method.source === source);
 
   if (methods.isPending) {
     return (
@@ -56,9 +61,9 @@ export function IngestionMethods() {
       </p>
     );
   }
-  if (methods.data.methods.length === 0) {
-    // L'état normal d'une stack sans version servie : aucune source déclarée, donc aucune
-    // méthode. Ce n'est pas une panne, et l'écran ne doit pas le présenter comme telle.
+  if (propres.length === 0) {
+    // L'état normal d'une source dont la version servie ne déclare aucune entrée. Ce
+    // n'est pas une panne, et l'écran ne doit pas le présenter comme telle.
     return <p className="help">{t("ingestion.methods.none")}</p>;
   }
   return (
@@ -70,7 +75,7 @@ export function IngestionMethods() {
           absence n'empêche ni de lire les méthodes ni d'en essayer une. */}
       {contract.data !== undefined && <ContractHeader contract={contract.data} />}
       <ul className="plain-list">
-        {methods.data.methods.map((method) => (
+        {propres.map((method) => (
           <MethodCard
             key={`${method.source}:${method.mode}`}
             method={method}

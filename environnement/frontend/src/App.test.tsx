@@ -20,7 +20,10 @@ const SANTE = {
   expected_schema_version: 8,
 };
 // Les écrans du menu, et la requête qui prouve que chacun s'est réellement ouvert.
-const ECRANS: { nom: string; libelle: string; appel: string }[] = [
+// `titre` n'est porté que par le service d'ingestion : sa requête d'état est désormais
+// faite par le MENU lui-même, qui y lit les sources à lister, donc la trouver ne prouve
+// plus que l'écran s'est ouvert. C'est son titre qui le prouve.
+const ECRANS: { nom: string; libelle: string; appel: string; titre?: string }[] = [
   { nom: "pairing", libelle: "Pairing", appel: "GET /api/identity/pairing/state" },
   { nom: "storages", libelle: "Storage spaces", appel: "GET /api/storages" },
   { nom: "apikeys", libelle: "API keys", appel: "GET /api/api-keys" },
@@ -28,6 +31,7 @@ const ECRANS: { nom: string; libelle: string; appel: string }[] = [
     nom: "ingestion",
     libelle: "Ingestion service",
     appel: "GET /api/ingestion/health",
+    titre: "Ingestion service",
   },
   // La requête porte sa chaîne de paramètres : l'écran borne toujours sa page, et la
   // garde compare la clé EXACTE — un écran qui demanderait tout le journal d'un coup
@@ -155,6 +159,28 @@ const CONNECTE: Routes = {
     status: 200,
     body: { calls: [], total: 0, page: 1, page_size: 50, sources: ["comptes-pudo"] },
   },
+  // La page d'une source lit les méthodes et le contrat publié : sans ces deux routes,
+  // son ouverture rendrait un refus de lecture au lieu de son contrat.
+  "GET /api/ingestion/methods": {
+    status: 200,
+    body: {
+      methods: [
+        {
+          source: "comptes-pudo",
+          storage: "accounts",
+          entry_model: "pudo/accounts",
+          mode: "tableau",
+          path: "/ingest/comptes-pudo/tableau",
+          operation: "/ingest/{source}/{mode}",
+          served: true,
+          request_schema: { type: "object" },
+          model_refusal: null,
+          example: [{ code: "code" }],
+        },
+      ],
+    },
+  },
+  "GET /api/ingestion/contract": { status: 200, body: {} },
   "GET /api/api-keys/sources": { status: 200, body: { sources: ["comptes-pudo"] } },
   "GET /api/auth/cultures": { status: 200, body: [{ code: "en-US", label_native: "English" }] },
 };
@@ -196,7 +222,7 @@ describe("App du module d'environnement", () => {
 
   it.each(ECRANS)(
     "ouvre l'écran $nom depuis son entrée de menu",
-    async ({ libelle, appel }) => {
+    async ({ libelle, appel, titre }) => {
       const calls = monte(CONNECTE);
       const menu = within(await screen.findByRole("navigation"));
 
@@ -204,19 +230,54 @@ describe("App du module d'environnement", () => {
 
       // L'écran s'est ouvert ET a parlé au serveur : une entrée de menu qui ne mène
       // nulle part laisserait ce bouton sans appel, tout en paraissant verte.
-      await screen.findByRole("heading", { level: 1 });
+      if (titre === undefined) {
+        await screen.findByRole("heading", { level: 1 });
+      } else {
+        expect(await screen.findByRole("heading", { level: 1, name: titre })).toBeInTheDocument();
+      }
       expect(calls.map((c) => c.key)).toContain(appel);
     },
   );
 
-  it("n'a aucune entrée de menu de plus que d'écrans déclarés", async () => {
+  it("liste les sources servies sous le service d'ingestion, et ouvre leur page", async () => {
+    const calls = monte(CONNECTE);
+    const menu = within(await screen.findByRole("navigation"));
+
+    // La source vient de la version SERVIE, pas d'une liste tenue dans le code : elle
+    // n'apparaît qu'une fois l'état du service lu.
+    fireEvent.click(await menu.findByRole("button", { name: "comptes-pudo" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "comptes-pudo" }),
+    ).toBeInTheDocument();
+    expect(calls.map((c) => c.key)).toContain("GET /api/ingestion/methods");
+    // La page du service n'est plus celle qui est ouverte : son titre a cédé la place.
+    expect(screen.queryByRole("heading", { level: 1, name: "Ingestion service" })).toBeNull();
+  });
+
+  it("quitte la source quand on choisit un autre écran", async () => {
+    // Sans cette remise à zéro, l'écran choisi serait masqué par la source restée
+    // ouverte, et le menu montrerait deux entrées courantes.
     monte(CONNECTE);
     const menu = within(await screen.findByRole("navigation"));
+    fireEvent.click(await menu.findByRole("button", { name: "comptes-pudo" }));
+    await screen.findByRole("heading", { level: 1, name: "comptes-pudo" });
+
+    fireEvent.click(menu.getByRole("button", { name: "Cultures" }));
+
+    expect(screen.queryByRole("heading", { level: 1, name: "comptes-pudo" })).toBeNull();
+  });
+
+  it("n'a aucune entrée de menu de plus que d'écrans déclarés et de sources servies", async () => {
+    monte(CONNECTE);
+    const menu = within(await screen.findByRole("navigation"));
+    await menu.findByRole("button", { name: "comptes-pudo" });
 
     // La garde du ticket : un écran déclaré mais absent du menu est inatteignable, et
     // une entrée de menu sans écran mène dans le vide. Ici les deux viennent de la même
-    // déclaration, et ce test interdit qu'on les redouble.
-    expect(menu.getAllByRole("button")).toHaveLength(ECRANS.length);
+    // déclaration, et ce test interdit qu'on les redouble. Les sources s'y ajoutent, une
+    // par source de la version servie — la version d'essai n'en déclare qu'une.
+    expect(menu.getAllByRole("button")).toHaveLength(ECRANS.length + 1);
   });
 
   it("ouvre le profil depuis la barre du haut", async () => {

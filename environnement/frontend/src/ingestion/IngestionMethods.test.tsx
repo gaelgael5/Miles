@@ -122,7 +122,7 @@ function monte(routes: Routes) {
   });
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <IngestionMethods />
+      <IngestionMethods source="magasins-import" />
     </QueryClientProvider>,
   );
   return calls;

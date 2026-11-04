@@ -3,17 +3,19 @@ import { useTranslation } from "react-i18next";
 import { useInstant } from "@miles/socle-web";
 
 import { type Health, useIngestionHealth } from "../api/ingestion";
-import { IngestionCalls } from "./IngestionCalls";
-import { IngestionMethods } from "./IngestionMethods";
 
 /**
- * L'écran du service d'ingestion : son état de santé, et le journal des appels
- * (Gael, 02/11/2026).
+ * L'écran du service d'ingestion : son état de santé (Gael, 02/11/2026).
  *
  * « L'état de santé », interrogé, c'était « les deux » : le point d'entrée répond, et
  * les dépôts de masse avancent. **La seconde moitié n'a rien à mesurer**, et cet écran
  * le dit — le mode fichier n'est pas encore servi, donc il n'existe aucune file. Un
  * compteur à zéro laisserait croire qu'on surveille quelque chose.
+ *
+ * Les méthodes et le journal n'y sont plus (Gael, 04/11/2026) : ils appartiennent à une
+ * SOURCE, qui a sa page sous ce service dans le menu. Ce qui reste ici est ce qui vaut
+ * pour toutes — la version servie, les clés, les dépôts — et c'est ce qu'on vient
+ * regarder quand on ne sait pas encore quelle source est en cause.
  */
 export function IngestionScreen() {
   const { t } = useTranslation();
@@ -39,10 +41,6 @@ export function IngestionScreen() {
         <h1 id="ingestion-title">{t("ingestion.title")}</h1>
       </div>
       <ServiceHealth health={health.data} />
-      {/* Les méthodes AVANT le journal : on vient ici pour savoir quoi appeler, et
-          le journal répond à « qu'est-ce qui est arrivé », qui vient après. */}
-      <IngestionMethods />
-      <IngestionCalls />
     </section>
   );
 }

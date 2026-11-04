@@ -163,9 +163,6 @@
     },
     "calls": {
       "title": "Derniers appels",
-      "filter": "Filtre du journal",
-      "source": "Source",
-      "allSources": "Toutes les sources",
       "loading": "Lecture du journal…",
       "unreadable": "Le journal des appels n'a pas pu être lu.",
       "none": "Aucun appel reçu.",
@@ -183,7 +180,7 @@
       "loading": "Lecture des méthodes…",
       "unreadable": "Les méthodes du service n'ont pas pu être lues.",
       "title": "Méthodes",
-      "none": "Aucune méthode : la version servie ne déclare aucune entrée de source.",
+      "none": "Aucune méthode : la version servie ne déclare aucune entrée pour cette source.",
       "notServed": "Cette méthode est déclarée par le paramétrage et n'est pas encore servie : un dépôt y serait refusé.",
       "form": "Essayer {{path}}",
       "body": "Corps à déposer",
@@ -214,6 +211,12 @@
       "shape": "Corps rendu en {{status}}",
       "responsesDetail": "Ce que chaque réponse dit",
       "schemas": "Schémas"
+    },
+    "source": {
+      "intro": "Une source d'ingestion : ce qu'elle promet à qui la branche, et ce qu'elle a reçu.",
+      "tabs": "Vues de la source",
+      "contract": "Contrat",
+      "calls": "Journal"
     },
     "contract": {
       "title": "Contrat publié, version {{version}} — à lire avant de brancher une intégration",
