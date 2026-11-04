@@ -21,6 +21,7 @@ from miles_socle.signing.protocol import PAIRING_REVOKED_PATH
 from environnement.app import build_app
 from environnement.hosting.api_peer_hosting import router as peer_hosting_router
 from environnement.identity.service import PEER_PING_PATH
+from environnement.ingestion.api_maintenance import IMPORTS_MAINTENANCE_PATH
 
 
 def test_une_route_sans_session_est_refusee(client_avec_admin: TestClient) -> None:
@@ -129,8 +130,8 @@ def test_le_refus_d_un_appel_de_pair_ne_dit_pas_ce_qui_peche(
     assert refus == {"signature_refusee"}
 
 
-def test_la_route_d_entretien_des_journaux_est_LA_SEULE_ouverte_par_secret_de_stack() -> None:
-    """Deux listes de passage, et une seule route dans la seconde.
+def test_les_routes_d_entretien_sont_LES_SEULES_ouvertes_par_secret_de_stack() -> None:
+    """Deux listes de passage, et deux routes d'entretien dans la seconde.
 
     `system_api_paths` est distincte de `signed_api_paths` : une signature prouve l'identité
     d'un pair par une clé échangée à l'appariement, un secret de stack ne prouve que
@@ -139,7 +140,11 @@ def test_la_route_d_entretien_des_journaux_est_LA_SEULE_ouverte_par_secret_de_st
     """
     app = build_app()
 
-    assert app.state.system_api_paths == {MAINTENANCE_PATH}
+    # Deux depuis le 04/11/2026 (story `0f14adbd`) : l'entretien des imports de fichier
+    # est appelé par le MÊME déclencheur d'hôte, avec le MÊME secret de stack et la même
+    # garde — deux secrets à injecter pour une même tâche auraient fini par n'en avoir
+    # qu'un de configuré, et la purge serait restée inerte sans que rien ne le dise.
+    assert app.state.system_api_paths == {MAINTENANCE_PATH, IMPORTS_MAINTENANCE_PATH}
     # Le jeton, lui, est posé par la durée de vie et non par la construction : qu'il soit
     # nul par défaut — route inerte — est éprouvé par la suite du socle, qui monte la route
     # sans jeton, et par les tests d'intégration sur une base réelle.

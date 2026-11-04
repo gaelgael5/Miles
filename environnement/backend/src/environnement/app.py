@@ -43,8 +43,16 @@ from environnement.hosting.service import HostingService
 from environnement.identity.api_identity import router as environment_router
 from environnement.identity.service import IdentityService
 from environnement.ingestion.api_ingest import router as ingest_router
+from environnement.ingestion.api_ingest_file import router as ingest_file_router
+from environnement.ingestion.api_maintenance import IMPORTS_MAINTENANCE_PATH
+from environnement.ingestion.api_maintenance import router as ingestion_maintenance_router
 from environnement.ingestion.api_overview import router as ingestion_overview_router
 from environnement.ingestion.api_trial import router as ingestion_trial_router
+from environnement.ingestion.deposit_files import FileDeposits
+from environnement.ingestion.fileimport import FileImports, ImportLimits
+from environnement.ingestion.files import DepositedFiles
+from environnement.ingestion.imports import ImportLauncher, pooled_storage_of
+from environnement.ingestion.maintenance import ImportsMaintenance
 from environnement.ingestion.methods import IngestionMethods
 from environnement.ingestion.overview import IngestionOverview
 from environnement.ingestion.service import IngestionService
@@ -55,6 +63,10 @@ from environnement.storages.service import StoragesService
 log = structlog.get_logger(__name__)
 # Un fournisseur lent ne doit pas retenir un utilisateur indéfiniment sur la connexion.
 OIDC_HTTP_TIMEOUT_S = 5.0
+# Nombre de rejets gardés au compte-rendu d'un import de fichier. Non paramétrable, à la
+# différence des bornes d'exploitation : c'est la lisibilité d'un écran qui le fixe, pas le
+# disque. Les COMPTES restent exacts au-delà, et l'anomalie dit que le détail est plafonné.
+IMPORT_DETAIL_CAP = 200
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
 
@@ -137,6 +149,49 @@ def create_app() -> FastAPI:
         app.state.ingestion_trial = IngestionTrial(
             pool, app.state.ingestion_self_key, catalog, utc_now
         )
+        # Le mode gros fichier (story 0f14adbd). Le dépôt pose le document sur le disque
+        # de la stack et met l'import en file ; l'import se déroule ensuite, hors de
+        # l'appel, parce que le contrat publié ne promet au mode fichier qu'un
+        # acquittement de prise en charge.
+        fichiers = DepositedFiles(
+            root=settings.ingestion_files_dir,
+            max_bytes=settings.ingestion_file_max_bytes,
+            quota_bytes=settings.ingestion_files_quota_bytes,
+        )
+        app.state.ingestion_files = fichiers
+        imports = FileImports(
+            pool,
+            tree,
+            fichiers,
+            catalog,
+            utc_now,
+            ImportLimits(
+                metadata_budget=settings.ingestion_metadata_budget,
+                apply_seconds=settings.ingestion_apply_seconds,
+                detail_cap=IMPORT_DETAIL_CAP,
+                transform_budget=settings.transform_budget,
+            ),
+        )
+        app.state.ingestion_file_imports = imports
+        app.state.ingestion_file_deposits = FileDeposits(
+            pool, tree, app.state.api_keys, fichiers, catalog, utc_now
+        )
+        # Le lancement ne fait pas attendre le déposant, et ce qui tient le multi-instance
+        # est le verrou en BASE du drain, pas le fait qu'il n'y ait qu'un processus.
+        app.state.ingestion_imports = ImportLauncher(
+            drain=imports.resolve_drain, storage_of=pooled_storage_of(pool)
+        )
+        # L'entretien, appelé par un déclencheur d'HÔTE comme celui des journaux : il
+        # rattrape les imports qu'un arrêt a laissés en cours et purge les documents
+        # conservés. Sans lui, une tâche tuée avec le conteneur serait une promesse que
+        # le redéploiement casse.
+        app.state.ingestion_maintenance = ImportsMaintenance(
+            pool,
+            fichiers,
+            utc_now,
+            settings.ingestion_files_retention_days,
+            imports.resolve_drain,
+        )
         # La pose d'une version matérialise les tables de ses storages. Un crochet, et
         # non un appel direct : l'hébergement sait poser un arbre et dire qu'il vient
         # de le poser, il n'a rien à savoir des storages.
@@ -199,11 +254,19 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(api_keys_router)
     app.include_router(ingestion_overview_router)
     app.include_router(ingestion_trial_router)
+    # L'entretien des imports, appelé par un déclencheur d'HÔTE : ni cookie ni personne
+    # derrière. Il vit dans /api et le portillon le laisse passer par `system_api_paths`,
+    # déclaré ci-dessous DEPUIS la constante du routeur qui le porte.
+    app.include_router(ingestion_maintenance_router)
     # HORS de `/api`, donc hors du portillon de sessions : la seule surface de ce
     # module ouverte à un système TIERS, et elle s'authentifie elle-même par clé
     # d'API avant de lire quoi que ce soit. `test_app.py` garde cette liste : toute
     # autre route posée hors de `/api` fera rougir, et c'est exactement ce qu'on veut
     # — une route hors du portillon est une décision, jamais un oubli.
+    # AVANT le routeur générique : le mode fichier a son chemin LITTÉRAL, et un chemin
+    # littéral doit l'emporter sur un chemin à paramètre — sinon `fichier` tomberait sur
+    # la route générique, qui lit le corps entier en mémoire.
+    app.include_router(ingest_file_router)
     app.include_router(ingest_router)
     # Routes authentifiées par SIGNATURE, et le portillon ne les laisse passer que parce
     # qu'elles le sont. La liste est DÉRIVÉE du routeur qui les porte, jamais retapée :
@@ -220,7 +283,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     # pair par une clé échangée à l'appariement, un secret de stack ne prouve que
     # l'appartenance à la stack. Les confondre laisserait un chemin déclaré pour l'un
     # s'ouvrir par le mécanisme de l'autre.
-    app.state.system_api_paths = frozenset({MAINTENANCE_PATH})
+    app.state.system_api_paths = frozenset({MAINTENANCE_PATH, IMPORTS_MAINTENANCE_PATH})
     app.state.signed_api_paths = frozenset(
         route.path
         for routeur in (peer_router, peer_hosting_router)

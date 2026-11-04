@@ -30,8 +30,10 @@ ALTER TABLE ingestions ADD COLUMN storage text;
 -- Le chemin complet n'est PAS en base : il dépend du volume monté, qui est une
 -- configuration de déploiement, et une base restaurée ailleurs ne doit pas désigner un
 -- répertoire qui n'existe plus là-bas.
+-- La TAILLE du fichier n'a pas sa colonne : c'est `size_bytes`, qui dit déjà « ce qui a
+-- été déposé » pour les trois modes. Deux colonnes auraient fini par ne plus dire la même
+-- chose, et c'est celle qui survit à la purge qu'on veut lire.
 ALTER TABLE ingestions ADD COLUMN file_name text;
-ALTER TABLE ingestions ADD COLUMN file_bytes bigint CHECK (file_bytes IS NULL OR file_bytes >= 0);
 -- L'instant où le fichier a été purgé. L'HISTORIQUE RESTE, et c'est le critère 16 : la
 -- ligne porte alors la mention que le fichier n'est plus disponible, au lieu de disparaître
 -- avec lui — on doit pouvoir lire des mois plus tard qu'un import a eu lieu.

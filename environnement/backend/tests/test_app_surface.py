@@ -14,6 +14,7 @@ from miles_socle.pairing.api_peer import PEER_PING_PATH
 
 from environnement.app import build_app
 from environnement.ingestion.api_ingest import INGEST_PATH
+from environnement.ingestion.api_ingest_file import INGEST_FILE_PATH
 
 from .app_harness import NGINX, chemins_servis
 
@@ -69,10 +70,16 @@ def test_la_SEULE_route_hors_du_portillon_est_le_point_d_entree_d_ingestion() ->
     obliger quelqu'un à venir le dire ici, en écrivant par quoi elle est protégée. Sans
     cette garde, une route d'administration posée hors de `/api` par distraction serait
     ouverte à tous, et verte partout.
+
+    **Il y en a DEUX depuis le 04/11/2026** (story `0f14adbd`) : le mode gros fichier a son
+    chemin littéral, parce qu'il relaie le corps vers le disque au lieu de le lire, et
+    qu'il n'accuse que la prise en charge. Il est protégé par EXACTEMENT la même garde —
+    `resolve_caller`, partagée, avant d'écrire un seul octet — et un test l'affirme pour
+    lui aussi.
     """
     hors_portillon = {chemin for chemin in chemins_servis() if not chemin.startswith("/api/")}
 
-    assert hors_portillon == {INGEST_PATH}
+    assert hors_portillon == {INGEST_PATH, INGEST_FILE_PATH}
 
 
 def test_toute_route_hors_de_l_API_est_RELAYEE_par_le_proxy() -> None:

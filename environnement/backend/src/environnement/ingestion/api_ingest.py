@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse
 from miles_socle.apikeys.presentation import API_KEY_HEADER, key_from_headers
 from pydantic import BaseModel, ConfigDict
 
+from environnement.ingestion.deposits import NotAuthenticated
 from environnement.ingestion.model import (
     REFUSAL_AUCUNE_VERSION,
     REFUSAL_CIBLE_NON_SERVIE,
@@ -38,7 +39,7 @@ from environnement.ingestion.model import (
     Acknowledgement,
     IngestionRefusal,
 )
-from environnement.ingestion.service import IngestionService, NotAuthenticated
+from environnement.ingestion.service import IngestionService
 
 INGEST_PATH = "/ingest/{source}/{mode}"
 # En-tête d'idempotence, au nom conventionnel : un appelant qui rejoue une remise dont
@@ -65,6 +66,12 @@ _STATUS = {
     REFUSAL_LOT_TROP_GRAND: status.HTTP_413_CONTENT_TOO_LARGE,
     REFUSAL_CORPS_TROP_GRAND: status.HTTP_413_CONTENT_TOO_LARGE,
 }
+
+
+def status_of(code: str) -> int:
+    """Le code HTTP de ce refus. Partagé avec la route du mode fichier, qui refuse pour
+    les mêmes raisons de paramétrage et doit rendre les mêmes codes."""
+    return _STATUS.get(code, status.HTTP_400_BAD_REQUEST)
 
 
 def ingestion_service(request: Request) -> IngestionService:
@@ -270,7 +277,7 @@ async def deposit(
         )
     except IngestionRefusal as refus:
         return JSONResponse(
-            status_code=_STATUS.get(refus.code, status.HTTP_400_BAD_REQUEST),
+            status_code=status_of(refus.code),
             content={"detail": {"code": refus.code, "detail": refus.detail}},
         )
     # Trois codes, et chacun dit quelque chose que le corps ne dirait qu'après lecture :

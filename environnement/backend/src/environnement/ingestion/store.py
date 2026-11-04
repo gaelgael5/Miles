@@ -21,7 +21,12 @@ class IngestionDb(Protocol):
     async def execute(self, query: str, *args: Any) -> str: ...
 
 
-def _ack(row: Any, *, replayed: bool) -> Acknowledgement:
+def ack_of(row: Any, *, replayed: bool) -> Acknowledgement:
+    """L'accusé lu d'une ligne. Public : `store_imports` lit les mêmes colonnes.
+
+    Partagé plutôt que recopié — les deux modules rendent le MÊME accusé, et une seconde
+    lecture aurait fini par oublier une colonne ajoutée d'un seul côté.
+    """
     # Une colonne `jsonb` revient d'asyncpg en CHAÎNE, pas en dictionnaire : le journal du
     # socle le sait déjà, et un test l'avait appris à ses dépens le 28/10/2026. Lire sans
     # convertir comparerait des caractères.
@@ -81,7 +86,7 @@ async def db_record_ingestion(
         idempotency_key,
         json.dumps(objects),
     )
-    return _ack(row, replayed=False)
+    return ack_of(row, replayed=False)
 
 
 async def db_ingestion_by_idempotency(
@@ -96,7 +101,7 @@ async def db_ingestion_by_idempotency(
     row = await db.fetchrow(
         f"{_SELECT} WHERE key_id = $1 AND idempotency_key = $2", key_id, idempotency_key
     )
-    return None if row is None else _ack(row, replayed=True)
+    return None if row is None else ack_of(row, replayed=True)
 
 
 async def db_mark_processed(
@@ -115,12 +120,12 @@ async def db_mark_processed(
         state,
         json.dumps(report.as_json(), ensure_ascii=False),
     )
-    return _ack(row, replayed=False)
+    return ack_of(row, replayed=False)
 
 
 async def db_ingestion(db: IngestionDb, ingestion_id: str) -> Acknowledgement | None:
     row = await db.fetchrow(f"{_SELECT} WHERE id = $1", ingestion_id)
-    return None if row is None else _ack(row, replayed=False)
+    return None if row is None else ack_of(row, replayed=False)
 
 
 @dataclass(frozen=True)

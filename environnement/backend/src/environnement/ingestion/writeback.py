@@ -28,24 +28,19 @@ from miles_socle.events.journal import EventDb, db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles_socle.parametrage.layout import MODEL_RE
 from miles_socle.parametrage.refs import ReadFile
-from miles_socle.transform.chain import Chain, ChainFailedError, run_chain
+from miles_socle.transform.chain import Chain
 
 from environnement.ingestion.chains import ChainUnreadable, file_load_chain
-from environnement.ingestion.conformance import ModelViolation, check_conformance
-from environnement.ingestion.fingerprint import fingerprint
-from environnement.ingestion.keys import KeyNotExtractable, key_of
 from environnement.ingestion.outcome import (
     ANOMALY_DUPLICATE_KEY,
-    REJECT_KEY_MISSING,
     REJECT_MANUAL,
-    REJECT_MODEL,
-    REJECT_TRANSFORM,
     REJECTED,
     UNCHANGED,
     WRITTEN,
     ObjectOutcome,
     Report,
 )
+from environnement.ingestion.preparation import PreparedObject, prepare_object
 from environnement.ingestion.store_objects import ObjectsDb, db_write_object
 from environnement.storages.declarations import file_declared, file_model_schema
 from environnement.storages.model import StorageTable
@@ -178,41 +173,56 @@ async def _schema(read: ReadFile, table: StorageTable) -> Any:
 async def _one(
     processing: Processing, prepared: Prepared, rang: int, source: dict[str, object]
 ) -> ObjectOutcome:
-    table, schema = prepared.table, prepared.schema
-    try:
-        trace = run_chain(prepared.chain, source, processing.budget)
-    except ChainFailedError as echec:
-        # Le rang de l'étape ET le code de l'erreur du moteur : « transformation en
-        # échec » sans eux n'envoie nulle part sur une chaîne de plusieurs étapes.
-        detail = f"etape {echec.step}: {echec.cause.code}"
-        return ObjectOutcome(rang, REJECTED, None, REJECT_TRANSFORM, detail)
-    # Le message après la dernière étape. Une chaîne sans étape rend la trace vide, et
-    # l'objet source est alors le résultat — voir `file_load_chain`.
-    objet = trace[-1] if trace else source
-    try:
-        check_conformance(objet, schema)
-    except ModelViolation as ecart:
-        return ObjectOutcome(rang, REJECTED, None, REJECT_MODEL, ecart.detail)
-    try:
-        cle = key_of(objet, table.keys)
-    except KeyNotExtractable as manque:
-        return ObjectOutcome(rang, REJECTED, None, REJECT_KEY_MISSING, manque.detail)
-    maintenant = processing.now()
+    item = prepare_object(
+        prepared.chain,
+        prepared.schema,
+        prepared.table.keys,
+        rang,
+        source,
+        processing.budget,
+    )
+    return await write_prepared(processing, prepared.table, item)
+
+
+async def write_prepared(
+    processing: Processing, table: StorageTable, item: PreparedObject
+) -> ObjectOutcome:
+    """Écrit un item PRÉPARÉ et rend son sort. La transaction est celle de l'appelant.
+
+    **Partagée par les deux modes**, et c'est tout l'objet de la séparation : le mode
+    gros fichier a préparé ses items hors transaction, des minutes plus tôt, et il doit
+    les écrire par le même code — y compris la garde de l'objet d'origine manuelle, qui
+    est une règle et non un détail d'implémentation.
+    """
+    if not item.writable:
+        return item.rejection()
     resultat = await db_write_object(
         processing.db,
         table,
-        key=cle,
-        objet=objet,
-        empreinte=fingerprint(objet),
-        now=maintenant,
+        key=_demanded(item.key),
+        objet=item.objet,
+        empreinte=_demanded(item.empreinte),
+        now=processing.now(),
         model_version=processing.model_version,
     )
     if resultat.refused:
-        return ObjectOutcome(rang, REJECTED, cle, REJECT_MANUAL)
+        return ObjectOutcome(item.position, REJECTED, item.key, REJECT_MANUAL)
     if resultat.written:
-        await _journalise(processing, table, cle, created=resultat.created)
-        return ObjectOutcome(rang, WRITTEN, cle)
-    return ObjectOutcome(rang, UNCHANGED, cle)
+        await _journalise(processing, table, _demanded(item.key), created=resultat.created)
+        return ObjectOutcome(item.position, WRITTEN, item.key)
+    return ObjectOutcome(item.position, UNCHANGED, item.key)
+
+
+def _demanded[T](value: T | None) -> T:
+    """Exige ce qu'un item écrivable porte forcément. Jamais de repli sur une valeur vide.
+
+    Un repli écrirait un objet sous une clé vide ou sans empreinte, c'est-à-dire un objet
+    que le prochain import considérerait comme changé. Mieux vaut lever : l'invariant est
+    porté par `writable`, et la contrainte de l'aire de préparation le dit aussi.
+    """
+    if value is None:
+        raise ValueError("item préparé incomplet : clé ou empreinte manquante")
+    return value
 
 
 async def _journalise(

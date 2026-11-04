@@ -34,10 +34,23 @@ REJECT_MANUAL = "objet_d_origine_manuelle"
 # gagne (décision du 02/11/2026), et le compte-rendu le signale explicitement plutôt que
 # d'écrire le dernier en silence (critère 8).
 ANOMALY_DUPLICATE_KEY = "cle_en_double_dans_le_lot"
+# Le détail objet par objet a été PLAFONNÉ. Dit, parce qu'un compte-rendu tronqué en
+# silence ferait croire à un import de cinquante mille items qu'il n'a eu que deux cents
+# rejets. Les COMPTES, eux, restent exacts.
+ANOMALY_DETAIL_CAPPED = "detail_plafonne"
 
 # État d'une ingestion, au-delà de « reçu » que la réception pose.
 STATE_PROCESSED = "traite"
 STATE_FAILED = "rejete"
+# États propres à l'import d'un FICHIER, qui est asynchrone (story 0f14adbd) : le contrat
+# publié ne lui promet qu'un acquittement de prise en charge.
+STATE_QUEUED = "en_file"
+STATE_RUNNING = "en_cours"
+# « incomplet » : le document s'est interrompu et la transaction n'était PAS unifiée, donc
+# les items valides lus avant l'incident sont écrits (critère 8). C'est l'état que le
+# balayage refuse, et il se distingue de « echec », où rien n'a été écrit.
+STATE_PARTIAL = "incomplet"
+STATE_FAILED_IMPORT = "echec"
 
 
 @dataclass(frozen=True)
@@ -72,18 +85,23 @@ class Report:
     received: int
     objects: list[ObjectOutcome] = field(default_factory=list)
     anomalies: list[str] = field(default_factory=list)
+    # Comptes TENUS au fil de l'écriture, pour un lot dont on ne garde pas le détail objet
+    # par objet — un import de fichier peut porter cinquante mille items, et son
+    # compte-rendu est rangé en base. Nuls quand `objects` porte tout le lot : les comptes
+    # s'en déduisent alors, et il n'y a pas deux vérités à tenir d'accord.
+    tallies: dict[str, int] | None = None
 
     @property
     def written(self) -> int:
-        return sum(1 for o in self.objects if o.outcome == WRITTEN)
+        return self._count(WRITTEN)
 
     @property
     def unchanged(self) -> int:
-        return sum(1 for o in self.objects if o.outcome == UNCHANGED)
+        return self._count(UNCHANGED)
 
     @property
     def rejected(self) -> int:
-        return sum(1 for o in self.objects if o.outcome == REJECTED)
+        return self._count(REJECTED)
 
     @property
     def all_rejected(self) -> bool:
@@ -95,6 +113,28 @@ class Report:
         """
         return self.received > 0 and self.rejected == self.received
 
+    def counted(self, issue: ObjectOutcome, *, keep: int) -> None:
+        """Compte cet item en ne gardant du détail que les REJETS, et au plus `keep`.
+
+        Les rejets seuls, parce que ce sont les seuls que personne ne peut retrouver
+        autrement : un objet écrit est dans la table de son storage, un objet inchangé y
+        est déjà. Et plafonnés, parce que le compte-rendu est rangé en base — garder
+        cinquante mille lignes de détail par import ferait de la colonne un journal.
+        Le plafond atteint est DIT dans les anomalies, jamais tu.
+        """
+        if self.tallies is None:
+            self.tallies = dict.fromkeys((WRITTEN, UNCHANGED, REJECTED), 0)
+        self.tallies[issue.outcome] += 1
+        self.received += 1
+        if issue.outcome != REJECTED:
+            return
+        if len(self.objects) < keep:
+            self.objects.append(issue)
+            return
+        marque = f"{ANOMALY_DETAIL_CAPPED}:{keep}"
+        if marque not in self.anomalies:
+            self.anomalies.append(marque)
+
     def as_json(self) -> dict[str, Any]:
         return {
             "received": self.received,
@@ -104,6 +144,11 @@ class Report:
             "objects": [o.as_json() for o in self.objects],
             "anomalies": self.anomalies,
         }
+
+    def _count(self, outcome: str) -> int:
+        if self.tallies is not None:
+            return self.tallies[outcome]
+        return sum(1 for o in self.objects if o.outcome == outcome)
 
 
 def report_of(data: Any) -> Report:
@@ -124,4 +169,16 @@ def report_of(data: Any) -> Report:
         )
         for o in data["objects"]
     ]
-    return Report(received=int(data["received"]), objects=objets, anomalies=list(data["anomalies"]))
+    return Report(
+        received=int(data["received"]),
+        objects=objets,
+        anomalies=list(data["anomalies"]),
+        # Les comptes sont RELUS et non recomptés depuis `objects` : un compte-rendu
+        # d'import de fichier ne garde que ses rejets, et les recompter dirait qu'aucun
+        # objet n'a été écrit.
+        tallies={
+            WRITTEN: int(data["written"]),
+            UNCHANGED: int(data["unchanged"]),
+            REJECTED: int(data["rejected"]),
+        },
+    )

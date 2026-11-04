@@ -35,14 +35,13 @@ import structlog
 from miles_socle.apikeys.model import KEY_DIRECTORY
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
-from miles_socle.parametrage.sources import NAME_RE
 
 from environnement.apikeys.model import KeyPrincipal
 from environnement.apikeys.service import ApiKeysService
 from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.store import db_get_hosted_version
+from environnement.ingestion.deposits import accepts_json, resolve_caller
 from environnement.ingestion.model import (
-    CONTENT_TYPE,
     INGESTION_OBJECT_KIND,
     RECEIVED_EVENT,
     REFUSAL_AUCUNE_VERSION,
@@ -75,14 +74,6 @@ log = structlog.get_logger(__name__)
 IDEMPOTENCY_RE = re.compile(r"^[A-Za-z0-9._:-]{1,200}$")
 
 
-class NotAuthenticated(Exception):
-    """Un seul refus pour toutes les raisons : forme, clé inconnue, révoquée, sans octroi.
-
-    Les distinguer offrirait un oracle — savoir qu'une clé existe, ou qu'une source est
-    déclarée. La raison précise est au journal, où elle sert au diagnostic.
-    """
-
-
 @dataclass(frozen=True)
 class IngestionService:
     pool: asyncpg.Pool
@@ -105,8 +96,8 @@ class IngestionService:
         idempotency_key: str | None,
     ) -> Acknowledgement:
         """Reçoit un lot sur l'entrée que l'adresse désigne, et rend son accusé."""
-        principal = await self._caller(source, mode, presented)
-        if not _is_json(content_type):
+        principal = await resolve_caller(self.keys, source, mode, presented)
+        if not accepts_json(content_type):
             raise IngestionRefusal(REFUSAL_TYPE_DE_CONTENU, content_type or "")
         if idempotency_key is not None and not IDEMPOTENCY_RE.match(idempotency_key):
             # Elle devient une clé d'unicité en base : validée avant tout usage.
@@ -123,20 +114,6 @@ class IngestionService:
         except NotServed as refus:
             raise IngestionRefusal(REFUSAL_CIBLE_NON_SERVIE, refus.detail) from None
         return await self._persist(cible, prepare, principal, objets, len(body), idempotency_key)
-
-    async def _caller(self, source: str, mode: str, presented: str | None) -> KeyPrincipal:
-        """L'appelant, ou un refus unique. **Avant toute lecture de la version servie.**"""
-        if not NAME_RE.match(source):
-            # Validé avant tout usage en chemin de fichier ou en identifiant. Et refusé
-            # comme une clé invalide : un nom mal formé n'apprend rien de plus à
-            # l'appelant que « tu n'entres pas ».
-            log.info("depot_refuse", raison="source_mal_formee", mode=mode)
-            raise NotAuthenticated
-        principal = await self.keys.resolve_authenticate(presented, source)
-        if principal is None:
-            # La raison précise est déjà au journal, écrite par le vérificateur.
-            raise NotAuthenticated
-        return principal
 
     async def _declared(self, paths: list[str]) -> Any:
         return await file_declared_sources(self.tree.file_text, paths)
@@ -275,17 +252,6 @@ class IngestionService:
             proprietes,
         )
         await db_write_event(conn, event, self.catalog, self.now)
-
-
-def _is_json(content_type: str | None) -> bool:
-    """Le type de contenu attendu, paramètres admis (`; charset=utf-8`).
-
-    Exigé plutôt que deviné : un client qui poste un formulaire ou du XML doit l'apprendre
-    de nous, pas d'une erreur d'analyse syntaxique qui parlerait d'une accolade.
-    """
-    if content_type is None:
-        return False
-    return content_type.split(";")[0].strip().lower() == CONTENT_TYPE
 
 
 async def _raw_objects(conn: Any, ingestion_id: str) -> list[dict[str, object]]:

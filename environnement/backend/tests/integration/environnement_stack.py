@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Coroutine
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import asyncpg
 import httpx
@@ -13,12 +14,17 @@ from miles_socle.testing.stack import open_socle_stack, utc_now
 
 from environnement.apikeys.self_key import SelfKeyService
 from environnement.apikeys.service import ApiKeysService
-from environnement.app import build_app
+from environnement.app import IMPORT_DETAIL_CAP, build_app
 from environnement.config import DEFAULT_MIGRATIONS_DIR, Settings
 from environnement.event_types import code_event_types
 from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
 from environnement.identity.service import IdentityService
+from environnement.ingestion.deposit_files import FileDeposits
+from environnement.ingestion.fileimport import FileImports, ImportLimits
+from environnement.ingestion.files import DepositedFiles
+from environnement.ingestion.imports import ImportLauncher, pooled_storage_of
+from environnement.ingestion.maintenance import ImportsMaintenance
 from environnement.ingestion.methods import IngestionMethods
 from environnement.ingestion.overview import IngestionOverview
 from environnement.ingestion.service import IngestionService
@@ -61,10 +67,26 @@ class EnvironnementStack:
     ingestion_methods: IngestionMethods
     ingestion_self_key: SelfKeyService
     ingestion_trial: IngestionTrial
+    ingestion_files: DepositedFiles
+    ingestion_file_deposits: FileDeposits
+    ingestion_file_imports: FileImports
+    ingestion_imports: ImportLauncher
+    ingestion_maintenance: ImportsMaintenance
     tree: HostedTree
+    # Les imports LANCÉS mais pas encore déroulés. En production c'est une tâche détachée ;
+    # ici on les garde pour que le test décide QUAND l'import tourne — un test qui
+    # n'attend pas une tâche de fond ne prouve rien de son résultat (leçon du 24/10/2026
+    # sur les tests d'intégration jamais lancés), et c'est aussi ce qui permet de vérifier
+    # que le dépôt rend son accusé AVANT que rien ne soit lu.
+    lancements: list[Coroutine[Any, Any, Any]] = field(default_factory=list)
 
     def anonymous(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url=BASE_URL)
+
+    async def resolve_imports(self) -> None:
+        """Déroule les imports lancés, dans l'ordre où ils l'ont été."""
+        while self.lancements:
+            await self.lancements.pop(0)
 
 
 @asynccontextmanager
@@ -75,6 +97,10 @@ async def open_stack(
     admin_email: str | None = ADMIN_EMAIL,
     public_url: str = PUBLIC_URL,
     peer_app: FastAPI | None = None,
+    file_max_bytes: int | None = None,
+    files_quota_bytes: int | None = None,
+    retention_days: int | None = None,
+    apply_seconds: float | None = None,
 ) -> AsyncIterator[EnvironnementStack]:
     """Monte le produit sur une base réelle, sans passer par uvicorn.
 
@@ -157,6 +183,49 @@ async def open_stack(
             socle.app.state.ingestion_self_key = self_key
             essai = IngestionTrial(socle.pool, self_key, socle.catalog, utc_now)
             socle.app.state.ingestion_trial = essai
+            # Le mode gros fichier. Les bornes viennent de la CONFIGURATION du produit,
+            # comme en production ; seul le répertoire est sous `tmp_path`, pour partir
+            # avec le test. Un test qui veut éprouver un refus de quota monte sa propre
+            # borne en argument plutôt que de déformer celle-ci.
+            fichiers = DepositedFiles(
+                root=tmp_path / "ingestion",
+                max_bytes=file_max_bytes or _defaut("ingestion_file_max_bytes"),
+                quota_bytes=files_quota_bytes or _defaut("ingestion_files_quota_bytes"),
+            )
+            socle.app.state.ingestion_files = fichiers
+            imports = FileImports(
+                socle.pool,
+                tree,
+                fichiers,
+                socle.catalog,
+                utc_now,
+                ImportLimits(
+                    metadata_budget=_defaut("ingestion_metadata_budget"),
+                    apply_seconds=apply_seconds or float(_defaut("ingestion_apply_seconds")),
+                    detail_cap=IMPORT_DETAIL_CAP,
+                    transform_budget=_budget_par_defaut(),
+                ),
+            )
+            socle.app.state.ingestion_file_imports = imports
+            depots = FileDeposits(socle.pool, tree, api_keys, fichiers, socle.catalog, utc_now)
+            socle.app.state.ingestion_file_deposits = depots
+            lancements: list[Coroutine[Any, Any, Any]] = []
+            lanceur = ImportLauncher(
+                drain=imports.resolve_drain,
+                storage_of=pooled_storage_of(socle.pool),
+                spawn=lancements.append,
+            )
+            socle.app.state.ingestion_imports = lanceur
+            entretien = ImportsMaintenance(
+                socle.pool,
+                fichiers,
+                utc_now,
+                retention_days
+                if retention_days is not None
+                else _defaut("ingestion_files_retention_days"),
+                imports.resolve_drain,
+            )
+            socle.app.state.ingestion_maintenance = entretien
             # Rien n'est engendré ici, et c'est fidèle au démarrage réel : l'identité naît
             # au premier USAGE. Un montage qui la créerait d'avance cacherait justement le
             # cas que la machine de test a révélé.
@@ -175,8 +244,23 @@ async def open_stack(
                 methodes,
                 self_key,
                 essai,
+                fichiers,
+                depots,
+                imports,
+                lanceur,
+                entretien,
                 tree,
+                lancements,
             )
+
+
+def _defaut(champ: str) -> int:
+    """La valeur que la CONFIGURATION du produit pose pour ce champ.
+
+    Lue du champ et non recopiée, pour la même raison que le budget d'évaluation : un
+    harnais qui réécrit une valeur de production éprouve autre chose qu'elle.
+    """
+    return int(Settings.model_fields[champ].default)
 
 
 def _budget_par_defaut() -> int:

@@ -25,6 +25,11 @@ INGESTION_OBJECT_KIND = "ingestion"
 STATE_RECEIVED = "recu"
 
 CONTENT_TYPE = "application/json"
+# Les types admis pour un dépôt de FICHIER. Le flux d'octets en plus du JSON : un outil qui
+# pousse un fichier n'annonce souvent rien de mieux, et le refuser l'obligerait à mentir sur
+# son type pour déposer le même document.
+OCTET_STREAM = "application/octet-stream"
+FILE_CONTENT_TYPES = frozenset({CONTENT_TYPE, OCTET_STREAM})
 # Taille maximale du corps reçu. Le mode `tableau` est plafonné à 200 objets ; cette borne
 # est la seconde, en OCTETS, et elle existe parce que le compte d'objets ne se connaît
 # qu'après avoir tout lu. Sans elle, un corps de plusieurs gigaoctets serait chargé en
