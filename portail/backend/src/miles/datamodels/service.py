@@ -9,9 +9,9 @@ import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.parametrage.example import example_of
 from miles_socle.parametrage.refs import inline_refs
 
-from miles.datamodels.example import example_of
 from miles.datamodels.grammar import ModelGrammarError, Problem, load_yaml
 from miles.datamodels.layout import (
     SHARED,

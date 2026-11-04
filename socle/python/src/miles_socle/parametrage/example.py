@@ -10,6 +10,12 @@ montrerait pas ce qu'il contient, et c'est justement ce qu'on vient chercher.
 
 Le gabarit montre la STRUCTURE. Rien n'y ressemble à une vraie donnée, et c'est voulu :
 un exemple réaliste finirait recopié en production.
+
+Au socle depuis le 04/11/2026, parce qu'un DEUXIÈME produit en a besoin : l'écran de
+service du module d'environnement propose un corps d'exemple pour essayer ses points
+d'entrée d'ingestion, et il le dérive du modèle d'entrée que la source déclare. La règle
+du dépôt est d'extraire au moment où le second usage apparaît, pas avant. Module PUR —
+ni base, ni disque, ni dépendance au-delà de la bibliothèque standard.
 """
 
 from __future__ import annotations

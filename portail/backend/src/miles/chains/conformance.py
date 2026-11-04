@@ -20,12 +20,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from miles_socle.parametrage.example import MAX_DEPTH
 from miles_socle.transform.engine import TemplateSyntaxError, UnsupportedConstructError, parse_ast
 from urban_json.ast import JsltBase
 from urban_json.ast.kind import JsltKind
 from urban_json.ast.nodes import JsltArray, JsltConstant, JsltFunctionCall, JsltObject
 
-from miles.datamodels.example import MAX_DEPTH
 from miles.datamodels.grammar import load_yaml
 from miles.datamodels.layout import model_path
 from miles.datamodels.navigate import Read, resolved

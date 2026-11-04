@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from miles.datamodels.example import MAX_DEPTH, example_of
+from miles_socle.parametrage.example import MAX_DEPTH, example_of
 
 
 def test_a_string_carries_the_name_of_its_property() -> None:
