@@ -10,14 +10,14 @@ import type { Method, Signature } from "../api/ingestion";
  * les signatures pour tester et faire l'intégration, et la description des contrats pour
  * faire les connexions en amont. » L'essai est le bonus ; la signature est la page.
  *
- * **Tout vient du contrat PUBLIÉ**, lu à l'ouverture — en-têtes, types de contenu, corps
- * attendu, réponses et leurs formes. Rien n'est recopié ici : un en-tête ajouté ou un
- * refus de plus apparaît sans qu'on touche à ce composant, et c'est la seule façon qu'une
- * page de contrat ne mente pas sur le contrat.
+ * **Compacte, et c'est une correction du même jour** — « la présentation de la page est
+ * trop chargée ». D'où la forme retenue : une LIGNE par chose (en-têtes, corps, codes de
+ * réponse), et le détail — schémas, descriptions de chaque réponse — derrière deux replis.
+ * Une page de référence se parcourt d'abord ; on ne déplie que ce qu'on cherche.
  *
- * Le schéma du corps montré est celui du MODÈLE D'ENTRÉE de la source — résolu contre la
- * version servie —, et non le schéma générique du contrat : c'est celui-là que la
- * validation emploiera, et c'est lui qu'un intégrateur doit respecter.
+ * **Tout vient du contrat PUBLIÉ**, lu à l'ouverture. Rien n'est recopié ici : un en-tête
+ * ajouté ou un refus de plus apparaît sans qu'on touche à ce composant, et c'est la seule
+ * façon qu'une page de contrat ne mente pas sur le contrat.
  */
 export function MethodSignature({
   method,
@@ -26,122 +26,102 @@ export function MethodSignature({
   method: Method;
   signature: Signature | undefined;
 }) {
+  const { t } = useTranslation();
+
   if (signature === undefined) {
     // Le contrat n'a pas pu être lu : la méthode reste essayable, mais on ne prétend pas
     // montrer une signature qu'on n'a pas.
     return null;
   }
   return (
-    <div className="card-inset">
+    <>
       {signature.description !== "" && <p className="help">{signature.description}</p>}
-      <Headers signature={signature} />
-      <Body method={method} signature={signature} />
-      <Responses signature={signature} />
-    </div>
-  );
-}
-
-function Headers({ signature }: { signature: Signature }) {
-  const { t } = useTranslation();
-
-  if (signature.parameters.length === 0) {
-    return null;
-  }
-  return (
-    <section>
-      <h4>{t("ingestion.signature.headers")}</h4>
-      <ul className="plain-list">
-        {signature.parameters.map((parametre) => (
-          <li key={parametre.name} className="row">
-            <div className="row-main">
-              <span className="row-title mono">{parametre.name}</span>
-              <div className="row-sub">
-                {parametre.required
-                  ? t("ingestion.signature.required")
-                  : t("ingestion.signature.optional")}
-                {parametre.description !== "" && ` · ${parametre.description}`}
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/**
- * Le corps attendu : ses types de contenu, et sa forme.
- *
- * Les deux schémas sont montrés, et ce n'est pas une redondance : celui du CONTRAT dit ce
- * que l'adresse accepte quel que soit le paramétrage — un objet, un tableau, un document
- * —, celui du MODÈLE dit ce que cette entrée de source valide. Un intégrateur a besoin des
- * deux : le premier pour construire son appel, le second pour construire ses données.
- */
-function Body({ method, signature }: { method: Method; signature: Signature }) {
-  const { t } = useTranslation();
-
-  if (signature.body.length === 0) {
-    return null;
-  }
-  return (
-    <section>
-      <h4>{t("ingestion.signature.body")}</h4>
-      {signature.bodyDescription !== "" && <p className="help">{signature.bodyDescription}</p>}
-      <p className="caption">
-        {t("ingestion.signature.contentTypes")}{" "}
-        {signature.body.map((media) => media.contentType).join(", ")}
-      </p>
-      {method.request_schema !== null && (
-        <details>
-          <summary>
-            {t("ingestion.signature.modelSchema", { model: method.entry_model })}
-          </summary>
-          <pre className="mono">{JSON.stringify(method.request_schema, null, 2)}</pre>
-        </details>
-      )}
+      <dl className="caption">
+        {signature.parameters.length > 0 && (
+          <>
+            <dt>{t("ingestion.signature.headers")}</dt>
+            <dd className="mono">{signature.parameters.map(label(t)).join(" · ")}</dd>
+          </>
+        )}
+        {signature.body.length > 0 && (
+          <>
+            <dt>{t("ingestion.signature.body")}</dt>
+            <dd className="mono">
+              {signature.body.map((media) => media.contentType).join(" · ")}
+            </dd>
+          </>
+        )}
+        <dt>{t("ingestion.signature.responses")}</dt>
+        <dd className="mono">
+          {signature.responses.map((reponse) => reponse.status).join(" · ")}
+        </dd>
+      </dl>
+      <Schemas method={method} signature={signature} />
       <details>
-        <summary>{t("ingestion.signature.contractSchema")}</summary>
-        <pre className="mono">
-          {JSON.stringify(
-            signature.body.map((media) => ({ [media.contentType]: media.schema })),
-            null,
-            2,
-          )}
-        </pre>
+        <summary>{t("ingestion.signature.responsesDetail")}</summary>
+        <ul className="plain-list">
+          {signature.responses.map((reponse) => (
+            <li key={reponse.status} className="row">
+              <div className="row-main">
+                <span className="row-title mono">{reponse.status}</span>
+                <div className="row-sub">{reponse.description}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
       </details>
-    </section>
+    </>
   );
 }
 
+/** Le libellé d'un en-tête : son nom, et s'il est exigé. La description est dans le repli. */
+function label(t: (clef: string) => string) {
+  return (parametre: { name: string; required: boolean }) =>
+    `${parametre.name} (${
+      parametre.required ? t("ingestion.signature.required") : t("ingestion.signature.optional")
+    })`;
+}
+
 /**
- * Les réponses déclarées, avec leur forme.
+ * Les deux schémas, derrière un seul repli.
  *
- * Par MÉTHODE et non une fois pour la page : le mode fichier rend 202 et un accusé sans
- * compte-rendu, les deux autres rendent 201 et le sort de chaque objet. Les mélanger
- * ferait promettre à l'un ce que l'autre tient.
+ * Les deux, et ce n'est pas une redondance : celui du MODÈLE dit ce que cette entrée de
+ * source valide — c'est lui qu'un intégrateur doit respecter —, celui du CONTRAT dit ce
+ * que l'adresse accepte quel que soit le paramétrage. Un seul repli pour les deux, parce
+ * qu'on les ouvre au même moment : quand on écrit le code qui appelle.
  */
-function Responses({ signature }: { signature: Signature }) {
+function Schemas({ method, signature }: { method: Method; signature: Signature }) {
   const { t } = useTranslation();
 
   return (
-    <section>
-      <h4>{t("ingestion.signature.responses")}</h4>
-      <ul className="plain-list">
-        {signature.responses.map((reponse) => (
-          <li key={reponse.status} className="row">
-            <div className="row-main">
-              <span className="row-title mono">{reponse.status}</span>
-              <div className="row-sub">{reponse.description}</div>
-              {reponse.schema !== null && (
-                <details>
-                  <summary>{t("ingestion.signature.shape")}</summary>
-                  <pre className="mono">{JSON.stringify(reponse.schema, null, 2)}</pre>
-                </details>
-              )}
-            </div>
-          </li>
+    <details>
+      <summary>{t("ingestion.signature.schemas")}</summary>
+      {method.request_schema !== null && (
+        <>
+          <p className="caption">
+            {t("ingestion.signature.modelSchema", { model: method.entry_model })}
+          </p>
+          <pre className="mono">{JSON.stringify(method.request_schema, null, 2)}</pre>
+        </>
+      )}
+      <p className="caption">{t("ingestion.signature.contractSchema")}</p>
+      <pre className="mono">
+        {JSON.stringify(
+          Object.fromEntries(signature.body.map((media) => [media.contentType, media.schema])),
+          null,
+          2,
+        )}
+      </pre>
+      {signature.responses
+        .filter((reponse) => reponse.schema !== null)
+        .map((reponse) => (
+          <div key={reponse.status}>
+            <p className="caption">
+              {t("ingestion.signature.shape", { status: reponse.status })}
+            </p>
+            <pre className="mono">{JSON.stringify(reponse.schema, null, 2)}</pre>
+          </div>
         ))}
-      </ul>
-    </section>
+    </details>
   );
 }

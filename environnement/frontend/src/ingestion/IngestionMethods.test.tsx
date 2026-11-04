@@ -258,18 +258,12 @@ describe("les méthodes du service d'ingestion", () => {
     const bloc = (await screen.findByText(/\/ingest\/magasins-import\/tableau/)).closest(
       "li",
     ) as HTMLElement;
-    // Les en-têtes déclarés, avec ce qu'ils garantissent.
-    expect(within(bloc).getByText("Idempotency-Key")).toBeInTheDocument();
-    expect(within(bloc).getByText(/optional/i)).toBeInTheDocument();
-    // Les types de contenu acceptés sur cette adresse. Lu sur la LIGNE qui les annonce :
-    // le schéma du contrat, déplié juste en dessous, porte le même texte.
-    expect(within(bloc).getByText(/Accepted content types:/).textContent).toContain(
-      "application/json",
-    );
-    // Les réponses de CETTE opération, avec leur description.
-    expect(within(bloc).getByText("201")).toBeInTheDocument();
+    // Une LIGNE par chose — en-têtes, corps, codes de réponse : la page se parcourt.
+    expect(within(bloc).getByText(/Idempotency-Key \(optional\)/)).toBeInTheDocument();
+    expect(within(bloc).getByText("application/json")).toBeInTheDocument();
+    expect(within(bloc).getByText("201 · 401")).toBeInTheDocument();
+    // Et ce que chaque réponse dit, derrière un repli.
     expect(within(bloc).getByText(/Lot reçu et traité/)).toBeInTheDocument();
-    expect(within(bloc).getByText("401")).toBeInTheDocument();
   });
 
   it("montre les réponses de la MÉTHODE, et non celles d'une autre", async () => {
@@ -281,13 +275,14 @@ describe("les méthodes du service d'ingestion", () => {
     const fichier = (await screen.findByText(/\/ingest\/magasins-import\/fichier/)).closest(
       "li",
     ) as HTMLElement;
-    expect(within(fichier).getByText("202")).toBeInTheDocument();
+    // Sa ligne de réponses ne porte QUE les siennes : 202, et pas le 201 du mode tableau.
+    const codes = within(fichier).getByText("202", { selector: "dd" });
+    expect(codes.textContent).toBe("202");
     expect(within(fichier).getByText(/Document pris en charge/)).toBeInTheDocument();
-    expect(within(fichier).queryByText("201")).not.toBeInTheDocument();
-    // Et son type de contenu propre : un flux d'octets est admis en plus du JSON.
-    expect(within(fichier).getByText(/Accepted content types:/).textContent).toContain(
-      "application/octet-stream",
-    );
+    // Et son corps propre : un flux d'octets est admis en plus du JSON. Lu sur la LIGNE
+    // du corps — le schéma déclaré, derrière le repli des schémas, porte le même texte.
+    const corps = within(fichier).getByText(/application\/json/, { selector: "dd" });
+    expect(corps.textContent).toContain("application/octet-stream");
   });
 
   it("montre le schéma du MODÈLE d'entrée, celui que la validation emploie", async () => {
@@ -297,9 +292,7 @@ describe("les méthodes du service d'ingestion", () => {
       "li",
     ) as HTMLElement;
 
-    expect(
-      within(bloc).getByText(/Schema of input model pudo\/magasin/i),
-    ).toBeInTheDocument();
+    expect(within(bloc).getByText(/Input model pudo\/magasin/i)).toBeInTheDocument();
   });
 
   it("dit comment s'authentifier, et ce que le contrat garantit, avant tout appel", async () => {

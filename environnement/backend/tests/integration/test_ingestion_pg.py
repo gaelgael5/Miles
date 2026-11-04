@@ -331,11 +331,20 @@ async def test_un_mode_que_l_entree_n_expose_pas_est_refuse_sans_rien_persister(
         assert await stack.pool.fetchval("SELECT count(*) FROM ingestions") == 0
 
 
-async def test_le_mode_fichier_declare_est_refuse_comme_non_servi(
+async def test_le_mode_fichier_coche_SANS_decoupage_est_refuse_en_le_nommant(
     blank_db: str, tmp_path: Path
 ) -> None:
-    """La v2 coche `fichier` sur `comptes-pudo`. Refusé nommément : accepter sans effet
-    laisserait croire qu'un lot a été pris en charge."""
+    """La v2 coche `fichier` sur `comptes-pudo` sans déclarer de découpage.
+
+    Le mode est servi depuis le 04/11/2026 (story `0f14adbd`), mais sans découpage on ne
+    sait pas où sont les items : refusé à la PRISE EN CHARGE, en nommant la pièce qui
+    manque, et rien n'est posé sur le disque.
+
+    **Le profil est confronté ici ALORS QUE le module de paramétrage le refuse déjà à la
+    saisie** : un fichier de source vient de git, que personne ne garantit avoir été écrit
+    par un écran — une branche se modifie aussi à la main. C'est le même fail closed que
+    pour le profil d'écriture des templates.
+    """
     versions = fabrique_parametrage(tmp_path)
     double = EnrolmentDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
@@ -345,7 +354,10 @@ async def test_le_mode_fichier_declare_est_refuse_comme_non_servi(
         refus = await _depose(stack, mode=FILE, cle=cle, corps=[])
 
         assert refus.status_code == 409, refus.text
-        assert refus.json()["detail"]["code"] == "mode_non_servi"
+        detail = refus.json()["detail"]
+        assert detail["code"] == "cible_non_servie"
+        assert detail["detail"].startswith("decoupage_non_streamable")
+        assert await stack.ingestion_files.file_names() == set()
 
 
 async def test_une_source_inconnue_ou_un_mode_inventé_sont_refuses_apres_la_cle(

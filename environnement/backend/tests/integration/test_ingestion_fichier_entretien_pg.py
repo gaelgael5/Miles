@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -228,8 +229,13 @@ async def test_la_purge_de_quota_part_du_plus_ancien_et_epargne_un_import_en_fil
 
     Purger celui-là ferait échouer un import légitime — c'est précisément ce que la
     pression de quota pousse à faire, et ce qu'il ne faut pas faire.
+
+    **Le quota est MESURÉ, pas supposé** : les deux documents sont déposés sous le quota
+    de production, puis l'entretien est monté avec un quota tenu par un seul d'entre eux.
+    Deviner leur taille pour choisir un chiffre aurait fait un test qui passe ou tombe
+    selon la longueur d'un libellé.
     """
-    async with _ouvre(blank_db, tmp_path, files_quota_bytes=200) as (stack, secret):
+    async with _ouvre(blank_db, tmp_path) as (stack, secret):
         vieux = (await _depose(stack, secret, ["M-1"])).json()["id"]
         await stack.resolve_imports()
         recent = (await _depose(stack, secret, ["M-2"])).json()["id"]
@@ -240,13 +246,15 @@ async def test_la_purge_de_quota_part_du_plus_ancien_et_epargne_un_import_en_fil
             vieux,
             timedelta(hours=1),
         )
-        # Le quota est dépassé : deux documents de plus de cent octets chacun.
-        assert await stack.ingestion_files.file_used_bytes() > 200
+        occupe = await stack.ingestion_files.file_used_bytes()
+        serre = replace(stack.ingestion_files, quota_bytes=occupe - 1)
+        entretien = replace(stack.ingestion_maintenance, files=serre)
 
-        rendu = await _entretien(stack)
+        rapport = await entretien.resolve_maintain()
 
-        assert rendu.json()["purged_for_quota"] == 1
+        assert rapport.purged_for_quota == 1
         assert (await _etat(stack, vieux))["file_purged_at"] is not None
+        # Le plus récent reste : son import est en file, et le purger le ferait échouer.
         assert (await _etat(stack, recent))["file_purged_at"] is None
 
 

@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ApiError } from "@miles/socle-web";
@@ -99,20 +99,7 @@ function MethodCard({
   signature: Signature | undefined;
 }) {
   const { t } = useTranslation();
-  // Le corps part du gabarit du modèle, puis appartient à qui le modifie : le resemer
-  // depuis les props écraserait une saisie en cours.
-  const [body, setBody] = useState(() =>
-    method.example === null ? "" : `${JSON.stringify(method.example, null, 2)}\n`,
-  );
   const trial = useTryMethod();
-  // Le mode fichier dépose un DOCUMENT choisi sur le disque, et non un corps saisi : son
-  // découpage désigne un tableau dedans, et un document d'import ne se tape pas.
-  const fichier = method.mode === "fichier";
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    trial.mutate({ source: method.source, mode: method.mode, body });
-  }
 
   return (
     <li className="card">
@@ -126,50 +113,93 @@ function MethodCard({
         {" → "}
         <span className="mono">{method.storage}</span>
       </p>
-      {/* La signature AVANT l'essai : on prépare une intégration en la lisant, on la
-          vérifie en essayant. L'inverse ferait d'une page de contrat un bac à sable. */}
-      <MethodSignature method={method} signature={signature} />
       {method.model_refusal !== null && (
         // Nommé, et non remplacé par un corps vide : la vraie information est qu'une
-        // pièce manque à la version servie, pas que la méthode n'attend rien.
+        // pièce manque à la version servie, pas que la méthode n'attend rien. HORS du
+        // repli, parce qu'une page qui cache ce qui manque ne sert à rien.
         <p className="alert" role="status">
           {t(`ingestion.methods.${method.model_refusal}`, { model: method.entry_model })}
         </p>
       )}
-      {/* Pas de formulaire sans schéma : le point d'entrée refuserait le dépôt entier
-          pour la même raison — la version servie ne porte pas ce qu'il lui faut —, et un
-          bouton promettrait un essai qu'aucune saisie ne peut faire aboutir. */}
-      {!method.served || method.model_refusal !== null ? (
-        !method.served && <p className="muted">{t("ingestion.methods.notServed")}</p>
-      ) : fichier ? (
-        <FileTrialForm
-          method={method}
-          pending={trial.isPending}
-          onDeposit={(choisi) =>
-            trial.mutate({ source: method.source, mode: method.mode, body: choisi })
-          }
-        />
-      ) : (
-        <form onSubmit={submit} aria-label={t("ingestion.methods.form", { path: method.path })}>
-          <label className="field">
-            {t("ingestion.methods.body")}
-            <textarea
-              rows={8}
-              className="mono"
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-            />
-          </label>
-          <div className="actions">
-            <button type="submit" className="btn btn-primary" disabled={trial.isPending}>
-              {trial.isPending ? t("ingestion.methods.depositing") : t("ingestion.methods.deposit")}
-            </button>
-          </div>
-        </form>
-      )}
+      {/* REPLIÉ par défaut (Gael, 04/11/2026 : « la présentation de la page est trop
+          chargée »). La ligne au-dessus suffit à parcourir les méthodes ; la signature et
+          l'essai sont ce qu'on ouvre quand on travaille sur l'une d'elles. La signature
+          AVANT l'essai : on prépare une intégration en la lisant, on la vérifie en
+          essayant — l'inverse ferait d'une page de contrat un bac à sable. */}
+      <details>
+        <summary>{t("ingestion.methods.open")}</summary>
+        <MethodSignature method={method} signature={signature} />
+        <MethodTrial method={method} trial={trial} />
+      </details>
       {trial.isError && <TrialFailure error={trial.error} />}
       {trial.data !== undefined && <TrialResponse trial={trial.data} />}
     </li>
+  );
+}
+
+/**
+ * L'essai d'une méthode : un corps à saisir, ou un fichier à choisir.
+ *
+ * **Pas de geste sans schéma** : le point d'entrée refuserait le dépôt entier pour la même
+ * raison — la version servie ne porte pas ce qu'il lui faut —, et un bouton promettrait un
+ * essai qu'aucune saisie ne peut faire aboutir.
+ */
+function MethodTrial({
+  method,
+  trial,
+}: {
+  method: Method;
+  trial: ReturnType<typeof useTryMethod>;
+}) {
+  const { t } = useTranslation();
+  // Le corps part du gabarit du modèle, puis appartient à qui le modifie : le resemer
+  // depuis les props écraserait une saisie en cours.
+  const [body, setBody] = useState(() =>
+    method.example === null ? "" : `${JSON.stringify(method.example, null, 2)}\n`,
+  );
+
+  if (!method.served) {
+    return <p className="muted">{t("ingestion.methods.notServed")}</p>;
+  }
+  if (method.model_refusal !== null) {
+    return null;
+  }
+  // Le mode fichier dépose un DOCUMENT choisi sur le disque, et non un corps saisi : son
+  // découpage désigne un tableau dedans, et un document d'import ne se tape pas.
+  if (method.mode === "fichier") {
+    return (
+      <FileTrialForm
+        method={method}
+        pending={trial.isPending}
+        onDeposit={(choisi) =>
+          trial.mutate({ source: method.source, mode: method.mode, body: choisi })
+        }
+      />
+    );
+  }
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        trial.mutate({ source: method.source, mode: method.mode, body });
+      }}
+      aria-label={t("ingestion.methods.form", { path: method.path })}
+    >
+      <label className="field">
+        {t("ingestion.methods.body")}
+        <textarea
+          rows={8}
+          className="mono"
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+        />
+      </label>
+      <div className="actions">
+        <button type="submit" className="btn btn-primary" disabled={trial.isPending}>
+          {trial.isPending ? t("ingestion.methods.depositing") : t("ingestion.methods.deposit")}
+        </button>
+      </div>
+    </form>
   );
 }
 

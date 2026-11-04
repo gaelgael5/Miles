@@ -115,11 +115,15 @@ async def test_l_adresse_annoncee_est_CELLE_QUI_ACCEPTE_vraiment(
         assert recu.status_code == 201, recu.text
 
 
-async def test_un_mode_declare_mais_non_servi_est_distingue_et_rien_n_est_a_surveiller(
+async def test_le_mode_fichier_est_annonce_comme_SERVI_et_aucun_mode_ne_reste_en_attente(
     blank_db: str, tmp_path: Path
 ) -> None:
-    """L'afficher comme disponible promettrait un dépôt refusé. Et aucun compteur à zéro
-    sur une file qui n'existe pas : « pas encore servi » est une information."""
+    """Depuis le 04/11/2026, les trois modes sont servis (story `0f14adbd`).
+
+    Ce que l'écran annonce doit être ce que le dépôt accepte : le présenter comme non
+    servi ferait croire à un dépôt refusé, alors qu'il est pris en charge. Et plus aucun
+    mode n'attend son branchement, donc plus rien à signaler à ce titre.
+    """
     versions = fabrique_parametrage(tmp_path)
     double = EnrolmentDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
@@ -130,8 +134,8 @@ async def test_un_mode_declare_mais_non_servi_est_distingue_et_rien_n_est_a_surv
 
         fichier = [p for p in corps["endpoints"] if p["mode"] == FILE]
         assert fichier, "le mode fichier déclaré doit apparaître"
-        assert all(p["served"] is False for p in fichier)
-        assert corps["bulk_modes"] == [FILE]
+        assert all(p["served"] is True for p in fichier)
+        assert corps["bulk_modes"] == []
 
 
 async def test_une_source_illisible_est_nommee_dans_l_ecran(blank_db: str, tmp_path: Path) -> None:

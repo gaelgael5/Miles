@@ -41,7 +41,7 @@ from environnement.ingestion.applystaging import (
 )
 from environnement.ingestion.files import DepositedFiles
 from environnement.ingestion.importtarget import NotImportable, resolve_importable
-from environnement.ingestion.jsonflux import DocumentUnreadable
+from environnement.ingestion.jsonflux import STRUCTURAL, DocumentUnreadable
 from environnement.ingestion.outcome import (
     STATE_FAILED,
     STATE_FAILED_IMPORT,
@@ -213,10 +213,17 @@ class FileImports:
         incident: tuple[str, str | None] | None,
     ) -> None:
         """Écrit l'aire de préparation, ou l'abandonne, et range l'issue de l'import."""
-        if incident is not None and entry.unified_transaction:
-            # Tout ou rien : rien n'est écrit dans le storage — ni corps, ni date de
-            # dernière vue —, l'aire est abandonnée, et l'échec dit combien d'items
-            # avaient été lus avant l'incident (critère 7).
+        if incident is not None and (incident[0] in STRUCTURAL or entry.unified_transaction):
+            # Deux raisons de n'écrire RIEN, et elles ne se confondent pas :
+            #
+            # - le document est structurellement inimportable — le découpage ne désigne
+            #   rien, ou autre chose qu'un tableau : l'import échoue quelle que soit la
+            #   transaction (critère 4), parce qu'aucun item n'a jamais pu être lu ;
+            # - la transaction est unifiée : tout ou rien, même sur une interruption au
+            #   milieu (critère 7).
+            #
+            # Dans les deux cas l'aire est abandonnée, et l'échec dit combien d'items
+            # avaient été lus avant l'incident.
             await db_clear_staging(conn, job.id)
             await self._failed(conn, job, incident[0], incident[1], lus)
             return

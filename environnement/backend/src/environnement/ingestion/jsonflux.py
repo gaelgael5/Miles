@@ -30,6 +30,17 @@ ITEMS_PATH_NOT_ARRAY = "decoupage_ne_designe_pas_un_tableau"
 DOCUMENT_TOO_DEEP = "document_trop_imbrique"
 METADATA_TOO_LARGE = "metadonnees_demesurees"
 
+# Les refus STRUCTURELS : le document ne porte pas ce que la déclaration suppose, ou il
+# dépasse une borne. Distingués d'une INTERRUPTION de lecture, et la distinction décide de
+# l'issue d'un import : un document structurellement inimportable se termine en ÉCHEC sans
+# rien écrire (critère 4), là où un document tronqué au milieu laisse écrits les items lus
+# avant l'incident si la transaction n'est pas unifiée (critère 8). Les confondre ferait
+# marquer « incomplet » un import dont aucun item n'a jamais pu être lu — et le balayage
+# attendrait la suite d'un document qui n'en avait pas.
+STRUCTURAL = frozenset(
+    {ITEMS_PATH_ABSENT, ITEMS_PATH_NOT_ARRAY, DOCUMENT_TOO_DEEP, METADATA_TOO_LARGE}
+)
+
 
 class DocumentUnreadable(Exception):
     """Le document déposé ne se lit pas. `code` est stable, `detail` aide à corriger.

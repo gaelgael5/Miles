@@ -200,18 +200,20 @@
       "modele_invalide": "The input model {{model}} is malformed in the source declaration.",
       "file": "Document to deposit",
       "fileHelp": "The document is written to the stack's disk, then split and imported outside the call: the response is an acknowledgement of intake, not a report. The import's outcome is in the call log below.",
-      "fileExample": "Expected shape of the document"
+      "fileExample": "Expected shape of the document",
+      "open": "Signature and trial"
     },
     "signature": {
       "headers": "Headers",
       "required": "required",
       "optional": "optional",
-      "body": "Expected body",
-      "contentTypes": "Accepted content types:",
-      "modelSchema": "Schema of input model {{model}}, as validation uses it",
-      "contractSchema": "Schema the contract declares for this address",
-      "responses": "Declared responses",
-      "shape": "Shape of the returned body"
+      "body": "Body",
+      "modelSchema": "Input model {{model}}, as validation uses it",
+      "contractSchema": "Body the contract declares for this address",
+      "responses": "Responses",
+      "shape": "Body returned on {{status}}",
+      "responsesDetail": "What each response means",
+      "schemas": "Schemas"
     },
     "contract": {
       "title": "Published contract, version {{version}} — read before wiring an integration",
