@@ -3,10 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from miles_socle.apikeys.presentation import API_KEY_HEADER
 from miles_socle.contracts import dump, file_write_contracts, published_spec
 
 from environnement.app import build_app
-from environnement.ingestion.api_ingest import IDEMPOTENCY_HEADER
+from environnement.ingestion.api_ingest import (
+    API_KEY_SCHEME,
+    BEARER_SCHEME,
+    IDEMPOTENCY_HEADER,
+)
 from environnement.ingestion.model import MAX_BODY_BYTES
 
 # Contrat publié du module d'environnement : le point d'entrée d'ingestion, et lui seul.
@@ -22,8 +27,29 @@ OPENAPI_FILE = "miles-ingestion.openapi.json"
 PUBLISHED_PREFIXES = ("/ingest/",)
 
 
+# Les deux façons de présenter la clé d'API, déclarées en schémas de sécurité : c'est ce
+# qu'un client engendré lit pour savoir comment s'authentifier. La prose de la description
+# le disait déjà ; une description ne se compile pas.
+SECURITY_SCHEMES: dict[str, Any] = {
+    API_KEY_SCHEME: {
+        "type": "apiKey",
+        "in": "header",
+        "name": API_KEY_HEADER,
+        "description": (
+            "Clé d'API propre à cet environnement. Elle n'ouvre que les sources qu'on lui a"
+            " octroyées, et l'octroi est revérifié contre la version servie à chaque appel."
+        ),
+    },
+    BEARER_SCHEME: {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "La même clé, présentée en `Authorization: Bearer <clé>`.",
+    },
+}
+
+
 def openapi_contract() -> dict[str, Any]:
-    return published_spec(
+    contrat = published_spec(
         build_app().openapi(),
         info={
             "title": "Miles — ingestion de données dans un environnement",
@@ -81,6 +107,11 @@ def openapi_contract() -> dict[str, Any]:
         },
         prefixes=PUBLISHED_PREFIXES,
     )
+    # Ajoutés APRÈS la réduction : `published_spec` ne garde des composants que les
+    # schémas atteints par les chemins publiés — c'est voulu —, et les schémas de sécurité
+    # ne sont atteints par aucun renvoi, seulement NOMMÉS par les opérations.
+    contrat["components"]["securitySchemes"] = SECURITY_SCHEMES
+    return contrat
 
 
 def rendered() -> dict[str, str]:

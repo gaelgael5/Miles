@@ -16,6 +16,7 @@ est qu'une pièce manque à la version servie.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -51,6 +52,12 @@ class Endpoint:
     entry_model: str
     mode: str
     path: str
+    # Le gabarit sous lequel le CONTRAT publie cette méthode — l'adresse, elle, est
+    # concrète. Les deux sont portées parce qu'elles ne servent pas à la même chose :
+    # l'une s'appelle, l'autre désigne l'opération dont un intégrateur lit la signature.
+    # Déduire la seconde de la première côté écran aurait été une règle de plus à tenir
+    # d'accord avec le routage, et elle aurait rompu au premier chemin littéral ajouté.
+    operation: str
     # Faux pour un mode que le paramétrage déclare mais que la stack ne sert pas encore.
     # Distingué, et non masqué : l'afficher comme disponible promettrait un dépôt refusé.
     served: bool
@@ -59,12 +66,18 @@ class Endpoint:
     split: str
 
 
-async def file_endpoints(tree: HostedTree, *, ingest_path: str) -> tuple[Endpoint, ...]:
+async def file_endpoints(
+    tree: HostedTree, *, operations: Mapping[str, str]
+) -> tuple[Endpoint, ...]:
     """Les points d'entrée de la version servie, sans lire aucun modèle.
 
     Sans lire les modèles, et c'est la raison de séparer ceci de `resolve_methods` :
     l'écran de santé n'a pas besoin des schémas, et les lui faire lire coûterait une
     lecture de fichier par modèle sur une route qu'il interroge souvent.
+
+    `operations` associe chaque mode au gabarit sous lequel sa route est montée, et il est
+    passé par la couche qui PORTE les routes : c'est elle qui sait où elles sont. Un mode
+    absent de cette table n'a pas de route, donc n'est pas exposé.
     """
     declarees = await file_declared_sources(tree.file_text, await tree.file_paths())
     points: list[Endpoint] = []
@@ -76,12 +89,13 @@ async def file_endpoints(tree: HostedTree, *, ingest_path: str) -> tuple[Endpoin
                     storage=doc.storage,
                     entry_model=entree.source_model,
                     mode=mode,
-                    path=ingest_path.format(source=nom, mode=mode),
+                    path=operations[mode].format(source=nom, mode=mode),
+                    operation=operations[mode],
                     served=mode in SERVED_MODES,
                     split=entree.split,
                 )
                 for mode in MODES
-                if exposes(entree, mode)
+                if exposes(entree, mode) and mode in operations
             ]
     return tuple(points)
 
@@ -95,6 +109,9 @@ class Method:
     entry_model: str
     mode: str
     path: str
+    # Le gabarit sous lequel le contrat publie cette méthode : c'est par lui que l'écran
+    # retrouve sa signature — en-têtes, corps attendu, réponses déclarées.
+    operation: str
     # Faux pour un mode que le paramétrage déclare et que la stack ne sert pas encore :
     # il garde sa place et n'offre pas de bouton.
     served: bool
@@ -118,13 +135,13 @@ class IngestionMethods:
 
     tree: HostedTree
 
-    async def resolve_methods(self, *, ingest_path: str) -> tuple[Method, ...]:
+    async def resolve_methods(self, *, operations: Mapping[str, str]) -> tuple[Method, ...]:
         """Les méthodes de toutes les entrées de source, triées par source puis par mode.
 
-        `ingest_path` est le gabarit de la route, passé par la couche qui la porte : c'est
-        elle qui sait où elle est montée.
+        `operations` vient de la couche qui porte les routes : c'est elle qui sait sous
+        quel gabarit chaque mode est monté, et donc sous quel nom le contrat le publie.
         """
-        points = await file_endpoints(self.tree, ingest_path=ingest_path)
+        points = await file_endpoints(self.tree, operations=operations)
         # Les schémas sont lus UNE fois par modèle, et non une fois par méthode : deux
         # modes d'une même entrée partagent leur modèle d'entrée, et le relire ferait
         # deux lectures de fichier pour un résultat identique.
@@ -141,6 +158,7 @@ class IngestionMethods:
                     entry_model=point.entry_model,
                     mode=point.mode,
                     path=point.path,
+                    operation=point.operation,
                     served=point.served,
                     schema=schema,
                     model_refusal=refus,

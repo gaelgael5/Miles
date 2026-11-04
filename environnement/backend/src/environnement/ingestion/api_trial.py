@@ -21,7 +21,7 @@ from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict
 
 from environnement.apikeys.self_key import SelfKeyRevokedError, SelfKeyService
-from environnement.ingestion.api_ingest import INGEST_PATH
+from environnement.ingestion.api_ingest_file import INGEST_OPERATIONS
 from environnement.ingestion.methods import IngestionMethods, Method
 from environnement.ingestion.model import MAX_BODY_BYTES
 from environnement.ingestion.trial import IngestionTrial
@@ -62,6 +62,10 @@ class MethodOut(BaseModel):
     entry_model: str
     mode: str
     path: str
+    # Le gabarit sous lequel le contrat publie cette méthode. C'est par lui que la page
+    # retrouve, dans le contrat qu'elle lit, la SIGNATURE de cette méthode : ses en-têtes,
+    # le corps qu'elle attend, les réponses qu'elle déclare.
+    operation: str
     # Faux pour un mode déclaré que la stack ne sert pas encore : la page le montre sans
     # bouton, plutôt que de promettre un dépôt qui sera refusé.
     served: bool
@@ -125,6 +129,7 @@ def _method(methode: Method) -> MethodOut:
         entry_model=methode.entry_model,
         mode=methode.mode,
         path=methode.path,
+        operation=methode.operation,
         served=methode.served,
         request_schema=methode.schema,
         model_refusal=methode.model_refusal,
@@ -140,7 +145,7 @@ async def contract() -> dict[str, Any]:
 
 @router.get("/methods", response_model=MethodsOut)
 async def methods(service: Methods) -> object:
-    lues = await service.resolve_methods(ingest_path=INGEST_PATH)
+    lues = await service.resolve_methods(operations=INGEST_OPERATIONS)
     return MethodsOut(methods=[_method(methode) for methode in lues])
 
 

@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import { ApiError } from "@miles/socle-web";
 
+import { ContractHeader } from "./ContractHeader";
 import { FileTrialForm } from "./FileTrialForm";
+import { MethodSignature } from "./MethodSignature";
 import {
-  type ContractResponse,
   type Method,
+  type Signature,
   type Trial,
   useIngestionContract,
   useIngestionMethods,
@@ -15,9 +17,18 @@ import {
 } from "../api/ingestion";
 
 /**
- * Les méthodes d'ingestion présentées comme un contrat, et essayables sur place
- * (Gael, 04/11/2026 : « réorganiser la page de service pour le voir comme une page
- * swagger qui permettrait de tester les méthodes »).
+ * Les méthodes d'ingestion présentées comme une page de contrat, essayables sur place.
+ *
+ * Gael, 04/11/2026, après avoir vu une page qui ne savait qu'essayer : « je t'ai demandé
+ * une page swagger. L'intérêt, c'est qu'en plus du test, il y a aussi les signatures pour
+ * tester et faire l'intégration, et la description des contrats pour faire les connexions
+ * en amont. » D'où l'ordre de la page : ce que le contrat dit de lui-même, puis la
+ * SIGNATURE de chaque méthode — en-têtes, corps attendu, réponses et leurs formes —, et
+ * l'essai en dernier.
+ *
+ * **Tout ce qui décrit vient du contrat PUBLIÉ**, lu à l'ouverture : la page ne recopie
+ * rien. Un en-tête ajouté, un corps changé, un refus de plus apparaissent sans qu'on y
+ * touche, et c'est la seule façon qu'une page de contrat ne mente pas sur le contrat.
  *
  * **L'essai dépose pour de vrai.** Aucun garde-fou, décidé le 04/11/2026 : il transforme,
  * écrit, fait avancer la date de dernière vue et produit ses events, comme n'importe quel
@@ -29,6 +40,7 @@ import {
 export function IngestionMethods() {
   const { t } = useTranslation();
   const methods = useIngestionMethods();
+  const contract = useIngestionContract();
 
   if (methods.isPending) {
     return (
@@ -54,12 +66,18 @@ export function IngestionMethods() {
       <div className="card-head">
         <h2 id="ingestion-methods-title">{t("ingestion.methods.title")}</h2>
       </div>
+      {/* Muet si le contrat n'a pas pu être lu : c'est un complément de lecture, et son
+          absence n'empêche ni de lire les méthodes ni d'en essayer une. */}
+      {contract.data !== undefined && <ContractHeader contract={contract.data} />}
       <ul className="plain-list">
         {methods.data.methods.map((method) => (
-          <MethodCard key={`${method.source}:${method.mode}`} method={method} />
+          <MethodCard
+            key={`${method.source}:${method.mode}`}
+            method={method}
+            signature={contract.data?.operations[method.operation]}
+          />
         ))}
       </ul>
-      <ContractResponses />
     </section>
   );
 }
@@ -73,7 +91,13 @@ function refusalOf(error: unknown): string | null {
   return typeof detail?.code === "string" ? detail.code : null;
 }
 
-function MethodCard({ method }: { method: Method }) {
+function MethodCard({
+  method,
+  signature,
+}: {
+  method: Method;
+  signature: Signature | undefined;
+}) {
   const { t } = useTranslation();
   // Le corps part du gabarit du modèle, puis appartient à qui le modifie : le resemer
   // depuis les props écraserait une saisie en cours.
@@ -102,6 +126,9 @@ function MethodCard({ method }: { method: Method }) {
         {" → "}
         <span className="mono">{method.storage}</span>
       </p>
+      {/* La signature AVANT l'essai : on prépare une intégration en la lisant, on la
+          vérifie en essayant. L'inverse ferait d'une page de contrat un bac à sable. */}
+      <MethodSignature method={method} signature={signature} />
       {method.model_refusal !== null && (
         // Nommé, et non remplacé par un corps vide : la vraie information est qu'une
         // pièce manque à la version servie, pas que la méthode n'attend rien.
@@ -197,38 +224,5 @@ function TrialFailure({ error }: { error: unknown }) {
         </button>
       </div>
     </div>
-  );
-}
-
-/**
- * Les réponses que le contrat PUBLIÉ déclare, avec leurs statuts.
- *
- * Lues et non recopiées : un refus ajouté au contrat apparaît ici sans qu'on touche à
- * cette page. Affichées une fois pour la page — elles sont les mêmes pour toutes les
- * méthodes, et les répéter par bloc n'apprendrait rien.
- */
-function ContractResponses() {
-  const { t } = useTranslation();
-  const contract = useIngestionContract();
-
-  if (contract.isPending || contract.isError || contract.data.length === 0) {
-    // Muet plutôt qu'alarmant : le contrat est un complément de lecture, et son absence
-    // n'empêche ni de lire les méthodes ni d'en essayer une.
-    return null;
-  }
-  return (
-    <details className="card">
-      <summary>{t("ingestion.methods.contract")}</summary>
-      <ul className="plain-list">
-        {contract.data.map((response: ContractResponse) => (
-          <li key={response.status} className="row">
-            <div className="row-main">
-              <span className="row-title mono">{response.status}</span>
-              <div className="row-sub">{response.description}</div>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </details>
   );
 }

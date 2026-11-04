@@ -23,6 +23,17 @@
               "type": "string",
               "title": "Source"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Rend un rejeu sûr : la même valeur réémise rend le MÊME accusé, en 200 au lieu de 201 (202 pour le mode fichier), sans rien enregistrer deux fois. Sa portée est la clé de l'appelant. Caractères admis : lettres, chiffres, `.`, `_`, `:` et `-`."
           }
         ],
         "responses": {
@@ -116,6 +127,31 @@
               }
             }
           }
+        },
+        "security": [
+          {
+            "cleApiEnEntete": []
+          },
+          {
+            "cleApiEnPorteur": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Le document entier. Le jpath de découpage déclaré par l'entrée de source désigne le TABLEAU de ses items ; chaque item traverse la chaîne individuellement, et le document n'est jamais chargé entier en mémoire. Les clés placées hors de ce tableau — avant comme après — sont lues comme métadonnées du document.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
         }
       }
     },
@@ -145,6 +181,17 @@
               "type": "string",
               "title": "Mode"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Rend un rejeu sûr : la même valeur réémise rend le MÊME accusé, en 200 au lieu de 201 (202 pour le mode fichier), sans rien enregistrer deux fois. Sa portée est la clé de l'appelant. Caractères admis : lettres, chiffres, `.`, `_`, `:` et `-`."
           }
         ],
         "responses": {
@@ -235,6 +282,38 @@
                 "schema": {
                   "$ref": "#/components/schemas/AcknowledgementOut"
                 }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cleApiEnEntete": []
+          },
+          {
+            "cleApiEnPorteur": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "L'objet (mode `element`) ou le tableau d'objets (mode `tableau`, 200 au plus), dans la forme du modèle d'entrée que l'entrée de source déclare. La page de service d'un environnement montre ce schéma, résolu, pour chaque méthode.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "description": "mode `element`"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "maxItems": 200,
+                    "description": "mode `tableau`"
+                  }
+                ]
               }
             }
           }
@@ -495,6 +574,19 @@
           "type"
         ],
         "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "cleApiEnEntete": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "Clé d'API propre à cet environnement. Elle n'ouvre que les sources qu'on lui a octroyées, et l'octroi est revérifié contre la version servie à chaque appel."
+      },
+      "cleApiEnPorteur": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "La même clé, présentée en `Authorization: Bearer <clé>`."
       }
     }
   }

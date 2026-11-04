@@ -153,7 +153,13 @@
       "fichier": "file"
     },
     "states": {
-      "recu": "received"
+      "recu": "received",
+      "traite": "processed",
+      "rejete": "all rejected",
+      "en_file": "queued",
+      "en_cours": "importing",
+      "incomplet": "incomplete",
+      "echec": "failed"
     },
     "calls": {
       "title": "Recent calls",
@@ -195,6 +201,23 @@
       "file": "Document to deposit",
       "fileHelp": "The document is written to the stack's disk, then split and imported outside the call: the response is an acknowledgement of intake, not a report. The import's outcome is in the call log below.",
       "fileExample": "Expected shape of the document"
+    },
+    "signature": {
+      "headers": "Headers",
+      "required": "required",
+      "optional": "optional",
+      "body": "Expected body",
+      "contentTypes": "Accepted content types:",
+      "modelSchema": "Schema of input model {{model}}, as validation uses it",
+      "contractSchema": "Schema the contract declares for this address",
+      "responses": "Declared responses",
+      "shape": "Shape of the returned body"
+    },
+    "contract": {
+      "title": "Published contract, version {{version}} — read before wiring an integration",
+      "auth": "Authentication",
+      "spec": "Full OpenAPI specification",
+      "specHelp": "The very one versioned in the repository: enough to generate a client."
     }
   }
 }

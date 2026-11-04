@@ -29,7 +29,9 @@ from miles_socle.apikeys.presentation import API_KEY_HEADER, key_from_headers
 from environnement.ingestion.api_ingest import (
     CHALLENGE,
     IDEMPOTENCY_HEADER,
+    IDEMPOTENCY_PARAMETER,
     INGEST_PATH,
+    SECURITY,
     AcknowledgementOut,
     RefusalOut,
     status_of,
@@ -38,9 +40,15 @@ from environnement.ingestion.deposit_files import FileDeposits
 from environnement.ingestion.deposits import NotAuthenticated
 from environnement.ingestion.files import FileRefused
 from environnement.ingestion.imports import ImportLauncher
-from environnement.ingestion.model import FILE, IngestionRefusal
+from environnement.ingestion.model import BATCH, ELEMENT, FILE, IngestionRefusal
 
 INGEST_FILE_PATH = INGEST_PATH.format(source="{source}", mode=FILE)
+# Sous quel gabarit chaque mode est monté. Ici parce que c'est le seul module qui connaît
+# les DEUX, et dérivé de leurs constantes plutôt que retapé : deux littéraux de même
+# valeur auraient divergé au premier renommage, et la page de service aurait cherché la
+# signature d'une opération qui n'existe plus. Lu par la page de contrat et par l'aperçu
+# de santé, qui doivent annoncer exactement les adresses que le dépôt accepte.
+INGEST_OPERATIONS = {ELEMENT: INGEST_PATH, BATCH: INGEST_PATH, FILE: INGEST_FILE_PATH}
 
 router = APIRouter(tags=["ingestion"])
 
@@ -110,11 +118,35 @@ _REFUSALS_DOC: dict[int | str, dict[str, object]] = {
 }
 
 
+# Le DOCUMENT attendu, déclaré en deux types de contenu : c'est la signature de cette
+# méthode, et un intégrateur doit pouvoir la lire sans provoquer un refus pour l'apprendre.
+# Le flux d'octets est admis en plus du JSON parce qu'un outil qui pousse un fichier
+# n'annonce souvent rien de mieux ; le contenu, lui, reste du JSON.
+_DOCUMENT_DOC: dict[str, object] = {
+    "required": True,
+    "description": (
+        "Le document entier. Le jpath de découpage déclaré par l'entrée de source désigne"
+        " le TABLEAU de ses items ; chaque item traverse la chaîne individuellement, et le"
+        " document n'est jamais chargé entier en mémoire. Les clés placées hors de ce"
+        " tableau — avant comme après — sont lues comme métadonnées du document."
+    ),
+    "content": {
+        "application/json": {"schema": {"type": "object"}},
+        "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+    },
+}
+
+
 @router.post(
     INGEST_FILE_PATH,
     response_model=AcknowledgementOut,
     status_code=status.HTTP_202_ACCEPTED,
     responses=_REFUSALS_DOC,
+    openapi_extra={
+        "security": SECURITY,
+        "parameters": [IDEMPOTENCY_PARAMETER],
+        "requestBody": _DOCUMENT_DOC,
+    },
     summary="Déposer un DOCUMENT sur une entrée de source, en mode gros fichier",
     description=(
         "Le document est posé sur le disque de la stack, puis découpé et transformé item"

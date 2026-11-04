@@ -12,7 +12,7 @@ est une information, « 0 en attente » est un mensonge.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -72,16 +72,17 @@ class IngestionOverview:
     keys: ApiKeysService
     now: Callable[[], datetime]
 
-    async def resolve_health(self, *, ingest_path: str) -> Health:
+    async def resolve_health(self, *, operations: Mapping[str, str]) -> Health:
         """L'état du service, lu de la version servie et de la base. Jamais mis en cache.
 
-        `ingest_path` est le gabarit de la route, passé par la couche qui la porte : c'est
+        `operations` dit sous quel gabarit chaque mode est monté, et vient de la couche
+        qui porte les routes : c'est
         elle qui sait où elle est montée, et le recopier ici ferait deux vérités sur
         l'adresse qu'on affiche à un tiers.
         """
         hebergee = await db_get_hosted_version(self.pool)
         declarees = await file_declared_sources(self.tree.file_text, await self.tree.file_paths())
-        points = await file_endpoints(self.tree, ingest_path=ingest_path)
+        points = await file_endpoints(self.tree, operations=operations)
         actives, neuves = await db_key_counts(self.pool)
         comptes = await db_counts(self.pool, self.now() - RECENT_WINDOW)
         return Health(

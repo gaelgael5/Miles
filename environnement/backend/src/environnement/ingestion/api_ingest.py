@@ -48,6 +48,32 @@ IDEMPOTENCY_HEADER = "Idempotency-Key"
 # Le défi renvoyé avec un 401 : il dit à l'appelant COMMENT présenter sa clé.
 CHALLENGE = 'Bearer realm="miles-ingest"'
 
+# LA SIGNATURE DES MÉTHODES, déclarée au contrat et non seulement racontée dans sa
+# description (Gael, 04/11/2026 : « en plus du test, il y a aussi les signatures pour
+# tester et faire l'intégration, et la description des contrats pour faire les connexions
+# en amont »). Sans elle, un intégrateur ne peut ni engendrer un client ni préparer sa
+# connexion : il doit lire une prose et deviner la forme.
+#
+# Les deux schémas d'authentification sont NOMMÉS ici et déclarés dans les composants du
+# contrat publié. Deux, parce que la clé se présente de deux façons — et l'une ou l'autre
+# suffit, ce que `security` exprime par deux entrées plutôt qu'une seule à deux clés.
+API_KEY_SCHEME = "cleApiEnEntete"
+BEARER_SCHEME = "cleApiEnPorteur"
+SECURITY: list[dict[str, list[str]]] = [{API_KEY_SCHEME: []}, {BEARER_SCHEME: []}]
+# L'en-tête d'idempotence, déclaré en PARAMÈTRE : c'est la seule façon qu'un client
+# engendré l'expose, et un en-tête qu'on ne peut pas passer rend le rejeu sûr inatteignable.
+IDEMPOTENCY_PARAMETER: dict[str, object] = {
+    "name": IDEMPOTENCY_HEADER,
+    "in": "header",
+    "required": False,
+    "schema": {"type": "string", "minLength": 1, "maxLength": 200},
+    "description": (
+        "Rend un rejeu sûr : la même valeur réémise rend le MÊME accusé, en 200 au lieu de"
+        " 201 (202 pour le mode fichier), sans rien enregistrer deux fois. Sa portée est la"
+        " clé de l'appelant. Caractères admis : lettres, chiffres, `.`, `_`, `:` et `-`."
+    ),
+}
+
 router = APIRouter(tags=["ingestion"])
 
 # Le code HTTP de chaque refus. Écrit en table et non deviné à l'écriture : c'est une
@@ -242,12 +268,46 @@ def _out(accuse: Acknowledgement) -> AcknowledgementOut:
     )
 
 
+# Le CORPS attendu, déclaré : le cadre ne peut pas le deviner, puisque le gestionnaire lit
+# le corps brut au lieu de le typer. Et il DÉPEND DU MODE — un objet en `element`, un
+# tableau en `tableau` —, ce qu'un seul schéma ne dit pas : d'où le `oneOf`, qui est la
+# forme exacte de ce qui est accepté sur cette adresse.
+_BODY_DOC: dict[str, object] = {
+    "required": True,
+    "description": (
+        "L'objet (mode `element`) ou le tableau d'objets (mode `tableau`, 200 au plus),"
+        " dans la forme du modèle d'entrée que l'entrée de source déclare. La page de"
+        " service d'un environnement montre ce schéma, résolu, pour chaque méthode."
+    ),
+    "content": {
+        "application/json": {
+            "schema": {
+                "oneOf": [
+                    {"type": "object", "description": "mode `element`"},
+                    {
+                        "type": "array",
+                        "items": {"type": "object"},
+                        "maxItems": 200,
+                        "description": "mode `tableau`",
+                    },
+                ]
+            }
+        }
+    },
+}
+
+
 @router.post(
     INGEST_PATH,
     response_model=AcknowledgementOut,
     status_code=status.HTTP_201_CREATED,
     responses=_REFUSALS_DOC,
     summary="Déposer un lot d'objets sur une entrée de source",
+    openapi_extra={
+        "security": SECURITY,
+        "parameters": [IDEMPOTENCY_PARAMETER],
+        "requestBody": _BODY_DOC,
+    },
 )
 async def deposit(
     source: str, mode: str, request: Request, response: Response, service: Service

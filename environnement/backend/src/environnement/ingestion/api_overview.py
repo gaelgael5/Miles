@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict
 
-from environnement.ingestion.api_ingest import INGEST_PATH
+from environnement.ingestion.api_ingest_file import INGEST_OPERATIONS
 from environnement.ingestion.overview import PAGE_SIZE, CallPage, Health, IngestionOverview
 from environnement.ingestion.store import Call
 
@@ -122,7 +122,7 @@ def _calls(page: CallPage, sources: tuple[str, ...]) -> CallsOut:
 
 @router.get("/health", response_model=HealthOut)
 async def health(service: Service) -> object:
-    return _health(await service.resolve_health(ingest_path=INGEST_PATH))
+    return _health(await service.resolve_health(operations=INGEST_OPERATIONS))
 
 
 @router.get("/calls", response_model=CallsOut)

@@ -153,7 +153,13 @@
       "fichier": "un fichier"
     },
     "states": {
-      "recu": "reçu"
+      "recu": "reçu",
+      "traite": "traité",
+      "rejete": "tout rejeté",
+      "en_file": "en file",
+      "en_cours": "import en cours",
+      "incomplet": "incomplet",
+      "echec": "échec"
     },
     "calls": {
       "title": "Derniers appels",
@@ -195,6 +201,23 @@
       "file": "Document à déposer",
       "fileHelp": "Le document est posé sur le disque de la stack, puis découpé et importé hors de l'appel : la réponse est un acquittement de prise en charge, pas un compte-rendu. L'issue de l'import se lit dans le journal des appels, ci-dessous.",
       "fileExample": "Forme attendue du document"
+    },
+    "signature": {
+      "headers": "En-têtes",
+      "required": "obligatoire",
+      "optional": "facultatif",
+      "body": "Corps attendu",
+      "contentTypes": "Types de contenu acceptés :",
+      "modelSchema": "Schéma du modèle d'entrée {{model}}, tel que la validation l'emploie",
+      "contractSchema": "Schéma déclaré par le contrat pour cette adresse",
+      "responses": "Réponses déclarées",
+      "shape": "Forme du corps rendu"
+    },
+    "contract": {
+      "title": "Contrat publié, version {{version}} — à lire avant de brancher une intégration",
+      "auth": "Authentification",
+      "spec": "Spécification OpenAPI complète",
+      "specHelp": "Celle-là même qui est versionnée dans le dépôt : de quoi engendrer un client."
     }
   }
 }
