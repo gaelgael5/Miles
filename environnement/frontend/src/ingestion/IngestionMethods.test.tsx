@@ -139,7 +139,10 @@ describe("les méthodes du service d'ingestion", () => {
     const bloc = (await screen.findByText(/\/ingest\/magasins-import\/tableau/)).closest(
       "li",
     ) as HTMLElement;
-    expect(within(bloc).getByText("tableau")).toBeInTheDocument();
+    // Le mode n'est pas répété à côté du chemin : il EST son dernier segment.
+    expect(within(bloc).getByRole("heading").textContent).toBe(
+      "POST /ingest/magasins-import/tableau",
+    );
     expect(within(bloc).getByText("pudo/magasin")).toBeInTheDocument();
     expect(within(bloc).getByText("magasins")).toBeInTheDocument();
   });
@@ -260,8 +263,13 @@ describe("les méthodes du service d'ingestion", () => {
     ) as HTMLElement;
     // Une LIGNE par chose — en-têtes, corps, codes de réponse : la page se parcourt.
     expect(within(bloc).getByText(/Idempotency-Key \(optional\)/)).toBeInTheDocument();
-    expect(within(bloc).getByText("application/json")).toBeInTheDocument();
-    expect(within(bloc).getByText("201 · 401")).toBeInTheDocument();
+    expect(within(bloc).getByText("Body", { selector: "span.caption" }).parentElement?.textContent).toContain(
+      "application/json",
+    );
+    expect(within(bloc).getByText("Responses", { selector: "span.caption" }).parentElement
+        ?.textContent).toContain(
+      "201 · 401",
+    );
     // Et ce que chaque réponse dit, derrière un repli.
     expect(within(bloc).getByText(/Lot reçu et traité/)).toBeInTheDocument();
   });
@@ -276,12 +284,14 @@ describe("les méthodes du service d'ingestion", () => {
       "li",
     ) as HTMLElement;
     // Sa ligne de réponses ne porte QUE les siennes : 202, et pas le 201 du mode tableau.
-    const codes = within(fichier).getByText("202", { selector: "dd" });
-    expect(codes.textContent).toBe("202");
+    const codes = within(fichier).getByText("Responses", { selector: "span.caption" })
+      .parentElement as HTMLElement;
+    expect(codes.textContent).toBe("Responses 202");
     expect(within(fichier).getByText(/Document pris en charge/)).toBeInTheDocument();
     // Et son corps propre : un flux d'octets est admis en plus du JSON. Lu sur la LIGNE
     // du corps — le schéma déclaré, derrière le repli des schémas, porte le même texte.
-    const corps = within(fichier).getByText(/application\/json/, { selector: "dd" });
+    const corps = within(fichier).getByText("Body", { selector: "span.caption" })
+      .parentElement as HTMLElement;
     expect(corps.textContent).toContain("application/octet-stream");
   });
 

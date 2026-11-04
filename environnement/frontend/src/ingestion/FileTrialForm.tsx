@@ -40,15 +40,18 @@ export function FileTrialForm({
 
   return (
     <form onSubmit={submit} aria-label={t("ingestion.methods.form", { path: method.path })}>
-      <p className="help">{t("ingestion.methods.fileHelp")}</p>
       {method.example !== null && (
-        <details className="card-inset">
+        <details>
           <summary>{t("ingestion.methods.fileExample")}</summary>
           <pre className="mono">{JSON.stringify(method.example, null, 2)}</pre>
         </details>
       )}
       <label className="field">
         {t("ingestion.methods.file")}
+        {/* Ce que le contrat ne dit pas, et que l'écran seul peut dire : où lire la
+            suite. Le reste — document posé sur disque, import hors de l'appel — est déjà
+            dans la description de l'opération, juste au-dessus. */}
+        <span className="help">{t("ingestion.methods.fileHelp")}</span>
         <input
           type="file"
           accept="application/json,.json"

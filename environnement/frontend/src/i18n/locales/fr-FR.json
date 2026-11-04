@@ -199,7 +199,7 @@
       "modele_absent": "La version servie ne porte pas le modèle d'entrée {{model}} : la forme attendue ne peut pas être montrée.",
       "modele_invalide": "Le modèle d'entrée {{model}} est mal formé dans la déclaration de la source.",
       "file": "Document à déposer",
-      "fileHelp": "Le document est posé sur le disque de la stack, puis découpé et importé hors de l'appel : la réponse est un acquittement de prise en charge, pas un compte-rendu. L'issue de l'import se lit dans le journal des appels, ci-dessous.",
+      "fileHelp": "L'issue de l'import se lit dans le journal des appels, ci-dessous.",
       "fileExample": "Forme attendue du document",
       "open": "Signature et essai"
     },

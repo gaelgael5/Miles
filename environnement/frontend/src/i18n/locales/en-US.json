@@ -199,7 +199,7 @@
       "modele_absent": "The served version does not carry the input model {{model}}: the expected shape cannot be shown.",
       "modele_invalide": "The input model {{model}} is malformed in the source declaration.",
       "file": "Document to deposit",
-      "fileHelp": "The document is written to the stack's disk, then split and imported outside the call: the response is an acknowledgement of intake, not a report. The import's outcome is in the call log below.",
+      "fileHelp": "The import's outcome is in the call log below.",
       "fileExample": "Expected shape of the document",
       "open": "Signature and trial"
     },

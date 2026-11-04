@@ -104,9 +104,11 @@ function MethodCard({
   return (
     <li className="card">
       <div className="card-head">
-        <h3 className="mono">
-          POST {method.path} <span className="chip">{method.mode}</span>
-        </h3>
+        {/* Le mode n'est pas répété à côté du chemin : il EST le dernier segment de
+            l'adresse (« le mode est l'adresse », Gael, 02/11/2026). Le redire affichait
+            « /ingest/<source>/element element », sous une classe que la feuille du socle
+            ne porte même pas — vu dans un vrai navigateur, invisible sous jsdom. */}
+        <h3 className="mono">POST {method.path}</h3>
       </div>
       <p className="caption">
         <span className="mono">{method.entry_model}</span>

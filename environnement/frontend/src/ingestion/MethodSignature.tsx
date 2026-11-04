@@ -36,26 +36,25 @@ export function MethodSignature({
   return (
     <>
       {signature.description !== "" && <p className="help">{signature.description}</p>}
-      <dl className="caption">
-        {signature.parameters.length > 0 && (
-          <>
-            <dt>{t("ingestion.signature.headers")}</dt>
-            <dd className="mono">{signature.parameters.map(label(t)).join(" · ")}</dd>
-          </>
-        )}
-        {signature.body.length > 0 && (
-          <>
-            <dt>{t("ingestion.signature.body")}</dt>
-            <dd className="mono">
-              {signature.body.map((media) => media.contentType).join(" · ")}
-            </dd>
-          </>
-        )}
-        <dt>{t("ingestion.signature.responses")}</dt>
-        <dd className="mono">
-          {signature.responses.map((reponse) => reponse.status).join(" · ")}
-        </dd>
-      </dl>
+      {/* Une LIGNE par chose, libellé en petites capitales et valeur en mono. Pas de
+          liste de définitions : le navigateur l'indente, et `.caption` MET EN CAPITALES —
+          « APPLICATION/JSON » pour un type de contenu, vu dans un vrai navigateur. */}
+      {signature.parameters.length > 0 && (
+        <p className="row-sub">
+          <span className="caption">{t("ingestion.signature.headers")}</span>{" "}
+          {signature.parameters.map(label(t)).join(" · ")}
+        </p>
+      )}
+      {signature.body.length > 0 && (
+        <p className="row-sub">
+          <span className="caption">{t("ingestion.signature.body")}</span>{" "}
+          {signature.body.map((media) => media.contentType).join(" · ")}
+        </p>
+      )}
+      <p className="row-sub">
+        <span className="caption">{t("ingestion.signature.responses")}</span>{" "}
+        {signature.responses.map((reponse) => reponse.status).join(" · ")}
+      </p>
       <Schemas method={method} signature={signature} />
       <details>
         <summary>{t("ingestion.signature.responsesDetail")}</summary>
