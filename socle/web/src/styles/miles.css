@@ -26,6 +26,7 @@
   --alerte-fond: #f7f3ea;
   --alerte-bordure: #e3d6b8;
   --alerte-encre: #6b4e12;
+  --alerte-bordure-forte: #d3bf8e;
   --succes-fond: #e8f1e9;
   --succes-bordure: #bcd9c2;
   --succes-encre: #155b33;
@@ -185,6 +186,11 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .field textarea { font-family: var(--police-mono); font-size: 12.5px; }
 .field-check { display: flex; gap: 10px; align-items: center; font-size: 14px; margin-bottom: 6px; }
 .field-check input { width: 18px; height: 18px; }
+/* Barre de filtres : des champs cote a cote qui s'empilent quand la largeur manque, sans
+   media query — c'est la place disponible qui decide, pas le type d'appareil. L'ecart
+   vertical une fois empiles vient de la marge basse de `.field`, d'ou le gap a 0. */
+.filters { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.filters .field { flex: 1 1 200px; min-width: 0; }
 .help { margin: 8px 0 18px; font-size: 13px; color: var(--encre-faible); }
 /* La marge haute négative resserre l'aide SOUS le champ qu'elle décrit, en mordant dans la
    marge basse de ce champ. Elle ne vaut donc QUE là : portée sans condition par `.help`,
@@ -218,6 +224,11 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
   padding: 13px 16px; font-size: 13px; color: var(--alerte-encre); margin: 12px 0;
 }
 .alert-danger { background: #fbefef; border-color: #e7c4c4; color: var(--danger); }
+/* Un avertissement qui doit davantage se voir : meme fond, bordure appuyee. Il dit que ce
+   qu'on LIT n'est plus a jour — confiage non transmis, appariement revoque ou refuse par
+   le pair —, la ou `.alert` seule dit « c'est fini, vous pouvez recommencer ». Sans cette
+   regle, les deux se ressemblaient trait pour trait (mesure du 04/11/2026). */
+.alert-warning { border-color: var(--alerte-bordure-forte); }
 .notice {
   background: var(--succes-fond); border: 1px solid var(--succes-bordure); border-radius: 8px;
   padding: 13px 16px; font-size: 13px; color: var(--succes-encre); margin: 12px 0;

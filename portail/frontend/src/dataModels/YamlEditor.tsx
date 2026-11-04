@@ -31,7 +31,6 @@ export default function YamlEditor({
   const { t } = useTranslation();
   return (
     <div
-      className="yaml-editor"
       aria-label={ariaLabel ?? t("dataModels.fields.content")}
       role="group"
     >

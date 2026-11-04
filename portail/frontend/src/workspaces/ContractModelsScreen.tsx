@@ -27,7 +27,7 @@ function VersionModels({
   const rederive = useRederive(target, contract.slug);
   const stale = version.models_state === "a_rederiver";
   return (
-    <section className="contract-models" aria-label={`${contract.label} v${version.number}`}>
+    <section aria-label={`${contract.label} v${version.number}`}>
       <div className="page-head">
         <div>
           <h2>
