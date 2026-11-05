@@ -23,23 +23,23 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function open(content = YAML) {
+function open(content = YAML, branch = "edition") {
   const calls = mockApi({
     ...HELD,
     "GET /api/workspaces": { status: 200, body: [WORKING] },
-    [`GET ${ROUTE}/shared/personne?branch=edition`]: { status: 200, body: { ...MODEL, content } },
-    [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [MODEL] },
-    [`PUT ${ROUTE}/shared/personne?branch=edition`]: {
+    [`GET ${ROUTE}/shared/personne`]: { status: 200, body: { ...MODEL, content } },
+    [`GET ${ROUTE}`]: { status: 200, body: [MODEL] },
+    [`PUT ${ROUTE}/shared/personne`]: {
       status: 200,
       body: { ...MODEL, content, version: 4 },
     },
   } as Parameters<typeof mockApi>[0]);
-  renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", model: "shared/personne" });
+  renderWorkspaces({ id: "retrait", view: "dataModels", branch, model: "shared/personne" });
   return calls;
 }
 
-async function openUsage(content = YAML) {
-  const calls = open(content);
+async function openUsage(content = YAML, branch = "edition") {
+  const calls = open(content, branch);
   // Premier chargement de JSONJoy dans le fichier : plus lent que les suivants.
   await screen.findByLabelText("YAML", {}, { timeout: 10_000 });
   fireEvent.click(screen.getByRole("tab", { name: "Field usage" }));
@@ -102,6 +102,17 @@ describe("field usage", () => {
     const put = calls.find((call) => call.key.startsWith("PUT"));
     expect(JSON.stringify(put?.body)).toContain("$.Id");
   });
+
+  it("lets the root branch be read, never changed", async () => {
+    // La racine est en lecture seule (story dca0eb0e) : les cases s'y lisent, cochées
+    // ou non, et ne s'y touchent pas. Sans la garde, l'écran laisserait cocher une case
+    // dont l'enregistrement serait refusé, loin du geste.
+    open(YAML, "atelier");
+    fireEvent.click(await screen.findByRole("tab", { name: "Field usage" }, { timeout: 10_000 }));
+
+    expect(screen.getByLabelText("Id is part of the functional key")).toBeDisabled();
+    expect(screen.getByLabelText("Nom shows in the table")).toBeDisabled();
+  }, 15_000);
 
   it("says nothing can be declared while the YAML does not read", async () => {
     await openUsage();
