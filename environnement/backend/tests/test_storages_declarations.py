@@ -328,3 +328,29 @@ async def test_une_colonne_declaree_des_deux_cotes_n_est_posee_qu_une_fois() -> 
         "contact_phone",
         "contact_email",
     ]
+
+
+@pytest.mark.asyncio
+async def test_une_propriete_du_nom_d_une_colonne_fixe_est_prefixee_et_non_refusee() -> None:
+    # `$.Id` est la propriété qu'on montre en premier, et `id` est une colonne du
+    # système : refuser aurait rendu le storage entier invisible pour un nom que
+    # personne ne lit — les écrans nomment la propriété par son chemin déclaré.
+    modele = ACCOUNTS.replace("AccountId: {type: string}", "Id: {type: string}") + (
+        '\nx-miles:\n  key:\n    - "$.Id"\n  columns:\n    - "$.Id"\n'
+    )
+    declaration = DECLARATION.replace('"$.AccountId"', '"$.Id"')
+    tables, refus = await _declare(
+        _arbre(
+            **{
+                "domains/pudo/messages/accounts.yaml": modele,
+                "storages/accounts.yaml": declaration,
+            }
+        )
+    )
+
+    assert refus == []
+    assert [p.column for p in tables[0].projections] == [
+        "prop_id",
+        "contact_phone",
+        "contact_email",
+    ]

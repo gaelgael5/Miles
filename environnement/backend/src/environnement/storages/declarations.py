@@ -184,7 +184,14 @@ def _projection(path: str, offered: dict[str, PathEntry]) -> Projection | Storag
     if sql_type is None:
         return StorageRefusal("", REFUSAL_NOT_SCALAR, path)
     column = column_of(entry.keys)
-    if not column or column in FIXED_NAMES:
-        # Un nom vide, ou le nom d'une colonne fixe : la table en porterait deux.
+    if not column:
         return StorageRefusal("", REFUSAL_COLUMN_CLASH, path)
+    if column in FIXED_NAMES:
+        # Une propriété dont le nom dérivé est celui d'une colonne fixe — `$.Id` est le
+        # cas courant, et c'est la première qu'on veut montrer. On la préfixe plutôt que
+        # de refuser le storage : le nom de colonne est INTERNE (les écrans nomment la
+        # propriété par son chemin déclaré), donc le préfixe ne se lit nulle part, alors
+        # qu'un refus rendrait le storage entier invisible. Si deux chemins se réduisent
+        # malgré tout au même nom, la règle d'ambiguïté ci-dessous tranche, nommément.
+        column = f"prop_{column}"
     return Projection(column=column, keys=entry.keys, kind=entry.kind, sql_type=sql_type)
