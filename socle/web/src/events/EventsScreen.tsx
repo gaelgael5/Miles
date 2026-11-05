@@ -43,6 +43,9 @@ function EventRow({
 }) {
   const instant = useInstant();
 
+  // Le titre de la page est POSÉ SUR LE FOND, pas dans une carte (Gael, 05/11/2026) :
+  // c'est ce que font tous les autres écrans des trois produits, et l'exception se
+  // lisait comme un cadre de trop autour de la page entière.
   return (
     <li className={`row row-compact row-openable${selected ? " row-selected" : ""}`}>
       <div className="row-main">
@@ -138,96 +141,98 @@ export function EventsScreen() {
   const choisi = events.data?.events.find((event) => event.id === ouvert);
 
   return (
-    <section className="card" aria-labelledby="events-title">
+    <section aria-labelledby="events-title">
       <PageHead id="events-title" title={t("events.title")} lead={t("events.help")} />
-      <div className="filters">
-        <label className="field">
-          <span>{t("events.filters.type")}</span>
-          <input
-            value={filtre.type ?? ""}
-            onChange={(e) => change("type", e.target.value)}
-            placeholder={t("events.filters.typePlaceholder")}
-          />
-        </label>
-        <label className="field">
-          <span>{t("events.filters.writtenFrom")}</span>
-          <input
-            type="date"
-            value={filtre.written_from ?? ""}
-            onChange={(e) => change("written_from", e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>{t("events.filters.writtenTo")}</span>
-          <input
-            type="date"
-            value={filtre.written_to ?? ""}
-            onChange={(e) => change("written_to", e.target.value)}
-          />
-        </label>
-      </div>
-      {events.isError && (
-        <p className="alert" role="alert">
-          {t(refusalKey(events.error))}
-        </p>
-      )}
-      {events.isSuccess && (
-        <>
-          <p className="help" role="status">
-            {t("events.found", { count: events.data.total })}
-            {/* La fenêtre par défaut se DIT : sans cette phrase, l'écran montre sept jours
-                en laissant croire qu'il montre tout le journal. */}
-            {events.data.window.defaulted && (
-              <>
-                {" "}
-                {t("events.defaultWindow", {
-                  start: instant(events.data.window.start),
-                  end: instant(events.data.window.end),
-                })}
-              </>
-            )}
+      <div className="card">
+        <div className="filters">
+          <label className="field">
+            <span>{t("events.filters.type")}</span>
+            <input
+              value={filtre.type ?? ""}
+              onChange={(e) => change("type", e.target.value)}
+              placeholder={t("events.filters.typePlaceholder")}
+            />
+          </label>
+          <label className="field">
+            <span>{t("events.filters.writtenFrom")}</span>
+            <input
+              type="date"
+              value={filtre.written_from ?? ""}
+              onChange={(e) => change("written_from", e.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>{t("events.filters.writtenTo")}</span>
+            <input
+              type="date"
+              value={filtre.written_to ?? ""}
+              onChange={(e) => change("written_to", e.target.value)}
+            />
+          </label>
+        </div>
+        {events.isError && (
+          <p className="alert" role="alert">
+            {t(refusalKey(events.error))}
           </p>
-          {events.data.missing_sequences.length > 0 && (
-            // Une histoire incomplète se signale. Avec une rétention glissante, c'est le
-            // cas NORMAL et non une anomalie : les premiers events ont été purgés.
-            <p className="alert" role="status">
-              {t("events.missingSequences", {
-                sequences: events.data.missing_sequences.join(", "),
-              })}
+        )}
+        {events.isSuccess && (
+          <>
+            <p className="help" role="status">
+              {t("events.found", { count: events.data.total })}
+              {/* La fenêtre par défaut se DIT : sans cette phrase, l'écran montre sept jours
+                  en laissant croire qu'il montre tout le journal. */}
+              {events.data.window.defaulted && (
+                <>
+                  {" · "}
+                  {t("events.defaultWindow", {
+                    start: instant(events.data.window.start),
+                    end: instant(events.data.window.end),
+                  })}
+                </>
+              )}
             </p>
-          )}
-          {events.data.events.length === 0 ? (
-            <p className="muted">{t("events.none")}</p>
-          ) : (
-            <div className="split">
-              <ul className="card-list split-list">
-                {events.data.events.map((event) => (
-                  <EventRow
-                    key={event.id}
-                    event={event}
-                    selected={event.id === ouvert}
-                    onOpen={() => setOuvert(event.id)}
-                  />
-                ))}
-              </ul>
-              {/* Le détail est DÉRIVÉ de la page affichée : changer de page ou de filtre
-                  le referme tout seul, au lieu de montrer un event absent de la liste. */}
-              <EventDetail event={choisi} />
-            </div>
-          )}
-          {pages > 1 && (
-            <div className="actions">
-              <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                {t("events.previous")}
-              </button>
-              <span className="muted">{t("events.page", { page, pages })}</span>
-              <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-                {t("events.next")}
-              </button>
-            </div>
-          )}
-        </>
-      )}
+            {events.data.missing_sequences.length > 0 && (
+              // Une histoire incomplète se signale. Avec une rétention glissante, c'est le
+              // cas NORMAL et non une anomalie : les premiers events ont été purgés.
+              <p className="alert" role="status">
+                {t("events.missingSequences", {
+                  sequences: events.data.missing_sequences.join(", "),
+                })}
+              </p>
+            )}
+            {events.data.events.length === 0 ? (
+              <p className="muted">{t("events.none")}</p>
+            ) : (
+              <div className="split">
+                <ul className="card-list split-list">
+                  {events.data.events.map((event) => (
+                    <EventRow
+                      key={event.id}
+                      event={event}
+                      selected={event.id === ouvert}
+                      onOpen={() => setOuvert(event.id)}
+                    />
+                  ))}
+                </ul>
+                {/* Le détail est DÉRIVÉ de la page affichée : changer de page ou de filtre
+                    le referme tout seul, au lieu de montrer un event absent de la liste. */}
+                <EventDetail event={choisi} />
+              </div>
+            )}
+            {pages > 1 && (
+              <div className="actions">
+                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                  {t("events.previous")}
+                </button>
+                <span className="muted">{t("events.page", { page, pages })}</span>
+                <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)}>
+                  {t("events.next")}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }
