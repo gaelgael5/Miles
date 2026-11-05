@@ -180,7 +180,7 @@ const CONNECTE: Routes = {
       ],
     },
   },
-  "GET /api/ingestion/contract": { status: 200, body: {} },
+  "GET /api/ingestion/contract/comptes-pudo": { status: 200, body: { paths: {} } },
   "GET /api/api-keys/sources": { status: 200, body: { sources: ["comptes-pudo"] } },
   "GET /api/auth/cultures": { status: 200, body: [{ code: "en-US", label_native: "English" }] },
 };
@@ -263,7 +263,9 @@ describe("App du module d'environnement", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "comptes-pudo" }),
     ).toBeInTheDocument();
-    expect(calls.map((c) => c.key)).toContain("GET /api/ingestion/methods");
+    // La page s'est ouverte sur le contrat de CETTE source, à l'adresse publique qui
+    // sert aussi au téléchargement.
+    expect(calls.map((c) => c.key)).toContain("GET /api/ingestion/contract/comptes-pudo");
     // La page du service n'est plus celle qui est ouverte : son titre a cédé la place.
     expect(screen.queryByRole("heading", { level: 1, name: "Ingestion service" })).toBeNull();
   });

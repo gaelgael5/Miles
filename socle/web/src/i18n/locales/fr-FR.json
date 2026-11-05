@@ -8,6 +8,12 @@
     "navigation": "Navigation principale",
     "toggleNav": "Replier ou déplier le menu"
   },
+  "contract": {
+    "address": "Adresse publique du contrat",
+    "download": "Télécharger",
+    "copy": "Copier l'adresse",
+    "public": "Cette adresse s'ouvre sans compte : elle est faite pour être donnée à l'intégrateur, ou à un générateur de client."
+  },
   "health": {
     "title": "État du service",
     "loading": "Vérification du service…",

@@ -40,6 +40,10 @@ const APPEL: Call = {
   state: "recu",
 };
 
+// Le contrat TEL QUE LE SERVEUR LE REND pour cette source : adresse réelle, plus aucun
+// gabarit. La spécialisation elle-même est éprouvée côté serveur (`test_source_contract`)
+// — un jeu d'essai qui porterait encore le gabarit décrirait un document que plus
+// personne ne sert.
 const CONTRAT = {
   info: { version: "1", description: "Réception, pas collecte : Miles n'appelle personne." },
   components: {
@@ -48,13 +52,10 @@ const CONTRAT = {
     },
   },
   paths: {
-    "/ingest/{source}/{mode}": {
+    "/ingest/comptes-pudo/tableau": {
       post: {
         description: "Dépose un lot d'objets.",
-        parameters: [
-          { name: "source", in: "path", required: true },
-          { name: "Idempotency-Key", in: "header", required: false },
-        ],
+        parameters: [{ name: "Idempotency-Key", in: "header", required: false }],
         requestBody: { required: true, content: { "application/json": { schema: {} } } },
         responses: { "201": { description: "Lot reçu et traité." } },
       },
@@ -64,7 +65,10 @@ const CONTRAT = {
 
 const SURFACE: Routes = {
   "GET /api/ingestion/methods": { status: 200, body: { methods: [TABLEAU, AUTRE] } },
-  "GET /api/ingestion/contract": { status: 200, body: CONTRAT },
+  // Le contrat de la source, déjà spécialisé PAR LE SERVEUR : c'est le document que
+  // l'écran lit et que l'intégrateur télécharge, à la même adresse.
+  "GET /api/ingestion/contract/comptes-pudo": { status: 200, body: CONTRAT },
+  "GET /api/ingestion/contract/sites-pudo-absente": { status: 404, body: { detail: "source_inconnue" } },
   "GET /api/ingestion/calls": {
     status: 200,
     body: { calls: [APPEL], total: 1, page: 1, page_size: 50, sources: ["comptes-pudo"] },
@@ -110,6 +114,18 @@ describe("la page d'une source d'ingestion", () => {
     );
   });
 
+  it("donne l'adresse publique du contrat, et de quoi le télécharger", async () => {
+    // Un contrat n'est utile que si l'intégrateur peut l'ouvrir : la même adresse que
+    // l'écran lit, pour qu'on ne publie pas autre chose que ce qu'on regarde.
+    monte();
+
+    const bloc = within(await screen.findByRole("region", { name: "Public contract address" }));
+    const lien = bloc.getByRole("link", { name: "Download" });
+    expect(lien).toHaveAttribute("href", expect.stringContaining("/api/ingestion/contract/comptes-pudo"));
+    expect(lien).toHaveAttribute("download", "comptes-pudo.openapi.json");
+    expect(bloc.getByText(/opens without an account/)).toBeInTheDocument();
+  });
+
   it("dit qu'une source sans entrée dans la version servie n'a aucune méthode", async () => {
     monte({}, "sites-pudo-absente");
 
@@ -120,7 +136,7 @@ describe("la page d'une source d'ingestion", () => {
   it("dit que le contrat publié n'a pas pu être lu, sans rendre un contrat amputé", async () => {
     // Un contrat partiel se lirait « cette source n'expose que ça », et c'est pire que
     // pas de contrat du tout.
-    monte({ "GET /api/ingestion/contract": { status: 500, body: {} } });
+    monte({ "GET /api/ingestion/contract/comptes-pudo": { status: 500, body: {} } });
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not be read/i);
     expect(screen.queryByTestId("swagger-spec")).not.toBeInTheDocument();

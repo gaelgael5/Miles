@@ -42,6 +42,7 @@ from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
 from environnement.identity.api_identity import router as environment_router
 from environnement.identity.service import IdentityService
+from environnement.ingestion.api_contract import router as ingestion_contract_router
 from environnement.ingestion.api_ingest import router as ingest_router
 from environnement.ingestion.api_ingest_file import router as ingest_file_router
 from environnement.ingestion.api_maintenance import IMPORTS_MAINTENANCE_PATH
@@ -255,6 +256,18 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(api_keys_router)
     app.include_router(ingestion_overview_router)
     app.include_router(ingestion_trial_router)
+    # Le contrat d'ingestion, OUVERT À TOUS (Gael, 05/11/2026) : il est fait pour être
+    # pointé par une URL et téléchargé par l'intégrateur qui doit l'appeler. La liste est
+    # DÉRIVÉE du routeur qui porte ces routes, et de lui seul : un chemin ouvert à côté
+    # de sa déclaration serait ouvert sans que personne l'ait voulu. La méthode y entre —
+    # ouvrir la lecture d'un contrat n'ouvre rien d'autre.
+    app.include_router(ingestion_contract_router)
+    app.state.public_api_routes = frozenset(
+        (methode, route.path)
+        for route in ingestion_contract_router.routes
+        if isinstance(route, APIRoute)
+        for methode in route.methods or ()
+    )
     # L'entretien des imports, appelé par un déclencheur d'HÔTE : ni cookie ni personne
     # derrière. Il vit dans /api et le portillon le laisse passer par `system_api_paths`,
     # déclaré ci-dessous DEPUIS la constante du routeur qui le porte.

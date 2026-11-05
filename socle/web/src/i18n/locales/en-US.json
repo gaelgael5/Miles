@@ -8,6 +8,12 @@
     "navigation": "Main navigation",
     "toggleNav": "Collapse or expand the menu"
   },
+  "contract": {
+    "address": "Public contract address",
+    "download": "Download",
+    "copy": "Copy the address",
+    "public": "This address opens without an account: it is meant to be handed to the integrator, or to a client generator."
+  },
   "health": {
     "title": "Service status",
     "loading": "Checking the service…",

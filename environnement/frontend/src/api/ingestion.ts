@@ -130,11 +130,26 @@ export function useIngestionMethods() {
  * corps et réponses, ce qu'un composant swagger standard fait mieux et sans que nous ayons
  * à suivre les évolutions d'OpenAPI.
  */
-export function useIngestionContract() {
+/**
+ * L'adresse du contrat d'une source, OUVERTE À TOUS (Gael, 05/11/2026).
+ *
+ * La même que l'écran lit et que l'intégrateur ouvre : c'est ce qui fait que le document
+ * téléchargé est celui qu'on regarde. Relative, donc elle suit l'hôte qui sert la page ;
+ * `contractUrl` en donne la forme absolue, celle qu'on copie et qu'on envoie.
+ */
+export function contractPath(source: string): string {
+  return `/api/ingestion/contract/${encodeURIComponent(source)}`;
+}
+
+export function contractUrl(source: string): string {
+  return new URL(contractPath(source), window.location.origin).toString();
+}
+
+export function useIngestionContract(source: string) {
   return useQuery({
-    queryKey: ["ingestion", "contract"],
+    queryKey: ["ingestion", "contract", source],
     queryFn: ({ signal }) =>
-      request<Record<string, unknown>>("/api/ingestion/contract", { signal }),
+      request<Record<string, unknown>>(contractPath(source), { signal }),
   });
 }
 

@@ -261,6 +261,10 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
    défilement horizontale sous la table. */
 .detail-json { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
 
+/* Adresse publique d'un contrat : l'URL se lit en entier, même longue, et ne pousse
+   aucune barre de défilement horizontale sous le bloc. */
+.contract-url { overflow-wrap: anywhere; font-size: 12px; margin: 4px 0 10px; }
+
 /* Bandeau de colonnes d'une table en lignes, relevé sur la maquette « Référentiel de
    comptes » : sans lui, les valeurs d'une ligne se lisent comme une suite de mots et
    non comme des colonnes. */

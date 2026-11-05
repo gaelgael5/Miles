@@ -3,16 +3,14 @@
 Sous `/api`, donc derrière le portillon de sessions. **Une clé d'ingestion n'ouvre jamais
 ces routes** : elle ne sait que déposer.
 
-**Pourquoi le contrat se SERT ici plutôt que depuis `/openapi.json`.** La stack ne sert
-volontairement ni `/docs` ni `/openapi.json` — ce seraient des routes hors du portillon, et
-`app.py` porte cette décision. L'écran a quand même besoin de la forme publiée ; elle passe
-donc par une route gardée, et c'est la MÊME fonction qui engendre le fichier versionné.
-Deux sources auraient divergé, et l'écran aurait montré une forme que personne ne sert.
+**Le contrat, lui, est servi par `api_contract.py`**, qui est ouvert à tous : il est fait
+pour être pointé par une URL et téléchargé. La stack ne sert toujours ni `/docs` ni
+`/openapi.json` — ce seraient des routes hors du portillon qui décriraient TOUTE la
+surface, écrans compris, et `app.py` porte cette décision.
 """
 
 from __future__ import annotations
 
-from functools import cache
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -106,22 +104,6 @@ class RefusalOut(BaseModel):
     detail: RefusalDetail
 
 
-@cache
-def _published() -> dict[str, Any]:
-    """La forme publiée, engendrée une fois.
-
-    Mise en cache parce qu'elle est déterminée par le CODE, pas par l'état : elle ne peut
-    pas changer sans un redéploiement. Et l'engendrer construit une application entière —
-    le faire à chaque ouverture de la page serait payé pour un résultat identique.
-    """
-    # Import DIFFÉRÉ, et il ne peut pas l'être autrement : `published_contracts`
-    # construit l'application, qui inclut ce routeur. En tête de fichier, l'import
-    # bouclerait au chargement.
-    from environnement.published_contracts import openapi_contract
-
-    return openapi_contract()
-
-
 def _method(methode: Method) -> MethodOut:
     return MethodOut(
         source=methode.source,
@@ -135,12 +117,6 @@ def _method(methode: Method) -> MethodOut:
         model_refusal=methode.model_refusal,
         example=methode.example,
     )
-
-
-@router.get("/contract")
-async def contract() -> dict[str, Any]:
-    """Le contrat publié du point d'entrée, celui-là même qui est versionné."""
-    return _published()
 
 
 @router.get("/methods", response_model=MethodsOut)

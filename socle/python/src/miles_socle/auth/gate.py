@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
+from functools import lru_cache
 
 import structlog
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
+from starlette.routing import compile_path
 
 from miles_socle.auth.context import AuthContext, client_origin
 from miles_socle.auth.sessions import (
@@ -72,6 +75,31 @@ def _personal(path: str) -> bool:
 CallNext = Callable[[Request], Awaitable[Response]]
 
 
+@lru_cache(maxsize=64)
+def _matcher(template: str) -> re.Pattern[str]:
+    """Le gabarit d'un chemin, compilé par la MÊME grammaire que le routeur.
+
+    Compilé ici plutôt que cherché dans la table des routes : une version de FastAPI
+    garde les routeurs inclus groupés derrière un objet privé, et un parcours de la
+    table n'y voit aucune route — donc n'ouvre rien, en silence (mesuré sur 0.121).
+    Un gabarit compilé est ancré, donc il n'ouvre jamais ce qu'on monterait dessous.
+    """
+    regex, _, _ = compile_path(template)
+    return regex
+
+
+def _public_route(request: Request) -> bool:
+    """Cette requête tombe-t-elle sur une route que le produit a ouverte à tous ?"""
+    ouvertes: frozenset[tuple[str, str]] = getattr(
+        request.app.state, "public_api_routes", frozenset()
+    )
+    chemin = request.url.path
+    return any(
+        methode == request.method and _matcher(gabarit).match(chemin) is not None
+        for methode, gabarit in ouvertes
+    )
+
+
 def _same_email(session_email: str | None, admin_email: str) -> bool:
     # Même règle qu'à la reconnaissance : égalité insensible à la casse, rien d'autre.
     return session_email is not None and session_email.lower() == admin_email.lower()
@@ -104,6 +132,18 @@ async def auth_gate(request: Request, call_next: CallNext) -> Response:
     # l'appariement, un secret de stack ne prouve que l'appartenance à la stack. Les
     # confondre laisserait un chemin déclaré pour l'un s'ouvrir par le mécanisme de l'autre.
     if path in getattr(request.app.state, "system_api_paths", frozenset()):
+        return await call_next(request)
+    # Routes OUVERTES À TOUS, déclarées par le produit : un contrat d'interface se
+    # pointe par une URL qu'un intégrateur ouvre sans compte (Gael, 05/11/2026). Les
+    # mêmes trois propriétés que ci-dessus, et une liste encore distincte — ce qui est
+    # ouvert à tous ne prouve rien du tout, et le confondre avec « authentifié par
+    # signature » ouvrirait au monde une route qui n'attendait qu'un pair.
+    #
+    # Le chemin est comparé par ROUTAGE et non par égalité : ces routes portent des
+    # paramètres (`/{source}`), et un préfixe ouvert aurait ouvert aussi ce qu'on
+    # monterait dessous demain. La méthode compte dans la correspondance : ouvrir la
+    # lecture d'un contrat n'ouvre pas son écriture.
+    if _public_route(request):
         return await call_next(request)
     ctx: AuthContext = request.app.state.auth
     account = ctx.store.account
