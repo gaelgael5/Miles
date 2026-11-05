@@ -67,6 +67,24 @@ describe("Swagger viewer (25/10/2026)", () => {
     );
   });
 
+  it("folds the document's description, and keeps the document", async () => {
+    // Gael, 05/11/2026 : la prose d'en-tête d'un contrat bavard repousse les adresses
+    // hors de l'écran. Ce qui se replie est elle, pas le contrat.
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${WS}/contracts${Q}`]: { status: 200, body: [] },
+      [`GET ${WS}/contracts/rag${Q}`]: { status: 200, body: CONTRACT },
+      [`GET ${WS}/contracts/rag/versions/1/openapi${Q}`]: { status: 200, body: SPEC },
+    });
+    renderWorkspaces({ id: "retrait", view: "contracts", branch: "edition", contract: "rag" });
+    fireEvent.click(await screen.findByText("View in Swagger"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Hide the description" }));
+
+    expect(screen.getByTestId("swagger-spec").closest(".spec-host")).toHaveClass("spec-folded");
+  });
+
   it("offers the document itself, downloadable in one click", async () => {
     // Un lien vers la MÊME adresse que l'écran lit : ce qu'on enregistre est exactement
     // ce qu'un appel rend, et il n'y a pas deux chemins par lesquels le contrat sort.
