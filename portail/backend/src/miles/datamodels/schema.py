@@ -120,6 +120,9 @@ def normalized(text: str, scope: str, name: str) -> str:
     if not isinstance(data, dict):
         raise ModelGrammarError([Problem("", "document_non_objet")])
     head = {"$schema": DIALECT, "$id": model_id(scope, name)}
+    # TOUT le reste est recopié, y compris les mots-clés d'extension : `x-miles` porte
+    # l'utilité des champs depuis le 05/11/2026, et une réécriture qui la laisserait
+    # tomber décocherait les cases au rechargement, sans message.
     rest = {k: v for k, v in data.items() if k not in head}
     return yaml.safe_dump(head | rest, allow_unicode=True, sort_keys=False)
 

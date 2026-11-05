@@ -421,7 +421,20 @@
     },
     "tabs": {
       "title": "Vues du modèle",
-      "editor": "Éditeur"
+      "editor": "Éditeur",
+      "usage": "Utilité des champs"
+    },
+    "usage": {
+      "table": "Utilité des champs",
+      "intro": "Ce que chaque champ de premier niveau sert à faire. La liste vient du modèle : elle change quand l'éditeur change, elle ne se modifie pas ici.",
+      "none": "Ce modèle ne déclare encore aucun champ.",
+      "field": "Champ",
+      "key": "Clé fonctionnelle",
+      "column": "Dans le tableau",
+      "keyOf": "{{field}} fait partie de la clé fonctionnelle",
+      "columnOf": "{{field}} s'affiche dans le tableau",
+      "unusable": "ne porte pas une valeur",
+      "unreadable": "Le YAML ne se lit pas : l'utilité des champs se déclare sur un modèle lisible."
     },
     "editor": {
       "title": "YAML du modèle",

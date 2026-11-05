@@ -104,6 +104,32 @@ def test_the_system_sets_schema_and_id_first_whatever_the_client_wrote() -> None
     assert parse_schema(text).identifier == model_id("suivi", "colis")
 
 
+USAGE = COLIS + "x-miles:\n  key: ['$.reference']\n  columns: ['$.etat']\n"
+
+
+def test_the_usage_of_fields_rides_along_as_an_extension_keyword() -> None:
+    """L'utilité des champs est écrite DANS le modèle (Gael, 05/11/2026).
+
+    Le méta-schéma 2020-12 admet les mots-clés inconnus : un validateur tiers ignore
+    `x-miles`, et le modèle reste un JSON Schema ordinaire pour qui le lit ailleurs.
+    Sans cette garde, un resserrement de la validation refuserait des modèles que
+    l'écran écrit — et le refus arriverait à l'enregistrement, loin de la case cochée.
+    """
+    schema = parse_schema(USAGE)
+
+    assert schema.title == "Colis"
+    assert "reference" in schema.properties
+
+
+def test_the_usage_of_fields_survives_the_rewrite_at_save() -> None:
+    # `normalized` réécrit le document en entier : ce qu'elle laisse tomber est perdu
+    # sans message, et la case cochée se décocherait toute seule au rechargement.
+    text = normalized(USAGE, "suivi", "colis")
+
+    assert "x-miles:" in text
+    assert "$.reference" in text
+
+
 def test_a_declared_model_is_an_empty_object_draft() -> None:
     schema = parse_schema(draft("shared", "personne", "Personne livrée"))
 

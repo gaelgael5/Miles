@@ -11,6 +11,7 @@ import {
   useReplaceDataModel,
 } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
+import { FieldUsage } from "../dataModels/FieldUsage";
 import { ImportSmart } from "../dataModels/ImportSmart";
 import { isBlankSchema, parseSchema, sameSchema, schemaText } from "../dataModels/schemaText";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
@@ -40,11 +41,11 @@ function withIdentity(current: JsonSchema, inferred: Record<string, unknown>): J
 }
 
 /**
- * Les vues d'un modèle (Gael, 05/11/2026). Une seule pour l'instant — celle qui existe —,
- * et la barre est là pour les suivantes : c'est le geste demandé, et une barre posée
- * après coup déplacerait l'en-tête et le câblage ARIA d'un écran déjà en service.
+ * Les vues d'un modèle (Gael, 05/11/2026) : ce qu'il DÉCRIT, puis ce que ses champs
+ * SERVENT à faire. L'éditeur d'abord — on ne déclare l'utilité que de champs qui
+ * existent.
  */
-const ONGLETS = ["editor"] as const;
+const ONGLETS = ["editor", "usage"] as const;
 type Onglet = (typeof ONGLETS)[number];
 
 /**
@@ -182,22 +183,32 @@ function Editor({
         current={onglet}
         onSelect={setOnglet}
       >
-        {/* Pas de <form> ici, exprès : JSONJoy porte ses propres formulaires (ajout d'une
-            définition) ; imbriqués dans le nôtre, leur envoi rechargeait toute la page. */}
-        <div className="card" role="group" aria-label={t("dataModels.editor.title")}>
-          <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
-            <SchemaEditor
-              target={target}
-              model={model}
-              models={models.data ?? []}
-              text={text}
-              parsed={parsed}
-              onVisual={fromVisual}
-              onYaml={fromYaml}
-            />
-          </Suspense>
-          <p className="help">{t("dataModels.editor.help")}</p>
-        </div>
+        {onglet === "editor" ? (
+          /* Pas de <form> ici, exprès : JSONJoy porte ses propres formulaires (ajout d'une
+             définition) ; imbriqués dans le nôtre, leur envoi rechargeait toute la page. */
+          <div className="card" role="group" aria-label={t("dataModels.editor.title")}>
+            <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
+              <SchemaEditor
+                target={target}
+                model={model}
+                models={models.data ?? []}
+                text={text}
+                parsed={parsed}
+                onVisual={fromVisual}
+                onYaml={fromYaml}
+              />
+            </Suspense>
+            <p className="help">{t("dataModels.editor.help")}</p>
+          </div>
+        ) : parsed.ok ? (
+          // Par `fromVisual`, comme l'éditeur : l'utilité est écrite DANS le schéma, donc
+          // le YAML la montre, « Enregistrer » la porte, et rien ne part au serveur avant.
+          <FieldUsage schema={parsed.schema} readOnly={target.readOnly} onChange={fromVisual} />
+        ) : (
+          <p className="notice" role="note">
+            {t("dataModels.usage.unreadable")}
+          </p>
+        )}
       </Tabs>
     </>
   );

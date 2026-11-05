@@ -421,7 +421,20 @@
     },
     "tabs": {
       "title": "Model views",
-      "editor": "Editor"
+      "editor": "Editor",
+      "usage": "Field usage"
+    },
+    "usage": {
+      "table": "Field usage",
+      "intro": "What each top-level field is for. The list comes from the model: it follows the editor, and cannot be changed here.",
+      "none": "This model declares no field yet.",
+      "field": "Field",
+      "key": "Functional key",
+      "column": "In the table",
+      "keyOf": "{{field}} is part of the functional key",
+      "columnOf": "{{field}} shows in the table",
+      "unusable": "not a single value",
+      "unreadable": "The YAML cannot be read: field usage is declared on a readable model."
     },
     "editor": {
       "title": "Model YAML",
