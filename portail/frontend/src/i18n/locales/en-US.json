@@ -419,6 +419,10 @@
       "version_non_prise_en_charge": "unsupported OpenAPI version {{detail}}",
       "yaml_invalide": "invalid YAML ({{detail}})"
     },
+    "tabs": {
+      "title": "Model views",
+      "editor": "Editor"
+    },
     "editor": {
       "title": "Model YAML",
       "back": "← Back to models",

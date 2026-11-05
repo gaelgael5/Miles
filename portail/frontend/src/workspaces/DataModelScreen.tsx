@@ -2,7 +2,7 @@ import type { JsonSchema } from "jsonjoy-builder";
 import { Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ConfirmDialog } from "@miles/socle-web";
+import { ConfirmDialog, Tabs } from "@miles/socle-web";
 import {
   type DataModelContent,
   SHARED_SCOPE,
@@ -40,6 +40,14 @@ function withIdentity(current: JsonSchema, inferred: Record<string, unknown>): J
 }
 
 /**
+ * Les vues d'un modèle (Gael, 05/11/2026). Une seule pour l'instant — celle qui existe —,
+ * et la barre est là pour les suivantes : c'est le geste demandé, et une barre posée
+ * après coup déplacerait l'en-tête et le câblage ARIA d'un écran déjà en service.
+ */
+const ONGLETS = ["editor"] as const;
+type Onglet = (typeof ONGLETS)[number];
+
+/**
  * Éditeur visuel à gauche, YAML à droite (story e38806f3), synchronisés et en mémoire
  * seulement : rien ne part au serveur avant « Enregistrer », qui reste l'arbitre.
  */
@@ -62,6 +70,7 @@ function Editor({
   const [text, setText] = useState(model.content);
   const [parsed, setParsed] = useState(() => parseSchema(model.content));
   const [importing, setImporting] = useState(false);
+  const [onglet, setOnglet] = useState<Onglet>("editor");
   // Dit à la personne que son échantillon était une liste : un dégagement silencieux
   // ferait croire que Miles a perdu le niveau du dessus.
   const [unwrapped, setUnwrapped] = useState(false);
@@ -163,22 +172,33 @@ function Editor({
         </p>
       )}
       {replace.isError && <ModelRefusal error={replace.error} />}
-      {/* Pas de <form> ici, exprès : JSONJoy porte ses propres formulaires (ajout d'une
-          définition) ; imbriqués dans le nôtre, leur envoi rechargeait toute la page. */}
-      <div className="card" role="group" aria-label={t("dataModels.editor.title")}>
-        <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
-          <SchemaEditor
-            target={target}
-            model={model}
-            models={models.data ?? []}
-            text={text}
-            parsed={parsed}
-            onVisual={fromVisual}
-            onYaml={fromYaml}
-          />
-        </Suspense>
-        <p className="help">{t("dataModels.editor.help")}</p>
-      </div>
+      {/* La barre est rendue ICI, sous l'en-tête, et non dans l'écran : l'en-tête porte
+          « Enregistrer » et l'état de l'édition, qui vivent dans ce composant. Le jour
+          où un deuxième onglet arrive sans rien à enregistrer, c'est l'en-tête qui
+          remontera d'un cran, pas la barre qui descendra. */}
+      <Tabs
+        label={t("dataModels.tabs.title")}
+        tabs={ONGLETS.map((nom) => ({ name: nom, label: t(`dataModels.tabs.${nom}`) }))}
+        current={onglet}
+        onSelect={setOnglet}
+      >
+        {/* Pas de <form> ici, exprès : JSONJoy porte ses propres formulaires (ajout d'une
+            définition) ; imbriqués dans le nôtre, leur envoi rechargeait toute la page. */}
+        <div className="card" role="group" aria-label={t("dataModels.editor.title")}>
+          <Suspense fallback={<p className="muted">{t("dataModels.loading")}</p>}>
+            <SchemaEditor
+              target={target}
+              model={model}
+              models={models.data ?? []}
+              text={text}
+              parsed={parsed}
+              onVisual={fromVisual}
+              onYaml={fromYaml}
+            />
+          </Suspense>
+          <p className="help">{t("dataModels.editor.help")}</p>
+        </div>
+      </Tabs>
     </>
   );
 }

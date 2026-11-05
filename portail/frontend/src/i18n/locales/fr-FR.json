@@ -419,6 +419,10 @@
       "version_non_prise_en_charge": "version OpenAPI {{detail}} non prise en charge",
       "yaml_invalide": "YAML invalide ({{detail}})"
     },
+    "tabs": {
+      "title": "Vues du modèle",
+      "editor": "Éditeur"
+    },
     "editor": {
       "title": "YAML du modèle",
       "back": "← Retour aux modèles",

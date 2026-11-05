@@ -1,6 +1,7 @@
-import { type KeyboardEvent, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Tabs } from "@miles/socle-web";
 import { IngestionCalls } from "./IngestionCalls";
 import { IngestionMethods } from "./IngestionMethods";
 import { SourceContract } from "./SourceContract";
@@ -17,9 +18,6 @@ import { SourceContract } from "./SourceContract";
 const ONGLETS = ["contract", "trial", "calls"] as const;
 type Onglet = (typeof ONGLETS)[number];
 
-const tabId = (onglet: Onglet) => `ingestion-source-tab-${onglet}`;
-const panelId = (onglet: Onglet) => `ingestion-source-panel-${onglet}`;
-
 /**
  * Une source d'ingestion, page à part (Gael, 04/11/2026) : son contrat, son essai, ses logs.
  *
@@ -35,20 +33,6 @@ const panelId = (onglet: Onglet) => `ingestion-source-panel-${onglet}`;
 export function SourceScreen({ source }: { source: string }) {
   const { t } = useTranslation();
   const [onglet, setOnglet] = useState<Onglet>("contract");
-  const boutons = useRef<Partial<Record<Onglet, HTMLButtonElement | null>>>({});
-
-  function auClavier(evenement: KeyboardEvent, rang: number) {
-    const pas = evenement.key === "ArrowRight" ? 1 : evenement.key === "ArrowLeft" ? -1 : 0;
-    if (pas === 0) {
-      return;
-    }
-    evenement.preventDefault();
-    // `?? onglet` pour `noUncheckedIndexedAccess` : l'index est déjà ramené dans les
-    // bornes par le modulo, et ce repli ne peut pas se produire.
-    const suivant = ONGLETS[(rang + pas + ONGLETS.length) % ONGLETS.length] ?? onglet;
-    setOnglet(suivant);
-    boutons.current[suivant]?.focus();
-  }
 
   return (
     <section aria-labelledby="ingestion-source-title">
@@ -58,32 +42,12 @@ export function SourceScreen({ source }: { source: string }) {
           <p className="lead">{t("ingestion.source.intro")}</p>
         </div>
       </div>
-      <div className="tabs" role="tablist" aria-label={t("ingestion.source.tabs")}>
-        {ONGLETS.map((nom, rang) => (
-          <button
-            key={nom}
-            type="button"
-            role="tab"
-            id={tabId(nom)}
-            className="tab"
-            aria-selected={onglet === nom}
-            aria-controls={panelId(nom)}
-            // Une seule entrée au clavier dans la barre, et les flèches pour changer
-            // d'onglet : c'est le motif ARIA des onglets. Sans lui, la tabulation
-            // traverse chaque onglet avant d'atteindre le contenu — ici des formulaires
-            // d'essai qu'on remplit, pas une page qu'on survole.
-            tabIndex={onglet === nom ? 0 : -1}
-            ref={(noeud) => {
-              boutons.current[nom] = noeud;
-            }}
-            onKeyDown={(evenement) => auClavier(evenement, rang)}
-            onClick={() => setOnglet(nom)}
-          >
-            {t(`ingestion.source.${nom}`)}
-          </button>
-        ))}
-      </div>
-      <div role="tabpanel" id={panelId(onglet)} aria-labelledby={tabId(onglet)}>
+      <Tabs
+        label={t("ingestion.source.tabs")}
+        tabs={ONGLETS.map((nom) => ({ name: nom, label: t(`ingestion.source.${nom}`) }))}
+        current={onglet}
+        onSelect={setOnglet}
+      >
         {onglet === "contract" ? (
           <SourceContract source={source} />
         ) : onglet === "trial" ? (
@@ -94,7 +58,7 @@ export function SourceScreen({ source }: { source: string }) {
           // lirait comme « ce partenaire n'a rien déposé ».
           <IngestionCalls key={source} source={source} />
         )}
-      </div>
+      </Tabs>
     </section>
   );
 }
