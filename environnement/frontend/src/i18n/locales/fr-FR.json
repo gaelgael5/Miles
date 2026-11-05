@@ -64,8 +64,7 @@
     },
     "table": "Objets trouvés",
     "columns": {
-      "key": "Clé",
-      "seen": "Vu le"
+      "key": "Clé"
     },
     "detail": {
       "title": "Objet",

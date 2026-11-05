@@ -153,7 +153,10 @@ describe("la page d'un espace de stockage", () => {
     expect(calls.map((c) => c.key)).toContain("GET /api/storages/accounts/objects?page=1");
   });
 
-  it("rend l'objet, ses colonnes projetées et ses dates", async () => {
+  it("rend l'objet et ses colonnes projetées, sans répéter la date du panneau", async () => {
+    // La date de dernière vue est dans le panneau, et elle n'est plus une colonne
+    // (Gael, 05/11/2026) : elle prenait une colonne entière pour une valeur identique
+    // sur tout un import, au détriment des colonnes qui distinguent les objets.
     monte(UNE_PAGE);
 
     expect(await screen.findByText("1 object found")).toBeInTheDocument();
@@ -165,6 +168,7 @@ describe("la page d'un espace de stockage", () => {
     // Les colonnes sont nommées par leur chemin déclaré, au-dessus de la table.
     const table = within(screen.getByRole("region", { name: "Objects found" }));
     expect(table.getByText("$.Contact.Phone")).toBeInTheDocument();
+    expect(table.queryByText(/2026/)).not.toBeInTheDocument();
   });
 
   it("montre le modèle de l'objet à droite quand on clique la ligne", async () => {

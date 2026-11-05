@@ -77,7 +77,6 @@ export function StorageObjects({
   onPage: (page: number) => void;
 }) {
   const { t } = useTranslation();
-  const instant = useInstant();
   // L'objet ouvert, par sa clé. La clé et non l'objet : la page suivante en porte
   // d'autres, et un objet recopié ici survivrait à la table qui l'a montré.
   const [ouvert, setOuvert] = useState<string | null>(null);
@@ -104,7 +103,9 @@ export function StorageObjects({
         // trouve rien. Le dire dans les mots du résultat, pas dans ceux d'une panne.
         <p className="help">{t("storages.empty")}</p>
       ) : (
-        <div className="split">
+        // La table laisse la moitié de la largeur au panneau : c'est lui qui porte
+        // l'objet entier, et il la remplit (Gael, 05/11/2026).
+        <div className="split split-even">
           {/* Une région nommée, comme le journal des appels : la table et le panneau de
               détail sont deux zones de la page, et un lecteur d'écran doit pouvoir aller
               de l'une à l'autre. */}
@@ -119,7 +120,6 @@ export function StorageObjects({
                   {projection.path}
                 </div>
               ))}
-              <div className="cell-auto">{t("storages.columns.seen")}</div>
             </div>
             <ul className="plain-list">
               {query.data.objects.map((objet) => (
@@ -146,7 +146,6 @@ export function StorageObjects({
                       {String(objet.columns[projection.column] ?? "—")}
                     </div>
                   ))}
-                  <div className="cell-auto caption">{instant(objet.vu_le)}</div>
                 </li>
               ))}
             </ul>

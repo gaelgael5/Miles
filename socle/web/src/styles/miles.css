@@ -231,6 +231,14 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .split { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
 .split-list { flex: 999 1 420px; min-width: 0; }
 .split-detail { flex: 1 1 300px; min-width: 0; position: sticky; top: 20px; }
+/* Variante à parts égales, quand le détail porte un OBJET ENTIER et non quelques faits
+   (Gael, 05/11/2026, sur les objets stockés). Par défaut la liste grandit à 999 et prend
+   toute la place libre : c'est ce qu'il faut pour un journal, dont le détail tient en
+   six lignes, et c'est ce qui repliait un modèle JSON sur une colonne étroite à côté
+   d'une table qui avait de la largeur en trop. Le repli sous 800px reste celui de
+   `.split` : c'est la place disponible qui décide, pas une media query. */
+.split-even > .split-list { flex: 1 1 380px; }
+.split-even > .split-detail { flex: 1 1 380px; }
 /* Les valeurs du détail DÉBORDENT sans ces deux lignes, et ça ne se voit que dans un
    navigateur : `.facts` pose une colonne `max-content`, et un identifiant de 32
    caractères en mono n'a aucun point de coupure — il sortait du panneau, par-dessus le
