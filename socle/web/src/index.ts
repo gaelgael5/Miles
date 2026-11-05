@@ -26,6 +26,7 @@ export * from "./i18n/instants";
 // nommée ici, parce qu'un produit en a besoin pour changer de langue dans ses tests.
 export { default as i18n } from "./i18n/i18n";
 export * from "./layout/Topbar";
+export * from "./layout/useSidebar";
 export * from "./layout/PageHead";
 export * from "./layout/ConfirmDialog";
 export * from "./layout/CopyButton";

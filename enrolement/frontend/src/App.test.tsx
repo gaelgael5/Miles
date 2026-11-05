@@ -103,6 +103,19 @@ const CONNECTE: Routes = {
 };
 
 describe("App du module d'enrôlement", () => {
+  it("replie le menu depuis la barre du haut", async () => {
+    // Le bouton est dans la BARRE, le menu dans le corps : deux composants que l'App
+    // rend côte à côte, et c'est elle qui les relie. Sans cette garde, un produit peut
+    // oublier de poser la classe ou l'identifiant, et le bouton ne commanderait rien.
+    monte(CONNECTE);
+    const replier = await screen.findByRole("button", { name: "Collapse or expand the menu" });
+    expect(replier).toHaveAttribute("aria-controls", screen.getByRole("navigation").id);
+
+    fireEvent.click(replier);
+
+    expect(screen.getByRole("navigation")).toHaveClass("sidebar-collapsed");
+  });
+
   it("conduit à l'écran d'amorçage sur une installation où aucun administrateur n'existe", async () => {
     monte({
       "GET /api/bootstrap/status": { status: 200, body: { admin_declared: false } },

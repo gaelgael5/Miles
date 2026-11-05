@@ -5,7 +5,8 @@
     "noRights": "Vous êtes connecté par {{directory}}, mais aucun droit ne vous est encore accordé.",
     "brand": "Miles",
     "freshInstall": "Installation neuve",
-    "navigation": "Navigation principale"
+    "navigation": "Navigation principale",
+    "toggleNav": "Replier ou déplier le menu"
   },
   "health": {
     "title": "État du service",

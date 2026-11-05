@@ -13,9 +13,12 @@ import {
   ProfileShell,
   readStoredCulture,
   SecretsScreen,
+  NAV_ID,
+  type Sidebar,
   Topbar,
   useLogout,
   usePreferences,
+  useSidebar,
 } from "@miles/socle-web";
 
 import { ApiKeysScreen } from "./apikeys/ApiKeysScreen";
@@ -73,9 +76,10 @@ const ECRANS = [
 
 type Page = (typeof ECRANS)[number]["nom"];
 
-function BackOffice({ me, profil, onQuitterProfil }: {
+function BackOffice({ me, profil, sidebar, onQuitterProfil }: {
   me: Me;
   profil: boolean;
+  sidebar: Sidebar;
   onQuitterProfil: () => void;
 }) {
   const { t } = useTranslation();
@@ -102,7 +106,7 @@ function BackOffice({ me, profil, onQuitterProfil }: {
 
   return (
     <div className="body">
-      <nav className="sidebar" aria-label={t("app.navigation")}>
+      <nav id={NAV_ID} className={sidebar.navClassName} aria-label={t("app.navigation")}>
         <div className="sidebar-group">
           <span className="sidebar-section">{t("app.sections.global")}</span>
           <div>
@@ -161,6 +165,7 @@ function Connecte({ me }: { me: Me }) {
   const logout = useLogout();
   const preferences = usePreferences();
   const [profil, setProfil] = useState(false);
+  const sidebar = useSidebar();
   const language = preferences.data?.language;
 
   // La langue retenue pour le compte l'emporte ; sans choix, celle de l'écran de
@@ -174,7 +179,7 @@ function Connecte({ me }: { me: Me }) {
 
   return (
     <>
-      <Topbar>
+      <Topbar sidebar={me.root_admin ? sidebar : undefined}>
         <button
           type="button"
           className="topbar-user topbar-button"
@@ -188,7 +193,12 @@ function Connecte({ me }: { me: Me }) {
         </button>
       </Topbar>
       {me.root_admin ? (
-        <BackOffice me={me} profil={profil} onQuitterProfil={() => setProfil(false)} />
+        <BackOffice
+          me={me}
+          profil={profil}
+          sidebar={sidebar}
+          onQuitterProfil={() => setProfil(false)}
+        />
       ) : (
         // Authentifié n'est pas autorisé : sans rôle, rien d'autre que son profil ne
         // s'ouvre. Les rôles de ce produit viendront avec leur ticket — l'axe de portée

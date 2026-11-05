@@ -5,7 +5,8 @@
     "noRights": "You are signed in through {{directory}}, but no right is granted to you yet.",
     "brand": "Miles",
     "freshInstall": "Fresh installation",
-    "navigation": "Main navigation"
+    "navigation": "Main navigation",
+    "toggleNav": "Collapse or expand the menu"
   },
   "health": {
     "title": "Service status",

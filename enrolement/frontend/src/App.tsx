@@ -10,12 +10,15 @@ import {
   EventsScreen,
   HealthStatus,
   type Me,
+  NAV_ID,
   ProfileShell,
   readStoredCulture,
   SecretsScreen,
+  type Sidebar,
   Topbar,
   useLogout,
   usePreferences,
+  useSidebar,
 } from "@miles/socle-web";
 
 import { type Environment, useEnvironments } from "./api/environments";
@@ -62,9 +65,10 @@ type Ouvert =
   | { quoi: "page"; nom: Page }
   | { quoi: "workspace"; environmentId: string; vue: VueWorkspace };
 
-function BackOffice({ me, profil, onQuitterProfil }: {
+function BackOffice({ me, profil, sidebar, onQuitterProfil }: {
   me: Me;
   profil: boolean;
+  sidebar: Sidebar;
   onQuitterProfil: () => void;
 }) {
   const { t } = useTranslation();
@@ -101,7 +105,7 @@ function BackOffice({ me, profil, onQuitterProfil }: {
 
   return (
     <div className="body">
-      <nav className="sidebar" aria-label={t("app.navigation")}>
+      <nav id={NAV_ID} className={sidebar.navClassName} aria-label={t("app.navigation")}>
         <div className="sidebar-group">
           {/* Repliable comme celles du portail (Gael, 01/11/2026) : la feuille de style
               du socle dessine un chevron sur `.sidebar-section`, et un menu qui montre
@@ -223,6 +227,7 @@ function Connecte({ me }: { me: Me }) {
   const logout = useLogout();
   const preferences = usePreferences();
   const [profil, setProfil] = useState(false);
+  const sidebar = useSidebar();
   const language = preferences.data?.language;
 
   // La langue retenue pour le compte l'emporte ; sans choix, celle de l'écran de
@@ -236,7 +241,7 @@ function Connecte({ me }: { me: Me }) {
 
   return (
     <>
-      <Topbar>
+      <Topbar sidebar={me.root_admin ? sidebar : undefined}>
         <button
           type="button"
           className="topbar-user topbar-button"
@@ -250,7 +255,12 @@ function Connecte({ me }: { me: Me }) {
         </button>
       </Topbar>
       {me.root_admin ? (
-        <BackOffice me={me} profil={profil} onQuitterProfil={() => setProfil(false)} />
+        <BackOffice
+          me={me}
+          profil={profil}
+          sidebar={sidebar}
+          onQuitterProfil={() => setProfil(false)}
+        />
       ) : (
         // Authentifié n'est pas autorisé : sans rôle, rien d'autre que son profil ne
         // s'ouvre. Les rôles de ce produit viendront avec leur ticket — l'axe de portée

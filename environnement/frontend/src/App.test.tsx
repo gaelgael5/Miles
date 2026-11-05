@@ -294,6 +294,21 @@ describe("App du module d'environnement", () => {
     expect(menu.getAllByRole("button")).toHaveLength(ECRANS.length + 2);
   });
 
+  it("replie le menu depuis la barre du haut", async () => {
+    // Le bouton est dans la BARRE, le menu dans le corps : deux composants que l'App
+    // rend côte à côte, et c'est elle qui les relie. Sans cette garde, un produit peut
+    // oublier de poser la classe ou l'identifiant, et le bouton ne commanderait rien.
+    monte(CONNECTE);
+    const replier = await screen.findByRole("button", { name: "Collapse or expand the menu" });
+    const menu = screen.getByRole("navigation");
+    expect(replier).toHaveAttribute("aria-controls", menu.id);
+
+    fireEvent.click(replier);
+
+    expect(screen.getByRole("navigation")).toHaveClass("sidebar-collapsed");
+    expect(replier).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("ouvre le profil depuis la barre du haut", async () => {
     monte(CONNECTE);
 

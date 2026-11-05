@@ -59,6 +59,16 @@ code, .mono { font-family: var(--police-mono); font-size: 12.5px; }
   background: var(--encre); color: var(--surface); padding: 14px 28px;
   display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
 }
+/* Repli du menu (Gael, 05/11/2026), au coin haut gauche, au-dessus du menu qu'il
+   commande. Transparent et de la couleur de la barre : c'est un geste de mise en page,
+   pas une action du métier — il ne doit pas se lire comme « Se déconnecter ». */
+.topbar-nav-toggle {
+  display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  margin: -4px 0; padding: 0; color: var(--barre-faible); background: none; border: none;
+  border-radius: 6px; cursor: pointer;
+}
+.topbar-nav-toggle:hover { color: var(--surface); background: var(--barre-bouton); }
+.topbar-nav-toggle:focus-visible { outline: 2px solid var(--surface); outline-offset: 2px; }
 .topbar-brand { font-weight: 700; font-size: 15px; letter-spacing: 0.01em; }
 .topbar-sub { font-size: 13px; color: var(--barre-faible); }
 .topbar-spacer { flex-grow: 1; }
@@ -72,6 +82,11 @@ code, .mono { font-family: var(--police-mono); font-size: 12.5px; }
   flex: 0 0 240px; background: var(--surface); border-right: 1px solid var(--bordure);
   padding: 24px 0; align-self: stretch;
 }
+/* Replié : la place entière au contenu. Masqué et non rétréci à ses icônes — les
+   entrées n'en ont pas, et un menu réduit à des initiales ne se lit pas. `display:none`
+   le retire aussi du parcours au clavier et des lecteurs d'écran, ce qui est juste :
+   il n'est pas affiché. */
+.sidebar-collapsed { display: none; }
 .sidebar-group + .sidebar-group { margin-top: 20px; }
 /* Titre de menu repliable : le chevron dit l'état, aria-expanded le porte. */
 .sidebar-section {

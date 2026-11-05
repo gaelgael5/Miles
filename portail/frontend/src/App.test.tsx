@@ -47,6 +47,20 @@ describe("App", () => {
     expect(screen.queryByText(/no right/)).not.toBeInTheDocument();
   });
 
+  it("collapses the menu from the top bar", async () => {
+    // Le bouton est dans la BARRE, le menu dans le corps : deux composants que l'App
+    // rend côte à côte, et c'est elle qui les relie. Sans cette garde, un produit peut
+    // oublier de poser la classe ou l'identifiant, et le bouton ne commanderait rien.
+    mockApi(ADMIN);
+    renderApp();
+    const replier = await screen.findByRole("button", { name: "Collapse or expand the menu" });
+    expect(replier).toHaveAttribute("aria-controls", screen.getByRole("navigation").id);
+
+    fireEvent.click(replier);
+
+    expect(screen.getByRole("navigation")).toHaveClass("sidebar-collapsed");
+  });
+
   it("gives the bootstrap administrator the portal navigation", async () => {
     mockApi(ADMIN);
 

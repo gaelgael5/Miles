@@ -9,12 +9,15 @@ import {
   EventsScreen,
   HealthStatus,
   type Me,
+  NAV_ID,
   PairingScreen,
   readStoredCulture,
   SecretsScreen,
+  type Sidebar,
   Topbar,
   useLogout,
   usePreferences,
+  useSidebar,
 } from "@miles/socle-web";
 import { ApiKeysScreen } from "./apiKeys/ApiKeysScreen";
 import { CountriesScreen } from "./countries/CountriesScreen";
@@ -101,7 +104,15 @@ const SCREENS: Record<Exclude<Page, "workspaces">, () => JSX.Element> = {
 };
 
 /** Le portail de l'administrateur : seul compte qui ait des droits tant que les rôles manquent. */
-function AdminPortal({ profile, onLeave }: { profile: ReactNode; onLeave: () => void }) {
+function AdminPortal({
+  profile,
+  sidebar,
+  onLeave,
+}: {
+  profile: ReactNode;
+  sidebar: Sidebar;
+  onLeave: () => void;
+}) {
   const { t } = useTranslation();
   const [page, setPageState] = useState<Page>("workspaces");
   // Tenue ici et non dans l'écran : le menu et l'écran montrent le même workspace.
@@ -135,7 +146,7 @@ function AdminPortal({ profile, onLeave }: { profile: ReactNode; onLeave: () => 
 
   return (
     <div className="body">
-      <nav className="sidebar" aria-label={t("app.navigation")}>
+      <nav id={NAV_ID} className={sidebar.navClassName} aria-label={t("app.navigation")}>
         {SECTIONS.map((section) => (
           <div key={section.title} className="sidebar-group">
             <CollapsibleGroup
@@ -183,6 +194,7 @@ function SignedIn({ me }: { me: Me }) {
   const logout = useLogout();
   const preferences = usePreferences();
   const [profileOpen, setProfileOpen] = useState(false);
+  const sidebar = useSidebar();
   const language = preferences.data?.language;
 
   // La langue retenue pour le compte l'emporte ; sans choix, celle de l'écran de connexion.
@@ -202,7 +214,10 @@ function SignedIn({ me }: { me: Me }) {
   });
   return (
     <>
-      <Topbar>
+      {/* Pas de bouton de repli sur l'écran de consentement ni sans droits : il n'y a
+          alors aucun menu à replier, et un bouton qui ne commande rien se lit comme une
+          panne. */}
+      <Topbar sidebar={!authorizing && me.root_admin ? sidebar : undefined}>
         <button
           type="button"
           className="topbar-user topbar-button"
@@ -218,7 +233,7 @@ function SignedIn({ me }: { me: Me }) {
       {authorizing ? (
         <ConsentScreen />
       ) : me.root_admin ? (
-        <AdminPortal profile={profile} onLeave={() => setProfileOpen(false)} />
+        <AdminPortal profile={profile} sidebar={sidebar} onLeave={() => setProfileOpen(false)} />
       ) : (
         // Authentifié n'est pas autorisé : sans rôle, rien d'autre que son profil ne s'ouvre.
         <div className="narrow">
