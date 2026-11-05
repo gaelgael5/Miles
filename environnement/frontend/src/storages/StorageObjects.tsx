@@ -65,6 +65,23 @@ function ObjectDetail({ objet }: { objet: StorageObject | undefined }) {
   );
 }
 
+/**
+ * La clé a-t-elle encore sa colonne ? (Gael, 05/11/2026)
+ *
+ * Depuis que le MODÈLE déclare ce que la table montre, `$.Id` est la première propriété
+ * cochée, et la colonne « clé » la répétait mot pour mot — deux colonnes pour une seule
+ * valeur, sur la table la plus étroite de l'écran.
+ *
+ * Pas de retrait inconditionnel pour autant : une clé qu'aucune colonne ne montre — ou
+ * un storage dont le modèle ne coche rien — laisserait des lignes qu'on ne peut plus
+ * distinguer les unes des autres. On la retire quand elle est REDONDANTE, pas parce
+ * qu'un modèle l'était.
+ */
+function keyColumnShown(storage: Storage): boolean {
+  const montres = new Set(storage.projections.map((projection) => projection.path));
+  return storage.keys.length === 0 || !storage.keys.every((path) => montres.has(path));
+}
+
 export function StorageObjects({
   storage,
   query,
@@ -92,6 +109,7 @@ export function StorageObjects({
     return <SearchRefusal error={query.error} />;
   }
   const pages = Math.max(1, Math.ceil(query.data.total / query.data.page_size));
+  const cleMontree = keyColumnShown(storage);
   const choisi = query.data.objects.find((objet) => objet.cle === ouvert);
   return (
     <>
@@ -112,7 +130,9 @@ export function StorageObjects({
                 dessine : sans lui, les valeurs projetées ne se lisent pas comme des
                 colonnes mais comme une suite de mots. */}
             <div className="row-head row-columns">
-              <div className="cell-auto cell-key">{t("storages.columns.key")}</div>
+              {cleMontree && (
+                <div className="cell-auto cell-key">{t("storages.columns.key")}</div>
+              )}
               {storage.projections.map((projection) => (
                 <div key={projection.column} className="cell-auto">
                   {projection.path}
@@ -127,23 +147,42 @@ export function StorageObjects({
                     objet.cle === ouvert ? " row-selected" : ""
                   }`}
                 >
-                  <div className="cell-auto cell-key">
-                    <button
-                      type="button"
-                      className="row-open mono"
-                      aria-current={objet.cle === ouvert}
-                      onClick={() => setOuvert(objet.cle)}
-                    >
-                      {/* La clé telle qu'on la lit : la forme canonique `["S-001"]` est
-                          ce que la base compare, pas ce qu'un humain cherche. */}
-                      {readableKey(objet.cle)}
-                    </button>
-                  </div>
-                  {storage.projections.map((projection) => (
-                    <div key={projection.column} className="cell-auto mono">
-                      {String(objet.columns[projection.column] ?? "—")}
+                  {cleMontree && (
+                    <div className="cell-auto cell-key">
+                      <button
+                        type="button"
+                        className="row-open mono"
+                        aria-current={objet.cle === ouvert}
+                        onClick={() => setOuvert(objet.cle)}
+                      >
+                        {/* La clé telle qu'on la lit : la forme canonique `["S-001"]` est
+                            ce que la base compare, pas ce qu'un humain cherche. */}
+                        {readableKey(objet.cle)}
+                      </button>
                     </div>
-                  ))}
+                  )}
+                  {storage.projections.map((projection, rang) => {
+                    const valeur = String(objet.columns[projection.column] ?? "—");
+                    return (
+                      <div key={projection.column} className="cell-auto mono">
+                        {/* Sans colonne de clé, c'est la PREMIÈRE colonne qui ouvre
+                            l'objet : le geste ne disparaît pas avec la colonne qui le
+                            portait, sans quoi la table ne mènerait plus au panneau. */}
+                        {!cleMontree && rang === 0 ? (
+                          <button
+                            type="button"
+                            className="row-open mono"
+                            aria-current={objet.cle === ouvert}
+                            onClick={() => setOuvert(objet.cle)}
+                          >
+                            {valeur}
+                          </button>
+                        ) : (
+                          valeur
+                        )}
+                      </div>
+                    );
+                  })}
                 </li>
               ))}
             </ul>

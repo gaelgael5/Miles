@@ -171,6 +171,39 @@ describe("la page d'un espace de stockage", () => {
     expect(table.queryByText(/2026/)).not.toBeInTheDocument();
   });
 
+  it("ne garde pas la colonne de clé quand une colonne du modèle la porte déjà", async () => {
+    // Gael, 05/11/2026 : depuis que le modèle coche ce que la table montre, « $.Id » est
+    // la première colonne, et la colonne de clé la répétait mot pour mot. C'est alors la
+    // première colonne qui ouvre l'objet — le geste ne part pas avec la colonne.
+    const PORTE_LA_CLE: Storage = {
+      ...ACCOUNTS,
+      projections: [
+        { column: "prop_id", path: "$.AccountId", kind: "string", sql_type: "text" },
+        ...ACCOUNTS.projections,
+      ],
+    };
+    monte({
+      "GET /api/storages": { status: 200, body: [PORTE_LA_CLE] },
+      "GET /api/storages/accounts/objects": {
+        status: 200,
+        body: {
+          objects: [{ ...OBJET, columns: { ...OBJET.columns, prop_id: "A-1" } }],
+          total: 1,
+          page: 1,
+          page_size: 50,
+        },
+      },
+    });
+    expect(await screen.findByText("1 object found")).toBeInTheDocument();
+
+    const table = within(screen.getByRole("region", { name: "Objects found" }));
+    expect(table.queryByText("Key")).not.toBeInTheDocument();
+    fireEvent.click(table.getByRole("button", { name: "A-1" }));
+
+    const detail = within(screen.getByRole("complementary", { name: "Object" }));
+    expect(detail.getByText(/"AccountId": "A-1"/)).toBeInTheDocument();
+  });
+
   it("montre le modèle de l'objet à droite quand on clique la ligne", async () => {
     // Rendu sous chaque ligne, le modèle donnait vingt lignes de JSON par objet et la
     // table cessait d'être parcourable (Gael, 04/11/2026).
