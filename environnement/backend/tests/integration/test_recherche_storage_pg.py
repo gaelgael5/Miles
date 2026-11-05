@@ -26,6 +26,8 @@ from tests.integration.versions import sert
 pytestmark = pytest.mark.integration
 
 WORKSPACE = "reseau-ferroviaire"
+# Le schéma PostgreSQL porte le nom du DOMAINE du modèle, pas celui du workspace.
+SCHEMA = "pudo"
 # Trois comptes, dont deux partagent un préfixe de téléphone : un jeu où chaque filtre
 # doit DISCRIMINER. Avec des valeurs toutes différentes, un filtre faux resterait vert.
 # Les dates franchissent un changement d'année et se suivent à un jour près : un tri qui
@@ -448,7 +450,7 @@ async def test_une_table_en_retard_sur_la_version_servie_est_DITE(
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _prepare(stack, double, versions[1])
         async with stack.pool.acquire() as conn:
-            await conn.execute(f'ALTER TABLE "{WORKSPACE}".accounts DROP COLUMN contact_phone')
+            await conn.execute(f"ALTER TABLE {SCHEMA}.accounts DROP COLUMN contact_phone")
 
         reponse = await stack.client.get("/api/storages/accounts/objects")
 
@@ -466,7 +468,7 @@ async def test_un_storage_dont_la_table_n_existe_pas_est_dit_autrement(
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _prepare(stack, double, versions[1])
         async with stack.pool.acquire() as conn:
-            await conn.execute(f'DROP TABLE "{WORKSPACE}".accounts')
+            await conn.execute(f"DROP TABLE {SCHEMA}.accounts")
 
         reponse = await stack.client.get("/api/storages/accounts/objects")
 
