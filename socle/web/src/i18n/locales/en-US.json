@@ -12,7 +12,9 @@
     "address": "Public contract address",
     "download": "Download",
     "copy": "Copy the address",
-    "public": "This address opens without an account: it is meant to be handed to the integrator, or to a client generator."
+    "public": "This address opens without an account: it is meant to be handed to the integrator, or to a client generator.",
+    "hideDescription": "Hide the description",
+    "showDescription": "Show the description"
   },
   "health": {
     "title": "Service status",

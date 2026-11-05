@@ -261,6 +261,15 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
    défilement horizontale sous la table. */
 .detail-json { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
 
+/* La description d'un contrat, repliée (Gael, 05/11/2026). Swagger UI pose sa prose
+   d'en-tête dans `.info .description` — 432 px mesurés sur le contrat d'ingestion, soit
+   presque tout l'écran avant la première adresse. On la CACHE par une classe plutôt que
+   de toucher son DOM, qu'il reconstruit à chaque document. Le titre et la version, eux,
+   restent : sans eux, replié, on ne saurait plus quel document on regarde. */
+.spec-folded .swagger-ui .info .description { display: none; }
+/* Le bouton de repli au-dessus du document, à droite comme toute action de bloc. */
+.spec-actions { justify-content: flex-end; margin-top: 0; margin-bottom: 8px; }
+
 /* Adresse publique d'un contrat : l'URL se lit en entier, même longue, et ne pousse
    aucune barre de défilement horizontale sous le bloc. */
 .contract-url { overflow-wrap: anywhere; font-size: 12px; margin: 4px 0 10px; }

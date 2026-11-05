@@ -1,7 +1,7 @@
 import { Suspense, lazy } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, ContractAddress } from "@miles/socle-web";
+import { ApiError, CollapsibleSpec, ContractAddress } from "@miles/socle-web";
 import { contractUrl, useIngestionContract } from "../api/ingestion";
 
 // Chargé à l'ouverture de l'onglet seulement : le bundle Swagger pèse plus que tout le
@@ -51,15 +51,20 @@ export function SourceContract({ source }: { source: string }) {
   return (
     <>
       <ContractAddress url={contractUrl(source)} filename={`${source}.openapi.json`} />
-      <Suspense
-        fallback={
-          <p className="muted" role="status">
-            {t("ingestion.contract.loading")}
-          </p>
-        }
-      >
-        <SwaggerView spec={spec} />
-      </Suspense>
+      {/* La description du document se replie : la MÊME prose d'en-tête ouvre le
+          contrat de chaque source, et elle fait quatre cents pixels avant la première
+          adresse (Gael, 05/11/2026). */}
+      <CollapsibleSpec>
+        <Suspense
+          fallback={
+            <p className="muted" role="status">
+              {t("ingestion.contract.loading")}
+            </p>
+          }
+        >
+          <SwaggerView spec={spec} />
+        </Suspense>
+      </CollapsibleSpec>
     </>
   );
 }

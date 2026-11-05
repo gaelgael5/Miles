@@ -12,7 +12,9 @@
     "address": "Adresse publique du contrat",
     "download": "Télécharger",
     "copy": "Copier l'adresse",
-    "public": "Cette adresse s'ouvre sans compte : elle est faite pour être donnée à l'intégrateur, ou à un générateur de client."
+    "public": "Cette adresse s'ouvre sans compte : elle est faite pour être donnée à l'intégrateur, ou à un générateur de client.",
+    "hideDescription": "Masquer la description",
+    "showDescription": "Afficher la description"
   },
   "health": {
     "title": "État du service",

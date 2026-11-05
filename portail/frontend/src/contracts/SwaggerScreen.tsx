@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useQuery } from "@tanstack/react-query";
 
-import { request } from "@miles/socle-web";
+import { CollapsibleSpec, request } from "@miles/socle-web";
 import { type WorkTarget, atBranch, branchKey } from "../api/workTarget";
 
 const SwaggerView = lazy(() => import("./SwaggerView"));
@@ -91,15 +91,19 @@ export function SwaggerScreen({
         </p>
       )}
       {spec.data !== undefined && (
-        <Suspense
-          fallback={
-            <p className="muted" role="status">
-              {t("dataModels.loading")}
-            </p>
-          }
-        >
-          <SwaggerView spec={spec.data} />
-        </Suspense>
+        /* La description du document se replie (Gael, 05/11/2026) : sur un contrat
+           bavard, elle repousse les adresses hors de l'écran à chaque ouverture. */
+        <CollapsibleSpec>
+          <Suspense
+            fallback={
+              <p className="muted" role="status">
+                {t("dataModels.loading")}
+              </p>
+            }
+          >
+            <SwaggerView spec={spec.data} />
+          </Suspense>
+        </CollapsibleSpec>
       )}
     </section>
   );
