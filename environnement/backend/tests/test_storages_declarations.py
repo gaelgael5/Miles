@@ -256,3 +256,75 @@ async def test_un_renvoi_vers_un_autre_modele_est_resolu_comme_le_portail_le_res
 
     assert refus == []
     assert [p.column for p in tables[0].projections] == ["contact_phone", "contact_email"]
+
+
+# L'utilité des champs, déclarée sur le MODÈLE (Gael, 05/11/2026) : ce qui identifie un
+# objet, et ce que le tableau des objets montre.
+UTILITE = """
+x-miles:
+  key:
+    - "$.AccountId"
+  columns:
+    - "$.AccountId"
+    - "$.Postes"
+"""
+
+
+@pytest.mark.asyncio
+async def test_le_modele_decide_des_colonnes_du_tableau_et_de_leur_ordre() -> None:
+    # Cochées sur la page du modèle, elles doivent se retrouver dans la table SANS être
+    # redéclarées sur le storage : c'est ce que « le modèle décide, le storage suit »
+    # veut dire, et sans cette lecture la case cochée ne change rien nulle part.
+    tables, refus = await _declare(
+        _arbre(**{"domains/pudo/messages/accounts.yaml": ACCOUNTS + UTILITE})
+    )
+
+    assert refus == []
+    assert [p.column for p in tables[0].projections] == [
+        "accountid",
+        "postes",
+        "contact_phone",
+        "contact_email",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_la_cle_du_modele_l_emporte_sur_celle_du_storage() -> None:
+    modele = ACCOUNTS + UTILITE.replace('"$.AccountId"\n  columns', '"$.Postes"\n  columns')
+    tables, _ = await _declare(_arbre(**{"domains/pudo/messages/accounts.yaml": modele}))
+
+    assert tables[0].keys == ("$.Postes",)
+
+
+@pytest.mark.asyncio
+async def test_un_storage_dont_le_modele_ne_declare_rien_garde_sa_propre_cle() -> None:
+    # Les storages déclarés avant cet écran continuent de fonctionner : sans ce repli,
+    # ils perdraient leur clé fonctionnelle le jour de la livraison.
+    tables, _ = await _declare(_arbre())
+
+    assert tables[0].keys == ("$.AccountId",)
+
+
+@pytest.mark.asyncio
+async def test_une_colonne_du_modele_que_le_modele_n_offre_pas_fait_refuser_le_storage() -> None:
+    # Même règle que pour un index : rien n'est deviné, et une colonne muette serait
+    # pire qu'un refus nommé. Le cas arrive quand le YAML est retouché à la main.
+    modele = ACCOUNTS + UTILITE.replace('"$.Postes"', '"$.Disparu"')
+    _, refus = await _declare(_arbre(**{"domains/pudo/messages/accounts.yaml": modele}))
+
+    assert [(r.storage, r.code, r.detail) for r in refus] == [
+        ("accounts", REFUSAL_UNKNOWN_PROPERTY, "$.Disparu")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_une_colonne_declaree_des_deux_cotes_n_est_posee_qu_une_fois() -> None:
+    modele = ACCOUNTS + UTILITE.replace('"$.Postes"', '"$.Contact.Phone"')
+    tables, refus = await _declare(_arbre(**{"domains/pudo/messages/accounts.yaml": modele}))
+
+    assert refus == []
+    assert [p.column for p in tables[0].projections] == [
+        "accountid",
+        "contact_phone",
+        "contact_email",
+    ]

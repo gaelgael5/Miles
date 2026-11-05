@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 from miles_socle.parametrage.layout import MODEL_RE, model_path
-from miles_socle.parametrage.models import PathEntry, paths_of
+from miles_socle.parametrage.models import ModelUsage, PathEntry, paths_of, usage_of
 from miles_socle.parametrage.refs import ReadFile, inline_refs
 from miles_socle.parametrage.storages import (
     MAX_COLUMNS,
@@ -91,7 +91,7 @@ async def _one(read: ReadFile, name: str) -> StorageTable | StorageRefusal:
     schema = await file_model_schema(read, scope, model)
     if schema is None:
         return StorageRefusal(name, REFUSAL_MODEL_MISSING, doc.model)
-    return _resolved(doc, scope, paths_of(schema))
+    return _resolved(doc, scope, paths_of(schema), usage_of(schema))
 
 
 async def file_model_schema(read: ReadFile, scope: str, model: str) -> Any | None:
@@ -115,12 +115,20 @@ async def file_model_schema(read: ReadFile, scope: str, model: str) -> Any | Non
 
 
 def _resolved(
-    doc: StorageDoc, scope: str, offered: list[PathEntry]
+    doc: StorageDoc, scope: str, offered: list[PathEntry], usage: ModelUsage
 ) -> StorageTable | StorageRefusal:
     """La table d'une déclaration dont le modèle est lu : une colonne par propriété."""
     by_path = {entry.path: entry for entry in offered}
     projections: dict[str, Projection] = {}
     indexes: list[TableIndex] = []
+    # Les colonnes que le MODÈLE déclare, d'abord et dans son ordre : c'est lui qui dit
+    # ce que le tableau des objets montre (Gael, 05/11/2026), et la page du modèle les y
+    # a cochées. Les colonnes d'index viennent ensuite : une propriété indexée doit être
+    # projetée pour être indexable, qu'on la montre ou non.
+    for path in usage.columns:
+        held = _hold(projections, _projection(path, by_path))
+        if isinstance(held, StorageRefusal):
+            return StorageRefusal(doc.name, held.code, held.detail)
     for item in doc.indexes:
         if not IDENTIFIER_RE.match(item.name):
             return StorageRefusal(doc.name, REFUSAL_INDEX_NAME, item.name)
@@ -128,16 +136,9 @@ def _resolved(
             return StorageRefusal(doc.name, REFUSAL_TOO_MANY_COLUMNS, item.name)
         columns: list[str] = []
         for path in item.columns:
-            projected = _projection(path, by_path)
+            projected = _hold(projections, _projection(path, by_path))
             if isinstance(projected, StorageRefusal):
                 return StorageRefusal(doc.name, projected.code, projected.detail)
-            held = projections.get(projected.column)
-            if held is not None and held.keys != projected.keys:
-                # Deux chemins qui se réduisent au même nom de colonne. On refuse plutôt
-                # que d'inventer un suffixe : personne ne pourrait relier « contact_phone_2 »
-                # à son chemin, et le filtre porterait sur une colonne qu'on ne nomme pas.
-                return StorageRefusal(doc.name, REFUSAL_COLUMN_CLASH, projected.column)
-            projections[projected.column] = projected
             columns.append(projected.column)
         indexes.append(TableIndex(item.name, tuple(columns)))
     return StorageTable(
@@ -148,8 +149,28 @@ def _resolved(
         model=doc.model,
         projections=tuple(projections.values()),
         indexes=tuple(indexes),
-        keys=doc.keys,
+        # La clé déclarée par le MODÈLE l'emporte ; celle du storage reste pour les
+        # déclarations qui précèdent cet écran. Changer la clé d'un storage déjà rempli
+        # change la forme de `cle` : les objets déjà là gardent l'ancienne, et un import
+        # suivant les écrira à neuf au lieu de les mettre à jour.
+        keys=usage.key or doc.keys,
     )
+
+
+def _hold(
+    projections: dict[str, Projection], projected: Projection | StorageRefusal
+) -> Projection | StorageRefusal:
+    """Retient la colonne, ou dit pourquoi on ne peut pas la poser."""
+    if isinstance(projected, StorageRefusal):
+        return projected
+    held = projections.get(projected.column)
+    if held is not None and held.keys != projected.keys:
+        # Deux chemins qui se réduisent au même nom de colonne. On refuse plutôt que
+        # d'inventer un suffixe : personne ne pourrait relier « contact_phone_2 » à son
+        # chemin, et le filtre porterait sur une colonne qu'on ne nomme pas.
+        return StorageRefusal("", REFUSAL_COLUMN_CLASH, projected.column)
+    projections[projected.column] = projected
+    return projected
 
 
 def _projection(path: str, offered: dict[str, PathEntry]) -> Projection | StorageRefusal:

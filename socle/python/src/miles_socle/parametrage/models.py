@@ -119,3 +119,41 @@ def _resolved(schema: dict[str, Any], root: Any) -> dict[str, Any] | None:
             return None
         node = node[key]
     return node if isinstance(node, dict) else None
+
+
+# L'utilité des champs, écrite par le portail à la RACINE du modèle (Gael, 05/11/2026) :
+# quels champs identifient un objet, et lesquels se montrent en colonne. Le nom du mot-clé
+# est au socle parce qu'il est un CONTRAT entre deux modules — le portail l'écrit, le
+# module d'environnement le lit —, et deux constantes de même valeur dans deux produits
+# auraient divergé au premier renommage fait d'un seul côté : la déclaration serait alors
+# ignorée sans que rien ne soit faux de part ni d'autre.
+USAGE_KEYWORD = "x-miles"
+
+
+@dataclass(frozen=True)
+class ModelUsage:
+    """Ce que le modèle déclare de ses champs, par jpath (`$.Id`), dans son ordre."""
+
+    key: tuple[str, ...] = ()
+    columns: tuple[str, ...] = ()
+
+
+def _declared_paths(value: Any) -> tuple[str, ...]:
+    # Le fichier s'édite aussi à la main, et hors de Miles : ce qui n'est pas une liste
+    # de chemins est ignoré, plutôt que de faire échouer la lecture de la version.
+    if not isinstance(value, list):
+        return ()
+    return tuple(item for item in value if isinstance(item, str))
+
+
+def usage_of(schema: Any) -> ModelUsage:
+    """L'utilité déclarée par ce modèle ; vide quand il n'en déclare aucune."""
+    if not isinstance(schema, dict):
+        return ModelUsage()
+    declared = schema.get(USAGE_KEYWORD)
+    if not isinstance(declared, dict):
+        return ModelUsage()
+    return ModelUsage(
+        key=_declared_paths(declared.get("key")),
+        columns=_declared_paths(declared.get("columns")),
+    )

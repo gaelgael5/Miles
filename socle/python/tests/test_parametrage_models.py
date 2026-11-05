@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from miles_socle.parametrage.models import PathEntry, paths_of
+from miles_socle.parametrage.models import ModelUsage, PathEntry, paths_of, usage_of
 
 
 def _keys(schema: object, path: str) -> tuple[str, ...] | None:
@@ -66,3 +66,26 @@ def test_une_propriete_de_nom_exotique_est_citee_et_garde_son_nom_brut() -> None
     assert paths_of(schema) == [
         PathEntry('$["code postal"]', "string", "", ("code postal",)),
     ]
+
+
+def test_l_utilite_des_champs_se_lit_a_la_racine_du_modele() -> None:
+    schema = {
+        "type": "object",
+        "properties": {"Id": {"type": "string"}},
+        "x-miles": {"key": ["$.Id"], "columns": ["$.Id", "$.Name"]},
+    }
+
+    assert usage_of(schema) == ModelUsage(key=("$.Id",), columns=("$.Id", "$.Name"))
+
+
+def test_un_modele_sans_declaration_n_en_porte_aucune() -> None:
+    assert usage_of({"type": "object"}) == ModelUsage()
+    assert usage_of(True) == ModelUsage()
+
+
+def test_une_declaration_retouchee_a_la_main_hors_forme_est_ignoree() -> None:
+    # Le fichier s'édite aussi dans le YAML et hors de Miles : une valeur qui n'est pas
+    # une liste de chemins ne doit pas faire échouer la lecture de toute la version.
+    schema = {"type": "object", "x-miles": {"key": "$.Id", "columns": [3, "$.Name"]}}
+
+    assert usage_of(schema) == ModelUsage(key=(), columns=("$.Name",))
