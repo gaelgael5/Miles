@@ -448,7 +448,7 @@ async def test_une_table_en_retard_sur_la_version_servie_est_DITE(
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _prepare(stack, double, versions[1])
         async with stack.pool.acquire() as conn:
-            await conn.execute(f"ALTER TABLE {WORKSPACE}.accounts DROP COLUMN contact_phone")
+            await conn.execute(f'ALTER TABLE "{WORKSPACE}".accounts DROP COLUMN contact_phone')
 
         reponse = await stack.client.get("/api/storages/accounts/objects")
 
@@ -466,7 +466,7 @@ async def test_un_storage_dont_la_table_n_existe_pas_est_dit_autrement(
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
         await _prepare(stack, double, versions[1])
         async with stack.pool.acquire() as conn:
-            await conn.execute(f"DROP TABLE {WORKSPACE}.accounts")
+            await conn.execute(f'DROP TABLE "{WORKSPACE}".accounts')
 
         reponse = await stack.client.get("/api/storages/accounts/objects")
 
