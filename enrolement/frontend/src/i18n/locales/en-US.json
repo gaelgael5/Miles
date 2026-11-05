@@ -192,8 +192,7 @@
     "lead": "Hosted by the {{label}} ({{slug}}) environment.",
     "source": {
       "title": "Where this configuration comes from",
-      "captionEnvironment": "Hosting environment",
-      "captionRepo": "Repository entrusted by the configuration module",
+      "captionRepo": "Entrusted repository",
       "noRepo": "Repository not configured yet"
     },
     "version": {

@@ -470,7 +470,11 @@ legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
    À la taille du YAML, un 1 et un 7 mal lus font échouer l'appariement sans rien dire. */
 .code-block.code-large { font-size: 24px; font-weight: 700; letter-spacing: 0.18em; padding: 10px 18px; }
 /* Titre de carte et son action principale sur une ligne, l'action à droite. */
-.card-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+/* La marge basse est MESURÉE, pas décorative : `.card-head h2` annule la marge du titre,
+   et le premier libellé du contenu se posait exactement sur le bas du titre (mesuré à
+   1 px près sur « D'où vient ce paramétrage »). Les deux se lisaient alors comme un
+   titre et son sous-titre, et la carte paraissait brouillonne (Gael, 05/11/2026). */
+.card-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .card-head h2 { margin: 0; }
 /* Choix exclusif (bouton radio) sur sa ligne, libellé cliquable. */
 .choice { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 14px; cursor: pointer; }

@@ -192,8 +192,7 @@
     "lead": "Hébergé par l'environnement {{label}} ({{slug}}).",
     "source": {
       "title": "D'où vient ce paramétrage",
-      "captionEnvironment": "Environnement qui l'héberge",
-      "captionRepo": "Dépôt confié par le module de paramétrage",
+      "captionRepo": "Dépôt confié",
       "noRepo": "Dépôt pas encore configuré"
     },
     "version": {

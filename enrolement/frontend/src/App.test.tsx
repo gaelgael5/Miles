@@ -227,10 +227,10 @@ describe("App du module d'enrôlement", () => {
     fireEvent.click(await nav.findByRole("button", { name: /ams/ }));
 
     expect(await screen.findByRole("heading", { level: 1, name: "ams" })).toBeInTheDocument();
-    // L'environnement qui l'héberge est nommé sur la page, pas seulement dans le menu.
-    expect(
-      within(screen.getByRole("main")).getAllByText(/Recette nord/).length,
-    ).toBeGreaterThan(0);
+    // L'environnement qui l'héberge est nommé sur la page, pas seulement dans le menu —
+    // et UNE SEULE FOIS (Gael, 05/11/2026) : le chapeau le dit en toutes lettres, et la
+    // carte de provenance le répétait deux lignes plus bas en libellé de colonne.
+    expect(within(screen.getByRole("main")).getAllByText(/Recette nord/)).toHaveLength(1);
 
     fireEvent.click(nav.getByRole("button", { name: "Accounts" }));
 
