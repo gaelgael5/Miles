@@ -3,12 +3,20 @@ import { useTranslation } from "react-i18next";
 
 const STORAGE_KEY = "miles.specDescriptionFolded";
 
-/** Choix mémorisé sur ce navigateur ; le stockage peut être refusé (navigation privée). */
+/**
+ * Choix mémorisé sur ce navigateur, REPLIÉ par défaut (Gael, 05/11/2026).
+ *
+ * Par défaut et non à l'ouverture seulement : la même prose d'en-tête coiffe le contrat
+ * de chaque source, et elle repousse les adresses — ce qu'on vient chercher — hors du
+ * premier écran. Qui la veut la déplie une fois, et ce choix-là se mémorise aussi.
+ *
+ * Le stockage peut être refusé (navigation privée) : on retombe alors sur le défaut.
+ */
 function readStored(): boolean {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === "true";
+    return window.localStorage.getItem(STORAGE_KEY) !== "false";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -42,23 +50,25 @@ export function CollapsibleSpec({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <div className="actions spec-actions">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          aria-expanded={!folded}
-          aria-controls={id}
-          onClick={() => {
-            // Hors de la fonction de mise à jour : React peut l'appeler deux fois, et un
-            // effet de bord n'y a rien à faire — même inoffensif, il apprend à en mettre.
-            const suivant = !folded;
-            setFolded(suivant);
-            store(suivant);
-          }}
-        >
-          {t(folded ? "contract.showDescription" : "contract.hideDescription")}
-        </button>
-      </div>
+      {/* Un chevron, pas un bouton (Gael, 05/11/2026) : le geste est secondaire, et un
+          bouton plein pesait plus lourd que le titre qu'il découvre. Son nom est porté
+          par `aria-label` et répété en infobulle — une flèche seule ne dit rien à qui
+          ne l'a jamais cliquée. */}
+      <button
+        type="button"
+        className="spec-toggle"
+        aria-expanded={!folded}
+        aria-controls={id}
+        aria-label={t(folded ? "contract.showDescription" : "contract.hideDescription")}
+        title={t(folded ? "contract.showDescription" : "contract.hideDescription")}
+        onClick={() => {
+          // Hors de la fonction de mise à jour : React peut l'appeler deux fois, et un
+          // effet de bord n'y a rien à faire — même inoffensif, il apprend à en mettre.
+          const suivant = !folded;
+          setFolded(suivant);
+          store(suivant);
+        }}
+      />
       <div id={id} className={folded ? "spec-host spec-folded" : "spec-host"}>
         {children}
       </div>

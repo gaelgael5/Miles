@@ -67,9 +67,10 @@ describe("Swagger viewer (25/10/2026)", () => {
     );
   });
 
-  it("folds the document's description, and keeps the document", async () => {
+  it("opens with the document's description folded, and unfolds it on the chevron", async () => {
     // Gael, 05/11/2026 : la prose d'en-tête d'un contrat bavard repousse les adresses
-    // hors de l'écran. Ce qui se replie est elle, pas le contrat.
+    // hors de l'écran, donc elle arrive repliée. Ce qui se replie est elle, pas le
+    // contrat — le document reste là, replié ou non.
     mockApi({
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
@@ -80,9 +81,14 @@ describe("Swagger viewer (25/10/2026)", () => {
     renderWorkspaces({ id: "retrait", view: "contracts", branch: "edition", contract: "rag" });
     fireEvent.click(await screen.findByText("View in Swagger"));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide the description" }));
-
+    expect(await screen.findByTestId("swagger-spec")).toBeInTheDocument();
     expect(screen.getByTestId("swagger-spec").closest(".spec-host")).toHaveClass("spec-folded");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show the description" }));
+
+    expect(screen.getByTestId("swagger-spec").closest(".spec-host")).not.toHaveClass(
+      "spec-folded",
+    );
   });
 
   it("offers the document itself, downloadable in one click", async () => {
