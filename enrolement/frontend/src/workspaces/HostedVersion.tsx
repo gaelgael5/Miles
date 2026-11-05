@@ -39,11 +39,7 @@ export function HostedVersion({ environmentId }: { environmentId: string }) {
         // serveur rend 404, et l'écran le DIT plutôt que d'afficher une ligne vide.
         <p className="help">{t("workspaces.version.none")}</p>
       ) : (
-        <Etat
-          ordonnee={ordonnee.data}
-          onRenvoyer={() => renvoyer.mutate()}
-          renvoiEnCours={renvoyer.isPending}
-        />
+        <Etat ordonnee={ordonnee.data} />
       )}
       {publiees.isError && <Refus error={publiees.error} />}
       {ordonner.isError && <Refus error={ordonner.error} />}
@@ -53,22 +49,15 @@ export function HostedVersion({ environmentId }: { environmentId: string }) {
           versions={publiees.data}
           ordonnee={ordonnee.data ?? null}
           onChoisir={(number) => ordonner.mutate(number)}
-          enCours={ordonner.isPending}
+          onRenvoyer={() => renvoyer.mutate()}
+          enCours={ordonner.isPending || renvoyer.isPending}
         />
       )}
     </div>
   );
 }
 
-function Etat({
-  ordonnee,
-  onRenvoyer,
-  renvoiEnCours,
-}: {
-  ordonnee: OrderedVersion;
-  onRenvoyer: () => void;
-  renvoiEnCours: boolean;
-}) {
+function Etat({ ordonnee }: { ordonnee: OrderedVersion }) {
   const { t } = useTranslation();
   const instant = useInstant();
   const acquitte = ordonnee.acked_at === null ? null : instant(ordonnee.acked_at);
@@ -87,27 +76,19 @@ function Etat({
           {ordonnee.up_to_date ? (
             <span className="badge badge-ok">{t("workspaces.version.upToDate")}</span>
           ) : (
-            <>
-              {/* Le refus est NOMMÉ : chacun appelle un geste différent, et « pas à jour »
-                  seul enverrait chercher au hasard. */}
-              <span className="badge badge-warning">
-                {ordonnee.refusal === null
-                  ? t("workspaces.version.notApplied")
-                  : t(`workspaces.version.refusals.${ordonnee.refusal}`, {
-                      defaultValue: t("workspaces.version.refusals.unknown", {
-                        code: ordonnee.refusal,
-                      }),
-                    })}
-              </span>
-              <button
-                type="button"
-                className="btn"
-                disabled={renvoiEnCours}
-                onClick={onRenvoyer}
-              >
-                {t("workspaces.version.resend")}
-              </button>
-            </>
+            // Le refus est NOMMÉ : chacun appelle un geste différent, et « pas à jour »
+            // seul enverrait chercher au hasard. Le geste, lui, est sur la LIGNE de la
+            // version ordonnée, juste en dessous : un même geste offert à deux endroits
+            // laisse croire à deux effets.
+            <span className="badge badge-warning">
+              {ordonnee.refusal === null
+                ? t("workspaces.version.notApplied")
+                : t(`workspaces.version.refusals.${ordonnee.refusal}`, {
+                    defaultValue: t("workspaces.version.refusals.unknown", {
+                      code: ordonnee.refusal,
+                    }),
+                  })}
+            </span>
           )}
           {acquitte !== null && (
             <span className="muted"> {t("workspaces.version.asOf", { instant: acquitte })}</span>
@@ -122,11 +103,13 @@ function Liste({
   versions,
   ordonnee,
   onChoisir,
+  onRenvoyer,
   enCours,
 }: {
   versions: PublishedVersion[];
   ordonnee: OrderedVersion | null;
   onChoisir: (number: number) => void;
+  onRenvoyer: () => void;
   enCours: boolean;
 }) {
   const { t } = useTranslation();
@@ -156,7 +139,18 @@ function Liste({
           </div>
           <div className="actions row-actions">
             {ordonnee !== null && ordonnee.commit === version.commit ? (
-              <span className="badge">{t("workspaces.version.current")}</span>
+              <>
+                <span className="badge">{t("workspaces.version.current")}</span>
+                {/* Réassocier la version DÉJÀ ordonnée (Gael, 05/11/2026). Le renvoi
+                    d'ordre est le geste de réparation complet du module d'environnement :
+                    il rejoue l'aval — la matérialisation des tables de ses storages —
+                    même quand l'arbre servi est déjà le bon. Sans ce bouton, il fallait
+                    associer une AUTRE version puis revenir, ce qui fait deux poses là où
+                    on n'en voulait aucune. */}
+                <button type="button" className="btn" disabled={enCours} onClick={onRenvoyer}>
+                  {t("workspaces.version.resend")}
+                </button>
+              </>
             ) : (
               <button
                 type="button"

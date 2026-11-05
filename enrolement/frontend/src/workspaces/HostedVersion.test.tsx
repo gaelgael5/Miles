@@ -90,7 +90,7 @@ describe("version hébergée par un environnement", () => {
     expect(await screen.findByText("served")).toBeTruthy();
   });
 
-  it("names what the stack refused, and offers to resend the order", async () => {
+  it("names what the stack refused, and the ordered version can be associated again", async () => {
     const calls = monte({
       [VERSIONS]: { status: 200, body: PUBLIEES },
       [ORDONNEE]: {
@@ -103,10 +103,29 @@ describe("version hébergée par un environnement", () => {
     expect(await screen.findByText("the stack did not answer")).toBeTruthy();
     // La date accompagne le refus : c'est un INSTANTANÉ, et « actuellement » serait faux.
     expect(screen.getByText(/as of /)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Resend the order" }));
+    fireEvent.click(screen.getByRole("button", { name: "Associate again" }));
 
     await waitFor(() => expect(calls.find((c) => c.key === RENVOYER)).toBeDefined());
     expect(await screen.findByText("served")).toBeTruthy();
+  });
+
+  it("offers to associate the ordered version AGAIN, even when all is served", async () => {
+    // Le renvoi d'ordre est le geste de réparation complet : il rejoue l'aval — la
+    // matérialisation des tables de l'environnement — même quand l'arbre servi est déjà
+    // le bon (Gael, 05/11/2026). Sans ce bouton, il fallait associer une AUTRE version
+    // puis revenir, ce qui fait deux poses là où on n'en voulait aucune.
+    const calls = monte({
+      [VERSIONS]: { status: 200, body: PUBLIEES },
+      [ORDONNEE]: { status: 200, body: SERVIE },
+      [RENVOYER]: { status: 200, body: SERVIE },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Associate again" }));
+
+    await waitFor(() => expect(calls.find((c) => c.key === RENVOYER)).toBeDefined());
+    // L'autre version garde son bouton d'association : réassocier n'est offert que sur
+    // celle qui est DÉJÀ ordonnée.
+    expect(screen.getByRole("button", { name: "Associate" })).toBeTruthy();
   });
 
   it("names an unknown refusal code instead of hiding it", async () => {

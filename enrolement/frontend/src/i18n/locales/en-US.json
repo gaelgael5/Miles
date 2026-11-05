@@ -206,7 +206,7 @@
       "upToDate": "served",
       "notApplied": "order received, version not served yet",
       "asOf": "as of {{instant}}",
-      "resend": "Resend the order",
+      "resend": "Associate again",
       "choose": "Associate",
       "current": "ordered",
       "refusals": {
