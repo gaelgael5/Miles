@@ -232,6 +232,9 @@ describe("la page d'un espace de stockage", () => {
 
     expect(await screen.findByText("No object matches.")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // Et on ne le dit qu'UNE fois : « 0 object found » au-dessus de « No object
+    // matches » disait deux fois la même chose, dont une en capitales.
+    expect(screen.queryByText(/objects? found/)).not.toBeInTheDocument();
   });
 
   it("nomme la propriété quand le serveur refuse le critère", async () => {

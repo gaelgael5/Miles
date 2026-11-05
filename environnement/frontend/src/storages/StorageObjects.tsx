@@ -113,9 +113,14 @@ export function StorageObjects({
   const choisi = query.data.objects.find((objet) => objet.cle === ouvert);
   return (
     <>
-      <p className="caption" role="status">
-        {t("storages.found", { count: query.data.total })}
-      </p>
+      {/* Le compte ne se dit que s'il y a quelque chose à compter (Gael, 05/11/2026) :
+          « 0 objet trouvé » juste au-dessus de « Aucun objet ne correspond » disait deux
+          fois la même chose, dont une en capitales. */}
+      {query.data.total > 0 && (
+        <p className="caption" role="status">
+          {t("storages.found", { count: query.data.total })}
+        </p>
+      )}
       {query.data.objects.length === 0 ? (
         // Vide n'est pas une erreur : ni un storage sans objet, ni un filtre qui ne
         // trouve rien. Le dire dans les mots du résultat, pas dans ceux d'une panne.
