@@ -14,25 +14,9 @@ export function StoragesScreen() {
   const { t } = useTranslation();
   const storages = useStorages();
 
-  if (storages.isPending) {
-    return (
-      <p className="muted" role="status">
-        {t("storages.loading")}
-      </p>
-    );
-  }
-  if (storages.isError) {
-    return (
-      <p className="alert" role="alert">
-        {t("storages.unreadable")}
-      </p>
-    );
-  }
-  if (storages.data.length === 0) {
-    // Ni une erreur ni une panne : une stack dont la version ne déclare aucun storage, ou
-    // qui n'héberge encore aucune version. Le dire, plutôt qu'un écran vide.
-    return <p className="help">{t("storages.none")}</p>;
-  }
+  // Le titre de la page ne dépend pas de ses données (Gael, 05/11/2026) : rendre la
+  // lecture, le refus ou le vide À LA PLACE de la page laissait une phrase seule dans un
+  // coin, sans dire de quelle page elle parlait.
   return (
     <section aria-labelledby="storages-title">
       <div className="page-head">
@@ -41,11 +25,26 @@ export function StoragesScreen() {
           <p className="lead">{t("storages.lead")}</p>
         </div>
       </div>
-      <ul className="card-list">
-        {storages.data.map((item) => (
-          <StorageRow key={item.name} storage={item} />
-        ))}
-      </ul>
+      {storages.isPending && (
+        <p className="muted" role="status">
+          {t("storages.loading")}
+        </p>
+      )}
+      {storages.isError && (
+        <p className="alert" role="alert">
+          {t("storages.unreadable")}
+        </p>
+      )}
+      {/* Ni une erreur ni une panne : une stack dont la version ne déclare aucun storage,
+          ou qui n'héberge encore aucune version. Le dire, plutôt qu'un écran vide. */}
+      {storages.data?.length === 0 && <p className="help">{t("storages.none")}</p>}
+      {storages.data !== undefined && storages.data.length > 0 && (
+        <ul className="card-list">
+          {storages.data.map((item) => (
+            <StorageRow key={item.name} storage={item} />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

@@ -34,11 +34,15 @@ describe("écran d'appariement du module de paramétrage", () => {
       },
     });
 
-    expect(await screen.findByText(/configuration module pairs with a single/i)).toBeInTheDocument();
+    // On attend le FORMULAIRE, et non le chapeau : depuis le 05/11/2026 le titre et le
+    // chapeau sont rendus dès l'ouverture, avant la réponse — les attendre ne prouvait
+    // plus que l'état était lu, et la suite du test s'exécutait trop tôt.
+    expect(
+      await screen.findByLabelText("Name of this configuration module"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/configuration module pairs with a single/i)).toBeInTheDocument();
     expect(
       screen.getByText(/two authorities over the same secrets/i),
     ).toBeInTheDocument();
-    // Et le champ du formulaire nomme CE module, pas « cet environnement ».
-    expect(screen.getByLabelText("Name of this configuration module")).toBeInTheDocument();
   });
 });

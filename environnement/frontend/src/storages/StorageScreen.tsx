@@ -36,47 +36,48 @@ export function StorageScreen({ name }: { name: string }) {
   const storages = useStorages();
   const storage = storages.data?.find((item) => item.name === name);
 
-  if (storages.isPending) {
-    return (
-      <p className="muted" role="status">
-        {t("storages.loading")}
-      </p>
-    );
-  }
-  if (storages.isError) {
-    return (
-      <p className="alert" role="alert">
-        {t("storages.unreadable")}
-      </p>
-    );
-  }
-  if (storage === undefined) {
-    // La version servie ne déclare plus cet espace : le menu l'a retiré, et cette page
-    // est restée ouverte. Le dire, plutôt que de rendre un écran vide.
-    return <p className="help">{t("storages.gone", { name })}</p>;
-  }
+  // Le titre de la page ne dépend pas de ses données (Gael, 05/11/2026). Tant que la
+  // déclaration n'est pas lue, c'est le NOM du menu qui l'intitule : c'est celui sur
+  // lequel on a cliqué, et il ne change pas quand le libellé arrive.
   return (
     <section aria-labelledby="storage-title">
       <div className="page-head">
         <div>
-          <h1 id="storage-title">{storage.label}</h1>
-          <p className="lead">
-            <span className="mono">{storage.model}</span>
-            {storage.refusal === null && (
-              <>
-                {" · "}
-                <span className="mono">
-                  {storage.schema_name}.{storage.table_name}
-                </span>
-              </>
-            )}
-          </p>
+          <h1 id="storage-title">{storage?.label ?? name}</h1>
+          {storage !== undefined && (
+            <p className="lead">
+              <span className="mono">{storage.model}</span>
+              {storage.refusal === null && (
+                <>
+                  {" · "}
+                  <span className="mono">
+                    {storage.schema_name}.{storage.table_name}
+                  </span>
+                </>
+              )}
+            </p>
+          )}
         </div>
       </div>
-      <StorageDeclaration storage={storage} />
+      {storages.isPending && (
+        <p className="muted" role="status">
+          {t("storages.loading")}
+        </p>
+      )}
+      {storages.isError && (
+        <p className="alert" role="alert">
+          {t("storages.unreadable")}
+        </p>
+      )}
+      {/* La version servie ne déclare plus cet espace : le menu l'a retiré, et cette page
+          est restée ouverte. Le dire, plutôt que de rendre un écran vide. */}
+      {storages.data !== undefined && storage === undefined && (
+        <p className="help">{t("storages.gone", { name })}</p>
+      )}
+      {storage !== undefined && <StorageDeclaration storage={storage} />}
       {/* Aucune recherche offerte sur une table qui n'est pas posée : le formulaire
           promettrait un geste impossible, et le message ci-dessus dit déjà pourquoi. */}
-      {storage.refusal === null && storage.applied_at !== null && (
+      {storage !== undefined && storage.refusal === null && storage.applied_at !== null && (
         <StorageSearch storage={storage} />
       )}
     </section>
@@ -111,7 +112,11 @@ function StorageDeclaration({ storage }: { storage: Storage }) {
       )}
       {storage.refusal === null && (
         <>
-          <p className="caption">
+          {/* En casse normale, et non en `caption` : une étiquette en capitales est un
+              MOT posé au-dessus d'une valeur, pas une phrase qui en contient une. En
+              capitales, « Clé fonctionnelle : $.Id · version 1 » perdait la forme de ses
+              mots et se lisait plus lentement que la ligne qu'elle commente. */}
+          <p className="muted">
             {t("storages.key", { keys: storage.keys.join(" · ") })}
             {storage.version_number !== null &&
               ` · ${t("storages.version", { number: storage.version_number })}`}
@@ -121,7 +126,7 @@ function StorageDeclaration({ storage }: { storage: Storage }) {
           ) : (
             <ul className="plain-list">
               {storage.indexes.map((index) => (
-                <li key={index.name} className="caption">
+                <li key={index.name} className="muted">
                   <span className="mono">{index.name}</span> —{" "}
                   {index.columns
                     .map(

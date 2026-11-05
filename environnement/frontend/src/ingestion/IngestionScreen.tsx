@@ -21,26 +21,25 @@ export function IngestionScreen() {
   const { t } = useTranslation();
   const health = useIngestionHealth();
 
-  if (health.isPending) {
-    return (
-      <p className="muted" role="status">
-        {t("ingestion.loading")}
-      </p>
-    );
-  }
-  if (health.isError) {
-    return (
-      <p className="alert" role="alert">
-        {t("ingestion.unreadable")}
-      </p>
-    );
-  }
+  // Le titre de la page ne dépend pas de ses données (Gael, 05/11/2026) : rendus À LA
+  // PLACE de la page, la lecture et le refus laissaient une phrase seule dans un coin,
+  // sans dire de quelle page ils parlaient.
   return (
     <section aria-labelledby="ingestion-title">
       <div className="page-head">
         <h1 id="ingestion-title">{t("ingestion.title")}</h1>
       </div>
-      <ServiceHealth health={health.data} />
+      {health.isPending && (
+        <p className="muted" role="status">
+          {t("ingestion.loading")}
+        </p>
+      )}
+      {health.isError && (
+        <p className="alert" role="alert">
+          {t("ingestion.unreadable")}
+        </p>
+      )}
+      {health.data !== undefined && <ServiceHealth health={health.data} />}
     </section>
   );
 }
@@ -59,30 +58,46 @@ function ServiceHealth({ health }: { health: Health }) {
       <div className="card-head">
         <h2 id="ingestion-health-title">{t("ingestion.health")}</h2>
       </div>
-      <p className="caption">
-        {t("ingestion.version", {
-          number: health.version_number,
-          commit: (health.version_commit ?? "").slice(0, 12),
-        })}
-        {health.version_served_at !== null &&
-          ` · ${t("ingestion.servedAt", {
-            when: instant(health.version_served_at),
-          })}`}
-      </p>
-      <p className="caption">
-        {t("ingestion.keys", { active: health.active_keys, unused: health.never_used_keys })}
-        {" · "}
-        {t("ingestion.deposits", {
-          total: health.deposits_total,
-          recent: health.deposits_recent,
-        })}
-        {" · "}
-        {health.last_deposit_at === null
-          ? t("ingestion.neverCalled")
-          : t("ingestion.lastCall", {
-              when: instant(health.last_deposit_at),
+      {/* Des faits ÉTIQUETÉS, et non deux phrases en capitales (Gael, 05/11/2026) :
+          `caption` est le style d'un mot posé au-dessus d'une valeur. Deux lignes de
+          quatre-vingts caractères dans ce style perdaient la forme de leurs mots, et
+          c'est toute la page de cet écran qui se lisait en majuscules. */}
+      <dl className="facts">
+        <div>
+          <dt className="caption">{t("ingestion.captionVersion")}</dt>
+          <dd className="value">
+            {t("ingestion.version", {
+              number: health.version_number,
+              commit: (health.version_commit ?? "").slice(0, 12),
             })}
-      </p>
+          </dd>
+        </div>
+        {health.version_served_at !== null && (
+          <div>
+            <dt className="caption">{t("ingestion.captionServed")}</dt>
+            <dd className="value">{instant(health.version_served_at)}</dd>
+          </div>
+        )}
+        <div>
+          <dt className="caption">{t("ingestion.captionKeys")}</dt>
+          <dd className="value">
+            {t("ingestion.keys", { active: health.active_keys, unused: health.never_used_keys })}
+          </dd>
+        </div>
+        <div>
+          <dt className="caption">{t("ingestion.captionDeposits")}</dt>
+          <dd className="value">
+            {t("ingestion.deposits", {
+              total: health.deposits_total,
+              recent: health.deposits_recent,
+            })}
+            {" · "}
+            {health.last_deposit_at === null
+              ? t("ingestion.neverCalled")
+              : t("ingestion.lastCall", { when: instant(health.last_deposit_at) })}
+          </dd>
+        </div>
+      </dl>
       {health.unreadable_sources.length > 0 && (
         // Les taire ferait chercher une source absente alors qu'elle est là, et fautive.
         <p className="alert" role="status">

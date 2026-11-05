@@ -118,14 +118,23 @@ export function PairingScreen({ peerExtra }: { peerExtra?: ReactNode } = {}) {
   const instant = useInstant();
   const etat = usePairingState();
 
-  if (etat.isPending) {
-    return <p role="status">{t("peering.loading")}</p>;
-  }
-  if (etat.data === undefined) {
+  if (etat.isPending || etat.data === undefined) {
+    // Le titre de la page ne dépend pas de ses données (Gael, 05/11/2026) : rendu À LA
+    // PLACE de la page, le message de lecture laissait un écran vide avec une phrase
+    // dans un coin, et le refus ne disait pas de quelle page il parlait.
     return (
-      <p className="alert alert-danger" role="alert">
-        {t("peering.errors.unexpected")}
-      </p>
+      <section className="section" aria-labelledby="pairing-title">
+        <PageHead id="pairing-title" title={t("peering.title")} lead={t("peering.lead")} />
+        {etat.isPending ? (
+          <p className="muted" role="status">
+            {t("peering.loading")}
+          </p>
+        ) : (
+          <p className="alert alert-danger" role="alert">
+            {t("peering.errors.unexpected")}
+          </p>
+        )}
+      </section>
     );
   }
   const { state, peer } = etat.data;

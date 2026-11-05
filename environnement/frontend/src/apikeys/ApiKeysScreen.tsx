@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useInstant } from "@miles/socle-web";
@@ -11,6 +12,25 @@ import { NewApiKey } from "./NewApiKey";
  * Réservée à l'administrateur, comme tout cet écran : une clé d'ingestion n'ouvre jamais
  * ces routes — elle ne sait que déposer.
  */
+/**
+ * La page et son titre, quel que soit l'état de la lecture (Gael, 05/11/2026).
+ *
+ * Le titre ne dépend pas des données : rendu À LA PLACE de la page, le message de
+ * lecture laissait un écran vide avec une phrase dans un coin, et le refus ne disait
+ * même pas de quelle page il parlait.
+ */
+function Page({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
+  return (
+    <section aria-labelledby="api-keys-title">
+      <div className="page-head">
+        <h1 id="api-keys-title">{t("apiKeys.title")}</h1>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export function ApiKeysScreen() {
   const { t } = useTranslation();
   const keys = useApiKeys();
@@ -18,23 +38,24 @@ export function ApiKeysScreen() {
 
   if (keys.isPending || sources.isPending) {
     return (
-      <p className="muted" role="status">
-        {t("apiKeys.loading")}
-      </p>
+      <Page>
+        <p className="muted" role="status">
+          {t("apiKeys.loading")}
+        </p>
+      </Page>
     );
   }
   if (keys.isError || sources.isError) {
     return (
-      <p className="alert" role="alert">
-        {t("apiKeys.unreadable")}
-      </p>
+      <Page>
+        <p className="alert" role="alert">
+          {t("apiKeys.unreadable")}
+        </p>
+      </Page>
     );
   }
   return (
-    <section aria-labelledby="api-keys-title">
-      <div className="page-head">
-        <h1 id="api-keys-title">{t("apiKeys.title")}</h1>
-      </div>
+    <Page>
       <p className="help">{t("apiKeys.intro")}</p>
       <NewApiKey sources={sources.data.sources} />
       {keys.data.length === 0 ? (
@@ -46,7 +67,7 @@ export function ApiKeysScreen() {
           ))}
         </ul>
       )}
-    </section>
+    </Page>
   );
 }
 

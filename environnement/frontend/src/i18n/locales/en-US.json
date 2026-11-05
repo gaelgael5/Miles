@@ -145,8 +145,7 @@
     "unreadable": "The ingestion service state could not be read.",
     "health": "Service state",
     "noVersion": "No configuration version is served: no source is declared, and no entry point exists.",
-    "version": "Version {{number}} · commit {{commit}}",
-    "servedAt": "served on {{when}}",
+    "version": "{{number}} · commit {{commit}}",
     "keys": "{{active}} active key(s), {{unused}} never used",
     "deposits": "{{total}} deposit(s) received, {{recent}} in the last 24h",
     "neverCalled": "never called",
@@ -233,6 +232,10 @@
       "auth": "Authentication",
       "spec": "Full OpenAPI specification",
       "specHelp": "The very one versioned in the repository: enough to generate a client."
-    }
+    },
+    "captionVersion": "Served version",
+    "captionServed": "Served on",
+    "captionKeys": "API keys",
+    "captionDeposits": "Deposits"
   }
 }

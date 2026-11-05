@@ -45,9 +45,11 @@ describe("l'écran du service d'ingestion", () => {
   it("montre la version servie, les clés et les dépôts", async () => {
     monte(EN_SERVICE);
 
-    expect(await screen.findByText(/Version 4/)).toBeInTheDocument();
+    // La version est une VALEUR sous son étiquette (Gael, 05/11/2026), et plus une
+    // phrase en capitales : l'étiquette porte le mot, la valeur porte le nombre.
+    expect(await screen.findByText("Served version")).toBeInTheDocument();
     // Le commit est tronqué : les douze premiers caractères suffisent à le reconnaître.
-    expect(screen.getByText(/abcdef123456/)).toBeInTheDocument();
+    expect(screen.getByText(/4 · commit abcdef123456/)).toBeInTheDocument();
     expect(screen.getByText(/2 active key\(s\), 1 never used/)).toBeInTheDocument();
     expect(screen.getByText(/7 deposit\(s\) received, 3 in the last 24h/)).toBeInTheDocument();
   });
@@ -58,7 +60,7 @@ describe("l'écran du service d'ingestion", () => {
     // elle n'afficherait rien de plus, et paierait une requête par ouverture.
     const calls = monte(EN_SERVICE);
 
-    expect(await screen.findByText(/Version 4/)).toBeInTheDocument();
+    expect(await screen.findByText("Served version")).toBeInTheDocument();
     expect(calls.map((appel) => appel.key)).toEqual(["GET /api/ingestion/health"]);
   });
 

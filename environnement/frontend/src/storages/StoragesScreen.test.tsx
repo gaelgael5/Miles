@@ -34,6 +34,18 @@ function monte(routes: Routes) {
 }
 
 describe("la liste des espaces de stockage", () => {
+  it("garde son titre pendant la lecture, et quand la lecture échoue", async () => {
+    // Gael, 05/11/2026 : rendus À LA PLACE de la page, la lecture et le refus laissaient
+    // une phrase seule dans un coin de l'écran — un refus qui ne dit même pas de quelle
+    // page il parle. Le titre ne dépend pas des données.
+    monte({ "GET /api/storages": { status: 500 } });
+
+    // Avant même que la doublure n'ait répondu : la page est déjà là.
+    expect(screen.getByRole("heading", { level: 1, name: "Storage spaces" })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Storage spaces" })).toBeInTheDocument();
+  });
+
   it("liste les espaces avec leur modèle et leur table", async () => {
     monte({ "GET /api/storages": { status: 200, body: [ACCOUNTS] } });
 

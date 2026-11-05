@@ -25,6 +25,18 @@ afterEach(() => {
 });
 
 describe("HealthStatus", () => {
+  it("keeps its title while loading and when the read fails", async () => {
+    // Gael, 05/11/2026 : rendus à la place de la page, le message de lecture et le refus
+    // laissaient une phrase seule dans un coin, sans dire de quelle page ils parlaient.
+    mockFetch(500);
+
+    renderStatus();
+
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+  });
+
   it("shows an operational service when the schema is up to date", async () => {
     mockFetch(200, {
       status: "ok",
