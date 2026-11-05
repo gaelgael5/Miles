@@ -103,9 +103,7 @@ export function StorageObjects({
         // trouve rien. Le dire dans les mots du résultat, pas dans ceux d'une panne.
         <p className="help">{t("storages.empty")}</p>
       ) : (
-        // La table laisse la moitié de la largeur au panneau : c'est lui qui porte
-        // l'objet entier, et il la remplit (Gael, 05/11/2026).
-        <div className="split split-even">
+        <div className="split">
           {/* Une région nommée, comme le journal des appels : la table et le panneau de
               détail sont deux zones de la page, et un lecteur d'écran doit pouvoir aller
               de l'une à l'autre. */}
