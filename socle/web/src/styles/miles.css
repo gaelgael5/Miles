@@ -265,6 +265,15 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
    hors de la ligne — `.row-main` grandit à 999 et renvoyait la dernière colonne à la
    ligne suivante, sous la première. Invisible sous jsdom, qui ne calcule rien. */
 .cell-key { flex: 2 1 180px; min-width: 0; }
+/* Les colonnes d'une table se RESSERRENT, elles ne se replient jamais. `.row` se replie
+   — c'est ce qu'il faut d'une ligne faite de blocs —, et il a suffi de trois pixels de
+   trop pour renvoyer la dernière colonne sous la première : sa valeur se lisait alors
+   dans la colonne de la clé, ce qui est pire qu'une colonne étroite. Le bandeau porte la
+   même règle, sans quoi il cesserait d'être aligné sur ses lignes. */
+.row-columns { flex-wrap: nowrap; }
+/* Le titre d'une ligne ne coupe nulle part par défaut : dans une colonne resserrée, une
+   clé longue sortirait de la sienne. */
+.row-columns .row-open { overflow-wrap: anywhere; }
 /* Barre de filtres : une colonne par propriété filtrable, chacune avec sa comparaison
    et sa valeur. Reprise de la maquette « Référentiel de comptes ». */
 /* La marge basse tient l'écart quand les colonnes passent à la ligne : `.filters` ne

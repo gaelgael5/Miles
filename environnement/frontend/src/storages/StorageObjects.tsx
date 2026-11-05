@@ -113,7 +113,7 @@ export function StorageObjects({
             {/* Le bandeau de colonnes, comme la maquette « Référentiel de comptes » le
                 dessine : sans lui, les valeurs projetées ne se lisent pas comme des
                 colonnes mais comme une suite de mots. */}
-            <div className="row-head">
+            <div className="row-head row-columns">
               <div className="cell-auto cell-key">{t("storages.columns.key")}</div>
               {storage.projections.map((projection) => (
                 <div key={projection.column} className="cell-auto">
@@ -125,7 +125,7 @@ export function StorageObjects({
               {query.data.objects.map((objet) => (
                 <li
                   key={objet.cle}
-                  className={`row row-compact row-openable${
+                  className={`row row-compact row-columns row-openable${
                     objet.cle === ouvert ? " row-selected" : ""
                   }`}
                 >
