@@ -126,6 +126,25 @@ class StoragesService:
             total = await conn.fetchval(requete.count_sql, *requete.values)
         return list(rows), int(total or 0)
 
+    async def resolve_lag(self, table: StorageTable) -> tuple[str, ...] | None:
+        """Ce que la table n'a pas encore de ce que la version servie déclare.
+
+        None : la table n'existe pas du tout. Un tuple vide : elle est à jour.
+
+        Lire une table d'après une déclaration qu'elle ne porte pas encore donne une
+        erreur SQL brute et un 500 — c'est arrivé le 05/11/2026, le jour où le MODÈLE a
+        commencé à déclarer des colonnes : la déclaration change avec la version servie,
+        la table ne change qu'à la POSE d'une version, et entre les deux la lecture
+        tombait sur « column "prop_id" does not exist ». Un écart entre ce qu'on déclare
+        et ce qui est posé est un état NORMAL et transitoire du système : il se dit,
+        avec le geste qui le referme, il ne se plante pas.
+        """
+        async with self.pool.acquire() as conn:
+            existing = await db_existing_table(conn, table.schema, table.table)
+        if existing is None:
+            return None
+        return tuple(p.column for p in table.projections if existing.column(p.column) is None)
+
     async def resolve_state(self) -> list[Materialised]:
         async with self.pool.acquire() as conn:
             return await db_materialised(conn)

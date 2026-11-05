@@ -107,6 +107,8 @@
       "valeur_hors_type": "La valeur donnée n'est pas du type de cette propriété.",
       "comparaison_textuelle_non_applicable": "« {{property}} » n'est pas du texte : « contient » et « commence par » ne s'y appliquent pas.",
       "nom_invalide": "Un nom de propriété est invalide.",
+      "table_absente": "La table de cet espace n'est pas posée dans cette base : aucune version ne l'a encore matérialisée.",
+      "table_en_retard": "La table n'est pas à jour de la version servie : il lui manque {{property}}. Renvoyez l'ordre de version depuis le module d'enrôlement — la pose d'une version matérialise les tables.",
       "unexpected": "La recherche a échoué. Voyez les journaux du service."
     }
   },

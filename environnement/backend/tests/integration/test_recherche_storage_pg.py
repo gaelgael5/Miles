@@ -428,3 +428,47 @@ async def test_aucun_objet_ne_satisfait_le_critere_rend_une_page_VIDE_et_non_une
         assert page == {"objects": [], "total": 0, "page": 1, "page_size": 50}
         # La table n'est pas vide pour autant : c'est ce qui distingue ce cas du 14.
         assert (await _cherche(stack))["total"] == len(COMPTES)
+
+
+async def test_une_table_en_retard_sur_la_version_servie_est_DITE(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Et non une erreur SQL brute en 500 (incident du 05/11/2026).
+
+    La déclaration suit la version servie ; la table, elle, ne change qu'à la POSE d'une
+    version. Entre les deux l'écart est NORMAL, et le jour où le modèle s'est mis à
+    déclarer des colonnes il est devenu courant : la lecture tombait sur
+    « column "prop_id" does not exist », que personne ne peut relier à un geste.
+
+    La colonne est retirée à la main ici, ce qui produit le même état que la version
+    posée en retard — et couvre aussi la table retouchée hors de Miles.
+    """
+    versions = fabrique_parametrage(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _prepare(stack, double, versions[1])
+        async with stack.pool.acquire() as conn:
+            await conn.execute(f"ALTER TABLE {WORKSPACE}.accounts DROP COLUMN contact_phone")
+
+        reponse = await stack.client.get("/api/storages/accounts/objects")
+
+    assert reponse.status_code == 409, reponse.text
+    assert reponse.json()["detail"] == {"code": "table_en_retard", "detail": "contact_phone"}
+
+
+async def test_un_storage_dont_la_table_n_existe_pas_est_dit_autrement(
+    blank_db: str, tmp_path: Path
+) -> None:
+    # Deux refus distincts : « aucune version n'a jamais rien posé ici » ne se
+    # diagnostique pas comme « une version plus récente n'est pas posée ».
+    versions = fabrique_parametrage(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await _prepare(stack, double, versions[1])
+        async with stack.pool.acquire() as conn:
+            await conn.execute(f"DROP TABLE {WORKSPACE}.accounts")
+
+        reponse = await stack.client.get("/api/storages/accounts/objects")
+
+    assert reponse.status_code == 409, reponse.text
+    assert reponse.json()["detail"]["code"] == "table_absente"

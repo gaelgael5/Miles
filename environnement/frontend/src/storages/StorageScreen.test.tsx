@@ -214,6 +214,23 @@ describe("la page d'un espace de stockage", () => {
     expect(refus).toHaveTextContent("“contact_email” cannot be filtered on");
   });
 
+  it("dit que la table est en retard sur la version servie, et le geste qui la rattrape", async () => {
+    // Arrivé le 05/11/2026 : le modèle s'est mis à déclarer des colonnes, la déclaration
+    // suit la version servie et la table ne change qu'à la POSE d'une version. Entre les
+    // deux, la lecture tombait sur une erreur SQL brute et un 500.
+    monte({
+      ...UNE_LISTE,
+      "GET /api/storages/accounts/objects": {
+        status: 409,
+        body: { detail: { code: "table_en_retard", detail: "prop_id, name" } },
+      },
+    });
+
+    const refus = await screen.findByRole("alert");
+    expect(refus).toHaveTextContent("prop_id, name is missing");
+    expect(refus).toHaveTextContent("Send the version order again");
+  });
+
   it("n'offre aucune recherche sur un espace refusé, et dit pourquoi", async () => {
     // Sa table peut ne pas exister : le formulaire promettrait un geste impossible.
     monte({

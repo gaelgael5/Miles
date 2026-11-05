@@ -47,6 +47,12 @@ REFUSAL_INDEX_NAME = "nom_d_index_invalide"
 REFUSAL_UNEXPECTED_SHAPE = "table_de_forme_inattendue"
 REFUSAL_TYPE_CHANGE = "changement_de_type_requis"
 REFUSAL_APPLY_FAILED = "application_refusee"
+# Lecture d'un storage dont la table n'est pas à jour de la version servie. Deux refus
+# et non un seul : « pas de table du tout » et « table en retard d'une colonne » se
+# referment par le même geste, mais ne se diagnostiquent pas pareil — l'un dit qu'aucune
+# version n'a jamais été posée ici, l'autre qu'une version plus récente ne l'est pas.
+REFUSAL_TABLE_ABSENT = "table_absente"
+REFUSAL_TABLE_BEHIND = "table_en_retard"
 
 
 @dataclass(frozen=True)

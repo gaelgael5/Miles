@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from environnement.storages.ddl import IdentifierError
+from environnement.storages.model import REFUSAL_TABLE_ABSENT, REFUSAL_TABLE_BEHIND
 from environnement.storages.query import (
     PAGE_SIZE,
     FilterError,
@@ -188,6 +189,22 @@ async def search_objects(
                 {"code": refus.code, "detail": refus.detail},
             )
         return _error(status.HTTP_404_NOT_FOUND, "storage_inconnu")
+    # La table est-elle à jour de ce que la version servie déclare ? Demandé AVANT de
+    # bâtir la requête : une colonne déclarée et pas encore posée donnerait une erreur
+    # SQL brute et un 500, qui n'apprend rien à qui lit l'écran. L'écart est un état
+    # normal et transitoire — la déclaration suit la version servie, la table ne change
+    # qu'à la POSE d'une version —, donc il se DIT, avec le geste qui le referme.
+    manquantes = await service.resolve_lag(table)
+    if manquantes is None:
+        return _error(
+            status.HTTP_409_CONFLICT,
+            {"code": REFUSAL_TABLE_ABSENT, "detail": f"{table.schema}.{table.table}"},
+        )
+    if manquantes:
+        return _error(
+            status.HTTP_409_CONFLICT,
+            {"code": REFUSAL_TABLE_BEHIND, "detail": ", ".join(manquantes)},
+        )
     try:
         criteria = [parse_criterion(raw) for raw in (f or [])]
         requete = build(

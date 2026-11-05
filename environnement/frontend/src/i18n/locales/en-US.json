@@ -107,6 +107,8 @@
       "valeur_hors_type": "The given value is not of this property's type.",
       "comparaison_textuelle_non_applicable": "“{{property}}” is not text: “contains” and “starts with” do not apply to it.",
       "nom_invalide": "A property name is invalid.",
+      "table_absente": "This space's table is not created in this database: no version has materialised it yet.",
+      "table_en_retard": "The table is behind the served version: {{property}} is missing. Send the version order again from the enrolment module — posting a version materialises the tables.",
       "unexpected": "The search failed. See the service logs."
     }
   },
