@@ -12,15 +12,22 @@ def test_le_contrat_publie_suit_le_code() -> None:
         assert published == expected, f"{name} n'est plus à jour : uv run miles-env-contracts"
 
 
-def test_le_contrat_ne_publie_QUE_le_point_d_entree_d_ingestion() -> None:
+def test_le_contrat_ne_publie_QUE_ce_qu_un_tiers_appelle() -> None:
     """La surface d'un écran n'est pas un contrat : elle change avec lui, dans le même
-    commit. Publier `/api/...` promettrait à des tiers ce qu'on ne tient pas."""
+    commit. Publier le reste de `/api/...` promettrait à des tiers ce qu'on ne tient pas."""
     spec = openapi_contract()
 
-    # Deux chemins depuis le 04/11/2026 : le mode gros fichier a le sien, littéral, parce
-    # que son corps, sa réponse et ses refus diffèrent. Le reste — clés d'API, storages,
+    # Le dépôt a deux chemins depuis le 04/11/2026 : le mode gros fichier a le sien,
+    # littéral, parce que son corps, sa réponse et ses refus diffèrent. S'y ajoute depuis
+    # le 05/11/2026 l'ADRESSE DU CONTRAT, ouverte à tous : un intégrateur la pointe et la
+    # rejoue, donc elle ne peut plus changer seule. Le reste — clés d'API, storages,
     # appariement — est la surface d'un écran, et n'entre pas dans un contrat.
-    assert set(spec["paths"]) == {"/ingest/{source}/{mode}", "/ingest/{source}/fichier"}
+    assert set(spec["paths"]) == {
+        "/ingest/{source}/{mode}",
+        "/ingest/{source}/fichier",
+        "/api/ingestion/contract",
+        "/api/ingestion/contract/{source}",
+    }
     assert spec["openapi"].startswith("3.1")
 
 

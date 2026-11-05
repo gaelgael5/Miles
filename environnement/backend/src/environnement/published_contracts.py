@@ -14,17 +14,22 @@ from environnement.ingestion.api_ingest import (
 )
 from environnement.ingestion.model import MAX_BODY_BYTES
 
-# Contrat publié du module d'environnement : le point d'entrée d'ingestion, et lui seul.
+# Contrat publié du module d'environnement : le point d'entrée d'ingestion, et l'adresse
+# où se lit ce contrat.
 #
-# C'est la SEULE surface de ce produit qu'un système tiers appelle. Tout le reste —
+# Ce sont les SEULES surfaces de ce produit qu'un système tiers appelle. Tout le reste —
 # clés d'API, espaces de stockage, appariement — est la surface de son propre écran, et
 # un écran n'est pas un contrat : il change avec lui, dans le même commit.
+#
+# L'adresse du contrat y est entrée le 05/11/2026, le jour où elle s'est ouverte à tous :
+# un intégrateur la pointe et la rejoue, donc elle ne peut plus changer seule — c'est la
+# définition d'un contrat.
 #
 # Engendré depuis le code, versionné, et un test vérifie qu'il est à jour. Écrit à la
 # main, il divergerait du service sans que rien ne le signale.
 CONTRACTS_DIR = Path(__file__).resolve().parents[3] / "docs" / "contracts"
 OPENAPI_FILE = "miles-ingestion.openapi.json"
-PUBLISHED_PREFIXES = ("/ingest/",)
+PUBLISHED_PREFIXES = ("/ingest/", "/api/ingestion/contract")
 
 
 # Les deux façons de présenter la clé d'API, déclarées en schémas de sécurité : c'est ce

@@ -67,6 +67,24 @@ describe("Swagger viewer (25/10/2026)", () => {
     );
   });
 
+  it("offers the document itself, downloadable in one click", async () => {
+    // Un lien vers la MÊME adresse que l'écran lit : ce qu'on enregistre est exactement
+    // ce qu'un appel rend, et il n'y a pas deux chemins par lesquels le contrat sort.
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      [`GET ${WS}/contracts${Q}`]: { status: 200, body: [] },
+      [`GET ${WS}/contracts/rag${Q}`]: { status: 200, body: CONTRACT },
+      [`GET ${WS}/contracts/rag/versions/1/openapi${Q}`]: { status: 200, body: SPEC },
+    });
+    renderWorkspaces({ id: "retrait", view: "contracts", branch: "edition", contract: "rag" });
+    fireEvent.click(await screen.findByText("View in Swagger"));
+
+    const lien = await screen.findByRole("link", { name: "Download" });
+    expect(lien).toHaveAttribute("href", `${WS}/contracts/rag/versions/1/openapi${Q}`);
+    expect(lien).toHaveAttribute("download", "rag-v1.openapi.json");
+  });
+
   it("opens the API a source promises, derived from its declaration", async () => {
     const calls = mockApi({
       ...HELD,

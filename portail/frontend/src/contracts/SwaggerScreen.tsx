@@ -27,6 +27,13 @@ function addressOf(target: WorkTarget, subject: SwaggerSubject): string {
   return atBranch(target, "sources", subject.name, "openapi");
 }
 
+/** Le nom du fichier enregistré : celui du sujet, pas « openapi » pour tous. */
+function fileOf(subject: SwaggerSubject): string {
+  return subject.kind === "contract"
+    ? `${subject.slug}-v${subject.version}.openapi.json`
+    : `${subject.name}.openapi.json`;
+}
+
 function keyOf(target: WorkTarget, subject: SwaggerSubject) {
   return subject.kind === "contract"
     ? [...branchKey("openapi", target), "contract", subject.slug, subject.version]
@@ -56,7 +63,23 @@ export function SwaggerScreen({
       <button type="button" className="btn btn-secondary back" onClick={onBack}>
         {t("swagger.back")}
       </button>
-      <h1 id="swagger-title">{title}</h1>
+      <div className="page-head">
+        <h1 id="swagger-title">{title}</h1>
+        {/* Télécharger le document, d'un clic (Gael, 05/11/2026) : un lien vers la MÊME
+            adresse que l'écran lit, et non un document rebâti dans le navigateur — ce
+            qu'on enregistre est alors exactement ce qu'un appel rend.
+            L'adresse demande une session, à la différence du contrat d'ingestion d'un
+            environnement : ici le document se lit dans une BRANCHE du paramétrage, et
+            l'ouvrir à tous demanderait de le publier ailleurs que derrière un checkout
+            git — ce qui reste à faire. */}
+        <a
+          className="btn btn-secondary"
+          href={addressOf(target, subject)}
+          download={fileOf(subject)}
+        >
+          {t("contract.download")}
+        </a>
+      </div>
       {spec.isPending && (
         <p className="muted" role="status">
           {t("dataModels.loading")}
