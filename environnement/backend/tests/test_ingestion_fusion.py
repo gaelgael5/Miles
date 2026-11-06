@@ -59,8 +59,10 @@ class _Db:
     def __init__(self, passes: list[list[dict[str, Any]]]) -> None:
         self.passes = passes
         self.appels: list[tuple[Any, ...]] = []
+        self.instructions: list[str] = []
 
     async def fetch(self, query: str, *args: Any) -> list[Any]:
+        self.instructions.append(query)
         self.appels.append(args)
         rang = len(self.appels) - 1
         return self.passes[rang] if rang < len(self.passes) else []
@@ -181,3 +183,34 @@ async def test_les_items_REJETES_ne_partent_pas_dans_la_charge_de_la_fusion() ->
     )
 
     assert db.appels[0][3] == [1]
+
+
+async def test_la_cte_des_etats_d_avant_part_de_la_SOURCE_et_non_de_la_CIBLE() -> None:
+    """Le sens de cette jointure est une décision MESURÉE, pas une préférence d'écriture.
+
+    Écrite `FROM cible c JOIN source s`, PostgreSQL 16 parcourait la table cible en entier
+    et n'utilisait pas son index unique : la CTE n'a pas de statistiques, son filtre de
+    génération est estimé à 1/200, et un parcours complet paraît moins cher. Mesuré le
+    06/11/2026 sur `host-test-37` : la fusion d'un seul coup de cinquante mille items ne
+    rendait toujours pas au bout de 24 minutes. Ce test est là pour qu'une relecture qui
+    trouverait la jointure « écrite à l'envers » la laisse tranquille.
+    """
+    db = _Db([[_ligne(0, "S-1", origine_avant=None)]])
+
+    await db_merge_items(db, TABLE, [_item(0)], now=NOW, model_version=7)
+
+    # Les COMMENTAIRES de l'instruction sont ôtés d'abord : celui qui explique la décision
+    # cite la forme fautive, et l'y chercher ferait rougir le test sur le bon code.
+    instruction = _sans_commentaires(db.instructions[0])
+    # La CTE `avant` NOMMÉMENT : « FROM source s LEFT JOIN » apparaît aussi dans le SELECT
+    # final, et une assertion qui s'en contente reste verte quand la jointure est retournée.
+    avant = instruction[instruction.index("avant AS (") :]
+    assert avant.startswith(
+        "avant AS ( SELECT s.cle, c.empreinte, c.origine FROM source s LEFT JOIN"
+    )
+    assert "JOIN source s ON s.cle = c.cle" not in instruction
+
+
+def _sans_commentaires(sql: str) -> str:
+    utiles = [ligne.split("--")[0] for ligne in sql.splitlines()]
+    return " ".join(" ".join(utiles).split())

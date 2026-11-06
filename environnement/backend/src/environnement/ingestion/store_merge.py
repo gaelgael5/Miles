@@ -129,7 +129,16 @@ WITH candidats AS ({source}
 ), source AS (
     SELECT position, cle, objet, empreinte FROM numerotes WHERE generation = $3
 ), avant AS (
-    SELECT c.cle, c.empreinte, c.origine FROM {cible} c JOIN source s ON s.cle = c.cle
+    -- **`source` MÈNE la jointure, et ce n'est pas cosmétique.** Écrit dans l'autre sens
+    -- — `FROM {cible} c JOIN source s` —, PostgreSQL 16 plaçait la table CIBLE du côté
+    -- extérieur et la parcourait en entier (`Seq Scan on cible`), en rescannant la CTE
+    -- pour chaque ligne : l'index unique sur `cle` n'était pas utilisé du tout. La cause
+    -- est que la CTE n'a pas de statistiques, donc son `generation = $3` est estimé à
+    -- 1/200 — 250 lignes au lieu de la fenêtre entière — et un parcours complet paraît
+    -- moins cher qu'il ne l'est. Mesuré le 06/11/2026 sur `host-test-37` : la fusion d'un
+    -- seul coup de cinquante mille items ne rendait toujours pas au bout de 24 minutes.
+    -- Avec `source` en tête, le plan est une boucle d'index — une recherche par item.
+    SELECT s.cle, c.empreinte, c.origine FROM source s LEFT JOIN {cible} c ON c.cle = s.cle
 ), ecrites AS (
     INSERT INTO {cible} (cle, objet, empreinte, origine, vu_le, modifie_le, version_modele)
     SELECT s.cle, s.objet, s.empreinte, '{IMPORT_ORIGIN}', $1, $1, $2 FROM source s
