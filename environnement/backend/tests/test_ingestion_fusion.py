@@ -214,3 +214,23 @@ async def test_la_cte_des_etats_d_avant_part_de_la_SOURCE_et_non_de_la_CIBLE() -
 def _sans_commentaires(sql: str) -> str:
     utiles = [ligne.split("--")[0] for ligne in sql.splitlines()]
     return " ".join(" ".join(utiles).split())
+
+
+async def test_un_lot_plus_grand_que_la_fenetre_part_en_PLUSIEURS_instructions() -> None:
+    """Le coût par item croît avec la taille de l'instruction (mesure du 06/11/2026).
+
+    Donc on borne l'instruction, même si le lot reçu est plus gros — et c'est aussi ce qui
+    protège le plan le jour où le plafond du mode tableau montera.
+    """
+    items = [_item(rang, f"S-{rang}") for rang in range(250)]
+    passes = [
+        [_ligne(rang, f"S-{rang}", origine_avant=None) for rang in tranche]
+        for tranche in (range(0, 100), range(100, 200), range(200, 250))
+    ]
+    db = _Db(passes)
+
+    fusionnes = await db_merge_items(db, TABLE, items, now=NOW, model_version=7)
+
+    assert len(db.appels) == 3
+    assert [len(args[3]) for args in db.appels] == [100, 100, 50]
+    assert [m.position for m in fusionnes] == list(range(250))

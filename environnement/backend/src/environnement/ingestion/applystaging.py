@@ -30,7 +30,7 @@ from environnement.ingestion.outcome import (
     Report,
 )
 from environnement.ingestion.staging import PreparedRow, db_duplicate_keys, db_prepared_window
-from environnement.ingestion.store_merge import db_merge_window
+from environnement.ingestion.store_merge import MERGE_WINDOW, db_merge_window
 from environnement.ingestion.writeback import (
     Prepared,
     Processing,
@@ -158,15 +158,25 @@ async def _resolve_window(
     comptés depuis la fenêtre, dans l'ordre des rangs, pour que le plafond de détail garde
     bien les PREMIERS rejets du document.
     """
-    fusionnes = await db_merge_window(
-        conn,
-        prepared.table,
-        after=after,
-        through=fenetre[-1].position,
-        now=processing.now(),
-        model_version=processing.model_version,
-    )
-    par_rang = {merged.position: merged for merged in fusionnes}
+    # La fenêtre LUE est celle du `lot_ecriture`, qui dit tous les combien on valide ; les
+    # instructions de fusion, elles, sont bornées à `MERGE_WINDOW` items, parce que leur
+    # coût par item croît avec leur taille (mesure au point d'application). Les deux
+    # réglages cessent ainsi de se confondre : un `lot_ecriture` de cinq mille allonge la
+    # transaction, il ne fait plus tomber le plan.
+    par_rang: dict[int, Any] = {}
+    borne = after
+    for depart in range(0, len(fenetre), MERGE_WINDOW):
+        tranche = fenetre[depart : depart + MERGE_WINDOW]
+        fusionnes = await db_merge_window(
+            conn,
+            prepared.table,
+            after=borne,
+            through=tranche[-1].position,
+            now=processing.now(),
+            model_version=processing.model_version,
+        )
+        par_rang |= {merged.position: merged for merged in fusionnes}
+        borne = tranche[-1].position
     ecrits: list[tuple[str, bool]] = []
     for ligne in fenetre:
         _timed(debut, plan)

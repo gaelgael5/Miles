@@ -42,6 +42,23 @@ MANUAL_ORIGIN = "manuel"
 IMPORT_ORIGIN = "import"
 
 
+# Combien d'items une SEULE instruction de fusion traite. Borné ici, et non laissé au
+# `lot_ecriture` de la source, parce que le coût par item CROÎT avec la taille de la
+# fenêtre. Mesuré le 06/11/2026 sur `host-test-37`, cinquante mille objets réimportés :
+#
+#   fenêtre   100 →  4,75 s     fenêtre  1000 → 12,51 s
+#   fenêtre   500 →  7,91 s     fenêtre  5000 → 54,68 s
+#
+# La cause est la même qu'à la jointure de `avant` : les CTE n'ont pas de statistiques,
+# donc `generation = $3` est estimé à 1/200 quelle que soit la fenêtre réelle, et les
+# jointures finales sont planifiées pour deux cent cinquante lignes. Plus la fenêtre
+# s'éloigne de cette estimation, plus le plan est faux — jusqu'à ne plus rendre du tout.
+#
+# `lot_ecriture` garde donc son sens — TOUS LES COMBIEN on valide — et ne décide plus de la
+# taille d'une instruction : l'administrateur peut l'augmenter sans tomber dans la falaise.
+MERGE_WINDOW = 100
+
+
 class MergeDb(Protocol):
     async def fetch(self, query: str, *args: Any) -> list[Any]: ...
 
@@ -209,17 +226,22 @@ async def db_merge_items(
 ) -> list[MergedObject]:
     """Fusionne les items à écrire d'un lot reçu dans l'appel, et rend leur sort."""
     ecrivables = [item for item in items if item.writable]
-    if not ecrivables:
-        return []
-    arguments = (
-        [item.position for item in ecrivables],
-        [item.key for item in ecrivables],
-        [json.dumps(item.objet, ensure_ascii=False) for item in ecrivables],
-        [item.empreinte for item in ecrivables],
-    )
-    return await _resolve_rounds(
-        db, _statement(table, _SOURCE_INLINE), arguments, now, model_version
-    )
+    statement = _statement(table, _SOURCE_INLINE)
+    fusionnes: list[MergedObject] = []
+    # Découpé en instructions de `MERGE_WINDOW` items : un lot reçu ne dépasse pas deux
+    # cents objets aujourd'hui, mais le découpage tient la promesse du plan quel que soit
+    # le plafond de demain, et deux items de même clé séparés par une tranche sont écrits
+    # dans l'ordre des tranches — « le dernier valide gagne » tient sans les générations.
+    for depart in range(0, len(ecrivables), MERGE_WINDOW):
+        tranche = ecrivables[depart : depart + MERGE_WINDOW]
+        arguments = (
+            [item.position for item in tranche],
+            [item.key for item in tranche],
+            [json.dumps(item.objet, ensure_ascii=False) for item in tranche],
+            [item.empreinte for item in tranche],
+        )
+        fusionnes += await _resolve_rounds(db, statement, arguments, now, model_version)
+    return fusionnes
 
 
 async def _resolve_rounds(
