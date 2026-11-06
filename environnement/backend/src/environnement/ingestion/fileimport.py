@@ -50,7 +50,7 @@ from environnement.ingestion.outcome import (
     Report,
 )
 from environnement.ingestion.preparation import PreparedObject, prepare_object
-from environnement.ingestion.staging import db_clear_staging, db_stage
+from environnement.ingestion.staging import db_close_prepared, db_copy_prepared, db_open_prepared
 from environnement.ingestion.store_imports import (
     ImportJob,
     db_claim_next,
@@ -149,8 +149,15 @@ class FileImports:
             job.id,
             await asyncio.to_thread(file_read_metadata, chemin, keys, self.limits.metadata_budget),
         )
-        lus, incident = await self._stage(conn, job, prepared, cible.entry, chemin, keys)
-        await self._write(conn, job, cible.entry, prepared, lus, incident)
+        await db_open_prepared(conn)
+        try:
+            lus, incident = await self._stage(conn, job, prepared, cible.entry, chemin, keys)
+            await self._write(conn, job, cible.entry, prepared, lus, incident)
+        finally:
+            # Ôtée quoi qu'il arrive, et pas seulement en sortie heureuse : la connexion
+            # revient au pool, et une table laissée derrière ferait écrire les items de ce
+            # document dans l'import suivant que la même connexion servira.
+            await db_close_prepared(conn)
         await self._purge_now(conn, job)
 
     async def _purge_now(self, conn: Any, job: ImportJob) -> None:
@@ -184,7 +191,10 @@ class FileImports:
         transaction qui l'englobe empêche autovacuum de nettoyer la table visée.
 
         Chaque paquet est lu ET transformé dans un FIL : les deux sont bloquants et
-        gourmands en processeur, et la boucle d'événements sert aussi les écrans.
+        gourmands en processeur, et la boucle d'événements sert aussi les écrans. Il est
+        ensuite COPIÉ EN MASSE dans la table temporaire de l'import — un flux binaire que
+        le serveur range sans replanifier, là où une instruction par item faisait de
+        l'écriture le coût dominant d'un document de cinquante mille lignes.
         """
         items = file_iter_items(chemin, keys)
         lus = 0
@@ -200,7 +210,7 @@ class FileImports:
                 return lus, (refus.code, refus.detail)
             if not paquet:
                 return lus, None
-            await db_stage(conn, job.id, paquet)
+            await db_copy_prepared(conn, paquet)
             lus += len(paquet)
 
     async def _write(
@@ -222,9 +232,8 @@ class FileImports:
             # - la transaction est unifiée : tout ou rien, même sur une interruption au
             #   milieu (critère 7).
             #
-            # Dans les deux cas l'aire est abandonnée, et l'échec dit combien d'items
-            # avaient été lus avant l'incident.
-            await db_clear_staging(conn, job.id)
+            # Dans les deux cas l'aire est abandonnée — l'appelant l'ôte en sortant —, et
+            # l'échec dit combien d'items avaient été lus avant l'incident.
             await self._failed(conn, job, incident[0], incident[1], lus)
             return
         plan = ApplyPlan(
@@ -237,10 +246,8 @@ class FileImports:
         try:
             rapport = await resolve_apply(conn, self._processing(conn, job), prepared, plan)
         except ApplyTooLong:
-            await db_clear_staging(conn, job.id)
             await self._failed(conn, job, FAILURE_APPLY_TOO_LONG, str(plan.seconds), lus)
             return
-        await db_clear_staging(conn, job.id)
         await db_finish_import(
             conn,
             job.id,

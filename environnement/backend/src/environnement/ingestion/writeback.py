@@ -24,7 +24,7 @@ from datetime import datetime
 from typing import Any, Protocol
 
 import structlog
-from miles_socle.events.journal import EventDb, db_write_event
+from miles_socle.events.journal import EventDb, db_write_events
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles_socle.parametrage.layout import MODEL_RE
 from miles_socle.parametrage.refs import ReadFile
@@ -40,8 +40,8 @@ from environnement.ingestion.outcome import (
     ObjectOutcome,
     Report,
 )
-from environnement.ingestion.preparation import PreparedObject, prepare_object
-from environnement.ingestion.store_objects import ObjectsDb, db_write_object
+from environnement.ingestion.preparation import prepare_object
+from environnement.ingestion.store_merge import MergeDb, MergedObject, db_merge_items
 from environnement.storages.declarations import file_declared, file_model_schema
 from environnement.storages.model import StorageTable
 
@@ -51,13 +51,13 @@ OBJECT_WRITTEN_EVENT = "environment.storage_object_written"
 EVENT_TYPES = frozenset({OBJECT_WRITTEN_EVENT})
 
 
-class ProcessingDb(ObjectsDb, EventDb, Protocol):
-    """La connexion du traitement : elle écrit les objets ET leurs events.
+class ProcessingDb(MergeDb, EventDb, Protocol):
+    """La connexion du traitement : elle fusionne les objets ET écrit leurs events.
 
-    Les deux protocoles réunis plutôt que l'un des deux élargi : l'écriture d'un objet
-    n'a besoin que de `fetchrow`, l'event demande en plus un point de sauvegarde, et
-    chacun des deux modules reste éprouvable avec une doublure de ce qu'il demande
-    seulement. Ce qui est commun, et qui est le point, est que c'est la MÊME connexion.
+    Les deux protocoles réunis plutôt que l'un des deux élargi : la fusion n'a besoin que
+    de `fetch`, l'event demande en plus un point de sauvegarde, et chacun des deux modules
+    reste éprouvable avec une doublure de ce qu'il demande seulement. Ce qui est commun, et
+    qui est le point, est que c'est la MÊME connexion.
     """
 
 
@@ -127,23 +127,55 @@ class Processing:
 async def resolve_process(
     processing: Processing, prepared: Prepared, objets: list[dict[str, object]]
 ) -> Report:
-    """Traite le lot objet par objet et rend son compte-rendu.
+    """Prépare tout le lot, le fusionne d'un geste, et rend son compte-rendu.
 
-    L'ordre des trois contrôles n'est pas indifférent. La TRANSFORMATION d'abord, parce
-    que tout le reste porte sur son résultat. Puis le MODÈLE, parce qu'une propriété de
-    clé absente est le plus souvent une violation du modèle, et « modèle non respecté, à
-    tel chemin » envoie corriger le template là où « clé non extractible » laisse chercher.
-    La CLÉ en dernier, sur un objet dont on sait déjà qu'il a la forme attendue.
+    **La préparation est séparée de l'écriture, même ici.** Les deux cents objets d'un
+    appel sont d'abord transformés — hors de toute instruction —, puis écrits par UNE
+    fusion ensembliste (Gael, 06/11/2026). Les écrire un par un faisait deux cents
+    allers-retours pour un lot que la base sait prendre en une fois ; et c'est le même
+    code de fusion que celui qu'un import de cinquante mille items emprunte, donc la
+    règle de l'objet d'origine manuelle n'existe qu'en un exemplaire.
+
+    L'ordre des trois contrôles de la préparation n'est pas indifférent. La TRANSFORMATION
+    d'abord, parce que tout le reste porte sur son résultat. Puis le MODÈLE, parce qu'une
+    propriété de clé absente est le plus souvent une violation du modèle, et « modèle non
+    respecté, à tel chemin » envoie corriger le template là où « clé non extractible »
+    laisse chercher. La CLÉ en dernier, sur un objet dont on sait déjà qu'il a la forme
+    attendue.
     """
+    items = [
+        prepare_object(
+            prepared.chain,
+            prepared.schema,
+            prepared.table.keys,
+            rang,
+            source,
+            processing.budget,
+        )
+        for rang, source in enumerate(objets)
+    ]
+    fusionnes = await db_merge_items(
+        processing.db,
+        prepared.table,
+        items,
+        now=processing.now(),
+        model_version=processing.model_version,
+    )
+    par_rang = {merged.position: merged for merged in fusionnes}
     report = Report(received=len(objets))
     vues: dict[str, int] = {}
-    for rang, source in enumerate(objets):
-        issue = await _one(processing, prepared, rang, source)
+    ecrits: list[tuple[str, bool]] = []
+    for item in items:
+        merged = par_rang.get(item.position)
+        issue = item.rejection() if merged is None else written_outcome(merged)
         report.objects.append(issue)
+        if merged is not None and merged.result.written:
+            ecrits.append((merged.key, merged.result.created))
         if issue.key is not None and issue.outcome != REJECTED:
             if issue.key in vues:
                 report.anomalies.append(f"{ANOMALY_DUPLICATE_KEY}:{issue.key}")
-            vues[issue.key] = rang
+            vues[issue.key] = item.position
+    await resolve_written_events(processing, prepared.table, ecrits)
     return report
 
 
@@ -170,79 +202,48 @@ async def _schema(read: ReadFile, table: StorageTable) -> Any:
     return schema
 
 
-async def _one(
-    processing: Processing, prepared: Prepared, rang: int, source: dict[str, object]
-) -> ObjectOutcome:
-    item = prepare_object(
-        prepared.chain,
-        prepared.schema,
-        prepared.table.keys,
-        rang,
-        source,
-        processing.budget,
-    )
-    return await write_prepared(processing, prepared.table, item)
+def written_outcome(merged: MergedObject) -> ObjectOutcome:
+    """Le sort d'un objet fusionné, pour le compte-rendu.
 
-
-async def write_prepared(
-    processing: Processing, table: StorageTable, item: PreparedObject
-) -> ObjectOutcome:
-    """Écrit un item PRÉPARÉ et rend son sort. La transaction est celle de l'appelant.
-
-    **Partagée par les deux modes**, et c'est tout l'objet de la séparation : le mode
-    gros fichier a préparé ses items hors transaction, des minutes plus tôt, et il doit
-    les écrire par le même code — y compris la garde de l'objet d'origine manuelle, qui
-    est une règle et non un détail d'implémentation.
+    **Une seule copie de cette correspondance**, empruntée par les deux modes : « refusé
+    parce que manuel » est une règle, et deux traductions du même verdict auraient fini
+    par nommer deux choses différentes dans deux compte-rendus.
     """
-    if not item.writable:
-        return item.rejection()
-    resultat = await db_write_object(
-        processing.db,
-        table,
-        key=_demanded(item.key),
-        objet=item.objet,
-        empreinte=_demanded(item.empreinte),
-        now=processing.now(),
-        model_version=processing.model_version,
-    )
-    if resultat.refused:
-        return ObjectOutcome(item.position, REJECTED, item.key, REJECT_MANUAL)
-    if resultat.written:
-        await _journalise(processing, table, _demanded(item.key), created=resultat.created)
-        return ObjectOutcome(item.position, WRITTEN, item.key)
-    return ObjectOutcome(item.position, UNCHANGED, item.key)
+    if merged.result.refused:
+        return ObjectOutcome(merged.position, REJECTED, merged.key, REJECT_MANUAL)
+    if merged.result.written:
+        return ObjectOutcome(merged.position, WRITTEN, merged.key)
+    return ObjectOutcome(merged.position, UNCHANGED, merged.key)
 
 
-def _demanded[T](value: T | None) -> T:
-    """Exige ce qu'un item écrivable porte forcément. Jamais de repli sur une valeur vide.
-
-    Un repli écrirait un objet sous une clé vide ou sans empreinte, c'est-à-dire un objet
-    que le prochain import considérerait comme changé. Mieux vaut lever : l'invariant est
-    porté par `writable`, et la contrainte de l'aire de préparation le dit aussi.
-    """
-    if value is None:
-        raise ValueError("item préparé incomplet : clé ou empreinte manquante")
-    return value
-
-
-async def _journalise(
-    processing: Processing, table: StorageTable, cle: str, *, created: bool
+async def resolve_written_events(
+    processing: Processing, table: StorageTable, ecrits: list[tuple[str, bool]]
 ) -> None:
-    """Un event par objet ÉCRIT, dans la transaction du lot.
+    """Un event par objet ÉCRIT, tous dans UNE instruction, dans la transaction du lot.
 
     Dans la même transaction que l'écriture : aucun fait observable sans sa trace, règle
     du système. L'objet concerné est désigné par son storage et sa clé — pas par
     l'identifiant de ligne, qui ne survit pas à une recréation.
+
+    **Un event par objet et non un par lot** (Gael, 03/11/2026, contre la piste du
+    cadrage) : ce qui a changé le 06/11/2026 n'est pas la règle, c'est son coût — trois
+    allers-retours par event faisaient cent cinquante mille instructions pour cinquante
+    mille objets, là où `db_write_events` en fait trois pour tout le lot.
     """
-    event = NewEvent(
-        OBJECT_WRITTEN_EVENT,
-        (ObjectRef(table.storage, cle),),
-        processing.author,
-        {
-            "storage": table.storage,
-            "created": created,
-            "ingestion": processing.ingestion_id,
-            "model": table.model,
-        },
-    )
-    await db_write_event(processing.db, event, processing.catalog, processing.now)
+    if not ecrits:
+        return
+    events = [
+        NewEvent(
+            OBJECT_WRITTEN_EVENT,
+            (ObjectRef(table.storage, cle),),
+            processing.author,
+            {
+                "storage": table.storage,
+                "created": created,
+                "ingestion": processing.ingestion_id,
+                "model": table.model,
+            },
+        )
+        for cle, created in ecrits
+    ]
+    await db_write_events(processing.db, events, processing.catalog, processing.now)

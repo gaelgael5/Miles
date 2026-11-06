@@ -43,7 +43,7 @@ from environnement.ingestion.outcome import (
     UNCHANGED,
     WRITTEN,
 )
-from environnement.ingestion.store_objects import IMPORT_ORIGIN, MANUAL_ORIGIN
+from environnement.ingestion.store_merge import IMPORT_ORIGIN, MANUAL_ORIGIN
 from environnement.ingestion.writeback import OBJECT_WRITTEN_EVENT
 from tests.integration.bundles import fabrique_import
 from tests.integration.environnement_stack import EnvironnementStack, open_stack

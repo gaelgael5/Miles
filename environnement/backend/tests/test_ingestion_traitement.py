@@ -5,13 +5,15 @@ où l'écriture différentielle se mesure contre PostgreSQL. Ici on éprouve ce 
 peut pas dire : qu'un objet fautif est rejeté SEUL, que la raison nommée est la bonne, et
 que l'ordre des trois contrôles envoie corriger au bon endroit.
 
-La doublure rend ce que `db_write_object` attend, et c'est tout : elle ne rejoue pas le
-`ON CONFLICT`. Un test qui prétendrait éprouver l'écriture différentielle ici éprouverait
-la doublure — c'est la leçon du 29/10/2026, et la campagne d'intégration s'en charge.
+La doublure rejoue le CONTRAT de l'instruction de fusion — ses générations, ses lignes
+rendues —, pas le `ON CONFLICT` de PostgreSQL. Un test qui prétendrait éprouver l'écriture
+différentielle ici éprouverait la doublure : c'est la leçon du 29/10/2026, et la campagne
+d'intégration s'en charge.
 """
 
 from __future__ import annotations
 
+from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 
@@ -89,55 +91,87 @@ async def _prepare(fichiers: dict[str, str], storage: str = "sites") -> Prepared
 class _Db:
     """Doublure : elle enregistre les écritures et rend ce que la base rendrait.
 
-    `origines` dit ce que la table porte DÉJÀ pour une clé : rien (création), « import »
-    avec une empreinte (mise à jour), ou « manuel » (refus). C'est exactement ce que la
-    CTE `avant` de l'instruction réelle lit.
+    `deja` dit ce que la table porte DÉJÀ pour une clé : rien (création), « import » avec
+    une empreinte (mise à jour), ou « manuel » (refus). C'est exactement ce que la CTE
+    `avant` de l'instruction réelle lit.
     """
 
     def __init__(self, deja: dict[str, tuple[str, bytes | None]] | None = None) -> None:
         self.deja = deja or {}
         self.ecritures: list[str] = []
         self.events: list[str] = []
-        self.sequence = 0
-
-    async def fetchrow(self, query: str, *args: Any) -> Any:
-        if query.strip().startswith("WITH avant"):
-            cle, empreinte = args[0], args[2]
-            origine, empreinte_avant = self.deja.get(cle, (None, None))
-            if origine != "manuel":
-                self.deja[cle] = ("import", empreinte)
-                self.ecritures.append(cle)
-            return {
-                "origine_avant": origine,
-                "empreinte_avant": empreinte_avant,
-                "posees": 0 if origine == "manuel" else 1,
-            }
-        raise AssertionError(f"requête inattendue : {query[:40]}")
+        self.sequences: dict[tuple[str, str], int] = {}
 
     def is_in_transaction(self) -> bool:
         return True
 
     async def execute(self, query: str, *args: Any) -> str:
-        # Le journal écrit DEUX instructions par event — la ligne, puis ses objets. On ne
-        # retient que la première : compter les exécutions ferait compter deux events là
-        # où il n'y en a qu'un, et le test dirait le double de la vérité.
+        # Le journal écrit DEUX instructions par lot — les lignes d'events, puis leurs
+        # objets. On ne retient que la première, et son tableau de types : compter les
+        # exécutions ferait compter un event par instruction là où il y en a N.
         if "INTO events" in query:
-            self.events.append(str(args[1]))
+            self.events.extend(args[1])
         return "OK"
 
     async def fetch(self, query: str, *args: Any) -> list[Any]:
-        """Les numéros de séquence que le journal demande pour les objets d'un event.
+        if "event_object_sequences" in query:
+            return self._numeros(args)
+        if query.lstrip().startswith("WITH candidats"):
+            return self._fusion(args)
+        raise AssertionError(f"requête inattendue : {query[:40]}")
 
-        Doublée fidèlement au CONTRAT de la requête — un rang par couple demandé — et non
-        à ce qu'on croit qu'elle rend : sans ces lignes, le journal lèverait sur une clé
-        absente, et c'est bien ce qu'il ferait en production face à une base muette.
+    def _numeros(self, args: tuple[Any, ...]) -> list[Any]:
+        """Les numéros de séquence que le journal réserve pour les objets d'un lot.
+
+        Doublée fidèlement au CONTRAT de la requête — UNE ligne par objet distinct, portant
+        le DERNIER numéro attribué — et non à ce qu'on croit qu'elle rend : une ligne par
+        occurrence ferait croire au journal que ses numéros sont contigus alors qu'ils se
+        chevaucheraient.
         """
-        kinds, ids = args[0], args[1]
-        self.sequence += 1
-        return [
-            {"object_kind": k, "object_id": i, "last_sequence": self.sequence}
-            for k, i in zip(kinds, ids, strict=True)
-        ]
+        rendus: list[Any] = []
+        for couple, combien in Counter(zip(args[0], args[1], strict=True)).items():
+            dernier = self.sequences.get(couple, 0) + combien
+            self.sequences[couple] = dernier
+            rendus.append(
+                {"object_kind": couple[0], "object_id": couple[1], "last_sequence": dernier}
+            )
+        return rendus
+
+    def _fusion(self, args: tuple[Any, ...]) -> list[Any]:
+        """La fusion d'UNE génération, telle que l'instruction réelle la rend.
+
+        Les générations sont le cœur du contrat : les premières occurrences d'une clé
+        partent en 1, les deuxièmes en 2, et c'est ce qui préserve « le dernier valide
+        gagne ». La doublure les recalcule au lieu de les supposer — sinon un lot portant
+        deux fois la même clé passerait ici et échouerait sur la base.
+        """
+        generation, positions, cles, empreintes = args[2], args[3], args[4], args[6]
+        candidats = list(zip(positions, cles, empreintes, strict=True))
+        rangs: Counter[str] = Counter()
+        numerotes = []
+        for position, cle, empreinte in sorted(candidats):
+            rangs[cle] += 1
+            numerotes.append((position, cle, empreinte, rangs[cle]))
+        generations = max(Counter(cle for _, cle, _ in candidats).values())
+        rendus: list[Any] = []
+        for position, cle, empreinte, rang in numerotes:
+            if rang != generation:
+                continue
+            origine, empreinte_avant = self.deja.get(cle, (None, None))
+            if origine != "manuel":
+                self.deja[cle] = ("import", empreinte)
+                self.ecritures.append(cle)
+            rendus.append(
+                {
+                    "position": position,
+                    "cle": cle,
+                    "posee": origine != "manuel",
+                    "origine_avant": origine,
+                    "identique": empreinte_avant is not None and empreinte_avant == empreinte,
+                    "generations": generations,
+                }
+            )
+        return rendus
 
     def transaction(self) -> Any:
         return _Rien()

@@ -1,0 +1,20 @@
+-- L'aire de préparation d'un import devient une table TEMPORAIRE, posée par la session qui
+-- mène l'import (Gael, 06/11/2026 : « on doit avoir une table temporaire vide permettant
+-- l'import »).
+--
+-- POURQUOI LA RETIRER DU SCHÉMA. `ingestion_staging` était une vraie table : journalisée au
+-- WAL, vidée par un `DELETE` à chaque import — donc des tuples morts à chaque passage, sur
+-- une table qu'aucun écran, aucune route et aucune requête de compte-rendu ne lisait. Une
+-- table TEMP n'entre dans aucun WAL, n'est visible que de sa session, et se ferme par un
+-- `DROP` instantané. La forme de l'aire est désormais déclarée par le code qui la pose
+-- (`ingestion/staging.py`), avec les mêmes contrôles qu'ici.
+--
+-- CE QUE LA PERTE DE L'AIRE COÛTE : rien. Une interruption en cours d'import laisse
+-- l'ingestion « en cours », l'entretien la remet en file, et tout est refait depuis le
+-- document posé sur le disque. C'est ce qui autorise à ne pas la journaliser — et c'était
+-- déjà vrai de l'ancienne table, qui payait un WAL pour une durabilité dont personne ne se
+-- servait.
+--
+-- `CASCADE` n'est pas nécessaire : la seule dépendance de cette table était sa clé
+-- étrangère VERS `ingestions`, et rien ne pointait vers elle.
+DROP TABLE IF EXISTS ingestion_staging;

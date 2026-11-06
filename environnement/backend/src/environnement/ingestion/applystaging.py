@@ -25,10 +25,18 @@ import structlog
 from environnement.ingestion.outcome import (
     ANOMALY_DETAIL_CAPPED,
     ANOMALY_DUPLICATE_KEY,
+    REJECTED,
+    ObjectOutcome,
     Report,
 )
-from environnement.ingestion.staging import db_duplicate_keys, db_staged
-from environnement.ingestion.writeback import Prepared, Processing, write_prepared
+from environnement.ingestion.staging import PreparedRow, db_duplicate_keys, db_prepared_window
+from environnement.ingestion.store_merge import db_merge_window
+from environnement.ingestion.writeback import (
+    Prepared,
+    Processing,
+    resolve_written_events,
+    written_outcome,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -73,7 +81,7 @@ async def resolve_apply(
             await _drain(conn, processing, prepared, plan, report, time.monotonic())
     else:
         await _by_batch(conn, processing, prepared, plan, report)
-    report.anomalies.extend(await _duplicates(conn, processing.ingestion_id, plan))
+    report.anomalies.extend(await _duplicates(conn, plan))
     log.info(
         "import_applique",
         ingestion=processing.ingestion_id,
@@ -96,18 +104,14 @@ async def _by_batch(
     """
     rang = -1
     while True:
-        lot = await db_staged(conn, processing.ingestion_id, after=rang, limit=plan.write_batch)
-        if not lot:
+        fenetre = await db_prepared_window(conn, after=rang, limit=plan.write_batch)
+        if not fenetre:
             return
         debut = time.monotonic()
         async with conn.transaction():
             await _bounded(conn, plan)
-            for item in lot:
-                _timed(debut, plan)
-                report.counted(
-                    await write_prepared(processing, prepared.table, item), keep=plan.detail_cap
-                )
-        rang = lot[-1].position
+            await _resolve_window(conn, processing, prepared, plan, report, fenetre, rang, debut)
+        rang = fenetre[-1].position
 
 
 async def _drain(
@@ -126,15 +130,60 @@ async def _drain(
     """
     rang = -1
     while True:
-        lot = await db_staged(conn, processing.ingestion_id, after=rang, limit=plan.write_batch)
-        if not lot:
+        fenetre = await db_prepared_window(conn, after=rang, limit=plan.write_batch)
+        if not fenetre:
             return
-        for item in lot:
-            _timed(debut, plan)
-            report.counted(
-                await write_prepared(processing, prepared.table, item), keep=plan.detail_cap
-            )
-        rang = lot[-1].position
+        await _resolve_window(conn, processing, prepared, plan, report, fenetre, rang, debut)
+        rang = fenetre[-1].position
+
+
+async def _resolve_window(
+    conn: Any,
+    processing: Processing,
+    prepared: Prepared,
+    plan: ApplyPlan,
+    report: Report,
+    fenetre: list[PreparedRow],
+    after: int,
+    debut: float,
+) -> None:
+    """Fusionne la fenêtre d'un geste, compte chaque rang, puis trace les objets écrits.
+
+    **Les objets ne remontent jamais ici** : la fenêtre n'est lue qu'en métadonnées — rang,
+    sort, motif de rejet — et c'est la fusion qui déplace les corps de la table temporaire
+    vers celle du storage, à l'intérieur de la base (Gael, 06/11/2026). Les relire pour les
+    renvoyer aussitôt aurait fait voyager deux fois cinquante mille documents.
+
+    Les rejets, eux, sont décidés à la préparation et ne concernent pas la base : ils sont
+    comptés depuis la fenêtre, dans l'ordre des rangs, pour que le plafond de détail garde
+    bien les PREMIERS rejets du document.
+    """
+    fusionnes = await db_merge_window(
+        conn,
+        prepared.table,
+        after=after,
+        through=fenetre[-1].position,
+        now=processing.now(),
+        model_version=processing.model_version,
+    )
+    par_rang = {merged.position: merged for merged in fusionnes}
+    ecrits: list[tuple[str, bool]] = []
+    for ligne in fenetre:
+        _timed(debut, plan)
+        if not ligne.writable:
+            rejet = ObjectOutcome(ligne.position, REJECTED, ligne.key, ligne.reason, ligne.detail)
+            report.counted(rejet, keep=plan.detail_cap)
+            continue
+        merged = par_rang.get(ligne.position)
+        if merged is None:
+            # Jamais de repli : un item écrivable que la fusion n'a pas rendu voudrait dire
+            # que la fenêtre lue et la fenêtre fusionnée ne sont pas la même, et le
+            # compte-rendu compterait un objet de moins que le document n'en porte.
+            raise ValueError(f"rang {ligne.position} absent de la fusion de sa fenêtre")
+        report.counted(written_outcome(merged), keep=plan.detail_cap)
+        if merged.result.written:
+            ecrits.append((merged.key, merged.result.created))
+    await resolve_written_events(processing, prepared.table, ecrits)
 
 
 async def _bounded(conn: Any, plan: ApplyPlan) -> None:
@@ -156,7 +205,7 @@ def _timed(debut: float, plan: ApplyPlan) -> None:
         raise ApplyTooLong(FAILURE_APPLY_TOO_LONG)
 
 
-async def _duplicates(conn: Any, ingestion_id: str, plan: ApplyPlan) -> list[str]:
+async def _duplicates(conn: Any, plan: ApplyPlan) -> list[str]:
     """Les clés que le document portait deux fois, signalées et non corrigées.
 
     Le dernier valide gagne — c'est ce que l'ordre d'écriture produit naturellement —, et
@@ -165,7 +214,7 @@ async def _duplicates(conn: Any, ingestion_id: str, plan: ApplyPlan) -> list[str
     et non tenues en mémoire pendant la lecture : un index de cinquante mille clés aurait
     rendu en mémoire ce que la lecture en flux évite.
     """
-    cles = await db_duplicate_keys(conn, ingestion_id, limit=plan.detail_cap + 1)
+    cles = await db_duplicate_keys(conn, limit=plan.detail_cap + 1)
     anomalies = [f"{ANOMALY_DUPLICATE_KEY}:{cle}" for cle in cles[: plan.detail_cap]]
     if len(cles) > plan.detail_cap:
         anomalies.append(f"{ANOMALY_DETAIL_CAPPED}:{plan.detail_cap}")

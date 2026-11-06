@@ -14,7 +14,8 @@ from pathlib import Path
 
 import asyncpg
 import pytest
-from miles_socle.events.journal import JOURNAL_TABLES, db_object_history, db_write_event
+from miles_socle.events.history import db_object_history
+from miles_socle.events.journal import JOURNAL_TABLES, db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 from miles_socle.journal.api_journal import MAINTENANCE_PATH
 from miles_socle.journal.maintenance import JournalMaintenance

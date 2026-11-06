@@ -36,6 +36,7 @@ from environnement.ingestion.outcome import (
     STATE_PROCESSED,
     STATE_QUEUED,
 )
+from environnement.ingestion.staging import PREPARED_TABLE
 from tests.integration.bundles import fabrique_import_fichier
 from tests.integration.environnement_stack import EnvironnementStack, open_stack
 from tests.integration.versions import sert
@@ -97,8 +98,21 @@ class _Depot:
         )
         return {row["cle"]: row for row in rows}
 
-    async def staging(self) -> int:
-        row = await self.stack.pool.fetchrow("SELECT count(*) AS n FROM ingestion_staging")
+    async def aires(self) -> int:
+        """Combien de tables temporaires d'import existent, toutes sessions confondues.
+
+        Lue dans le catalogue et non dans l'aire : la table est TEMPORAIRE depuis le
+        06/11/2026, donc invisible depuis une autre connexion que celle de l'import — mais
+        son EXISTENCE, elle, se voit de partout. C'est même une assertion plus forte que
+        l'ancien « zéro ligne » : une aire laissée derrière ferait écrire les items de ce
+        document dans l'import suivant que la même connexion servira.
+        """
+        row = await self.stack.pool.fetchrow(
+            "SELECT count(*) AS n FROM pg_class c"
+            " JOIN pg_namespace n ON n.oid = c.relnamespace"
+            " WHERE c.relname = $1 AND n.nspname LIKE 'pg\\_temp%'",
+            PREPARED_TABLE,
+        )
         return int(row["n"])
 
 
@@ -175,7 +189,7 @@ async def test_l_import_ecrit_les_items_du_decoupage_et_range_les_metadonnees(
         # (critère 11).
         assert lignes[M1]["ville"] == "Paris"
         # L'aire de préparation est un brouillon : elle ne survit pas à l'import.
-        assert await depot.staging() == 0
+        assert await depot.aires() == 0
 
 
 async def test_un_reimport_a_l_identique_n_ecrit_aucun_corps(blank_db: str, tmp_path: Path) -> None:
@@ -252,7 +266,7 @@ async def test_une_transaction_unifiee_n_ecrit_RIEN_d_un_document_tronque(
         # c'est ce qui distingue « échoué » de « échoué après deux items ».
         assert ligne["items_read"] == 2
         assert await depot.lignes() == {}
-        assert await depot.staging() == 0
+        assert await depot.aires() == 0
 
 
 async def test_sans_transaction_unifiee_un_document_tronque_laisse_un_import_incomplet(
