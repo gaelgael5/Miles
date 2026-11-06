@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from miles_socle.parametrage.sources import DEFAULT_WRITE_BATCH
 from miles_socle.testing.enrolment_double import EnrolmentDouble
 
 from environnement.ingestion.api_ingest_file import INGEST_FILE_PATH
@@ -57,10 +58,15 @@ def _document(codes: list[str]) -> bytes:
 
 @asynccontextmanager
 async def _ouvre(
-    blank_db: str, tmp_path: Path, **bornes: Any
+    blank_db: str, tmp_path: Path, lot_ecriture: int | None = None, **bornes: Any
 ) -> AsyncIterator[tuple[EnvironnementStack, str]]:
-    """Une stack qui sert la source en mode fichier, avec sa clé d'API et son jeton."""
-    versions = fabrique_import_fichier(tmp_path)
+    """Une stack qui sert la source en mode fichier, avec sa clé d'API et son jeton.
+
+    `lot_ecriture` est repris de la fabrique — deux, pour qu'un essai de quelques items
+    exerce vraiment le découpage en paquets. Un essai qui MESURE une durée le surcharge.
+    """
+    declaration = {} if lot_ecriture is None else {"lot_ecriture": lot_ecriture}
+    versions = fabrique_import_fichier(tmp_path, **declaration)
     double = EnrolmentDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app(), **bornes) as stack:
         await sert(stack, double, versions[1])
@@ -328,19 +334,23 @@ async def test_en_regime_etabli_la_transaction_d_ecriture_est_courte(
     évalue le template item par item. C'est la comparaison que le ticket demande, et elle
     porte sur un RAPPORT — comparer des durées absolues mesurerait la machine.
 
-    **Six cents items et non soixante, depuis le 06/11/2026.** À soixante, les deux côtés
-    du rapport étaient dominés par des coûts FIXES et non par le travail : mesuré sur
-    `host-test-37`, planifier l'instruction de fusion coûte 1,9 ms et l'exécuter sur
-    soixante items 6,2 ms, quand la transaction entière en prenait 118 — le reste étant
-    les sept allers-retours de l'écriture vers une base d'un autre conteneur. Le jour où
-    la préparation est passée du `executemany` au `COPY`, le total a diminué sans que ces
-    allers-retours bougent, et le rapport a franchi la moitié : le test rougissait d'une
-    optimisation. Ce que le critère dit est que la part qui CROÎT avec le document — le
-    template, item par item — est hors de la transaction ; il faut donc assez d'items pour
-    que cette part domine les constantes des deux côtés.
+    **Un `lot_ecriture` RÉALISTE, et c'est tout le correctif du 06/11/2026.** La fabrique
+    déclare un lot de deux, exprès, pour que les autres essais exercent le découpage en
+    paquets ; mais avec un lot de deux, l'écriture ouvre une transaction et deux
+    instructions par paire d'items, et le rapport mesure cette boucle — pas le critère.
+    Il était d'ailleurs INVARIANT par la taille du document : passé de 60 à 600 items, il
+    valait 50,3 % puis 52,2 %, les deux côtés croissant ensemble. Mesuré au passage sur
+    `host-test-37` : planifier l'instruction de fusion coûte 1,9 ms, l'exécuter sur
+    soixante items 6,2 ms, et la fusion complète d'un réimport de cinquante mille items
+    par fenêtres de cent 4,75 s — soit 0,095 ms par item. Ce qui coûtait n'était donc ni
+    la planification ni la fusion, c'était le nombre de transactions.
+
+    Ce que le critère dit est que la part qui CROÎT avec le document — le template, item
+    par item — est hors de la transaction. On le mesure donc dans le régime où le produit
+    tourne : le lot par défaut, et assez d'items pour plusieurs paquets.
     """
     codes = [f"M-{n}" for n in range(1, 601)]
-    async with _ouvre(blank_db, tmp_path) as (stack, secret):
+    async with _ouvre(blank_db, tmp_path, lot_ecriture=DEFAULT_WRITE_BATCH) as (stack, secret):
         await _depose(stack, secret, codes)
         await stack.resolve_imports()
 
