@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 
-from miles_socle.events.journal import db_object_history, db_write_event
+from miles_socle.events.history import db_object_history
+from miles_socle.events.journal import db_write_event, db_write_events
 from miles_socle.events.model import (
     EventAuthor,
     EventError,
@@ -46,9 +48,14 @@ class _FakeEventDb:
 
     async def fetch(self, query: str, *args: Any) -> list[dict[str, Any]]:
         if "event_object_sequences" in query:
+            # La doublure rend ce que rend la vraie instruction : UNE ligne par objet
+            # distinct, portant le DERNIER numéro attribué — soit l'ancien plus le nombre
+            # d'occurrences du lot. Compter un par ligne reçue ferait croire au code
+            # appelant que ses numéros sont contigus alors qu'ils se chevaucheraient.
+            occurrences = Counter(zip(args[0], args[1], strict=True))
             rows = []
-            for kind, object_id in zip(args[0], args[1], strict=True):
-                value = self.counters.get((kind, object_id), 0) + 1
+            for (kind, object_id), combien in occurrences.items():
+                value = self.counters.get((kind, object_id), 0) + combien
                 self.counters[(kind, object_id)] = value
                 rows.append({"object_kind": kind, "object_id": object_id, "last_sequence": value})
             return rows
@@ -120,10 +127,68 @@ async def test_write_event_numbers_each_object_and_writes_properties() -> None:
     written = await db_write_event(db, event, CATALOG, lambda: NOW)
 
     assert written.sequences == {ObjectRef("group", "g1"): 1, ObjectRef("device", "d2"): 7}
-    insert_event = db.executed[0][1]
-    assert json.loads(insert_event[-1]) == {"group": "g1"}
+    proprietes, instant = db.executed[0][1][-2], db.executed[0][1][-1]
+    assert [json.loads(p) for p in proprietes] == [{"group": "g1"}]
+    assert instant == NOW
     # Les objets sont envoyés triés : ordre de verrouillage fixe.
     assert db.executed[1][1][0] == ["device", "group"]
+
+
+async def test_write_events_writes_a_whole_batch_in_three_statements() -> None:
+    """Le point de l'écriture ensembliste : le nombre d'instructions ne suit pas N."""
+    db = _FakeEventDb()
+    lot = [_event(objects=(ObjectRef("group", f"g{rang}"),)) for rang in range(50)]
+
+    ecrits = await db_write_events(db, lot, CATALOG, lambda: NOW)
+
+    assert len(ecrits) == 50
+    # Une réservation de numéros, puis l'insertion des events et celle de leurs liens.
+    assert len(db.executed) == 2
+    assert len(db.executed[0][1][0]) == 50 and len(db.executed[1][1][0]) == 50
+
+
+async def test_write_events_numbers_an_object_touched_twice_contiguously() -> None:
+    """Deux events du MÊME lot sur le même objet : des numéros qui se suivent.
+
+    C'est le cas que l'ancienne instruction ne savait pas écrire — deux lignes de même
+    clé dans un `ON CONFLICT DO UPDATE` font échouer l'instruction entière.
+    """
+    db = _FakeEventDb()
+    db.counters[("group", "g1")] = 4
+    lot = [_event(properties={"n": 1}), _event(properties={"n": 2})]
+
+    ecrits = await db_write_events(db, lot, CATALOG, lambda: NOW)
+
+    assert [e.sequences[ObjectRef("group", "g1")] for e in ecrits] == [5, 6]
+    assert db.executed[1][1][2] == [5, 6]
+
+
+async def test_write_events_of_an_empty_batch_writes_nothing() -> None:
+    """« Rien à tracer » est le cas normal d'un import dont aucun objet n'a changé."""
+    db = _FakeEventDb()
+
+    assert await db_write_events(db, [], CATALOG, lambda: NOW) == []
+    assert db.executed == [] and db.counters == {}
+
+
+async def test_write_events_share_one_written_at() -> None:
+    """Écrits par la même transaction, donc observables au même instant — et dans la même
+    partition, ce qu'un instant par event ne garantit pas à la frontière d'une journée."""
+    instants = iter([NOW, NOW + timedelta(hours=1)])
+    lot = [_event(), _event(objects=(ObjectRef("group", "g2"),))]
+
+    ecrits = await db_write_events(_FakeEventDb(), lot, CATALOG, lambda: next(instants))
+
+    assert {e.written_at for e in ecrits} == {NOW}
+
+
+async def test_write_events_outside_transaction_is_refused() -> None:
+    db = _FakeEventDb(in_transaction=False)
+
+    with pytest.raises(EventError, match="transaction"):
+        await db_write_events(db, [_event()], CATALOG, lambda: NOW)
+
+    assert db.executed == []
 
 
 @pytest.mark.parametrize(

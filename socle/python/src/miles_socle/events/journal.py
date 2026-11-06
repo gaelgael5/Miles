@@ -1,7 +1,23 @@
+"""Écrire dans le journal d'events, un event ou N, dans la transaction de la modification.
+
+**L'écriture est ENSEMBLIÈRE depuis le 06/11/2026** (Gael : « il faut que ce soit rapide
+et optimisé »). `db_write_events` écrit N events en **trois instructions, quel que soit
+N** ; `db_write_event` n'est plus qu'un lot d'un seul, pour que les cent quatre appels
+unitaires du dépôt passent par le chemin qu'un import de masse éprouve — une seconde
+implémentation aurait fini par écrire deux journaux différents.
+
+Ce qui l'a motivé : un import écrit un event par objet (décision du 03/11/2026), et trois
+allers-retours par event faisaient cent cinquante mille instructions pour cinquante mille
+objets, dans la transaction que le critère 9 veut COURTE.
+
+La relecture de l'histoire d'un objet est dans `history.py`.
+"""
+
 from __future__ import annotations
 
 import json
 import uuid
+from collections import Counter
 from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
@@ -13,7 +29,6 @@ import structlog
 
 from miles_socle.events.model import (
     DelegatedAuthor,
-    EventAuthor,
     EventError,
     EventTypeCatalog,
     FunctionalAtSource,
@@ -41,22 +56,41 @@ class EventDb(Protocol):
     def transaction(self) -> AbstractAsyncContextManager[Any]: ...
 
 
-# Les objets sont verrouillés dans un ordre fixe (tri par type puis identifiant) :
-# deux events de masse qui se recouvrent prennent alors leurs verrous dans le même
-# ordre et ne peuvent pas s'interbloquer.
+# Une seule instruction réserve les numéros de TOUS les objets du lot.
+#
+# `count(*)` et non `1` : un objet visé par plusieurs events du même lot avance d'autant,
+# et c'est ce qui permet d'écrire un lot sans le découper. Le numéro RENDU est le DERNIER
+# attribué ; l'appelant en déduit les précédents, qui sont contigus par construction.
+# Regrouper est d'ailleurs obligatoire et pas seulement économe : deux lignes de même clé
+# dans un `ON CONFLICT DO UPDATE` font échouer l'instruction entière (« cannot affect row
+# a second time »), donc un lot qui touche deux fois le même objet ne passerait pas.
+#
+# Les objets sont verrouillés dans un ordre fixe (tri par type puis identifiant) : deux
+# events de masse qui se recouvrent prennent alors leurs verrous dans le même ordre et ne
+# peuvent pas s'interbloquer. L'ordre est désormais imposé PAR L'INSTRUCTION et non par le
+# tri que l'appelant aurait fait — un appelant qui l'oublierait rouvrait l'interblocage.
 _NEXT_SEQUENCES = """
 INSERT INTO event_object_sequences (object_kind, object_id, last_sequence)
-SELECT kind, id, 1 FROM unnest($1::text[], $2::text[]) WITH ORDINALITY AS t(kind, id, rank)
-ORDER BY rank
+SELECT kind, id, occurrences FROM (
+    SELECT kind, id, count(*)::bigint AS occurrences
+    FROM unnest($1::text[], $2::text[]) AS t(kind, id)
+    GROUP BY kind, id
+) g
+ORDER BY kind, id
 ON CONFLICT (object_kind, object_id)
-DO UPDATE SET last_sequence = event_object_sequences.last_sequence + 1
+DO UPDATE SET last_sequence = event_object_sequences.last_sequence + excluded.last_sequence
 RETURNING object_kind, object_id, last_sequence
 """
 
-_INSERT_EVENT = """
+# `properties` arrive en `text[]` puis est converti dans le SELECT : annoncer `jsonb[]`
+# ferait dépendre l'encodage d'une inférence du pilote, qui peut changer sous nous.
+_INSERT_EVENTS = """
 INSERT INTO events (id, type, functional_at, functional_at_source, written_at,
                     author_directory, author_subject, properties)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+SELECT id, type, functional_at, source, $8, directory, subject, properties::jsonb
+FROM unnest($1::uuid[], $2::text[], $3::timestamptz[], $4::text[],
+            $5::text[], $6::text[], $7::text[])
+     AS t(id, type, functional_at, source, directory, subject, properties)
 """
 
 # `written_at` recopié depuis l'event, et non joint : c'est la clé de partition, et les
@@ -67,9 +101,21 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
 # cette recopie et par l'atomicité de la purge, et un test d'intégration l'éprouve.
 _INSERT_EVENT_OBJECTS = """
 INSERT INTO event_objects (object_kind, object_id, sequence, event_id, written_at)
-SELECT kind, id, seq, $4, $5
-FROM unnest($1::text[], $2::text[], $3::bigint[]) AS t(kind, id, seq)
+SELECT kind, id, seq, event_id, $5
+FROM unnest($1::text[], $2::text[], $3::bigint[], $4::uuid[]) AS t(kind, id, seq, event_id)
 """
+
+
+@dataclass(frozen=True)
+class _Scelle:
+    """Un event du lot, et ce qui en a été dérivé avant toute écriture."""
+
+    event: NewEvent
+    event_id: uuid.UUID
+    functional_at: datetime
+    source: FunctionalAtSource
+    properties: dict[str, Any]
+    objects: tuple[ObjectRef, ...]
 
 
 def _properties(event: NewEvent) -> dict[str, Any]:
@@ -93,49 +139,127 @@ async def db_write_event(
     Hors transaction, refus : l'event et la modification doivent réussir ou
     échouer ensemble — aucune modification sans trace, jamais deux transactions.
     """
+    return (await db_write_events(db, (event,), catalog, now))[0]
+
+
+async def db_write_events(
+    db: EventDb,
+    events: Sequence[NewEvent],
+    catalog: EventTypeCatalog,
+    now: Callable[[], datetime],
+) -> list[WrittenEvent]:
+    """Écrit le lot d'events en trois instructions, dans la transaction de l'appelant.
+
+    **Tous les events du lot portent le MÊME `written_at`**, et c'est voulu : ils sont
+    écrits par la même transaction, donc observables au même instant. Un instant par event
+    aurait pu les répartir sur deux partitions à la frontière d'une journée, et la seconde
+    aurait manqué alors que la première venait d'être posée.
+
+    Un lot VIDE n'écrit rien et ne refuse rien : c'est le cas normal d'un import dont
+    aucun objet n'a changé, et lever ferait de « rien à tracer » une anomalie.
+    """
+    if not events:
+        return []
     if not db.is_in_transaction():
-        raise EventError("db_write_event exige la transaction de la modification")
-    catalog.check(event.type)
+        raise EventError("db_write_events exige la transaction de la modification")
+    for event in events:
+        catalog.check(event.type)
     written_at = now()
-    functional_at = event.functional_at or written_at
-    source: FunctionalAtSource = "caller" if event.functional_at is not None else "write_time"
-    objects = sorted(event.objects)
-    rows = await db.fetch(_NEXT_SEQUENCES, [o.kind for o in objects], [o.id for o in objects])
-    sequences = {ObjectRef(r["object_kind"], r["object_id"]): r["last_sequence"] for r in rows}
-    event_id = uuid.uuid4()
-    properties = _properties(event)
+    scelles = [_scelle(event, written_at) for event in events]
+    sequences = await _reserved(db, scelles)
 
     async def ecrire() -> None:
-        await db.execute(
-            _INSERT_EVENT,
-            event_id,
-            event.type,
-            functional_at,
-            source,
-            written_at,
-            event.author.directory,
-            event.author.subject,
-            json.dumps(properties),
-        )
-        await db.execute(
-            _INSERT_EVENT_OBJECTS,
-            [o.kind for o in objects],
-            [o.id for o in objects],
-            [sequences[o] for o in objects],
-            event_id,
-            written_at,
-        )
+        await _db_insert_events(db, scelles, written_at)
+        await _db_insert_links(db, scelles, sequences, written_at)
 
     await _write_in_partition(db, ecrire, written_at)
-    return WrittenEvent(
-        event_id,
-        event.type,
-        functional_at,
-        source,
+    return [
+        WrittenEvent(
+            s.event_id,
+            s.event.type,
+            s.functional_at,
+            s.source,
+            written_at,
+            s.event.author,
+            s.properties,
+            attribues,
+        )
+        for s, attribues in zip(scelles, sequences, strict=True)
+    ]
+
+
+def _scelle(event: NewEvent, written_at: datetime) -> _Scelle:
+    functional_at = event.functional_at or written_at
+    source: FunctionalAtSource = "caller" if event.functional_at is not None else "write_time"
+    return _Scelle(
+        event=event,
+        event_id=uuid.uuid4(),
+        functional_at=functional_at,
+        source=source,
+        properties=_properties(event),
+        objects=tuple(sorted(event.objects)),
+    )
+
+
+async def _reserved(db: EventDb, scelles: Sequence[_Scelle]) -> list[dict[ObjectRef, int]]:
+    """Les numéros de séquence de chaque event, dans l'ordre du lot.
+
+    Le dernier numéro attribué à un objet est rendu par la base ; les précédents s'en
+    déduisent parce qu'ils sont CONTIGUS — c'est l'instruction qui le garantit, en
+    ajoutant le nombre d'occurrences en une fois. On remonte donc au numéro d'avant le
+    lot, puis on redescend event par event dans l'ordre où ils seront écrits.
+    """
+    plats = [ref for s in scelles for ref in s.objects]
+    rendus = await db.fetch(_NEXT_SEQUENCES, [r.kind for r in plats], [r.id for r in plats])
+    derniers = {
+        ObjectRef(r["object_kind"], r["object_id"]): int(r["last_sequence"]) for r in rendus
+    }
+    occurrences = Counter(plats)
+    manquants = set(occurrences) - set(derniers)
+    if manquants:
+        # Jamais de repli sur un numéro deviné : deux events porteraient le même, et
+        # l'histoire de l'objet se lirait avec un trou ou un doublon.
+        raise EventError(f"numéros de séquence non rendus pour {sorted(manquants)}")
+    avant = {ref: derniers[ref] - occurrences[ref] for ref in occurrences}
+    attribues: list[dict[ObjectRef, int]] = []
+    for s in scelles:
+        pour_cet_event: dict[ObjectRef, int] = {}
+        for ref in s.objects:
+            avant[ref] += 1
+            pour_cet_event[ref] = avant[ref]
+        attribues.append(pour_cet_event)
+    return attribues
+
+
+async def _db_insert_events(db: EventDb, scelles: Sequence[_Scelle], written_at: datetime) -> None:
+    await db.execute(
+        _INSERT_EVENTS,
+        [s.event_id for s in scelles],
+        [s.event.type for s in scelles],
+        [s.functional_at for s in scelles],
+        [s.source for s in scelles],
+        [s.event.author.directory for s in scelles],
+        [s.event.author.subject for s in scelles],
+        [json.dumps(s.properties) for s in scelles],
         written_at,
-        event.author,
-        properties,
-        sequences,
+    )
+
+
+async def _db_insert_links(
+    db: EventDb, scelles: Sequence[_Scelle], seqs: Sequence[dict[ObjectRef, int]], at: datetime
+) -> None:
+    liens = [
+        (ref, attribues[ref], s.event_id)
+        for s, attribues in zip(scelles, seqs, strict=True)
+        for ref in s.objects
+    ]
+    await db.execute(
+        _INSERT_EVENT_OBJECTS,
+        [ref.kind for ref, _, _ in liens],
+        [ref.id for ref, _, _ in liens],
+        [seq for _, seq, _ in liens],
+        [event_id for _, _, event_id in liens],
+        at,
     )
 
 
@@ -174,42 +298,3 @@ async def _write_in_partition(
     for table in JOURNAL_TABLES:
         await db.execute(create_partition(table, jour))
     await ecrire()
-
-
-@dataclass(frozen=True)
-class ObjectHistory:
-    events: Sequence[WrittenEvent]
-    # Numéros absents de la séquence : une histoire incomplète se signale, elle
-    # ne s'affiche pas en silence comme si elle était entière.
-    missing_sequences: Sequence[int]
-
-
-async def db_object_history(db: EventDb, ref: ObjectRef) -> ObjectHistory:
-    rows = await db.fetch(
-        "SELECT e.id, e.type, e.functional_at, e.functional_at_source, e.written_at,"
-        " e.author_directory, e.author_subject, e.properties, o.sequence"
-        # Jointure sur les DEUX colonnes : `written_at` est la clé de partition des deux
-        # tables, et sans elle le planificateur parcourt toutes les partitions des events.
-        " FROM event_objects o JOIN events e ON e.id = o.event_id AND e.written_at = o.written_at"
-        " WHERE o.object_kind = $1 AND o.object_id = $2 ORDER BY o.sequence",
-        ref.kind,
-        ref.id,
-    )
-    events = [_row_to_event(row, ref) for row in rows]
-    present = [row["sequence"] for row in rows]
-    expected = range(1, (max(present) if present else 0) + 1)
-    return ObjectHistory(events, sorted(set(expected) - set(present)))
-
-
-def _row_to_event(row: Any, ref: ObjectRef) -> WrittenEvent:
-    properties = row["properties"]
-    return WrittenEvent(
-        row["id"],
-        row["type"],
-        row["functional_at"],
-        row["functional_at_source"],
-        row["written_at"],
-        EventAuthor(row["author_directory"], row["author_subject"]),
-        json.loads(properties) if isinstance(properties, str) else properties,
-        {ref: row["sequence"]},
-    )
