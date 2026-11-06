@@ -310,11 +310,28 @@ async def test_les_routes_de_la_page_sont_fermees_sans_session(
     blank_db: str, tmp_path: Path
 ) -> None:
     """Fail closed : la surface d'administration n'est pas ouverte à l'anonyme, et une
-    route qui déclenche un DÉPÔT encore moins."""
+    route qui déclenche un DÉPÔT encore moins.
+
+    **Sauf le CONTRAT, et c'est une décision** (Gael, 05/11/2026) : il est fait pour être
+    pointé par une URL et téléchargé par l'intégrateur qui doit l'appeler. Il est donc
+    affirmé OUVERT ici, à côté de ce qui reste fermé — un test qui l'aurait simplement
+    retiré de la liste aurait laissé son ouverture sans témoin, et c'est elle qu'il faut
+    voir rougir si quelqu'un ouvre une route de plus par mégarde.
+    """
     double = EnrolmentDouble()
     async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
-        for chemin in ("/api/ingestion/methods", "/api/ingestion/contract"):
-            assert (await stack.anonymous().get(chemin)).status_code == 401, chemin
+        assert (await stack.anonymous().get("/api/ingestion/methods")).status_code == 401
         for chemin in ("/api/ingestion/self-key", TABLEAU):
             refus = await stack.anonymous().post(chemin, content=b"[]")
             assert refus.status_code == 401, chemin
+
+        ouvert = await stack.anonymous().get("/api/ingestion/contract")
+
+        assert ouvert.status_code == 200
+        # Et RIEN d'autre n'est ouvert : la liste est dérivée du routeur du contrat, donc
+        # une route posée ailleurs avec une intention d'ouverture n'y entre pas toute
+        # seule. On le vérifie, parce que c'est la garde qui tient la décision.
+        assert {chemin for _, chemin in stack.app.state.public_api_routes} == {
+            "/api/ingestion/contract",
+            "/api/ingestion/contract/{source}",
+        }
