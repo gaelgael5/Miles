@@ -19,6 +19,8 @@ from miles_socle.events.model import EventAuthor, EventTypeCatalog
 
 from environnement.event_types import code_event_types
 from environnement.ingestion.applystaging import ApplyPlan, resolve_apply
+from environnement.ingestion.conformance import model_validator
+from environnement.ingestion.keys import key_rule
 from environnement.ingestion.outcome import REJECTED, UNCHANGED, WRITTEN
 from environnement.ingestion.staging import STAGED_REJECTED, STAGED_TO_WRITE
 from environnement.ingestion.store_merge import MERGE_WINDOW
@@ -166,7 +168,9 @@ def _plan(**surcharges: Any) -> ApplyPlan:
 
 
 def _prepared() -> Prepared:
-    return Prepared(table=TABLE, schema={}, chain=None)
+    return Prepared(
+        table=TABLE, validator=model_validator({}), chain=None, keys=key_rule(TABLE.keys)
+    )
 
 
 async def test_un_lot_d_ecriture_PLUS_GRAND_que_la_fenetre_ne_fait_pas_une_instruction() -> None:

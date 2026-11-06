@@ -18,7 +18,7 @@ import asyncpg
 import pytest
 from miles_socle.testing.enrolment_double import EnrolmentDouble
 
-from environnement.ingestion.keys import key_of
+from environnement.ingestion.keys import key_of, key_rule
 from tests.integration.bundles import VersionFabriquee, fabrique_parametrage
 from tests.integration.environnement_stack import EnvironnementStack, open_stack
 from tests.integration.versions import sert
@@ -42,7 +42,7 @@ OBJETS = [
 # dans aucune base. Les filtres passaient donc contre une clé inventée, et la recherche
 # par clé était fausse sur la vraie stack sans qu'aucun test ne puisse le voir
 # (Gael, 04/11/2026 : « le filtre ne fonctionne pas »).
-COMPTES = [(key_of(objet, ("$.AccountId",)), objet) for objet in OBJETS]
+COMPTES = [(key_of(objet, key_rule(("$.AccountId",))), objet) for objet in OBJETS]
 
 
 async def _prepare(
@@ -339,7 +339,7 @@ async def test_une_propriete_ABSENTE_de_l_objet_vaut_null_et_un_filtre_d_egalite
         # Clés fabriquées comme en production, jamais à la main : c'est ce qui manquait
         # au jeu d'essai, et ce qui laissait passer une recherche par clé fausse.
         for objet in ({"Id": "S-1", "Zipcode": "59000"}, {"Id": "S-2"}):
-            cle = key_of(objet, ("$.Id",))
+            cle = key_of(objet, key_rule(("$.Id",)))
             await stack.pool.execute(
                 "INSERT INTO pudo.sites (cle, objet, empreinte, version_modele)"
                 " VALUES ($1, $2::jsonb, $3, 2)",

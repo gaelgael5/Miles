@@ -17,6 +17,7 @@ objet sous l'identité d'un autre, et cela doit s'éprouver sans rien monter.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Any
 
 from miles_socle.transform.jpath import path_keys
@@ -34,7 +35,32 @@ class KeyNotExtractable(Exception):
         self.detail = detail
 
 
-def key_of(objet: Any, jpaths: tuple[str, ...]) -> str:
+@dataclass(frozen=True)
+class KeyRule:
+    """Les jpath de clé d'un storage, COMPILÉS. Un chemin nul : jpath non singulier.
+
+    Compilés une fois par DÉPÔT, et c'est tout l'objet de ce type. Mesuré le 06/11/2026
+    sur la forme réelle d'un point relais : `path_keys("$.Code")` coûte **372,5 µs**, et
+    il était appelé une fois par objet — soit 70 % du temps de préparation d'un item, et
+    quatre fois le prix du template JSLT lui-même. La table, le modèle et la chaîne
+    étaient déjà résolus une fois par dépôt ; la règle de clé avait été oubliée.
+    """
+
+    jpaths: tuple[str, ...]
+    chemins: tuple[tuple[str | int, ...] | None, ...]
+
+
+def key_rule(jpaths: tuple[str, ...]) -> KeyRule:
+    """Compile les jpath de clé. À appeler UNE FOIS par dépôt, jamais par objet.
+
+    Un jpath illisible n'est pas refusé ICI : il devient un chemin nul, et c'est à
+    l'extraction que l'objet est rejeté, nommément. Refuser le dépôt entier aurait changé
+    la forme du compte-rendu — aujourd'hui chaque objet porte son rejet.
+    """
+    return KeyRule(jpaths, tuple(path_keys(jpath) for jpath in jpaths))
+
+
+def key_of(objet: Any, rule: KeyRule) -> str:
     """La clé de cet objet, composée des valeurs que les jpath désignent, dans l'ordre.
 
     **Toujours un tableau JSON, même pour un seul jpath**, et c'est un choix. Deux formes
@@ -48,12 +74,14 @@ def key_of(objet: Any, jpaths: tuple[str, ...]) -> str:
     Le tableau JSON plutôt qu'un séparateur : aucune valeur à échapper, et deux parties
     « a|b » et « a », « b » ne peuvent pas se confondre.
     """
-    valeurs = [_value_at(objet, jpath) for jpath in jpaths]
+    valeurs = [
+        _value_at(objet, jpath, chemin)
+        for jpath, chemin in zip(rule.jpaths, rule.chemins, strict=True)
+    ]
     return json.dumps(valeurs, ensure_ascii=False, separators=(",", ":"))
 
 
-def _value_at(objet: Any, jpath: str) -> str:
-    keys = path_keys(jpath)
+def _value_at(objet: Any, jpath: str, keys: tuple[str | int, ...] | None) -> str:
     if keys is None:
         # Le jpath n'est pas un chemin singulier depuis la racine. Le module de
         # paramétrage le refuse à la saisie ; ici c'est un fichier de git qu'on n'a pas

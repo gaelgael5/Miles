@@ -13,9 +13,13 @@ from __future__ import annotations
 
 import pytest
 
-from environnement.ingestion.conformance import ModelViolation, check_conformance
+from environnement.ingestion.conformance import (
+    ModelViolation,
+    check_conformance,
+    model_validator,
+)
 from environnement.ingestion.fingerprint import canonical, fingerprint
-from environnement.ingestion.keys import KeyNotExtractable, key_of
+from environnement.ingestion.keys import KeyNotExtractable, key_of, key_rule
 from environnement.ingestion.outcome import (
     REJECT_MODEL,
     REJECTED,
@@ -70,22 +74,24 @@ class TestEmpreinte:
 
 class TestCle:
     def test_un_seul_jpath_rend_un_tableau_d_une_valeur(self) -> None:
-        assert key_of({"code": "PUDO-42"}, ("$.code",)) == '["PUDO-42"]'
+        assert key_of({"code": "PUDO-42"}, key_rule(("$.code",))) == '["PUDO-42"]'
 
     def test_plusieurs_jpath_composent_dans_l_ordre_declare(self) -> None:
         objet = {"pays": "FR", "code": "42"}
 
-        assert key_of(objet, ("$.pays", "$.code")) == '["FR","42"]'
+        assert key_of(objet, key_rule(("$.pays", "$.code"))) == '["FR","42"]'
         # L'ordre est celui de la DÉCLARATION : l'inverser désigne une autre identité.
-        assert key_of(objet, ("$.code", "$.pays")) == '["42","FR"]'
+        assert key_of(objet, key_rule(("$.code", "$.pays"))) == '["42","FR"]'
 
     def test_une_valeur_qui_contient_le_separateur_ne_se_confond_pas(self) -> None:
         # La raison du tableau JSON plutôt que d'un séparateur : « a|b » seul et
         # (« a », « b ») doivent rester deux identités distinctes.
-        assert key_of({"a": "x,y"}, ("$.a",)) != key_of({"a": "x", "b": "y"}, ("$.a", "$.b"))
+        assert key_of({"a": "x,y"}, key_rule(("$.a",))) != key_of(
+            {"a": "x", "b": "y"}, key_rule(("$.a", "$.b"))
+        )
 
     def test_un_chemin_imbrique_est_suivi(self) -> None:
-        assert key_of({"contact": {"tel": "06"}}, ("$.contact.tel",)) == '["06"]'
+        assert key_of({"contact": {"tel": "06"}}, key_rule(("$.contact.tel",))) == '["06"]'
 
     def test_la_cle_est_TEXTUELLE_donc_42_et_quarante_deux_designent_le_meme_objet(
         self,
@@ -93,8 +99,8 @@ class TestCle:
         # Décision, et non effet de bord : une source qui corrige le type JSON de son
         # identifiant ne doit pas dédoubler tout le référentiel. Le test porte la
         # décision, pour que personne ne « corrige » le rendu en croyant bien faire.
-        assert key_of({"n": 42}, ("$.n",)) == '["42"]'
-        assert key_of({"n": 42}, ("$.n",)) == key_of({"n": "42"}, ("$.n",))
+        assert key_of({"n": 42}, key_rule(("$.n",))) == '["42"]'
+        assert key_of({"n": 42}, key_rule(("$.n",))) == key_of({"n": "42"}, key_rule(("$.n",)))
 
     @pytest.mark.parametrize(
         ("objet", "jpath"),
@@ -125,24 +131,26 @@ class TestCle:
         # Jamais une clé vide : elle ferait écrire tous les objets fautifs les uns sur les
         # autres, sous la même identité, et aucune date ne le dirait.
         with pytest.raises(KeyNotExtractable) as refus:
-            key_of(objet, (jpath,))
+            key_of(objet, key_rule((jpath,)))
 
         assert refus.value.detail == jpath
 
 
 class TestConformite:
     def test_un_objet_conforme_passe(self) -> None:
-        assert check_conformance({"code": "a", "libelle": "A"}, MODELE) is None
+        assert check_conformance({"code": "a", "libelle": "A"}, model_validator(MODELE)) is None
 
     def test_une_propriete_obligatoire_absente_est_nommee(self) -> None:
         with pytest.raises(ModelViolation) as ecart:
-            check_conformance({"code": "a"}, MODELE)
+            check_conformance({"code": "a"}, model_validator(MODELE))
 
         assert "libelle" in ecart.value.detail
 
     def test_une_valeur_hors_enumeration_est_nommee_AVEC_son_chemin(self) -> None:
         with pytest.raises(ModelViolation) as ecart:
-            check_conformance({"code": "a", "libelle": "A", "etat": "bancal"}, MODELE)
+            check_conformance(
+                {"code": "a", "libelle": "A", "etat": "bancal"}, model_validator(MODELE)
+            )
 
         # Le chemin, parce que c'est lui qui dit QUELLE propriété corriger dans le
         # template — « bancal n'est pas une valeur admise » ne le dit pas.
@@ -159,7 +167,7 @@ class TestConformite:
 
 def _ecart(objet: dict[str, object]) -> str:
     with pytest.raises(ModelViolation) as leve:
-        check_conformance(objet, MODELE)
+        check_conformance(objet, model_validator(MODELE))
     return leve.value.detail
 
 

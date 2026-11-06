@@ -305,8 +305,8 @@ def _prepared_batch(
         paquet.append(
             prepare_object(
                 prepared.chain,
-                prepared.schema,
-                prepared.table.keys,
+                prepared.validator,
+                prepared.keys,
                 position,
                 source,
                 limits.transform_budget,

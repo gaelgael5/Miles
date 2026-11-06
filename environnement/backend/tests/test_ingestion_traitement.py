@@ -202,12 +202,18 @@ SAIN = {"code": "S-1", "nom": "Site un", "postes": 3}
 
 class TestPreparation:
     @pytest.mark.asyncio
-    async def test_le_storage_le_modele_et_la_chaine_sont_lus_une_fois(self) -> None:
+    async def test_le_storage_le_modele_et_la_chaine_sont_lus_ET_COMPILES_une_fois(
+        self,
+    ) -> None:
         prepare = await _prepare(_arbre())
 
         assert prepare.table.storage == "sites"
         assert prepare.table.keys == ("$.Code",)
-        assert prepare.schema["title"] == "Site"
+        # Le modèle est lu, et son validateur CONSTRUIT une fois pour le dépôt ; la règle
+        # de clé est compilée de même — 372,5 µs par jpath, qui étaient payés à chaque
+        # objet avant le 06/11/2026.
+        assert prepare.validator.schema["title"] == "Site"
+        assert prepare.keys.chemins == (("Code",),)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

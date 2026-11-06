@@ -31,6 +31,8 @@ from miles_socle.parametrage.refs import ReadFile
 from miles_socle.transform.chain import Chain
 
 from environnement.ingestion.chains import ChainUnreadable, file_load_chain
+from environnement.ingestion.conformance import model_validator
+from environnement.ingestion.keys import KeyRule, key_rule
 from environnement.ingestion.outcome import (
     ANOMALY_DUPLICATE_KEY,
     REJECT_MANUAL,
@@ -82,27 +84,37 @@ class NotServed(Exception):
 
 @dataclass(frozen=True)
 class Prepared:
-    """Ce que la version servie offre pour cette entrée : la table, le modèle, la chaîne.
+    """Ce que la version servie offre pour cette entrée, TOUT COMPILÉ : table, modèle,
+    chaîne, règle de clé.
 
-    Résolu une fois par dépôt, et non par objet : les trois viennent de l'arbre git, et
-    les relire deux cents fois coûterait deux cents lectures de fichiers pour un résultat
-    qui ne peut pas changer pendant un dépôt.
+    Résolu une fois par dépôt, et non par objet : les trois premiers viennent de l'arbre
+    git, et les relire deux cents fois coûterait deux cents lectures de fichiers pour un
+    résultat qui ne peut pas changer pendant un dépôt.
+
+    La RÈGLE DE CLÉ est ici depuis le 06/11/2026, et pour la même raison, qui est juste
+    arrivée plus tard : son jpath était recompilé à chaque objet — 372,5 µs mesurés, 70 %
+    du temps de préparation d'un item, quatre fois le prix du template JSLT. Le `schema`
+    se lit par `validator.schema` : une seule source, et pas deux champs à tenir d'accord.
     """
 
     table: StorageTable
-    schema: Any
+    validator: Any
     chain: Chain
+    keys: KeyRule
 
 
 async def file_prepare(read: ReadFile, paths: list[str], storage: str, chain_slug: str) -> Prepared:
-    """Lit la table, le modèle et la chaîne. Lève `NotServed` en nommant ce qui manque."""
+    """Lit la table, le modèle et la chaîne, et COMPILE tout ce qui se compile.
+
+    Lève `NotServed` en nommant ce qui manque.
+    """
     table = await _table(read, paths, storage)
     schema = await _schema(read, table)
     try:
         chain = await file_load_chain(read, chain_slug)
     except ChainUnreadable as refus:
         raise NotServed(f"chaine:{refus.detail}") from None
-    return Prepared(table, schema, chain)
+    return Prepared(table, model_validator(schema), chain, key_rule(table.keys))
 
 
 @dataclass(frozen=True)
@@ -146,8 +158,8 @@ async def resolve_process(
     items = [
         prepare_object(
             prepared.chain,
-            prepared.schema,
-            prepared.table.keys,
+            prepared.validator,
+            prepared.keys,
             rang,
             source,
             processing.budget,
