@@ -191,6 +191,25 @@ describe("the entries of a source (25/10/2026)", () => {
     expect(screen.getByLabelText("Split path of entry 1")).toBeRequired();
   });
 
+  it("says what the file mode does before asking how to split", async () => {
+    // Gael, 06/11/2026 : « $.accounts[*] » laissait penser que le fichier serait chargé
+    // en entier. L'écran dit donc la chaîne — flux, item par item, copie en masse, fusion
+    // — AVANT de demander le découpage, et ces quatre mots-là sont ce qui le prouve.
+    open(SOURCE);
+    expect(await screen.findByLabelText("Source model of entry 1")).toBeInTheDocument();
+    expect(screen.queryByText(/read AS A STREAM/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/File upload/));
+
+    const chaine = screen.getByText(/read AS A STREAM/);
+    expect(chaine).toHaveTextContent("never loading the whole file");
+    expect(chaine).toHaveTextContent("bulk-copied into an empty temporary table");
+    expect(chaine).toHaveTextContent("ONE statement merges them into the storage table");
+    // Dite AVANT la notation du découpage, qui est ce qui avait induit en erreur.
+    expect(chaine.compareDocumentPosition(screen.getByText(/\$\.accounts\[\*\]/)))
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("removes an entry", async () => {
     open(SOURCE);
     expect(await screen.findByLabelText("Source model of entry 1")).toBeInTheDocument();

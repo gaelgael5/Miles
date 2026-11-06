@@ -844,13 +844,14 @@
       "submit": "Déclarer la source",
       "choose": "Choisir…",
       "storageHelp": "Le storage où les objets atterrissent : c'est l'identification de la donnée dans le stockage. Avec le libellé et l'identifiant, il suffit à enregistrer la source — les entrées s'ajoutent ensuite.",
-      "splitHelp": "Où sont les items dans le fichier déposé, par exemple $.accounts[*]. Il doit être streamable : pas de filtre, pas de descente « .. » non bornée, et il finit par [*] — le fichier est lu en flux, sans retour en arrière.",
+      "splitHelp": "Où sont les items dans le fichier déposé, par exemple $.accounts[*] : on descend jusqu'à « accounts », puis on énumère ses éléments. Le [*] final est obligatoire, et il ne charge rien — il dit qu'on énumère le tableau au lieu de le prendre entier. Le chemin doit se lire en flux, sans retour en arrière : pas de filtre, pas de descente « .. » non bornée, et le joker termine le chemin.",
       "nameHelp": "Identifiant de la source, déduit du libellé : lettres minuscules, chiffres et tirets. Il nomme le fichier et ne se renomme plus une fois déclarée.",
       "entrySourceModelHelp": "Le modèle de ce qui arrivera sur la méthode. C'est lui qui la type.",
       "entryChainHelp": "La chaîne qui part du modèle source à sa première étape et arrive au modèle de la donnée cible à sa dernière.",
       "modesHelp": "Au moins une méthode, sinon l'entrée n'expose rien.",
       "removeEntry": "Retirer l'entrée {{rank}}",
-      "writeBatchHelp": "Combien d'objets sont lus d'affilée avant d'être enregistrés. 1 écrit chaque objet dès sa lecture. Ce réglage dit TOUS LES COMBIEN on écrit ; la case au-dessus dit QUAND on valide — les deux sont indépendants."
+      "writeBatchHelp": "Combien d'objets sont transformés, puis écrits, d'un seul geste : le paquet est copié en masse dans la table temporaire, puis fusionné dans la table du storage par UNE instruction. 1 écrit chaque objet dès sa lecture, et coûte alors un aller-retour par objet. Ce réglage dit TOUS LES COMBIEN on écrit ; la case au-dessus dit QUAND on valide — les deux sont indépendants.",
+      "fileChainHelp": "Ce qui se passe à l'arrivée : le fichier est posé sur le disque de la stack, puis lu EN FLUX — on descend jusqu'au découpage et on énumère ses éléments un par un, sans jamais charger le fichier en entier. Chaque item passe SEUL dans la chaîne de transformation, hors de toute transaction. Les items transformés sont ensuite copiés en masse dans une table temporaire vide, et UNE instruction les fusionne dans la table du storage — un objet déjà présent et identique n'y est pas réécrit."
     },
     "fields": {
       "name": "Nom",

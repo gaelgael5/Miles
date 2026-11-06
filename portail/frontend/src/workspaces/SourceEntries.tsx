@@ -116,6 +116,11 @@ function EntryCard({
           chemin qui ne sert à rien se paie en déclarations fausses. */}
       {entry.modes.file && (
         <>
+          {/* Ce que le mode fichier FAIT, dit avant de demander comment le découper
+              (Gael, 06/11/2026) : « $.accounts[*] » laissait penser que le fichier serait
+              chargé en entier dans un DOM, c'est-à-dire exactement ce que ce mode évite.
+              L'aide du découpage le disait, mais après avoir montré la notation. */}
+          <p className="help">{t("sources.form.fileChainHelp")}</p>
           <label className="field">
             {t("sources.fields.entrySplit", { rank: rank + 1 })}
             <input

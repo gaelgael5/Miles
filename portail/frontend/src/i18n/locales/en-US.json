@@ -844,13 +844,14 @@
       "submit": "Declare the source",
       "choose": "Choose…",
       "storageHelp": "The storage where objects land: this identifies the data in storage. With the label and the identifier, it is enough to save the source — entries are added afterwards.",
-      "splitHelp": "Where the items are in the uploaded file, e.g. $.accounts[*]. It must be streamable: no filter, no unbounded “..” descent, ending with [*] — the file is read as a stream, without going back.",
+      "splitHelp": "Where the items are in the uploaded file, e.g. $.accounts[*]: we descend to “accounts”, then enumerate its elements. The trailing [*] is required and loads nothing — it says we enumerate the array rather than take it whole. The path must be readable as a stream, without going back: no filter, no unbounded “..” descent, and the wildcard ends the path.",
       "nameHelp": "Source identifier, derived from the label: lowercase letters, digits and dashes. It names the file and cannot be renamed once declared.",
       "entrySourceModelHelp": "The model of what will arrive on the method. It is what types it.",
       "entryChainHelp": "The chain that starts from the source model on its first step and reaches the target data model on its last.",
       "modesHelp": "At least one method, otherwise the entry exposes nothing.",
       "removeEntry": "Remove entry {{rank}}",
-      "writeBatchHelp": "How many objects are read in a row before being saved. 1 writes each object as it is read. This setting says HOW OFTEN one writes; the box above says WHEN one commits — the two are independent."
+      "writeBatchHelp": "How many objects are transformed, then written, in one go: the batch is bulk-copied into the temporary table, then merged into the storage table by ONE statement. 1 writes each object as it is read, and then costs one round trip per object. This setting says HOW OFTEN one writes; the box above says WHEN one commits — the two are independent.",
+      "fileChainHelp": "What happens on arrival: the file is stored on the stack's disk, then read AS A STREAM — we descend to the split path and enumerate its elements one by one, never loading the whole file. Each item goes through the transformation chain ON ITS OWN, outside any transaction. The transformed items are then bulk-copied into an empty temporary table, and ONE statement merges them into the storage table — an object already there and unchanged is not rewritten."
     },
     "fields": {
       "name": "Name",
