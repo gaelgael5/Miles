@@ -140,6 +140,39 @@ def evaluate(template: Template, document: Any, budget: int) -> Any:
         raise EvaluationError("evaluation", str(exc)) from None
 
 
+def _counted(visit: Callable[..., Any]) -> Callable[..., Any]:
+    """La même visite, qui consomme un nœud du budget avant de s'exécuter."""
+
+    def counted(self: _Evaluator, node: Any) -> Any:
+        self._remaining -= 1
+        if self._remaining < 0:
+            raise _BudgetExceeded
+        return visit(self, node)
+
+    return counted
+
+
+def _counts_nodes(cls: type[_Evaluator]) -> type[_Evaluator]:
+    """Enveloppe les `visit_*` UNE FOIS, à la définition de la classe.
+
+    **Elles l'étaient à chaque évaluation, donc à chaque item d'un import**, par un
+    `dir()` et une quarantaine de `setattr` sur l'instance : 93 µs par item mesurés le
+    07/11/2026, soit les trois quarts du coût du moteur sur un template de sept champs.
+    L'ensemble des visites à compter est une propriété de la CLASSE — elle ne dépend ni du
+    document, ni du budget —, et le budget reste porté par l'instance (`_remaining`).
+
+    `dir(cls)` et non `dir(JsltEvaluationVisitor)` : la classe décorée redéfinit
+    `visit_function`, et c'est SA version qui doit être comptée. Prendre les visites de la
+    classe de base la remplacerait par celle du moteur, et le chemin fautif d'une
+    conversion cesserait d'être nommé — sans qu'aucun test du budget ne s'en aperçoive.
+    """
+    for name in dir(cls):
+        if name.startswith("visit_"):
+            setattr(cls, name, _counted(getattr(cls, name)))
+    return cls
+
+
+@_counts_nodes
 class _Evaluator(JsltEvaluationVisitor):
     """Évaluateur du moteur, borné en nombre de nœuds évalués.
 
@@ -151,18 +184,6 @@ class _Evaluator(JsltEvaluationVisitor):
     def __init__(self, context: RuntimeContext, budget: int) -> None:
         super().__init__(context)
         self._remaining = budget
-        for name in dir(JsltEvaluationVisitor):
-            if name.startswith("visit_"):
-                setattr(self, name, self._counted(getattr(self, name)))
-
-    def _counted(self, visit: Callable[[Any], Any]) -> Callable[[Any], Any]:
-        def counted(node: Any) -> Any:
-            self._remaining -= 1
-            if self._remaining < 0:
-                raise _BudgetExceeded
-            return visit(node)
-
-        return counted
 
     def visit_function(self, node: JsltFunctionCall) -> Any:
         try:
