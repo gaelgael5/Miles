@@ -7,16 +7,14 @@ requires-python = ">=3.12"
 # structlog : on ne les redéclare pas ici. Ne figurent que ce dont le produit a besoin en
 # propre — la lecture de sa configuration et le serveur qui l'expose.
 dependencies = [
-    # Le parseur JSON en FLUX du mode gros fichier (story 0f14adbd). CHOISI SUR MESURE,
-    # et non sur la réputation : sur un document de 10,4 Mo fait de 20 000 items sans
-    # espaces, ijson 3.4 en backend pur-Python monte à 8,6 Mo de pic et 1,00 s, parce que
-    # son lexer n'abandonne le préfixe consommé du tampon qu'au bout d'un lexème non
-    # trouvé ; json-stream reste à 0,15 Mo et 0,62 s. Et ijson n'aurait tenu la promesse
-    # du critère 1 que dans l'image : son backend C est absent du poste de développement
-    # (pas de roue pour 3.14), donc la mesure n'y aurait rien prouvé.
-    # Dépendance du PRODUIT et non du socle : lui seul reçoit des fichiers, et on
-    # n'invente pas un socle commun avant d'avoir deux usages à servir.
-    "json-stream==2.3.3",
+    # AUCUNE bibliothèque de lecture JSON en flux, et c'est une décision mesurée du
+    # 07/11/2026 : le mode gros fichier lit ses items par `json.JSONDecoder.raw_decode`
+    # sur une fenêtre glissante (`ingestion/jsonwindow.py`), soit la bibliothèque
+    # standard. json-stream 2.3.3, qui tenait ce rôle, a été retiré ici — son tokeniseur
+    # rendait chaque JETON à Python, ce qui coûtait 858 µs par item là où la fenêtre en
+    # coûte 104. Ne pas le réintroduire, ni ijson, ni orjson, sans refaire la mesure :
+    # elle est consignée dans l'enabler « Lire les items d'un gros fichier par fenêtre
+    # glissante » et dans les docstrings des deux modules.
     "jsonschema==4.26.0",
     # L'extra `transform` : le moteur JSLT, pour appliquer la chaîne d'une entrée de
     # source aux objets reçus (story d680e811). Jamais une dépendance DIRECTE à
@@ -87,11 +85,3 @@ python_version = "3.12"
 strict = true
 mypy_path = "src"
 packages = ["environnement"]
-
-# json-stream ne porte pas de marqueur `py.typed` : ses symboles arrivent donc en `Any`.
-# Écart ASSUMÉ et BORNÉ à ce paquet — c'est le seul du dépôt dans ce cas. Les deux modules
-# qui l'importent ne laissent rien fuir au-delà d'eux : ils rendent des valeurs JSON, dont
-# le type est `Any` de toute façon, et c'est le schéma du modèle qui les contraint ensuite.
-[[tool.mypy.overrides]]
-module = ["json_stream.*"]
-ignore_missing_imports = true
