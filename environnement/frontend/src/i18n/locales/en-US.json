@@ -224,7 +224,8 @@
       "tabs": "Source views",
       "contract": "Contract",
       "trial": "Trial",
-      "calls": "Call log"
+      "calls": "Call log",
+      "spec": "Swagger"
     },
     "contract": {
       "loading": "Reading the published contract…",

@@ -101,17 +101,29 @@ async function ouvreLeJournal() {
 }
 
 describe("la page d'une source d'ingestion", () => {
-  it("s'ouvre sur le contrat de CETTE source, donné à un visualiseur Swagger", async () => {
+  it("s'ouvre sur le contrat, et SANS le visualiseur, qui a son propre onglet", async () => {
+    // Gael, 07/11/2026 : « passe le swagger dans un onglet séparé ». Ce qu'on vient
+    // chercher ici — l'adresse publique, la commande à coller — se lisait après quatre
+    // cents pixels de prose, et le bundle Swagger partait dès qu'on ouvrait une source.
     monte();
 
-    // Le document donné au visualiseur porte l'adresse RÉELLE de la source, et non le
-    // gabarit du contrat publié : c'est elle qu'un partenaire appelle.
-    const donne = JSON.parse((await screen.findByTestId("swagger-spec")).textContent ?? "{}");
-    expect(Object.keys(donne.paths)).toEqual(["/ingest/comptes-pudo/tableau"]);
+    expect(await screen.findByRole("region", { name: "Public contract address" })).toBeInTheDocument();
+    expect(screen.queryByTestId("swagger-spec")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Contract" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
+  });
+
+  it("donne le document au visualiseur dans l'onglet Swagger, avec l'adresse RÉELLE", async () => {
+    monte();
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Swagger" }));
+
+    // Le document porte l'adresse réelle de la source, et non le gabarit du contrat
+    // publié : c'est elle qu'un partenaire appelle.
+    const donne = JSON.parse((await screen.findByTestId("swagger-spec")).textContent ?? "{}");
+    expect(Object.keys(donne.paths)).toEqual(["/ingest/comptes-pudo/tableau"]);
   });
 
   it("donne l'adresse publique du contrat, et de quoi le télécharger", async () => {
@@ -200,9 +212,10 @@ describe("la page d'une source d'ingestion", () => {
 
     fireEvent.keyDown(contrat, { key: "ArrowRight" });
 
-    const essai = screen.getByRole("tab", { name: "Trial" });
-    expect(essai).toHaveAttribute("aria-selected", "true");
-    expect(essai).toHaveAttribute("tabindex", "0");
+    // Le voisin du contrat est le VISUALISEUR depuis le 07/11/2026, plus l'essai.
+    const suivant = screen.getByRole("tab", { name: "Swagger" });
+    expect(suivant).toHaveAttribute("aria-selected", "true");
+    expect(suivant).toHaveAttribute("tabindex", "0");
     // L'onglet inactif sort de l'ordre de tabulation : sinon la tabulation traverse la
     // barre avant d'atteindre les formulaires d'essai.
     expect(contrat).toHaveAttribute("tabindex", "-1");

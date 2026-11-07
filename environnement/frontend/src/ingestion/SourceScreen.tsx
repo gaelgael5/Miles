@@ -5,17 +5,24 @@ import { Tabs } from "@miles/socle-web";
 import { IngestionCalls } from "./IngestionCalls";
 import { IngestionMethods } from "./IngestionMethods";
 import { SourceContract } from "./SourceContract";
+import { SourceSpec } from "./SourceSpec";
 
 /**
- * Les trois vues d'une source, dans l'ordre où on s'en sert : le CONTRAT qu'elle promet,
+ * Les quatre vues d'une source, dans l'ordre où on s'en sert : ce qu'on DONNE à
+ * l'intégrateur (adresse publique, commande à coller), le DOCUMENT dans son visualiseur,
  * l'ESSAI qui le vérifie, puis ce qu'elle a REÇU. On branche une intégration avant
  * d'avoir des appels à lire, et une page qui s'ouvrirait sur un journal vide n'aurait
  * rien à dire le premier jour.
  *
- * L'essai est à part du contrat parce que le contrat est rendu par un composant Swagger
- * standard, dont le « Try it out » ne peut pas servir : il partirait sans clé d'API.
+ * **Le visualiseur a son propre onglet depuis le 07/11/2026** (Gael : « passe le swagger
+ * dans un onglet séparé ») : il poussait l'adresse et la commande derrière quatre cents
+ * pixels de prose, et son bundle — plus lourd que tout le reste de l'application —
+ * partait dès qu'on ouvrait une source. Il ne part plus que si on le demande.
+ *
+ * L'essai est à part du document parce que le « Try it out » de Swagger ne peut pas
+ * servir : il partirait sans clé d'API.
  */
-const ONGLETS = ["contract", "trial", "calls"] as const;
+const ONGLETS = ["contract", "spec", "trial", "calls"] as const;
 type Onglet = (typeof ONGLETS)[number];
 
 /**
@@ -50,6 +57,8 @@ export function SourceScreen({ source }: { source: string }) {
       >
         {onglet === "contract" ? (
           <SourceContract source={source} />
+        ) : onglet === "spec" ? (
+          <SourceSpec source={source} />
         ) : onglet === "trial" ? (
           <IngestionMethods source={source} />
         ) : (

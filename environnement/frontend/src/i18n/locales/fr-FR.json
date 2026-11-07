@@ -224,7 +224,8 @@
       "tabs": "Vues de la source",
       "contract": "Contrat",
       "trial": "Essai",
-      "calls": "Journal"
+      "calls": "Journal",
+      "spec": "Swagger"
     },
     "contract": {
       "loading": "Lecture du contrat publié…",
