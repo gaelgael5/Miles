@@ -195,14 +195,25 @@ class FileImports:
         ensuite COPIÉ EN MASSE dans la table temporaire de l'import — un flux binaire que
         le serveur range sans replanifier, là où une instruction par item faisait de
         l'écriture le coût dominant d'un document de cinquante mille lignes.
+
+        **Le paquet SUIVANT est préparé pendant que le courant est copié**, et c'est tout
+        ce que ce recouvrement demande : une tâche d'avance. Les deux travaux ne se
+        disputent rien — la préparation occupe un processeur dans son fil, la copie attend
+        une prise réseau —, et sans recouvrement ils s'attendaient : mesuré le 07/11/2026,
+        la copie pèse 145 µs par item contre 358 pour la lecture et la préparation.
+        Demandé par Gael le même jour : un import en masse nocturne n'attend personne,
+        mais celui qui charge un environnement pour enchaîner des tests, si.
+
+        **Une seule tâche en vol, jamais deux** : l'itérateur du document n'est pas
+        réentrant, et deux fils qui y puiseraient rendraient des items entremêlés sans que
+        rien ne le signale.
         """
         items = file_iter_items(chemin, keys)
         lus = 0
+        prochain = self._prepare_ahead(items, prepared, entry, lus)
         while True:
             try:
-                paquet = await asyncio.to_thread(
-                    _prepared_batch, items, prepared, lus, entry.write_batch, self.limits
-                )
+                paquet = await prochain
             except DocumentUnreadable as refus:
                 # Les items déjà rangés restent : ce qu'on en fait dépend de la transaction
                 # unifiée (critères 7 et 8), et c'est l'écriture qui tranche.
@@ -210,8 +221,28 @@ class FileImports:
                 return lus, (refus.code, refus.detail)
             if not paquet:
                 return lus, None
-            await db_copy_prepared(conn, paquet)
+            prochain = self._prepare_ahead(items, prepared, entry, lus + len(paquet))
+            try:
+                await db_copy_prepared(conn, paquet)
+            except BaseException:
+                # La préparation en vol tourne dans un FIL, qu'on ne peut pas interrompre :
+                # on l'ATTEND avant de laisser partir l'incident. Sans cela, un fil
+                # continuerait de puiser dans l'itérateur d'un import abandonné, et asyncio
+                # signalerait une tâche détruite en vol — un bruit qui masque la vraie
+                # cause dans les journaux.
+                await asyncio.gather(prochain, return_exceptions=True)
+                raise
             lus += len(paquet)
+
+    def _prepare_ahead(
+        self, items: Any, prepared: Prepared, entry: Entry, deja: int
+    ) -> asyncio.Task[list[PreparedObject]]:
+        """Lance la préparation d'un paquet dans un fil, sans l'attendre."""
+        return asyncio.ensure_future(
+            asyncio.to_thread(
+                _prepared_batch, items, prepared, deja, entry.write_batch, self.limits
+            )
+        )
 
     async def _write(
         self,
