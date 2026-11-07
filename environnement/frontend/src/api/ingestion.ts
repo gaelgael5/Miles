@@ -1,5 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+
 import { request } from "@miles/socle-web";
+
+import { type UploadProgress, uploadWithProgress } from "./upload";
 
 /**
  * L'état du service d'ingestion et le journal de ses appels.
@@ -153,8 +157,24 @@ export function useIngestionContract(source: string) {
   });
 }
 
+/**
+ * Lance un essai, et RAPPORTE la progression quand ce qu'on dépose est un fichier.
+ *
+ * La progression est tenue ici, et non par l'écran : une seule mutation sert toutes les
+ * méthodes de la page, donc un état par formulaire aurait laissé la barre d'une méthode
+ * vivre pendant l'envoi d'une autre.
+ *
+ * Elle est remise à zéro à chaque dépôt et effacée à la fin : ce qui remplace la barre est
+ * la réponse du point d'entrée — un 202 et l'identifiant du dépôt —, et une barre laissée à
+ * 100 % se lirait comme un import terminé alors qu'il commence seulement.
+ *
+ * `cancel` existe pour un envoi de plusieurs minutes qu'on abandonne : sans lui, quitter
+ * l'écran laisserait la requête écrire sur le disque de la stack.
+ */
 export function useTryMethod() {
-  return useMutation({
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const abandon = useRef<AbortController | null>(null);
+  const mutation = useMutation({
     mutationFn: ({
       source,
       mode,
@@ -163,17 +183,34 @@ export function useTryMethod() {
       source: string;
       mode: string;
       body: string | File;
-    }) =>
-      request<Trial>(
-        `/api/ingestion/try/${encodeURIComponent(source)}/${encodeURIComponent(mode)}`,
-        {
-          method: "POST",
-          body,
-          headers:
-            typeof body === "string" ? {} : { "Content-Type": "application/octet-stream" },
-        },
-      ),
+    }) => {
+      const path = `/api/ingestion/try/${encodeURIComponent(source)}/${encodeURIComponent(mode)}`;
+      if (typeof body === "string") {
+        return request<Trial>(path, { method: "POST", body });
+      }
+      setProgress({ sent: 0, total: body.size });
+      const controleur = new AbortController();
+      abandon.current = controleur;
+      // `application/octet-stream` : un document choisi sur le disque n'a pas à être
+      // annoncé comme du JSON par l'écran, et le point d'entrée admet les deux types.
+      return uploadWithProgress<Trial>(
+        path,
+        body,
+        "application/octet-stream",
+        setProgress,
+        controleur.signal,
+      );
+    },
+    onSettled: () => {
+      setProgress(null);
+      abandon.current = null;
+    },
   });
+  return {
+    ...mutation,
+    progress,
+    cancel: () => abandon.current?.abort(),
+  };
 }
 
 /**

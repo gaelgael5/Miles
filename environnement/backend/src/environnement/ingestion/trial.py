@@ -23,7 +23,7 @@ le journal des appels.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -73,12 +73,29 @@ class IngestionTrial:
     now: Callable[[], datetime]
 
     async def resolve_trial(
-        self, app: FastAPI, author: EventAuthor, *, source: str, mode: str, body: bytes
+        self,
+        app: FastAPI,
+        author: EventAuthor,
+        *,
+        source: str,
+        mode: str,
+        body: bytes | AsyncIterator[bytes],
+        length: int | None = None,
     ) -> TrialOutcome:
         """Dépose `body` sur l'entrée désignée, avec la clé du back-office.
 
         `app` est passée par la route : c'est elle qui tient l'application, et la garder
         ici ferait une référence circulaire entre le câblage et ce service.
+
+        **`body` peut être un FLUX** depuis le 07/11/2026 (story `1a3fc5a7`) : en mode
+        fichier, la route donne l'itérateur de la requête au lieu de son corps lu, et le
+        document traverse sans que rien ne le garde. Vérifié dans le httpx installé
+        (`_transports/asgi.py`) : le transport itère `request.stream` et émet un message
+        `http.request` par tronçon avec `more_body`, donc le `request.stream()` du point
+        d'entrée reçoit bien les tronçons un par un — ce n'est pas une mise en tampon
+        déguisée. Aucun délai n'est en jeu : ce transport ne lit pas celui du client.
+
+        `length` est la taille que l'appelant a annoncée, quand il l'a annoncée.
         """
         cle = await self.self_keys.resolve_usable(author)
         transport = httpx.ASGITransport(app=app)
@@ -88,7 +105,7 @@ class IngestionTrial:
             recu = await client.post(
                 INGEST_PATH.format(source=source, mode=mode),
                 content=body,
-                headers={API_KEY_HEADER: cle.reveal(), "Content-Type": CONTENT_TYPE},
+                headers=_headers(cle.reveal(), length),
             )
         rendu = TrialOutcome(status=recu.status_code, body=_body(recu))
         log.info(
@@ -144,3 +161,24 @@ def _body(recu: httpx.Response) -> Any:
 def _ingestion_id(body: Any) -> str | None:
     identifiant = body.get("id") if isinstance(body, dict) else None
     return identifiant if isinstance(identifiant, str) else None
+
+
+def _headers(cle: str, length: int | None) -> dict[str, str]:
+    """Les en-têtes de l'appel interne, la taille annoncée COMPRISE quand on la connaît.
+
+    Relayer `Content-Length` n'est pas cosmétique : sans lui, httpx annonce
+    `Transfer-Encoding: chunked` pour un corps en flux, le point d'entrée ne connaît plus
+    la taille promise, et ses deux refus bon marché — `fichier_trop_grand` et
+    `quota_de_disque_atteint` sur la taille ANNONCÉE — ne peuvent plus tomber avant la
+    lecture. Un document de dix gigaoctets serait alors écrit sur le disque jusqu'à ce que
+    la garde sur la taille mesurée l'arrête, au lieu d'être refusé au premier octet.
+
+    Que l'en-tête explicite l'emporte est vérifié dans le httpx installé et non supposé :
+    `Request._prepare` saute son `Transfer-Encoding` automatique quand `Content-Length` est
+    déjà là (`_models.py`). Si cette précédence changeait, le dépôt resterait correct — la
+    garde sur la taille mesurée tient — mais le refus cesserait d'être immédiat.
+    """
+    entetes = {API_KEY_HEADER: cle, "Content-Type": CONTENT_TYPE}
+    if length is not None:
+        entetes["Content-Length"] = str(length)
+    return entetes

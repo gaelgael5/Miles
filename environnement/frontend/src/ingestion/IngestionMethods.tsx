@@ -152,9 +152,11 @@ function MethodTrial({
       <FileTrialForm
         method={method}
         pending={trial.isPending}
+        progress={trial.progress}
         onDeposit={(choisi) =>
           trial.mutate({ source: method.source, mode: method.mode, body: choisi })
         }
+        onCancel={trial.cancel}
       />
     );
   }

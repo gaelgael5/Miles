@@ -205,7 +205,10 @@
       "file": "Document to deposit",
       "fileHelp": "The import's outcome is in the call log below.",
       "fileExample": "Expected shape of the document",
-      "open": "Try this method"
+      "open": "Try this method",
+      "uploadLabel": "Upload progress",
+      "uploading": "Uploading: {{percent}}% — {{sent}} of {{total}}",
+      "uploadCancel": "Stop the upload"
     },
     "signature": {
       "headers": "Headers",

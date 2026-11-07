@@ -11,6 +11,7 @@ surface, écrans compris, et `app.py` porte cette décision.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -21,7 +22,7 @@ from pydantic import BaseModel, ConfigDict
 from environnement.apikeys.self_key import SelfKeyRevokedError, SelfKeyService
 from environnement.ingestion.api_ingest_file import INGEST_OPERATIONS
 from environnement.ingestion.methods import IngestionMethods, Method
-from environnement.ingestion.model import MAX_BODY_BYTES
+from environnement.ingestion.model import FILE, MAX_BODY_BYTES, declared_length
 from environnement.ingestion.trial import IngestionTrial
 
 router = APIRouter(prefix="/api/ingestion")
@@ -141,26 +142,46 @@ async def try_method(source: str, mode: str, request: Request, service: Trial) -
     """Dépose le corps reçu sur l'entrée désignée, avec la clé du back-office.
 
     Le corps n'est NI validé NI corrigé ici : le point d'entrée a ses refus, avec leurs
-    codes et leurs positions, et c'est précisément ce qu'on veut montrer. Le seul contrôle
-    fait avant est la taille, parce qu'il est inutile de recopier un corps démesuré dans
-    un appel interne pour le faire refuser à l'arrivée.
+    codes et leurs positions, et c'est précisément ce qu'on veut montrer.
 
-    **Le mode fichier passe par ici comme les autres** (critère 21 de la story 0f14adbd) :
-    le corps est alors le document, et le relais est le même. La borne, en revanche, reste
-    celle de la MÉMOIRE — l'essai lit le corps entier pour le recopier dans un appel
-    interne, là où le vrai point d'entrée écrit son flux sur le disque sans le garder. Un
-    essai depuis l'écran sert à voir ce qu'un partenaire recevra, pas à éprouver un
-    gigaoctet : c'est ce que dit le refus, avec sa borne dedans.
+    **Le mode fichier passe par ici comme les autres** (critère 21 de la story 0f14adbd),
+    mais depuis le 07/11/2026 il est RELAYÉ EN FLUX et non plus lu : le document traverse
+    jusqu'au disque sans que le back-office en garde une copie, et sa borne est celle du
+    point d'entrée — `ingestion_file_max_bytes`, deux gigaoctets par défaut, appliquée par
+    lui. C'est le renversement d'une décision qui tenait jusque-là : « un essai depuis
+    l'écran sert à voir ce qu'un partenaire recevra, pas à éprouver un gigaoctet ». Gael
+    l'a rouverte en demandant la progression de l'envoi (story `1a3fc5a7`), et sa raison
+    l'emporte : le geste réel de ce mode EST le gros document, et une borne de huit
+    mégaoctets faisait de l'essai la seule méthode qu'on ne pouvait pas essayer. Lire le
+    corps avant de le recopier aurait de plus fait enfler le conteneur de la taille du
+    document — neuf cents mégaoctets pour un essai — avant de le refuser.
+
+    **Les deux autres modes gardent la borne de huit mégaoctets**, et elle y reste juste :
+    leur corps vient d'une zone de saisie à l'écran. Ce qui change pour eux est le MOMENT
+    du refus — sur la taille annoncée, avant de lire —, parce qu'il est inutile de charger
+    un corps démesuré pour le refuser ensuite. La garde sur la taille lue reste derrière,
+    pour l'appelant qui n'annonce rien.
     """
-    corps = await request.body()
-    if len(corps) > MAX_BODY_BYTES:
-        return JSONResponse(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            content={"detail": {"code": REFUSAL_BODY_TOO_LARGE, "detail": str(MAX_BODY_BYTES)}},
-        )
+    annonce = declared_length(request.headers.get("content-length"))
+    corps: bytes | AsyncIterator[bytes]
+    if mode == FILE:
+        # Jamais `await request.body()` ici : ce serait reprendre en mémoire ce que tout
+        # le chemin a été fait pour ne pas garder.
+        corps = request.stream()
+    elif annonce is not None and annonce > MAX_BODY_BYTES:
+        return _too_large()
+    else:
+        corps = await request.body()
+        if len(corps) > MAX_BODY_BYTES:
+            return _too_large()
     try:
         rendu = await service.resolve_trial(
-            request.app, request_author(request), source=source, mode=mode, body=corps
+            request.app,
+            request_author(request),
+            source=source,
+            mode=mode,
+            body=corps,
+            length=annonce,
         )
     except SelfKeyRevokedError:
         # Dit, plutôt que relayé en refus d'authentification nu : sans cela on
@@ -170,3 +191,17 @@ async def try_method(source: str, mode: str, request: Request, service: Trial) -
             content={"detail": {"code": REFUSAL_KEY_REVOKED, "detail": None}},
         )
     return TrialOut(status=rendu.status, body=rendu.body)
+
+
+def _too_large() -> JSONResponse:
+    """Le refus de l'essai sur sa propre borne, avec la borne dedans.
+
+    Distinct du `corps_trop_grand` du point d'entrée bien qu'il porte le même code : celui
+    du point d'entrée parle de ce qu'un partenaire peut déposer, celui-ci de ce que l'écran
+    accepte de recopier dans un appel interne. Les deux bornes se trouvent être égales
+    aujourd'hui, et ce n'est pas une raison de les confondre.
+    """
+    return JSONResponse(
+        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+        content={"detail": {"code": REFUSAL_BODY_TOO_LARGE, "detail": str(MAX_BODY_BYTES)}},
+    )

@@ -205,7 +205,10 @@
       "file": "Document à déposer",
       "fileHelp": "L'issue de l'import se lit dans le journal des appels, ci-dessous.",
       "fileExample": "Forme attendue du document",
-      "open": "Essayer cette méthode"
+      "open": "Essayer cette méthode",
+      "uploadLabel": "Progression de l'envoi",
+      "uploading": "Envoi : {{percent}} % — {{sent}} sur {{total}}",
+      "uploadCancel": "Interrompre l'envoi"
     },
     "signature": {
       "headers": "En-têtes",

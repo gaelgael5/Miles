@@ -24,9 +24,14 @@ import pytest
 from miles_socle.testing.enrolment_double import EnrolmentDouble
 
 from environnement.apikeys.self_key import SELF_KEY_LABEL, SELF_KEY_SLUG, SELF_KEY_TYPE
-from environnement.ingestion.api_trial import REFUSAL_KEY_REVOKED
-from environnement.ingestion.trial import TRIAL_EVENT
-from tests.integration.bundles import fabrique_import, fabrique_parametrage
+from environnement.ingestion.api_trial import REFUSAL_BODY_TOO_LARGE, REFUSAL_KEY_REVOKED
+from environnement.ingestion.model import MAX_BODY_BYTES
+from environnement.ingestion.trial import TRIAL_EVENT, IngestionTrial
+from tests.integration.bundles import (
+    fabrique_import,
+    fabrique_import_fichier,
+    fabrique_parametrage,
+)
 from tests.integration.environnement_stack import ADMIN_USERNAME, EnvironnementStack, open_stack
 from tests.integration.versions import ordonne, sert
 
@@ -335,3 +340,93 @@ async def test_les_routes_de_la_page_sont_fermees_sans_session(
             "/api/ingestion/contract",
             "/api/ingestion/contract/{source}",
         }
+
+
+FICHIER = f"/api/ingestion/try/{SOURCE}/fichier"
+DOCUMENT = json.dumps({"genere_le": "2026-11-07", "magasins": [LOT[0]]}).encode()
+
+
+async def test_un_essai_en_mode_fichier_est_RELAYE_EN_FLUX_et_jamais_lu_en_memoire(
+    blank_db: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le renversement du 07/11/2026 (story `1a3fc5a7`), et ce qui le rend vérifiable.
+
+    Ce que la garde regarde n'est pas la réponse — un corps lu en mémoire déposerait tout
+    aussi bien — mais la NATURE de ce que la route donne au relais : un itérateur, et non
+    des octets. Un `await request.body()` revenu dans la route rendrait ce test rouge
+    aussitôt, là où le dépôt continuerait de réussir sans que rien ne le signale, en
+    chargeant simplement neuf cents mégaoctets dans le conteneur au passage.
+
+    Et le dépôt doit tout de même aboutir : le flux doit traverser jusqu'au disque, sans
+    quoi on aurait prouvé qu'on ne lit pas, et rien d'autre.
+    """
+    versions = fabrique_import_fichier(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await sert(stack, double, versions[1])
+        relayes: list[Any] = []
+        vrai = IngestionTrial.resolve_trial
+
+        async def espion(soi: Any, app: Any, author: Any, **reste: Any) -> Any:
+            relayes.append(reste["body"])
+            return await vrai(soi, app, author, **reste)
+
+        monkeypatch.setattr(IngestionTrial, "resolve_trial", espion)
+
+        recu = await stack.client.post(FICHIER, content=DOCUMENT)
+
+        assert recu.status_code == 200, recu.text
+        # L'acquittement du point d'entrée, rendu tel quel : 202, et un identifiant de
+        # dépôt. C'est ce que Gael attend de l'écran — « que le fichier soit stocké sur le
+        # disque sur le serveur puis qu'un id unique de task uuid soit redonné au client ».
+        rendu = recu.json()
+        assert rendu["status"] == 202, rendu
+        assert rendu["body"]["id"]
+
+        assert len(relayes) == 1
+        assert not isinstance(relayes[0], bytes | bytearray), (
+            "le corps a été LU : l'essai reprend en mémoire ce que tout le chemin existe"
+            " pour ne pas garder"
+        )
+        assert hasattr(relayes[0], "__aiter__")
+        # Le document est bien arrivé sur le disque, sous le nom du dépôt.
+        ligne = await stack.pool.fetchrow(
+            "SELECT file_name FROM ingestions WHERE id = $1", rendu["body"]["id"]
+        )
+        assert ligne is not None and ligne["file_name"] == rendu["body"]["id"]
+
+
+async def test_un_corps_trop_grand_ANNONCE_est_refuse_SANS_etre_lu(
+    blank_db: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Les modes saisis gardent leur borne de huit mégaoctets, mais refusent plus tôt.
+
+    Avant le 07/11/2026, la route lisait le corps ENTIER puis comparait sa longueur : un
+    appelant qui annonçait neuf mégaoctets les faisait d'abord charger en mémoire pour
+    s'entendre refuser ensuite. L'annonce suffit, et le relais ne doit même pas être
+    sollicité — c'est ce que la liste d'appels vérifie.
+    """
+    versions = fabrique_import(tmp_path)
+    double = EnrolmentDouble()
+    async with open_stack(blank_db, tmp_path, peer_app=double.app()) as stack:
+        await sert(stack, double, versions[1])
+        appels: list[Any] = []
+
+        async def interdit(soi: Any, app: Any, author: Any, **reste: Any) -> Any:
+            appels.append(reste)
+            raise AssertionError("le relais a été sollicité pour un corps déjà refusé")
+
+        monkeypatch.setattr(IngestionTrial, "resolve_trial", interdit)
+
+        recu = await stack.client.post(
+            TABLEAU,
+            content=b"[]",
+            headers={"content-length": str(MAX_BODY_BYTES + 1)},
+        )
+
+        assert recu.status_code == 413, recu.text
+        detail = recu.json()["detail"]
+        assert detail["code"] == REFUSAL_BODY_TOO_LARGE
+        # La borne est DANS le refus : sans elle, l'appelant ne sait pas à quoi se tenir.
+        assert detail["detail"] == str(MAX_BODY_BYTES)
+        assert appels == []
