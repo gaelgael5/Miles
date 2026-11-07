@@ -16,6 +16,14 @@ dependencies = [
     # elle est consignée dans l'enabler « Lire les items d'un gros fichier par fenêtre
     # glissante » et dans les docstrings des deux modules.
     "jsonschema==4.26.0",
+    # Le validateur COMPILÉ du chemin rapide du contrôle de modèle (07/11/2026). Mesuré
+    # 2,5 µs par objet contre 52,9 pour `jsonschema`, soit 20,9x sur un poste qui était
+    # alors le second d'un import. Il n'est PAS une autorité et ne remplace pas
+    # `jsonschema` : il ne décide que d'accepter, et seulement pour les schémas dont tous
+    # les mots-clés ont été mesurés en accord — voir `ingestion/conformance.py`, dont la
+    # docstring porte la mesure, et le test qui tient la liste. Version ÉPINGLÉE : une
+    # montée peut faire diverger un mot-clé en silence, et c'est le test qui l'attrape.
+    "fastjsonschema==2.22.3",
     # L'extra `transform` : le moteur JSLT, pour appliquer la chaîne d'une entrée de
     # source aux objets reçus (story d680e811). Jamais une dépendance DIRECTE à
     # urban-json — deux déclarations de version finiraient par diverger, et c'est le

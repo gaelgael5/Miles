@@ -6,6 +6,12 @@ from typing import Any
 
 import yaml
 from jsonschema import Draft202012Validator
+from miles_socle.schemas import (
+    MAX_SCHEMA_DEPTH,
+    SCHEMA_LIST,
+    SCHEMA_TABLE,
+    SCHEMA_VALUE,
+)
 
 from miles.contracts.layout import contract_dir
 from miles.datamodels.grammar import Problem
@@ -19,26 +25,10 @@ from miles.workspaces.model import WorkspaceInputError
 MODELS_DIR = "models"
 _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 _SCHEMA_REF = "#/components/schemas/"
-# Mots-clés dont la valeur est un schéma, une liste ou une table de schémas : seuls eux
-# se convertissent. Une propriété nommée « example » ou « nullable » est un nom, pas un
-# mot-clé ; un parcours aveugle du document la réécrirait.
-_ONE = (
-    "items",
-    "additionalProperties",
-    "not",
-    "if",
-    "then",
-    "else",
-    "contains",
-    "propertyNames",
-    "unevaluatedItems",
-    "unevaluatedProperties",
-)
-_MANY = ("allOf", "anyOf", "oneOf", "prefixItems")
-_TABLE = ("properties", "patternProperties", "$defs", "definitions", "dependentSchemas")
-# Borne de la descente : un schéma de tiers démesurément imbriqué est refusé, nommé,
-# plutôt que d'épuiser la pile du back-office.
-MAX_DEPTH = 64
+# Où sont les sous-schémas, et jusqu'où on descend : au SOCLE depuis le 07/11/2026, parce
+# que le module d'environnement en a eu besoin pour énumérer les mots-clés d'un modèle.
+# Dupliquées, ces tables auraient divergé au premier mot-clé ajouté d'un seul côté.
+MAX_DEPTH = MAX_SCHEMA_DEPTH
 _META = Draft202012Validator(Draft202012Validator.META_SCHEMA)
 
 
@@ -149,11 +139,11 @@ class _Converter:
 
     def _value(self, key: str, value: Any, where: str, depth: int) -> Any:
         inner = f"{where}.{key}"
-        if key in _ONE:
+        if key in SCHEMA_VALUE:
             return self.schema(value, inner, depth + 1)
-        if key in _MANY and isinstance(value, list):
+        if key in SCHEMA_LIST and isinstance(value, list):
             return [self.schema(v, f"{inner}.{i}", depth + 1) for i, v in enumerate(value)]
-        if key in _TABLE and isinstance(value, dict):
+        if key in SCHEMA_TABLE and isinstance(value, dict):
             return {k: self.schema(v, f"{inner}.{k}", depth + 1) for k, v in value.items()}
         return value
 
