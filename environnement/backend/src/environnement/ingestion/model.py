@@ -42,6 +42,28 @@ FILE_CONTENT_TYPES = frozenset({CONTENT_TYPE, OCTET_STREAM})
 # mémoire avant d'être refusé pour son nombre d'items.
 MAX_BODY_BYTES = 8 * 1024 * 1024
 
+
+def declared_length(header: str | None) -> int | None:
+    """La taille que l'appelant ANNONCE, si elle est annoncée et lisible.
+
+    Une valeur illisible est traitée comme une absence plutôt que refusée : les gardes sur
+    la taille RÉELLE restent, et refuser sur un en-tête mal formé aurait fermé la porte à
+    un client correct derrière un relais bavard. Ce qui est refusé pour de bon, c'est le
+    dépôt qui dépasse les bornes — mesuré, pas annoncé.
+
+    Ici depuis le 07/11/2026, et non plus privé du point d'entrée fichier : l'essai depuis
+    l'écran s'en sert aussi, pour refuser un corps trop grand AVANT de le lire. Deux
+    lectures de cet en-tête auraient divergé sur ce point précis — ce qu'on fait d'une
+    valeur illisible —, et l'une des deux aurait fini par refuser ce que l'autre accepte.
+    """
+    if header is None:
+        return None
+    try:
+        return int(header)
+    except ValueError:
+        return None
+
+
 # Refus, et chacun dit à l'appelant ce qu'il doit corriger.
 REFUSAL_MODE_INCONNU = "mode_inconnu"
 REFUSAL_MODE_NON_DECLARE = "mode_non_declare"

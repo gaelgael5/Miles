@@ -20,11 +20,13 @@ sur un chemin à paramètre, sinon `fichier` tomberait sur le mode générique.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from miles_socle.apikeys.presentation import API_KEY_HEADER, key_from_headers
+from starlette.requests import ClientDisconnect
 
 from environnement.ingestion.api_ingest import (
     CHALLENGE,
@@ -40,7 +42,14 @@ from environnement.ingestion.deposit_files import FileDeposits
 from environnement.ingestion.deposits import NotAuthenticated
 from environnement.ingestion.files import FileRefused
 from environnement.ingestion.imports import ImportLauncher
-from environnement.ingestion.model import BATCH, ELEMENT, FILE, IngestionRefusal
+from environnement.ingestion.model import (
+    BATCH,
+    ELEMENT,
+    FILE,
+    MAX_BODY_BYTES,
+    IngestionRefusal,
+    declared_length,
+)
 
 INGEST_FILE_PATH = INGEST_PATH.format(source="{source}", mode=FILE)
 # Sous quel gabarit chaque mode est monté. Ici parce que c'est le seul module qui connaît
@@ -51,6 +60,15 @@ INGEST_FILE_PATH = INGEST_PATH.format(source="{source}", mode=FILE)
 INGEST_OPERATIONS = {ELEMENT: INGEST_PATH, BATCH: INGEST_PATH, FILE: INGEST_FILE_PATH}
 
 router = APIRouter(tags=["ingestion"])
+
+# Combien d'octets on veut bien lire d'un corps qu'on a DÉJÀ refusé, pour que le refus
+# arrive lisible à l'appelant. La raison du drainage est dans `_drain` ; la raison de la
+# borne est qu'au-delà, absorber un document refusé donnerait à un appelant sans droits le
+# pouvoir de nous faire lire deux gigaoctets. La valeur reprend `MAX_BODY_BYTES` : c'est
+# déjà ce que ce module considère comme un corps qu'on lit sans y penser. DÉRIVÉE et
+# non recopiée : deux littéraux de même valeur auraient divergé au premier relèvement
+# fait d'un seul côté.
+DRAIN_MAX = MAX_BODY_BYTES
 
 
 def file_deposits(request: Request) -> FileDeposits:
@@ -167,6 +185,11 @@ async def deposit_file(
     launcher: Launcher,
 ) -> object:
     """Prend en charge un document déposé sur l'entrée que cette adresse désigne."""
+    # UN SEUL itérateur, tenu ici : il est donné au service, et c'est le MÊME qui est
+    # drainé si le dépôt est refusé. Redemander `request.stream()` lèverait « Stream
+    # consumed » sur un corps déjà lu en entier, et repartirait de la suite sur un corps
+    # lu à moitié — deux comportements pour un seul geste.
+    chunks = request.stream()
     try:
         accuse = await service.resolve_deposit(
             source=source,
@@ -174,23 +197,26 @@ async def deposit_file(
                 request.headers.get("authorization"), request.headers.get(API_KEY_HEADER)
             ),
             content_type=request.headers.get("content-type"),
-            declared_length=_declared(request.headers.get("content-length")),
-            chunks=request.stream(),
+            declared_length=declared_length(request.headers.get("content-length")),
+            chunks=chunks,
             idempotency_key=request.headers.get(IDEMPOTENCY_HEADER),
         )
     except NotAuthenticated:
         # UN SEUL refus pour toutes les raisons : les distinguer offrirait un oracle.
+        await _drain(chunks)
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"detail": {"code": "authentification_requise", "detail": None}},
             headers={"WWW-Authenticate": CHALLENGE},
         )
     except FileRefused as refus:
+        await _drain(chunks)
         return JSONResponse(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             content={"detail": {"code": refus.code, "detail": refus.detail}},
         )
     except IngestionRefusal as refus:
+        await _drain(chunks)
         return JSONResponse(
             status_code=status_of(refus.code),
             content={"detail": {"code": refus.code, "detail": refus.detail}},
@@ -213,17 +239,30 @@ async def deposit_file(
     )
 
 
-def _declared(header: str | None) -> int | None:
-    """La taille annoncée, si elle est annoncée et lisible.
+async def _drain(chunks: AsyncIterator[bytes]) -> None:
+    """Consomme ce qui reste du corps AVANT de rendre un refus, dans la limite de `DRAIN_MAX`.
 
-    Une valeur illisible est traitée comme une absence plutôt que refusée : la garde en
-    cours d'écriture reste, et refuser sur un en-tête mal formé aurait fermé la porte à un
-    client correct derrière un relais bavard. Ce qui est refusé pour de bon, c'est le
-    dépôt qui dépasse les bornes — mesuré, pas annoncé.
+    Sans ce geste, le gestionnaire répond et uvicorn referme la connexion alors que le
+    mandataire écrit encore : nginx voit `writev() failed (104: Connection reset by peer)`,
+    JETTE la réponse qu'il avait déjà reçue et rend un `502`. Le partenaire dont la clé est
+    mauvaise lisait donc « bad gateway » au lieu de `authentification_requise` dès que son
+    document dépassait les tampons de socket — c'est-à-dire toujours, en usage réel. Mesuré
+    le 07/11/2026 sur un corps d'un mégaoctet, le backend ayant bien journalisé son 401
+    (bug `abc1b595`).
+
+    **Borné**, et c'est le point délicat : lire tout un document qu'on vient de refuser
+    donnerait à un appelant sans droits le pouvoir de nous faire absorber deux gigaoctets.
+    Au-delà de la borne on referme — l'appelant lit alors une connexion coupée, ce qui est
+    le prix d'un envoi massif déjà refusé, et non le cas du partenaire qui se trompe de clé.
+
+    Un client qui a déjà raccroché n'a rien à drainer : `ClientDisconnect` est donc une fin
+    normale ici, et non une panne à faire remonter.
     """
-    if header is None:
-        return None
+    reste = DRAIN_MAX
     try:
-        return int(header)
-    except ValueError:
-        return None
+        async for morceau in chunks:
+            reste -= len(morceau)
+            if reste < 0:
+                return
+    except ClientDisconnect:
+        return

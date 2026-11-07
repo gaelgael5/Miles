@@ -20,5 +20,8 @@ RUN npm run build
 
 FROM nginx:1.27-alpine AS runtime
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Hors de conf.d : inclus par les `location` qui mandatent, et non par le contexte
+# `http`, ou ses directives s'appliqueraient globalement.
+COPY proxy.conf /etc/nginx/proxy.conf
 COPY --from=build /src/environnement/frontend/dist /usr/share/nginx/html
 EXPOSE 80
