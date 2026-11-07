@@ -236,6 +236,11 @@
     "captionVersion": "Served version",
     "captionServed": "Served on",
     "captionKeys": "API keys",
-    "captionDeposits": "Deposits"
+    "captionDeposits": "Deposits",
+    "curl": {
+      "title": "Call this source from the command line",
+      "copy": "Copy the command",
+      "help": "Replace {{placeholder}} with an API key granted on this source. The key is never shown here: the back-office holds its own and never sends it to the browser."
+    }
   }
 }

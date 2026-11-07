@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { ApiError, CollapsibleSpec, ContractAddress } from "@miles/socle-web";
 import { contractUrl, useIngestionContract } from "../api/ingestion";
+import { ContractCurl } from "./ContractCurl";
 
 // Chargé à l'ouverture de l'onglet seulement : le bundle Swagger pèse plus que tout le
 // reste de l'application, et la plupart des visites n'y passent jamais.
@@ -51,6 +52,10 @@ export function SourceContract({ source }: { source: string }) {
   return (
     <>
       <ContractAddress url={contractUrl(source)} filename={`${source}.openapi.json`} />
+      {/* Avant le visualiseur, et non dedans : Swagger ne rend son extrait curl
+          qu'après un « Try it out », que nous gardons éteint faute de clé dans le
+          navigateur. Et c'est ce qu'on vient chercher — on le met donc devant. */}
+      <ContractCurl source={source} />
       {/* La description du document se replie : la MÊME prose d'en-tête ouvre le
           contrat de chaque source, et elle fait quatre cents pixels avant la première
           adresse (Gael, 05/11/2026). */}
