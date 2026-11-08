@@ -10,12 +10,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict
 
 from environnement.ingestion.api_ingest_file import INGEST_OPERATIONS
 from environnement.ingestion.overview import PAGE_SIZE, CallPage, Health, IngestionOverview
-from environnement.ingestion.store import Call
+from environnement.ingestion.store import Call, CallOutcome
 
 router = APIRouter(prefix="/api/ingestion")
 
@@ -86,6 +86,37 @@ class CallsOut(BaseModel):
     sources: list[str]
 
 
+class RejectionReasonOut(BaseModel):
+    """Un motif de rejet et son compte, pour corriger un modèle sans deviner."""
+
+    model_config = ConfigDict(extra="forbid")
+    reason: str
+    detail: str | None
+    count: int
+    # Un objet rejeté sous ce motif, pour aller lire un cas réel. Nul quand la clé n'a pas
+    # pu être extraite — ce qui est justement l'un des motifs possibles.
+    sample_key: str | None
+
+
+class CallOutcomeOut(BaseModel):
+    """Ce qu'un dépôt est devenu. Distinct du compte-rendu PUBLIÉ aux modes synchrones :
+    celui-ci est l'écran d'un administrateur, et il porte la synthèse des motifs, que le
+    contrat ne promet pas."""
+
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    state: str
+    items_read: int | None
+    failure_code: str | None
+    failure_detail: str | None
+    received: int | None
+    written: int | None
+    unchanged: int | None
+    rejected: int | None
+    reasons: list[RejectionReasonOut]
+    anomalies: list[str]
+
+
 def _endpoint(point: object) -> EndpointOut:
     return EndpointOut.model_validate(point, from_attributes=True)
 
@@ -120,6 +151,27 @@ def _calls(page: CallPage, sources: tuple[str, ...]) -> CallsOut:
     )
 
 
+def _outcome(issue: CallOutcome) -> CallOutcomeOut:
+    rapport = issue.report
+    return CallOutcomeOut(
+        id=issue.id,
+        state=issue.state,
+        items_read=issue.items_read,
+        failure_code=issue.failure_code,
+        failure_detail=issue.failure_detail,
+        received=None if rapport is None else rapport.received,
+        written=None if rapport is None else rapport.written,
+        unchanged=None if rapport is None else rapport.unchanged,
+        rejected=None if rapport is None else rapport.rejected,
+        reasons=(
+            []
+            if rapport is None
+            else [RejectionReasonOut(**motif.as_json()) for motif in rapport.reasons]
+        ),
+        anomalies=[] if rapport is None else list(rapport.anomalies),
+    )
+
+
 @router.get("/health", response_model=HealthOut)
 async def health(service: Service) -> object:
     return _health(await service.resolve_health(operations=INGEST_OPERATIONS))
@@ -134,3 +186,20 @@ async def calls(
 ) -> object:
     page_lue = await service.resolve_calls(source=source, page=page, page_size=taille)
     return _calls(page_lue, await service.resolve_declared_sources())
+
+
+@router.get(
+    "/calls/{ingestion_id}",
+    response_model=CallOutcomeOut,
+    responses={404: {"description": "Aucun dépôt ne porte cet identifiant."}},
+)
+async def call_outcome(ingestion_id: str, service: Service) -> object:
+    """Le détail d'UN dépôt, lu quand on ouvre sa ligne du journal.
+
+    À part de la liste, et c'est délibéré : un compte-rendu d'import porte jusqu'à deux
+    cents objets et sa synthèse de motifs, qu'on ne regarde qu'une fois.
+    """
+    issue = await service.resolve_call_outcome(ingestion_id)
+    if issue is None:
+        raise HTTPException(status_code=404, detail={"code": "depot_inconnu", "detail": None})
+    return _outcome(issue)

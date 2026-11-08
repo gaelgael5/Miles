@@ -129,6 +129,51 @@ async def db_ingestion(db: IngestionDb, ingestion_id: str) -> Acknowledgement | 
 
 
 @dataclass(frozen=True)
+class CallOutcome:
+    """Ce qu'UN dépôt est devenu, au-delà de ce que la liste des appels montre.
+
+    Lu à part, et non ajouté à la ligne du journal : le compte-rendu d'un import porte
+    jusqu'à deux cents objets et sa synthèse de motifs, et les joindre à chaque ligne
+    ferait d'une page de cinquante appels une réponse de plusieurs mégaoctets, pour un
+    détail qu'on ne regarde qu'une fois.
+    """
+
+    id: str
+    state: str
+    # Le nombre d'items LUS du document, nul pour les modes synchrones : eux portent leur
+    # compte dans le compte-rendu, et l'import de fichier est le seul à pouvoir
+    # s'interrompre au milieu d'une lecture.
+    items_read: int | None
+    failure_code: str | None
+    failure_detail: str | None
+    report: Report | None
+
+
+async def db_call_outcome(db: IngestionDb, ingestion_id: str) -> CallOutcome | None:
+    row = await db.fetchrow(
+        "SELECT id, state, items_read, failure_code, failure_detail, report"
+        " FROM ingestions WHERE id = $1",
+        ingestion_id,
+    )
+    if row is None:
+        return None
+    # `jsonb` revient en CHAÎNE d'asyncpg : même précaution que dans `ack_of`, et pour la
+    # même raison — lire sans convertir comparerait des caractères.
+    brut = row["report"]
+    rapport = None
+    if brut is not None:
+        rapport = report_of(json.loads(brut) if isinstance(brut, str) else brut)
+    return CallOutcome(
+        id=row["id"],
+        state=row["state"],
+        items_read=None if row["items_read"] is None else int(row["items_read"]),
+        failure_code=row["failure_code"],
+        failure_detail=row["failure_detail"],
+        report=rapport,
+    )
+
+
+@dataclass(frozen=True)
 class Call:
     """Une ligne du journal des appels : UN dépôt, jamais un objet.
 

@@ -21,6 +21,8 @@ from environnement.ingestion.conformance import (
 from environnement.ingestion.fingerprint import canonical, fingerprint
 from environnement.ingestion.keys import KeyNotExtractable, key_of, key_rule
 from environnement.ingestion.outcome import (
+    ANOMALY_REASONS_CAPPED,
+    REASONS_CAP,
     REJECT_MODEL,
     REJECTED,
     UNCHANGED,
@@ -202,3 +204,87 @@ class TestCompteRendu:
 
         assert relu.as_json() == report.as_json()
         assert relu.objects[1].detail == "$['x']: nope"
+
+
+class TestLaSyntheseDesMotifs:
+    """Ce qui permet de corriger un modèle : les motifs survivent au plafond du détail.
+
+    Mesuré sur l'import de Gael du 08/11/2026 : 194 361 items, 25 586 rejets, dont le
+    détail s'arrêtait au deux-centième. Les motifs des 25 386 autres n'existaient plus
+    nulle part — ni en base, ni dans les journaux, qui ne portent que des totaux.
+    """
+
+    def _rejet(self, position: int, detail: str, cle: str | None) -> ObjectOutcome:
+        return ObjectOutcome(position, REJECTED, cle, REJECT_MODEL, detail)
+
+    def test_un_motif_est_COMPTE_au_dela_du_plafond_de_detail(self) -> None:
+        report = Report(received=0)
+        for rang in range(500):
+            report.counted(self._rejet(rang, "$['Country']: None", f"C-{rang}"), keep=2)
+
+        assert len(report.objects) == 2
+        assert [(m.reason, m.count) for m in report.reasons] == [(REJECT_MODEL, 500)]
+        assert report.rejected == 500
+
+    def test_les_motifs_sont_rendus_du_PLUS_FREQUENT_au_moins_frequent(self) -> None:
+        report = Report(received=0)
+        for rang in range(3):
+            report.counted(self._rejet(rang, "$['Country']: None", "C-1"), keep=0)
+        for rang in range(7):
+            report.counted(self._rejet(rang, "$['Contact']['Email']: None", "C-2"), keep=0)
+
+        assert [(m.detail, m.count) for m in report.reasons] == [
+            ("$['Contact']['Email']: None", 7),
+            ("$['Country']: None", 3),
+        ]
+
+    def test_l_exemple_garde_est_le_PREMIER_objet_rencontre_sous_ce_motif(self) -> None:
+        # Le premier et non le dernier : il ne change pas d'un import à l'autre sur le
+        # même document, ce qui rend deux comptes-rendus comparables.
+        report = Report(received=0)
+        report.counted(self._rejet(0, "$['Country']: None", "C-PREMIER"), keep=0)
+        report.counted(self._rejet(1, "$['Country']: None", "C-SECOND"), keep=0)
+
+        assert [m.sample_key for m in report.reasons] == ["C-PREMIER"]
+
+    def test_un_lot_dont_le_detail_est_ENTIER_deduit_ses_motifs_du_detail(self) -> None:
+        # Les modes synchrones gardent tous leurs objets : une seconde vérité à tenir
+        # d'accord n'aurait servi à rien.
+        report = Report(received=2)
+        report.objects.append(ObjectOutcome(0, WRITTEN, '["a"]'))
+        report.objects.append(self._rejet(1, "$['x']: nope", '["b"]'))
+
+        assert [(m.count, m.sample_key) for m in report.reasons] == [(1, '["b"]')]
+
+    def test_au_dela_du_plafond_de_MOTIFS_l_anomalie_le_dit(self) -> None:
+        report = Report(received=0)
+        for rang in range(REASONS_CAP + 5):
+            report.counted(self._rejet(rang, f"$['f{rang}']: None", None), keep=0)
+
+        assert len(report.reasons) == REASONS_CAP
+        assert f"{ANOMALY_REASONS_CAPPED}:{REASONS_CAP}" in report.anomalies
+        # Les COMPTES, eux, restent exacts : c'est la synthèse qui est bornée.
+        assert report.rejected == REASONS_CAP + 5
+
+    def test_la_synthese_se_relit_de_la_base_a_l_identique(self) -> None:
+        report = Report(received=0)
+        report.counted(self._rejet(0, "$['Country']: None", "C-1"), keep=0)
+
+        relu = report_of(report.as_json())
+
+        assert relu.as_json() == report.as_json()
+        assert [(m.detail, m.count, m.sample_key) for m in relu.reasons] == [
+            ("$['Country']: None", 1, "C-1")
+        ]
+
+    def test_un_compte_rendu_ECRIT_AVANT_la_synthese_se_relit_quand_meme(self) -> None:
+        # Les lignes déjà en base n'ont pas le champ : le relire doit rendre le
+        # compte-rendu, pas lever — la synthèse se déduit alors du détail gardé.
+        ancien = Report(received=2)
+        ancien.objects.append(self._rejet(1, "$['x']: nope", '["b"]'))
+        range_en_base = ancien.as_json()
+        del range_en_base["reasons"]
+
+        relu = report_of(range_en_base)
+
+        assert [(m.detail, m.count) for m in relu.reasons] == [("$['x']: nope", 1)]

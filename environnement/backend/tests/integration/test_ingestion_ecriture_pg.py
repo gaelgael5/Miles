@@ -517,3 +517,44 @@ async def test_chaque_objet_ECRIT_laisse_son_event_et_un_objet_inchange_AUCUN(
         # Deux créations, puis la seule mise à jour du second dépôt.
         assert [row["object_id"] for row in rows] == [M1, M2, M2]
         assert [json.loads(row["p"])["created"] for row in rows] == [True, True, False]
+
+
+async def test_l_ecran_rend_la_SYNTHESE_des_motifs_de_rejet_d_un_depot(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Ce qu'il faut pour corriger un modèle (Gael, 08/11/2026).
+
+    Le journal des appels disait « traité » sans jamais dire pourquoi des objets
+    n'étaient pas entrés : le compte-rendu n'était exposé par aucune route. Les deux
+    rejets portent le MÊME motif et un troisième objet passe — un lot homogène laisserait
+    passer une synthèse qui compterait le lot entier.
+    """
+    async with _ouvre(blank_db, tmp_path) as (stack, depot):
+        recu = await depot.depose(
+            [
+                LOT[0],
+                {"code": "M-4", "ville": "Lille", "postes": 1},
+                {"code": "M-5", "ville": "Douai", "postes": 2},
+            ]
+        )
+        ingestion = recu.json()["id"]
+
+        lu = await stack.client.get(f"/api/ingestion/calls/{ingestion}")
+
+        assert lu.status_code == 200, lu.text
+        issue = lu.json()
+        assert (issue["written"], issue["rejected"]) == (1, 2)
+        assert len(issue["reasons"]) == 1
+        motif = issue["reasons"][0]
+        assert (motif["reason"], motif["count"]) == (REJECT_MODEL, 2)
+        # Le chemin de l'écart, pour corriger le modèle sans appel exploratoire.
+        assert "Libelle" in motif["detail"]
+
+
+async def test_un_depot_inconnu_de_l_ecran_rend_404(blank_db: str, tmp_path: Path) -> None:
+    """Fail closed : une route de détail qui rend un corps vide sur un identifiant
+    inconnu ferait lire « aucun rejet » là où il n'y a aucun dépôt."""
+    async with _ouvre(blank_db, tmp_path) as (stack, _):
+        lu = await stack.client.get(f"/api/ingestion/calls/{'0' * 32}")
+
+        assert lu.status_code == 404

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useInstant } from "@miles/socle-web";
 
 import { useIngestionCalls } from "../api/ingestion";
+import { CallOutcome } from "./CallOutcome";
 
 /**
  * Le journal des derniers appels d'UNE source : UNE ligne par appel, jamais par objet.
@@ -19,6 +20,10 @@ export function IngestionCalls({ source }: { source: string }) {
   const { t } = useTranslation();
   const instant = useInstant();
   const [page, setPage] = useState(1);
+  // L'appel OUVERT, par son identifiant, et un seul à la fois : le détail se lit, il ne
+  // se compare pas. Par l'identifiant et non par le rang, qui change de sens dès qu'on
+  // tourne la page.
+  const [ouvert, setOuvert] = useState<string | null>(null);
   const appels = useIngestionCalls(source, page);
   const pages = appels.data === undefined ? 1 : Math.max(1, Math.ceil(appels.data.total / appels.data.page_size));
 
@@ -47,11 +52,16 @@ export function IngestionCalls({ source }: { source: string }) {
           <p className="caption">{t("ingestion.calls.found", { count: appels.data.total })}</p>
           <ul className="plain-list">
             {appels.data.calls.map((appel) => (
-              <li key={appel.id} className="row">
+              <li key={appel.id} className="row row-openable">
                 <div className="row-main">
-                  <span className="row-title">
+                  <button
+                    type="button"
+                    className="row-open row-title"
+                    aria-expanded={ouvert === appel.id}
+                    onClick={() => setOuvert(ouvert === appel.id ? null : appel.id)}
+                  >
                     {instant(appel.received_at)}
-                  </span>
+                  </button>
                   <div className="row-sub">
                     <span className="mono">
                       {t(`ingestion.modes.${appel.mode}`, appel.mode)}
@@ -73,6 +83,7 @@ export function IngestionCalls({ source }: { source: string }) {
                   {" · "}
                   {t(`ingestion.states.${appel.state}`, appel.state)}
                 </p>
+                {ouvert === appel.id && <CallOutcome ingestionId={appel.id} />}
               </li>
             ))}
           </ul>

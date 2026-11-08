@@ -245,6 +245,22 @@
       "title": "Call this source from the command line",
       "copy": "Copy the command",
       "help": "Replace {{placeholder}} with an API key granted on this source. The key is never shown here: the back-office holds its own and never sends it to the browser."
+    },
+    "outcome": {
+      "loading": "Reading the report…",
+      "unreadable": "This deposit's report could not be read.",
+      "counts": "{{written}} written · {{unchanged}} unchanged · {{rejected}} rejected",
+      "itemsRead": "{{read}} items read from the document",
+      "failure": "Stopped: {{code}} {{detail}}",
+      "noRejection": "No object rejected.",
+      "reasons": "Rejection reasons",
+      "sample": "· for example {{key}}"
+    },
+    "rejects": {
+      "cle_non_extractible": "key could not be extracted",
+      "transformation_en_echec": "transformation failed",
+      "modele_non_respecte": "model not satisfied",
+      "objet_d_origine_manuelle": "manually created object"
     }
   }
 }

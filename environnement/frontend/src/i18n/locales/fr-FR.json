@@ -245,6 +245,22 @@
       "title": "Appeler cette source en ligne de commande",
       "copy": "Copier la commande",
       "help": "Remplacez {{placeholder}} par une clé d'API octroyée sur cette source. La clé n'est jamais affichée ici : le back-office détient la sienne et ne la fait pas descendre dans le navigateur."
+    },
+    "outcome": {
+      "loading": "Lecture du compte-rendu…",
+      "unreadable": "Le compte-rendu de ce dépôt n'a pas pu être lu.",
+      "counts": "{{written}} écrits · {{unchanged}} inchangés · {{rejected}} rejetés",
+      "itemsRead": "{{read}} items lus du document",
+      "failure": "Arrêt : {{code}} {{detail}}",
+      "noRejection": "Aucun objet rejeté.",
+      "reasons": "Motifs de rejet",
+      "sample": "· par exemple {{key}}"
+    },
+    "rejects": {
+      "cle_non_extractible": "clé non extractible",
+      "transformation_en_echec": "transformation en échec",
+      "modele_non_respecte": "modèle non respecté",
+      "objet_d_origine_manuelle": "objet d'origine manuelle"
     }
   }
 }

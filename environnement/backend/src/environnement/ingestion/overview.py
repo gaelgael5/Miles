@@ -25,7 +25,9 @@ from environnement.ingestion.methods import Endpoint, file_endpoints
 from environnement.ingestion.model import MODES, SERVED_MODES
 from environnement.ingestion.store import (
     Call,
+    CallOutcome,
     db_call_count,
+    db_call_outcome,
     db_counts,
     db_key_counts,
     db_recent_calls,
@@ -113,6 +115,16 @@ class IngestionOverview:
             )
             total = await db_call_count(conn, source)
         return CallPage(tuple(appels), total, rang, taille)
+
+    async def resolve_call_outcome(self, ingestion_id: str) -> CallOutcome | None:
+        """Ce qu'un dépôt est devenu : son état, ses comptes, ses MOTIFS de rejet.
+
+        C'est ce qui manquait pour corriger un modèle (Gael, 08/11/2026) : le journal des
+        appels disait « traité » sans jamais dire pourquoi vingt-cinq mille objets
+        n'étaient pas entrés. Lu à la demande, sur une ligne ouverte, jamais avec la liste.
+        """
+        async with self.pool.acquire() as conn:
+            return await db_call_outcome(conn, ingestion_id)
 
     async def resolve_declared_sources(self) -> tuple[str, ...]:
         """Les sources déclarées : ce sur quoi le filtre du journal peut porter."""

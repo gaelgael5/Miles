@@ -68,6 +68,48 @@ export function useIngestionHealth() {
   });
 }
 
+/** Un MOTIF de rejet et son compte : de quoi corriger un modèle sans deviner. */
+export interface RejectionReason {
+  reason: string;
+  detail: string | null;
+  count: number;
+  /** Un objet rejeté sous ce motif. Nul quand la clé n'a pas pu être extraite. */
+  sample_key: string | null;
+}
+
+export interface CallOutcome {
+  id: string;
+  state: string;
+  /** Les items LUS du document. Nul pour les modes synchrones, qui ne s'interrompent pas. */
+  items_read: number | null;
+  failure_code: string | null;
+  failure_detail: string | null;
+  received: number | null;
+  written: number | null;
+  unchanged: number | null;
+  rejected: number | null;
+  reasons: RejectionReason[];
+  anomalies: string[];
+}
+
+/**
+ * Ce qu'un dépôt est devenu, lu seulement quand on OUVRE sa ligne.
+ *
+ * Jamais avec la liste : un compte-rendu d'import porte jusqu'à deux cents objets et sa
+ * synthèse de motifs, et une page de cinquante appels ferait une réponse de plusieurs
+ * mégaoctets pour un détail qu'on ne regarde qu'une fois.
+ */
+export function useCallOutcome(ingestionId: string | null) {
+  return useQuery({
+    queryKey: ["ingestion", "outcome", ingestionId],
+    queryFn: ({ signal }) =>
+      request<CallOutcome>(`/api/ingestion/calls/${encodeURIComponent(ingestionId ?? "")}`, {
+        signal,
+      }),
+    enabled: ingestionId !== null,
+  });
+}
+
 export function useIngestionCalls(source: string, page: number) {
   const params = new URLSearchParams({ page: String(page) });
   if (source !== "") {
