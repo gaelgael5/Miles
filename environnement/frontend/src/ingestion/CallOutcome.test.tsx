@@ -15,6 +15,13 @@ const ROUTE = `GET /api/ingestion/calls/${INGESTION}`;
 const ISSUE: Issue = {
   id: INGESTION,
   state: "traite",
+  // Les quatre instants d'un import réel : deux secondes d'attente, une minute
+  // cinquante et une de lecture, dix-neuf secondes d'écriture. DISCRIMINANTS — avec des
+  // durées égales, rien ne distinguerait les trois phases l'une de l'autre.
+  received_at: "2026-11-08T18:24:38Z",
+  started_at: "2026-11-08T18:24:40Z",
+  apply_started_at: "2026-11-08T18:26:31Z",
+  finished_at: "2026-11-08T18:26:50Z",
   items_read: 194361,
   failure_code: null,
   failure_detail: null,
@@ -74,6 +81,27 @@ describe("le compte-rendu d'un dépôt", () => {
     expect(
       await screen.findByText("151,007 written · 17,768 unchanged · 25,586 rejected"),
     ).toBeInTheDocument();
+  });
+
+  it("sépare les TROIS temps de l'import, qui ne se confondent pas", async () => {
+    // Un seul nombre ferait chercher une lenteur au mauvais endroit : l'attente en file
+    // ne dit rien du coût du document, la lecture est le temps long, et l'écriture est
+    // celle qui tient une transaction.
+    monte();
+
+    expect(await screen.findByText(/2 min 10 sec/)).toBeInTheDocument();
+    expect(screen.getByText(/reading 1 min 51 sec/)).toBeInTheDocument();
+    expect(screen.getByText(/writing 19 sec/)).toBeInTheDocument();
+    expect(screen.getByText("Queued before start: 2 sec")).toBeInTheDocument();
+  });
+
+  it("ne montre AUCUNE durée pour un mode synchrone, qui traite dans l'appel", async () => {
+    // Les instants de l'import sont nuls : afficher « 0 s » ferait croire à un import
+    // instantané là où il n'y a pas eu d'import du tout.
+    monte({ started_at: null, apply_started_at: null, finished_at: null, items_read: null });
+
+    expect(await screen.findByText(/written/)).toBeInTheDocument();
+    expect(screen.queryByText(/Import:/)).not.toBeInTheDocument();
   });
 
   it("dit qu'AUCUN objet n'a été rejeté plutôt que de ne rien dire", async () => {

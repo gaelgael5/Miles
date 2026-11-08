@@ -80,6 +80,12 @@ export interface RejectionReason {
 export interface CallOutcome {
   id: string;
   state: string;
+  received_at: string;
+  /** Les trois instants de l'import. Nuls tant que l'étape n'a pas eu lieu, et pour les
+   * modes synchrones, qui traitent dans l'appel. */
+  started_at: string | null;
+  apply_started_at: string | null;
+  finished_at: string | null;
   /** Les items LUS du document. Nul pour les modes synchrones, qui ne s'interrompent pas. */
   items_read: number | null;
   failure_code: string | null;

@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { useTranslation } from "react-i18next";
 
 import i18n from "./i18n";
-import { useInstant } from "./instants";
+import { useDuration, useInstant } from "./instants";
 
 // Le 2 novembre 2026 : la SEULE date qui éprouve quelque chose ici. Un jour supérieur à
 // douze (« 20/11 ») se lit pareil dans les deux cultures à l'ordre près, et une date
@@ -50,5 +50,40 @@ describe("useInstant", () => {
     // La raison d'être du hook : une fonction qui lirait la culture au chargement du
     // module laisserait la date dans l'ancienne culture jusqu'à un rendu venu d'ailleurs.
     expect(await screen.findByText(/^02\/11\/2026/)).toBeInTheDocument();
+  });
+});
+
+function Duree({ milliseconds }: { milliseconds: number }) {
+  const duree = useDuration();
+  useTranslation();
+  return <p>{duree(milliseconds)}</p>;
+}
+
+describe("useDuration", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("en-US");
+  });
+
+  it("keeps a decimal below the minute, where it discriminates", () => {
+    // Huit secondes et huit secondes et demie ne se comparent pas sans elle.
+    render(<Duree milliseconds={8500} />);
+
+    expect(screen.getByText("8.5 sec")).toBeInTheDocument();
+  });
+
+  it("rounds to the second beyond the minute, where the decimal is noise", () => {
+    render(<Duree milliseconds={130_400} />);
+
+    expect(screen.getByText("2 min 10 sec")).toBeInTheDocument();
+  });
+
+  it("says the units in the INTERFACE culture, not the browser's", async () => {
+    // Tout l'objet de ce module : une durée écrite en dur resterait en anglais sur une
+    // interface française, et `toLocaleString` lirait la culture du navigateur.
+    await act(() => i18n.changeLanguage("fr-FR"));
+
+    render(<Duree milliseconds={8500} />);
+
+    expect(screen.getByText("8,5 s")).toBeInTheDocument();
   });
 });

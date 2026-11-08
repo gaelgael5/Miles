@@ -106,6 +106,13 @@ class CallOutcomeOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     state: str
+    # Les quatre instants : l'attente en file, la lecture, l'écriture. Rendus BRUTS, et
+    # non en durées calculées ici — c'est l'écran qui sait dans quelle culture il les
+    # présente, et une durée calculée côté serveur perdrait les bornes qui l'expliquent.
+    received_at: datetime
+    started_at: datetime | None
+    apply_started_at: datetime | None
+    finished_at: datetime | None
     items_read: int | None
     failure_code: str | None
     failure_detail: str | None
@@ -156,6 +163,10 @@ def _outcome(issue: CallOutcome) -> CallOutcomeOut:
     return CallOutcomeOut(
         id=issue.id,
         state=issue.state,
+        received_at=issue.received_at,
+        started_at=issue.started_at,
+        apply_started_at=issue.apply_started_at,
+        finished_at=issue.finished_at,
         items_read=issue.items_read,
         failure_code=issue.failure_code,
         failure_detail=issue.failure_detail,

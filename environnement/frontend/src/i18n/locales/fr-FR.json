@@ -254,7 +254,10 @@
       "failure": "Arrêt : {{code}} {{detail}}",
       "noRejection": "Aucun objet rejeté.",
       "reasons": "Motifs de rejet",
-      "sample": "· par exemple {{key}}"
+      "sample": "· par exemple {{key}}",
+      "duration": "Import : {{total}}",
+      "phases": "— lecture {{read}} · écriture {{write}}",
+      "queued": "Attente en file avant démarrage : {{wait}}"
     },
     "rejects": {
       "cle_non_extractible": "clé non extractible",

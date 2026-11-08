@@ -140,6 +140,16 @@ class CallOutcome:
 
     id: str
     state: str
+    # Les QUATRE instants, parce qu'une durée d'import ne se lit pas d'un seul nombre :
+    # l'attente en file (reçu → démarré) ne dit rien du coût du document, la lecture et la
+    # transformation (démarré → écriture) sont le temps long, et l'écriture (écriture →
+    # fini) est celle qui tient une transaction. Les confondre ferait chercher une lenteur
+    # là où il n'y en a pas. Nuls tant que l'étape n'a pas eu lieu, et pour les modes
+    # synchrones, qui traitent dans l'appel.
+    received_at: datetime
+    started_at: datetime | None
+    apply_started_at: datetime | None
+    finished_at: datetime | None
     # Le nombre d'items LUS du document, nul pour les modes synchrones : eux portent leur
     # compte dans le compte-rendu, et l'import de fichier est le seul à pouvoir
     # s'interrompre au milieu d'une lecture.
@@ -151,8 +161,8 @@ class CallOutcome:
 
 async def db_call_outcome(db: IngestionDb, ingestion_id: str) -> CallOutcome | None:
     row = await db.fetchrow(
-        "SELECT id, state, items_read, failure_code, failure_detail, report"
-        " FROM ingestions WHERE id = $1",
+        "SELECT id, state, received_at, started_at, apply_started_at, finished_at,"
+        " items_read, failure_code, failure_detail, report FROM ingestions WHERE id = $1",
         ingestion_id,
     )
     if row is None:
@@ -166,6 +176,10 @@ async def db_call_outcome(db: IngestionDb, ingestion_id: str) -> CallOutcome | N
     return CallOutcome(
         id=row["id"],
         state=row["state"],
+        received_at=row["received_at"],
+        started_at=row["started_at"],
+        apply_started_at=row["apply_started_at"],
+        finished_at=row["finished_at"],
         items_read=None if row["items_read"] is None else int(row["items_read"]),
         failure_code=row["failure_code"],
         failure_detail=row["failure_detail"],

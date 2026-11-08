@@ -1,6 +1,53 @@
 import { useTranslation } from "react-i18next";
 
-import { useCallOutcome } from "../api/ingestion";
+import { useDuration } from "@miles/socle-web";
+
+import { type CallOutcome as Issue, useCallOutcome } from "../api/ingestion";
+
+/** L'écart entre deux instants, nul tant que l'un des deux n'a pas eu lieu. */
+function ecart(debut: string | null, fin: string | null): number | null {
+  if (debut === null || fin === null) {
+    return null;
+  }
+  return new Date(fin).getTime() - new Date(debut).getTime();
+}
+
+/**
+ * Les trois temps d'un import, et ils ne se confondent pas : l'attente en file ne dit
+ * rien du coût du document, la lecture est le temps long, et l'écriture est celle qui
+ * tient une transaction. Un seul nombre ferait chercher une lenteur au mauvais endroit.
+ */
+function Durations({ issue }: { issue: Issue }) {
+  const { t } = useTranslation();
+  const duree = useDuration();
+  const attente = ecart(issue.received_at, issue.started_at);
+  const total = ecart(issue.started_at, issue.finished_at);
+  const lecture = ecart(issue.started_at, issue.apply_started_at);
+  const ecriture = ecart(issue.apply_started_at, issue.finished_at);
+
+  if (total === null) {
+    return null;
+  }
+  return (
+    <>
+      <p className="caption">
+        {t("ingestion.outcome.duration", { total: duree(total) })}
+        {lecture !== null && ecriture !== null && (
+          <>
+            {" "}
+            {t("ingestion.outcome.phases", {
+              read: duree(lecture),
+              write: duree(ecriture),
+            })}
+          </>
+        )}
+      </p>
+      {attente !== null && attente >= 1000 && (
+        <p className="help">{t("ingestion.outcome.queued", { wait: duree(attente) })}</p>
+      )}
+    </>
+  );
+}
 
 /**
  * Ce qu'un dépôt est DEVENU, sous la ligne qu'on vient d'ouvrir.
@@ -50,6 +97,7 @@ export function CallOutcome({ ingestionId }: { ingestionId: string }) {
           {t("ingestion.outcome.itemsRead", { count: items_read, read: nombre.format(items_read) })}
         </p>
       )}
+      <Durations issue={issue.data} />
       {failure_code !== null && (
         <p className="alert" role="status">
           {t("ingestion.outcome.failure", {
