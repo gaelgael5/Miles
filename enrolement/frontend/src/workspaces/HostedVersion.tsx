@@ -74,7 +74,7 @@ function Etat({ ordonnee }: { ordonnee: OrderedVersion }) {
         <dt className="caption">{t("workspaces.version.captionServed")}</dt>
         <dd className="value">
           {ordonnee.up_to_date ? (
-            <span className="badge badge-ok">{t("workspaces.version.upToDate")}</span>
+            <span className="badge badge-success">{t("workspaces.version.upToDate")}</span>
           ) : (
             // Le refus est NOMMÉ : chacun appelle un geste différent, et « pas à jour »
             // seul enverrait chercher au hasard. Le geste, lui, est sur la LIGNE de la

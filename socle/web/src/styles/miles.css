@@ -334,14 +334,25 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 
 /* Formulaires. */
 .field { display: block; margin-bottom: 18px; font-size: 14px; font-weight: 600; }
-.field input, .field select, .field textarea {
+/* La CASE et le BOUTON RADIO sont exclus, et c'est le point : cette règle décrit un champ
+   de SAISIE — bloc, pleine largeur, 44 px de haut pour le pouce. Appliquée à une case,
+   elle en fait un rectangle géant qui pousse son libellé à la ligne (défaut vu par Gael le
+   08/11/2026 sur « Clés d'API », dans un `fieldset` porteur de `.field`). Deux rustines
+   locales existaient déjà pour la même raison — `.row-compact` et `.tree-pick` — : la
+   cause est ici, pas chez elles. */
+.field input:not([type="checkbox"]):not([type="radio"]), .field select, .field textarea {
   display: block; width: 100%; margin-top: 8px; font-family: inherit; font-size: 14px;
   font-weight: 400; padding: 10px 12px; min-height: 44px; border: 1px solid var(--bordure-champ);
   border-radius: 6px; background: var(--surface); color: var(--encre);
 }
 .field textarea { font-family: var(--police-mono); font-size: 12.5px; }
-.field-check { display: flex; gap: 10px; align-items: center; font-size: 14px; margin-bottom: 6px; }
-.field-check input { width: 18px; height: 18px; }
+/* Graisse normale déclarée, et non héritée : imbriquée dans un `.field`, la ligne prendrait
+   le 600 que celui-ci met pour son libellé, et chaque case aurait l'air d'un intitulé. */
+.field-check {
+  display: flex; gap: 10px; align-items: center; font-size: 14px; font-weight: 400;
+  margin-bottom: 6px;
+}
+.field-check input { flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; margin: 0; }
 /* Barre de filtres : des champs cote a cote qui s'empilent quand la largeur manque, sans
    media query — c'est la place disponible qui decide, pas le type d'appareil. L'ecart
    vertical une fois empiles vient de la marge basse de `.field`, d'ou le gap a 0. */

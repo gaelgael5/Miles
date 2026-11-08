@@ -63,8 +63,11 @@ export function NewApiKey({ sources }: { sources: string[] }) {
       </label>
       <fieldset className="field">
         <legend>{t("apiKeys.sources")}</legend>
+        {/* `field-check`, la ligne à cocher du socle : `check` n'existait dans aucune
+            feuille de style, et la ligne n'avait donc aucune mise en forme — la case
+            prenait celle d'un champ de saisie, pleine largeur et 44 px de haut. */}
         {sources.map((source) => (
-          <label key={source} className="check">
+          <label key={source} className="field-check">
             <input
               type="checkbox"
               checked={cochees.includes(source)}
