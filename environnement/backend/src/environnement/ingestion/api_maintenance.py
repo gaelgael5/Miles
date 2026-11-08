@@ -37,6 +37,7 @@ class ImportsMaintenanceOut(BaseModel):
     purged_for_quota: int
     orphan_files_removed: int
     drained: int
+    drain_failures: int
     used_bytes: int
     changed: bool
 
@@ -75,6 +76,7 @@ def _out(rapport: ImportsMaintenanceReport) -> ImportsMaintenanceOut:
         purged_for_quota=rapport.purged_for_quota,
         orphan_files_removed=rapport.orphan_files_removed,
         drained=rapport.drained,
+        drain_failures=rapport.drain_failures,
         used_bytes=rapport.used_bytes,
         changed=rapport.changed,
     )

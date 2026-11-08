@@ -144,11 +144,23 @@ class FileImports:
             await self._failed(conn, job, refus.code, refus.detail, 0)
             return
         cible, prepared, keys = lu.target, lu.prepared, lu.keys
-        await db_set_metadata(
-            conn,
-            job.id,
-            await asyncio.to_thread(file_read_metadata, chemin, keys, self.limits.metadata_budget),
-        )
+        try:
+            entetes = await asyncio.to_thread(
+                file_read_metadata, chemin, keys, self.limits.metadata_budget
+            )
+        except DocumentUnreadable as refus:
+            # La lecture des métadonnées refuse pour les mêmes raisons que la lecture des
+            # items — budget dépassé, JSON illisible, découpage introuvable —, et un
+            # document illisible est un RÉSULTAT de l'import, pas une panne du service :
+            # il s'inscrit sur l'ingestion comme celui que `_stage` découvre plus loin.
+            # Laissé sortir, il traversait `resolve_drain` jusqu'à l'entretien, qui rendait
+            # 500 ; l'ingestion restait « en cours » sans code de refus, donc reprise
+            # toutes les dix minutes, et la purge pour quota ne se faisait plus (bug
+            # `572551d7`, mesuré le 07/11/2026).
+            log.info("import_document_illisible", ingestion=job.id, code=refus.code, lus=0)
+            await self._failed(conn, job, refus.code, refus.detail, 0)
+            return
+        await db_set_metadata(conn, job.id, entetes)
         await db_open_prepared(conn)
         try:
             lus, incident = await self._stage(conn, job, prepared, cible.entry, chemin, keys)

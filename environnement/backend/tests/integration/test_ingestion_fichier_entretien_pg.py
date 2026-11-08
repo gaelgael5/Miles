@@ -31,6 +31,7 @@ from environnement.ingestion.api_maintenance import IMPORTS_MAINTENANCE_PATH
 from environnement.ingestion.applystaging import FAILURE_APPLY_TOO_LONG
 from environnement.ingestion.fileimport import FAILURE_FILE_MISSING, LOCK_PREFIX
 from environnement.ingestion.files import REFUSAL_FILE_TOO_LARGE, REFUSAL_QUOTA_REACHED
+from environnement.ingestion.jsonflux import METADATA_TOO_LARGE
 from environnement.ingestion.outcome import (
     STATE_FAILED_IMPORT,
     STATE_PROCESSED,
@@ -365,3 +366,99 @@ async def test_en_regime_etabli_la_transaction_d_ecriture_est_courte(
         ecriture = (ligne["finished_at"] - ligne["apply_started_at"]).total_seconds()
         assert total > 0
         assert ecriture < total / 2
+
+
+async def _depose_demesure(stack: EnvironnementStack, secret: str) -> Any:
+    """Dépose un document VALIDE dont une clé hors du découpage crève le budget.
+
+    Le budget est LU SUR LA STACK et non recopié : écrit en dur, ce test cesserait de
+    décrire le défaut le jour où le budget change, sans que rien ne le dise. Le dépôt
+    accepte ce document — il ne lit rien —, et c'est l'import qui le refuse : c'est par là
+    qu'un partenaire authentifié arrêtait l'entretien.
+    """
+    budget = stack.app.state.ingestion_file_imports.limits.metadata_budget
+    document = json.dumps({"entete": "x" * (2 * budget), "magasins": [_item("M-KO")]}).encode()
+    return await stack.anonymous().post(
+        INGEST_FILE_PATH.format(source=SOURCE),
+        content=document,
+        headers={"X-API-Key": secret, "Content-Type": "application/json"},
+    )
+
+
+async def test_un_document_illisible_TERMINE_son_import_au_lieu_de_faire_tomber_l_entretien(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Bug `572551d7` : l'entretien rendait 500, et l'ingestion restait « en cours ».
+
+    Elle était donc reprise toutes les dix minutes par le déclencheur d'hôte, et la purge
+    pour quota — qui vient avant le drainage — ne rendait plus ses comptes. Un refus de
+    document est un RÉSULTAT d'import : il s'inscrit sur l'ingestion et s'arrête là.
+    """
+    async with _ouvre(blank_db, tmp_path) as (stack, secret):
+        recu = await _depose_demesure(stack, secret)
+        ingestion = recu.json()["id"]
+        stack.lancements.clear()
+
+        rendu = await _entretien(stack)
+
+        assert rendu.status_code == 200, rendu.text
+        assert rendu.json()["drain_failures"] == 0
+        etat = await _etat(stack, ingestion)
+        assert (etat["state"], etat["failure_code"]) == (STATE_FAILED_IMPORT, METADATA_TOO_LARGE)
+
+        # Et le passage SUIVANT ne le reprend pas : c'est ce qui faisait la boucle.
+        encore = await _entretien(stack)
+        assert (encore.json()["requeued"], encore.json()["drained"]) == (0, 0)
+        assert (await _etat(stack, ingestion))["state"] == STATE_FAILED_IMPORT
+
+
+async def test_un_document_sain_depose_apres_un_document_illisible_est_bien_importe(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Un document fautif ne prive pas les suivants de leur import.
+
+    Les deux sont en file sur le MÊME storage : avant le correctif, le refus du premier
+    sortait de `resolve_drain` et le second n'était jamais mené.
+    """
+    async with _ouvre(blank_db, tmp_path) as (stack, secret):
+        fautif = (await _depose_demesure(stack, secret)).json()["id"]
+        sain = (await _depose(stack, secret, ["M-OK"])).json()["id"]
+        stack.lancements.clear()
+
+        rendu = await _entretien(stack)
+
+        assert rendu.status_code == 200, rendu.text
+        assert (await _etat(stack, fautif))["state"] == STATE_FAILED_IMPORT
+        assert (await _etat(stack, sain))["state"] == STATE_PROCESSED
+        assert await _cles(stack) == {'["M-OK"]'}
+
+
+async def test_un_drainage_qui_s_interrompt_est_COMPTE_et_n_emporte_pas_l_entretien(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 2 du bug `572551d7`, et il vaut pour TOUTE panne, pas pour le seul refus.
+
+    Le drainage est la dernière des cinq étapes : le laisser remonter faisait perdre le
+    rapport des quatre premières — rattrapage, purges, fichiers orphelins — alors qu'elles
+    avaient bien eu lieu. L'entretien les rend donc, et compte l'interruption.
+    """
+    async with _ouvre(blank_db, tmp_path) as (stack, secret):
+        await _depose(stack, secret, ["M-1"])
+        stack.lancements.clear()
+        orphelin = "f" * 32
+        stack.ingestion_files.root.mkdir(parents=True, exist_ok=True)
+        stack.ingestion_files.file_path(orphelin).write_bytes(b"{}")
+
+        async def tombe(storage: str) -> int:
+            raise RuntimeError(f"la file de {storage} s'interrompt")
+
+        stack.app.state.ingestion_maintenance = replace(
+            stack.app.state.ingestion_maintenance, drain=tombe
+        )
+        rendu = await _entretien(stack)
+
+        assert rendu.status_code == 200, rendu.text
+        assert rendu.json()["drain_failures"] == 1
+        assert rendu.json()["drained"] == 0
+        # Les étapes qui précèdent ont bien rendu leurs comptes.
+        assert rendu.json()["orphan_files_removed"] == 1

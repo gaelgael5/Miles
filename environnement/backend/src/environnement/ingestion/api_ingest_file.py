@@ -62,13 +62,24 @@ INGEST_OPERATIONS = {ELEMENT: INGEST_PATH, BATCH: INGEST_PATH, FILE: INGEST_FILE
 router = APIRouter(tags=["ingestion"])
 
 # Combien d'octets on veut bien lire d'un corps qu'on a DÉJÀ refusé, pour que le refus
-# arrive lisible à l'appelant. La raison du drainage est dans `_drain` ; la raison de la
-# borne est qu'au-delà, absorber un document refusé donnerait à un appelant sans droits le
-# pouvoir de nous faire lire deux gigaoctets. La valeur reprend `MAX_BODY_BYTES` : c'est
-# déjà ce que ce module considère comme un corps qu'on lit sans y penser. DÉRIVÉE et
-# non recopiée : deux littéraux de même valeur auraient divergé au premier relèvement
-# fait d'un seul côté.
-DRAIN_MAX = MAX_BODY_BYTES
+# arrive lisible à l'appelant (la raison du drainage est dans `_drain`). DEUX bornes, parce
+# qu'il y a deux appelants et qu'ils n'engagent pas la même chose :
+#
+# - l'appelant qui n'a PAS de clé valide est anonyme, donc irresponsable au sens propre :
+#   rien ne permet de le retrouver ni de lui retirer quoi que ce soit. Drainer tout ce
+#   qu'il envoie lui donnerait le pouvoir de nous faire lire deux gigaoctets par requête,
+#   autant de fois qu'il veut. Sa borne est celle d'un corps qu'on lit sans y penser,
+#   `MAX_BODY_BYTES` — DÉRIVÉE et non recopiée ;
+# - l'appelant REFUSÉ APRÈS AUTHENTIFICATION — quota, document trop grand, mode non
+#   déclaré — est un partenaire connu, dont on accepterait le document entier si sa clé
+#   était en règle. Lui couper la connexion lui faisait lire « bad gateway » au lieu de son
+#   refus (mesuré le 07/11/2026 : 20 Mio refusés rendaient un 502), alors que le coût est
+#   celui d'un dépôt qu'on aurait de toute façon lu. Sa borne est donc celle du point
+#   d'entrée lui-même, `ingestion_file_max_bytes`, lue sur le service.
+#
+# `resolve_deposit` authentifie AVANT tout autre refus : c'est ce qui rend la distinction
+# sûre, et elle serait fausse le jour où un refus passerait devant l'authentification.
+DRAIN_ANONYMOUS_MAX = MAX_BODY_BYTES
 
 
 def file_deposits(request: Request) -> FileDeposits:
@@ -203,20 +214,20 @@ async def deposit_file(
         )
     except NotAuthenticated:
         # UN SEUL refus pour toutes les raisons : les distinguer offrirait un oracle.
-        await _drain(chunks)
+        await _drain(chunks, DRAIN_ANONYMOUS_MAX)
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"detail": {"code": "authentification_requise", "detail": None}},
             headers={"WWW-Authenticate": CHALLENGE},
         )
     except FileRefused as refus:
-        await _drain(chunks)
+        await _drain(chunks, service.files.max_bytes)
         return JSONResponse(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             content={"detail": {"code": refus.code, "detail": refus.detail}},
         )
     except IngestionRefusal as refus:
-        await _drain(chunks)
+        await _drain(chunks, service.files.max_bytes)
         return JSONResponse(
             status_code=status_of(refus.code),
             content={"detail": {"code": refus.code, "detail": refus.detail}},
@@ -239,8 +250,8 @@ async def deposit_file(
     )
 
 
-async def _drain(chunks: AsyncIterator[bytes]) -> None:
-    """Consomme ce qui reste du corps AVANT de rendre un refus, dans la limite de `DRAIN_MAX`.
+async def _drain(chunks: AsyncIterator[bytes], maximum: int) -> None:
+    """Consomme ce qui reste du corps AVANT de rendre un refus, dans la limite de `maximum`.
 
     Sans ce geste, le gestionnaire répond et uvicorn referme la connexion alors que le
     mandataire écrit encore : nginx voit `writev() failed (104: Connection reset by peer)`,
@@ -250,15 +261,17 @@ async def _drain(chunks: AsyncIterator[bytes]) -> None:
     le 07/11/2026 sur un corps d'un mégaoctet, le backend ayant bien journalisé son 401
     (bug `abc1b595`).
 
-    **Borné**, et c'est le point délicat : lire tout un document qu'on vient de refuser
-    donnerait à un appelant sans droits le pouvoir de nous faire absorber deux gigaoctets.
-    Au-delà de la borne on referme — l'appelant lit alors une connexion coupée, ce qui est
-    le prix d'un envoi massif déjà refusé, et non le cas du partenaire qui se trompe de clé.
+    **Borné**, et la borne est celle de l'APPELANT, donnée par le gestionnaire : elle vaut
+    un petit corps pour qui n'a pas de clé valide, et la taille maximale d'un dépôt pour un
+    partenaire authentifié dont le dépôt est refusé. Le choix des deux valeurs, et pourquoi
+    une seule ne convenait pas, est au point de leur déclaration. Au-delà on referme —
+    l'appelant lit alors une connexion coupée, ce qui est le prix d'un envoi massif qu'on a
+    refusé sans savoir qui l'envoie.
 
     Un client qui a déjà raccroché n'a rien à drainer : `ClientDisconnect` est donc une fin
     normale ici, et non une panne à faire remonter.
     """
-    reste = DRAIN_MAX
+    reste = maximum
     try:
         async for morceau in chunks:
             reste -= len(morceau)

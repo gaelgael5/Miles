@@ -55,10 +55,17 @@ class ImportsMaintenanceReport:
     purged_for_quota: int
     orphan_files_removed: int
     drained: int
+    # Les storages dont le drainage s'est interrompu. COMPTÉS, et non tus : sans ce
+    # chiffre, un entretien qui ne mène plus aucun import rendrait exactement la même
+    # réponse qu'un entretien qui n'avait rien à mener.
+    drain_failures: int
     used_bytes: int
 
     @property
     def changed(self) -> bool:
+        # `drain_failures` n'y entre PAS, volontairement : la question est « la base
+        # a-t-elle bougé », et un drainage interrompu n'a rien bougé. Il se lit à son
+        # propre compte, et dans la trace que l'entretien laisse.
         return bool(
             self.requeued
             or self.failed
@@ -92,8 +99,19 @@ class ImportsMaintenance:
             orphelins = await self._remove_orphans(conn)
             storages = await db_queued_storages(conn)
         menes = 0
+        interrompus = 0
         for storage in storages:
-            menes += await self.drain(storage)
+            try:
+                menes += await self.drain(storage)
+            except Exception:
+                # Un storage qui s'interrompt ne prive pas les AUTRES de leur rattrapage,
+                # et l'entretien rend ses comptes au lieu d'un 500 que le déclencheur
+                # d'hôte rejouerait toutes les dix minutes — emportant avec lui la purge
+                # des documents expirés et la purge pour quota (bug `572551d7`). La trace
+                # reste complète : une interruption ici est un défaut de service, pas un
+                # refus de document, et les refus, eux, ne remontent plus jusqu'ici.
+                log.exception("entretien_file_interrompue", storage=storage)
+                interrompus += 1
         rapport = ImportsMaintenanceReport(
             requeued=repris,
             failed=echoues,
@@ -101,6 +119,7 @@ class ImportsMaintenance:
             purged_for_quota=quota,
             orphan_files_removed=orphelins,
             drained=menes,
+            drain_failures=interrompus,
             used_bytes=await self.files.file_used_bytes(),
         )
         log.info(
@@ -110,6 +129,7 @@ class ImportsMaintenance:
             purges=rapport.purged_expired + rapport.purged_for_quota,
             orphelins=rapport.orphan_files_removed,
             menes=rapport.drained,
+            interrompus=rapport.drain_failures,
         )
         return rapport
 
