@@ -99,6 +99,17 @@ socle_valeur_durable MILES_SECRETS_KEY "$(openssl rand -base64 32 | tr '+/' '-_'
   "clé des secrets générée"
 # Machines de test partagées : 8080 y est souvent pris, d'où un port choisi au premier passage.
 socle_persist_default MILES_HTTP_PORT 8080
+# Le cookie de session n'est PAS marqué `Secure` sur une machine de test, alors que le
+# socle le veut à vrai par défaut. Raison MESURÉE le 08/11/2026 : cette stack est aussi
+# servie en HTTP direct sur son port publié (accès par l'IP du tailnet), et un navigateur
+# JETTE un cookie `Secure` reçu en `http://`. La connexion réussissait donc côté serveur —
+# `connexion_locale_reussie` journalisé, `POST /api/auth/login` en 200 — et le
+# `GET /api/auth/me` qui suit rendait 401 : l'écran restait sur le login, le bouton avait
+# l'air mort, et rien dans l'interface ne disait pourquoi.
+# Écart ASSUMÉ, et borné à ce script, qui ne déploie que des machines de test : le défaut
+# du socle reste vrai (`settings.cookie_secure`), et un premier passage avec
+# `MILES_COOKIE_SECURE=true` le rétablit pour cette stack.
+socle_persist_default MILES_COOKIE_SECURE false
 socle_jeton_du_journal
 socle_persist_default MILES_MQTT_PORT 1883
 socle_persist_default EXPOSE_PORTAL_URL
