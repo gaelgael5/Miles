@@ -239,3 +239,49 @@ def test_a_single_value_beyond_the_hard_cap_is_refused_rather_than_grown_forever
 
     assert refus.value.code == DOCUMENT_INVALID
     assert refus.value.detail is not None and "4096" in refus.value.detail
+
+
+@pytest.mark.parametrize("fenetre", FENETRES)
+def test_a_raw_control_character_inside_a_string_is_read_rather_than_refused(
+    tmp_path: Path, fenetre: int
+) -> None:
+    """Écart délibéré à RFC 8259, décidé par Gael le 08/11/2026 sur un export réel.
+
+    Les trois valeurs sont celles de son document : une tabulation brute dans une chaîne
+    arrêtait la lecture à la PREMIÈRE, et tout ce qui suivait — l'essentiel du fichier —
+    n'était jamais lu. Le document est écrit à la main, pas par `json.dumps`, qui
+    échapperait justement ce qu'on veut éprouver.
+    """
+    document = _write(
+        tmp_path,
+        '{"root":['
+        '{"City":"Gloucester\tGL4 3HX"},'
+        '{"LastName":"Meißner (Geb.\tSchuchhardt)"},'
+        '{"LocalizationInstruction":"-34.667933\t-58.507600"}'
+        "]}",
+    )
+
+    assert list(file_iter_items(document, ("root",), window_size=fenetre)) == [
+        {"City": "Gloucester\tGL4 3HX"},
+        {"LastName": "Meißner (Geb.\tSchuchhardt)"},
+        {"LocalizationInstruction": "-34.667933\t-58.507600"},
+    ]
+
+
+def test_a_control_character_in_the_metadata_is_read_too(tmp_path: Path) -> None:
+    """Même tolérance des deux côtés : les métadonnées passent par le même décodeur."""
+    document = _write(tmp_path, '{"entete":"ligne\nsuivante","root":[{"a":1}]}')
+
+    assert file_read_metadata(document, ("root",), 1_000) == {"entete": "ligne\nsuivante"}
+
+
+def test_a_string_never_closed_is_STILL_refused(tmp_path: Path) -> None:
+    """La tolérance ne doit pas avaler la vraie rupture : un guillemet manquant fait
+    absorber tout le reste du document comme une seule valeur, et c'est `VALUE_MAX` qui
+    arrête — c'est exactement ce que le document de 943 Mo a rencontré."""
+    document = _write(tmp_path, '{"root":[{"corps":"jamais referme' + "x" * 20_000 + "}]}")
+
+    with pytest.raises(DocumentUnreadable) as refus:
+        list(file_iter_items(document, ("root",), window_size=1024))
+
+    assert refus.value.code == DOCUMENT_INVALID

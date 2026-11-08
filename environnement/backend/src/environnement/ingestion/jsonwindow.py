@@ -41,7 +41,22 @@ WINDOW = 128 << 10
 # d'un unique objet de plusieurs gigaoctets ferait grandir la fenêtre jusqu'à la mémoire.
 VALUE_MAX = 64 << 20
 
-_DECODE = json.JSONDecoder().raw_decode
+# `strict=False` : les CARACTÈRES DE CONTRÔLE sont admis dans une chaîne, alors que
+# RFC 8259 les interdit non échappés. Écart DÉLIBÉRÉ, décidé par Gael le 08/11/2026 sur un
+# export réel — `"City" : "Gloucester<TAB>GL4 3HX"`, `"LastName" : "Meißner (Geb.<TAB>…"` —
+# où la tabulation brute arrêtait la lecture à la première occurrence : 17 800 comptes lus
+# sur un document qui en portait bien plus, et tout ce qui suivait jamais vu.
+#
+# Admissible parce que le cas est NON AMBIGU : un caractère de contrôle dans une chaîne ne
+# peut être que du contenu de cette chaîne, et il n'y a aucune autre lecture à en faire —
+# contrairement à une virgule finale ou à un `NaN`, qui demanderaient d'inventer une
+# interprétation. On ne devine donc rien, on cesse seulement de refuser.
+#
+# Ce qui reste refusé ne bouge pas : une chaîne jamais refermée bute toujours sur
+# `VALUE_MAX`, un document tronqué reste tronqué, un octet qui n'est pas de l'UTF-8 reste
+# un refus. Et la traversée de `jsonskip`, qui ne cherche que `\` et `"`, les tolérait déjà
+# — ce point-ci était le seul à ne pas le faire.
+_DECODE = json.JSONDecoder(strict=False).raw_decode
 # Publiques : `jsonskip` traverse les mêmes délimiteurs que `decode_value` contrôle.
 BLANKS = " \t\r\n"
 AFTER_VALUE = ",}]"
