@@ -377,7 +377,12 @@ async def _depose_demesure(stack: EnvironnementStack, secret: str) -> Any:
     qu'un partenaire authentifié arrêtait l'entretien.
     """
     budget = stack.app.state.ingestion_file_imports.limits.metadata_budget
-    document = json.dumps({"entete": "x" * (2 * budget), "magasins": [_item("M-KO")]}).encode()
+    # Le budget compte des NŒUDS, pas des octets : une longue chaîne reste UN nœud et
+    # passerait. Deux fois le budget en entrées d'un tableau le crève à coup sûr, et sans
+    # recopier la seconde borne — celle du texte qu'on accepte d'analyser —, qui est
+    # dérivée de celle-ci et dont une copie ici divergerait.
+    entete = list(range(2 * budget))
+    document = json.dumps({"entete": entete, "magasins": [_item("M-KO")]}).encode()
     return await stack.anonymous().post(
         INGEST_FILE_PATH.format(source=SOURCE),
         content=document,
