@@ -401,9 +401,17 @@ async def test_le_compte_rendu_porte_les_comptes_et_le_MOTIF_de_chaque_rejet(
         assert (sorts[2]["outcome"], sorts[2]["reason"]) == (REJECTED, REJECT_MODEL)
         # Le chemin de l'écart, pour corriger le template sans appel exploratoire.
         assert "Libelle" in sorts[2]["detail"]
-        # La clé est nulle sur un rejet d'avant l'extraction : le rang est alors la seule
-        # prise de l'appelant pour retrouver lequel de ses objets est en cause.
-        assert sorts[2]["key"] is None
+        # LA CLÉ EST NOMMÉE sur un rejet de MODÈLE depuis le 09/11/2026 (story
+        # `82bc9dca`). Ce test affirmait l'inverse, au motif que le rejet précède
+        # l'extraction : c'était vrai de l'ordre des contrôles, et faux de ce qu'on peut
+        # savoir — l'objet transformé porte sa clé, même refusé. Deux raisons de la garder,
+        # et la seconde a renversé la décision : elle dit à l'appelant lequel de ses objets
+        # corriger, et surtout elle empêche le marquage des absents de supprimer, au bout
+        # du délai, un item dont le document parlait fidèlement. Le rang reste la seule
+        # prise quand la clé est VRAIMENT hors d'atteinte — transformation en échec, ou
+        # propriété de clé absente —, ce que `test_ingestion_traitement` affirme des deux
+        # côtés de cette frontière.
+        assert sorts[2]["key"] == '["M-4"]'
 
 
 async def test_un_rejeu_rend_le_MEME_compte_rendu_sans_rien_reecrire(

@@ -121,18 +121,29 @@ class FileImports:
             try:
                 menes = 0
                 while True:
-                    job = await db_claim_next(conn, storage, self.now())
+                    # L'instant de la PRISE est nommé ici, et non relu plus tard : c'est
+                    # LA MÊME valeur qui part en base sur `started_at` et qui sert de
+                    # frontière au marquage des absents. Deux lectures d'horloge auraient
+                    # laissé des items du bon côté de l'une et du mauvais côté de l'autre.
+                    pris_a = self.now()
+                    job = await db_claim_next(conn, storage, pris_a)
                     if job is None:
                         return menes
-                    await self.resolve_import(conn, job)
+                    await self.resolve_import(conn, job, started_at=pris_a)
                     menes += 1
             finally:
                 # Dans un `finally` : un verrou de SESSION survit à l'exception comme à
                 # l'annulation de la tâche, et la connexion rendue au pool le garderait.
                 await conn.execute("SELECT pg_advisory_unlock(hashtext($1))", self._key(storage))
 
-    async def resolve_import(self, conn: Any, job: ImportJob) -> None:
-        """Mène un import pris : métadonnées, préparation, écriture, issue."""
+    async def resolve_import(self, conn: Any, job: ImportJob, *, started_at: datetime) -> None:
+        """Mène un import pris : métadonnées, préparation, écriture, issue.
+
+        `started_at` est l'instant de la prise, celui que la file a écrit sur la ligne.
+        Il n'est PAS porté par `ImportJob` : l'entretien relit des imports en cours pour
+        les remettre en file, sans jamais les mener, et lui faire porter un instant dont
+        il n'a que faire l'aurait rendu nul sur la moitié de ses usages.
+        """
         chemin = self.files.file_path(job.file_name)
         if not chemin.exists():
             # Le document a été purgé ou n'a jamais été posé : l'import ne peut plus être
@@ -165,7 +176,9 @@ class FileImports:
         await db_open_prepared(conn)
         try:
             lus, incident = await self._stage(conn, job, prepared, cible.entry, chemin, keys)
-            await self._write(conn, job, cible.entry, prepared, lus, incident)
+            await self._write(
+                conn, job, cible.entry, prepared, lus, incident, started_at=started_at
+            )
         finally:
             # Ôtée quoi qu'il arrive, et pas seulement en sortie heureuse : la connexion
             # revient au pool, et une table laissée derrière ferait écrire les items de ce
@@ -234,6 +247,8 @@ class FileImports:
         prepared: Prepared,
         lus: int,
         incident: tuple[str, str | None] | None,
+        *,
+        started_at: datetime,
     ) -> None:
         """Écrit l'aire de préparation, ou l'abandonne, et range l'issue de l'import."""
         if incident is not None and (incident[0] in STRUCTURAL or entry.unified_transaction):
@@ -270,7 +285,7 @@ class FileImports:
             # laisse l'ingestion « en cours », que l'entretien remet en file ; et avant
             # que l'appelant n'ôte l'aire de préparation, qui protège les items rejetés.
             # Ce que chaque clause de la sélection tient : `absence.py`.
-            await db_mark_absent(conn, prepared.table, started_at=job.started_at)
+            await db_mark_absent(conn, prepared.table, started_at=started_at)
         await db_finish_import(
             conn,
             job.id,

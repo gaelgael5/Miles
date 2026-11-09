@@ -299,6 +299,10 @@ class TestTraitement:
         issue = rapport.objects[0]
         assert (issue.outcome, issue.reason) == (REJECTED, REJECT_TRANSFORM)
         assert issue.detail is not None and "etape 0" in issue.detail
+        # La clé reste NULLE ici, et le rang est la seule prise de l'appelant : la
+        # transformation a échoué, donc il n'existe aucun objet d'où l'extraire. C'est la
+        # frontière de la décision du 09/11/2026, qui nomme la clé d'un rejet de MODÈLE.
+        assert issue.key is None
 
     @pytest.mark.asyncio
     async def test_une_cle_absente_du_RESULTAT_est_rejetee_avec_son_rang(self) -> None:
