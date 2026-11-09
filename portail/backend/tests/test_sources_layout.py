@@ -204,3 +204,48 @@ def test_form_problems_are_all_reported() -> None:
         ("libelle", "libelle_vide"),
         ("storage", "nom_invalide"),
     }
+
+
+ABSENTS = replace(DOC, entries=(replace(WEB, missing_removed_after_days=30),))
+
+
+def test_the_absent_removal_delay_is_written_and_reads_back_unchanged() -> None:
+    text = source_text(ABSENTS)
+
+    assert read_source(text) == ABSENTS
+    assert "absents_supprimes_apres_jours" in text
+
+
+def test_an_entry_without_the_delay_writes_none() -> None:
+    """Pas de règle est le défaut : un paramétrage déjà écrit ne se met pas à supprimer."""
+    assert "absents_supprimes_apres_jours" not in source_text(DOC)
+    assert read_source(source_text(DOC)).entries[0].missing_removed_after_days is None
+
+
+def test_an_absent_removal_delay_under_one_day_is_refused() -> None:
+    for days in (0, -1):
+        bad = replace(DOC, entries=(replace(WEB, missing_removed_after_days=days),))
+
+        assert ("entrees[0].absents_supprimes_apres_jours", "delai_trop_petit") in [
+            (p.path, p.code) for p in form_problems(bad)
+        ], days
+
+
+def test_the_absent_removal_rule_needs_the_file_mode() -> None:
+    """Seul un dépôt de fichier prétend porter l'image complète : un dépôt unitaire ne dit
+    rien de ce qu'il ne contient pas, donc rien n'y est « absent »."""
+    entry = replace(
+        WEB,
+        modes=EntryModes(element=True, batch=True, file=False),
+        split="",
+        missing_removed_after_days=30,
+    )
+    bad = replace(DOC, entries=(entry,))
+
+    assert ("entrees[0].absents_supprimes_apres_jours", "absents_hors_mode_fichier") in [
+        (p.path, p.code) for p in form_problems(bad)
+    ]
+
+
+def test_a_valid_absent_removal_rule_raises_no_form_problem() -> None:
+    assert form_problems(ABSENTS) == []

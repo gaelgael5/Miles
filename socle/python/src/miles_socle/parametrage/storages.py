@@ -24,7 +24,7 @@ from miles_socle.parametrage.yaml_read import ParametrageSyntaxError, load_yaml
 ROOT = "storages"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 _FILE_RE = re.compile(rf"^{ROOT}/(?P<name>[^/]+)\.yaml$")
-_KEYS = {"nom", "libelle", "modele", "cle", "index", "indexables"}
+_KEYS = {"nom", "libelle", "modele", "cle", "index", "indexables", "peremption"}
 # Un index porte de 1 à 3 colonnes (Gael, 24/10/2026). Le plafond est une décision, pas
 # une limite technique : au-delà, un index composite ne sert plus les filtres attendus et
 # coûte en écriture ce qu'il ne rend pas en lecture.
@@ -47,6 +47,25 @@ class Index:
 
 
 @dataclass(frozen=True)
+class Expiry:
+    """Une règle de péremption : l'objet sort quand sa propriété plus le délai est passée.
+
+    Déclarée par l'administrateur (Gael, 09/11/2026), et donc dans git : `git revert`
+    défait une règle de suppression avec le commit qui l'a posée.
+
+    La propriété désigne une colonne d'index DÉCLARÉE du même storage, et c'est ce qui
+    rend la règle évaluable par un filtre indexé plutôt que par un parcours de table —
+    l'exigence se vérifie à la saisie, où le modèle est lisible.
+    """
+
+    property: str
+    # En jours, et le nom le dit : dériver la valeur d'une borne ne dit rien de son unité.
+    # Pas de défaut — une règle sans délai supprimerait dès la date atteinte, et ce n'est
+    # jamais ce que quelqu'un a voulu écrire sans l'écrire.
+    days: int
+
+
+@dataclass(frozen=True)
 class StorageDoc:
     # Identifiant : il nomme le fichier, donc contraint à ce qui fait un nom de fichier.
     # Il se DÉDUIT du libellé à la création (comme un contrat ou une chaîne) : on ne fait
@@ -60,6 +79,9 @@ class StorageDoc:
     # alimentée par API directe n'a pas de document source (Gael, 24/10/2026).
     keys: tuple[str, ...]
     indexes: tuple[Index, ...]
+    # Vide par défaut : un storage sans règle ne se nettoie pas, et un paramétrage déjà
+    # écrit ne doit pas se mettre à supprimer parce qu'une version l'a traversé.
+    expiries: tuple[Expiry, ...] = ()
 
 
 def storage_path(name: str) -> str:
@@ -91,9 +113,38 @@ def read_storage(text: str | None) -> StorageDoc | None:
             _text(data.get("modele")),
             tuple(_text(k) for k in keys),
             indexes,
+            _expiries(data.get("peremption")),
         )
     except (TypeError, AttributeError):
         return None
+
+
+def _expiries(raw: object) -> tuple[Expiry, ...]:
+    """Les règles de péremption déclarées. Absentes : aucune.
+
+    Une règle mal formée fait refuser la déclaration ENTIÈRE plutôt que d'être ignorée :
+    une règle de suppression qu'on écarte en silence laisse croire qu'elle protège, et
+    c'est l'inverse d'un repli sûr.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise TypeError
+    return tuple(_one_expiry(r) for r in raw)
+
+
+def _one_expiry(raw: object) -> Expiry:
+    if not isinstance(raw, dict) or set(map(str, raw)) - {"propriete", "delai_jours"}:
+        raise TypeError
+    return Expiry(_text(raw.get("propriete")), _days(raw.get("delai_jours")))
+
+
+def _days(value: object) -> int:
+    # Un booléen est un entier en Python, jamais un délai. L'ÉTENDUE (au moins un jour)
+    # se juge à la saisie, où l'on sait le dire à qui écrit : ici on ne lit que la forme.
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError
+    return value
 
 
 def _indexes(data: dict[str, object]) -> tuple[Index, ...] | None:

@@ -22,7 +22,9 @@ ADRESSE = normalized("type: object\nproperties:\n  ville:\n    type: string\n", 
 SITE = normalized(
     "type: object\nproperties:\n  code:\n    type: string\n"
     "  adresse:\n    $ref: miles:/shared/adresse\n"
-    "  enseignes:\n    type: array\n    items:\n      type: string\n",
+    "  enseignes:\n    type: array\n    items:\n      type: string\n"
+    "  fin_activite:\n    type: string\n    format: date-time\n"
+    "  postes:\n    type: integer\n",
     "shared",
     "site",
 )
@@ -32,6 +34,7 @@ STORAGE: dict[str, Any] = {
     "model": "shared/site",
     "keys": ["$.code"],
     "indexes": [{"name": "par-ville", "columns": ["$.code", "$.adresse.ville"]}],
+    "expiries": [],
 }
 
 
@@ -265,3 +268,49 @@ async def test_a_version_cannot_freeze_a_storage_broken_outside_miles(forge: For
             ],
         }
     ]
+
+
+async def test_an_expiry_rule_is_declared_in_git_and_read_back(forge: Forge) -> None:
+    """Gael, 09/11/2026 : « on peut mettre une regle sur le champs EndOfActivity + 10 jours »."""
+    rule = {
+        "indexes": [{"name": "fin", "columns": ["$.fin_activite"]}],
+        "expiries": [{"property": "$.fin_activite", "days": 10}],
+    }
+    declared = await _declare(forge, **rule)
+    read = await forge.client.get(f"{ROUTE}/sites", timeout=120)
+
+    assert declared.status_code == 201, declared.text
+    assert read.json() == STORAGE | rule
+    text = await forge.file("storages/sites.yaml")
+    assert text is not None
+    # Dans git, et non en base : `git revert` défait la règle avec le commit qui l'a posée.
+    assert 'propriete: "$.fin_activite"' in text and "delai_jours: 10" in text
+
+
+async def test_an_expiry_rule_needs_a_string_property_declared_in_an_index(forge: Forge) -> None:
+    """Deux refus distincts : la colonne doit exister, et une date ne se lit pas sur un entier."""
+    before = await forge.commits()
+
+    not_indexed = await _declare(forge, expiries=[{"property": "$.fin_activite", "days": 10}])
+    not_a_date = await _declare(
+        forge,
+        indexes=[{"name": "postes", "columns": ["$.postes"]}],
+        expiries=[{"property": "$.postes", "days": 10}],
+    )
+    no_delay = await _declare(
+        forge,
+        indexes=[{"name": "fin", "columns": ["$.fin_activite"]}],
+        expiries=[{"property": "$.fin_activite", "days": 0}],
+    )
+
+    assert [(p["path"], p["code"]) for p in not_indexed.json()["detail"]["problems"]] == [
+        ("peremption[0].propriete", "propriete_non_indexee")
+    ]
+    assert [(p["path"], p["code"]) for p in not_a_date.json()["detail"]["problems"]] == [
+        ("peremption[0].propriete", "date_attendue")
+    ]
+    assert [(p["path"], p["code"]) for p in no_delay.json()["detail"]["problems"]] == [
+        ("peremption[0].delai_jours", "delai_trop_petit")
+    ]
+    # Aucun des trois refus n'écrit : un paramétrage fautif ne laisse pas de commit.
+    assert await forge.commits() == before

@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
 from pydantic import BaseModel, ConfigDict, Field
 
-from miles.storages.layout import MAX_COLUMNS, Index, StorageDoc
+from miles.storages.layout import MAX_COLUMNS, Expiry, Index, StorageDoc
 from miles.storages.service import (
     Saved,
     StorageInUseError,
@@ -42,6 +42,16 @@ class IndexIO(BaseModel):
     columns: list[str] = Field(default=[], max_length=MAX_COLUMNS)
 
 
+class ExpiryIO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Le jpath de la propriété date. L'exigence qu'un index la déclare est au diagnostic :
+    # elle se dit avec son code, pas par un refus de schéma que l'écran ne saurait placer.
+    property: str = Field(max_length=200)
+    # L'étendue acceptable est vérifiée par le diagnostic, qui sait la nommer à l'écran.
+    # Le plafond est ici pour refuser tôt une valeur qui n'a aucun sens comme durée.
+    days: int = Field(le=36500)
+
+
 class StorageIO(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=63)
@@ -49,6 +59,7 @@ class StorageIO(BaseModel):
     model: str = Field(max_length=200)
     keys: list[str] = Field(max_length=20)
     indexes: list[IndexIO] = Field(default=[], max_length=100)
+    expiries: list[ExpiryIO] = Field(default=[], max_length=20)
 
 
 class SavedOut(StorageIO):
@@ -73,6 +84,7 @@ def _doc(body: StorageIO) -> StorageDoc:
         body.model.strip(),
         tuple(k.strip() for k in body.keys),
         tuple(Index(i.name.strip(), tuple(c.strip() for c in i.columns)) for i in body.indexes),
+        tuple(Expiry(e.property.strip(), e.days) for e in body.expiries),
     )
 
 
@@ -83,6 +95,7 @@ def _io(doc: StorageDoc) -> StorageIO:
         model=doc.model,
         keys=list(doc.keys),
         indexes=[IndexIO(name=i.name, columns=list(i.columns)) for i in doc.indexes],
+        expiries=[ExpiryIO(property=e.property, days=e.days) for e in doc.expiries],
     )
 
 

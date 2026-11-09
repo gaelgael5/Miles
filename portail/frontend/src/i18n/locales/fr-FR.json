@@ -348,6 +348,7 @@
       "chaine_part_d_ailleurs": "la chaîne part du modèle « {{detail}} », pas de celui que l'entrée déclare recevoir",
       "chaine_sans_etape": "la chaîne « {{detail}} » n'a aucune étape : elle ne transforme rien",
       "champ_inconnu": "le champ « {{detail}} » n'existe pas dans le modèle du storage des comptes",
+      "absents_hors_mode_fichier": "règle de suppression des absents sur une entrée qui n'offre pas le mode fichier : seul un dépôt de document porte l'image complète, un dépôt unitaire ne dit rien de ce qu'il ne contient pas",
       "chemin_de_propriete_attendu": "« {{detail}} » n'est pas un chemin de propriété (attendu : $.propriete, ou $.objet.propriete)",
       "cible_invalide": "cible « {{detail}} » : un chemin de propriétés est attendu ($.objet.propriete)",
       "cle_doublee": "la même clé est déclarée deux fois",
@@ -355,9 +356,11 @@
       "cle_inconnue": "clé inconnue",
       "cle_vide": "aucune clé : sans clé, un objet ne se reconnaît pas d'une écriture à l'autre, et chaque import empilerait des doublons",
       "colonne_doublee": "la colonne « {{detail}} » est déjà dans cet index : la seconde n'apporte rien",
+      "date_attendue": "« {{detail}} » n'est pas une chaîne dans le modèle : une règle de péremption se compare sur une date, et un entier ou un booléen n'en porte pas",
       "contrat_sans_fichier": "contrat déclaré sans aucun fichier OpenAPI : il ne décrit rien",
       "declaration_invalide": "déclaration illisible, ou son nom diffère du nom du fichier",
       "decoupage_absent": "découpage absent : en mode fichier, il faut dire où sont les items (un chemin finissant par [*])",
+      "delai_trop_petit": "délai de {{detail}} jour(s) : il faut au moins un jour, sinon la suppression tombe sans la fenêtre que le délai est censé donner",
       "document_non_objet": "le document doit être un objet",
       "dossier_d_environnement": "dossier nommé comme un environnement : un environnement est une branche",
       "emplacement_inattendu": "emplacement inattendu : à la racine, seuls contracts/, domains/, shared/, sources/, storages/, transformations/, trads/ et comptes/reference.yaml sont attendus",
@@ -396,6 +399,8 @@
       "openapi_illisible": "OpenAPI illisible ({{detail}})",
       "openapi_invalide": "{{detail}}",
       "propriete_inconnue": "la propriété « {{detail}} » n'existe pas dans le modèle de ce storage",
+      "propriete_doublee": "deux règles portent sur « {{detail}} » : le délai le plus court décide seul, et la seconde est inerte",
+      "propriete_non_indexee": "« {{detail}} » n'est déclarée dans aucun index : sans colonne réelle, la règle deviendrait un parcours de table",
       "proprietes_vides": "aucune propriété : le schéma est encore un brouillon",
       "reference_externe": "« {{detail}} » : seuls les modèles de Miles (miles:/…) et les définitions du schéma (#/…) se désignent",
       "reference_interne_introuvable": "« {{detail}} » ne désigne aucune partie de ce schéma (pour un autre modèle : miles:/…, sans « # »)",
@@ -851,7 +856,9 @@
       "modesHelp": "Au moins une méthode, sinon l'entrée n'expose rien.",
       "removeEntry": "Retirer l'entrée {{rank}}",
       "writeBatchHelp": "Combien d'objets sont transformés, puis écrits, d'un seul geste : le paquet est copié en masse dans la table temporaire, puis fusionné dans la table du storage par UNE instruction. 1 écrit chaque objet dès sa lecture, et coûte alors un aller-retour par objet. Ce réglage dit TOUS LES COMBIEN on écrit ; la case au-dessus dit QUAND on valide — les deux sont indépendants.",
-      "fileChainHelp": "Ce qui se passe à l'arrivée : le fichier est posé sur le disque de la stack, puis lu EN FLUX — on descend jusqu'au découpage et on énumère ses éléments un par un, sans jamais charger le fichier en entier. Chaque item passe SEUL dans la chaîne de transformation, hors de toute transaction. Les items transformés sont ensuite copiés en masse dans une table temporaire vide, et UNE instruction les fusionne dans la table du storage — un objet déjà présent et identique n'y est pas réécrit."
+      "fileChainHelp": "Ce qui se passe à l'arrivée : le fichier est posé sur le disque de la stack, puis lu EN FLUX — on descend jusqu'au découpage et on énumère ses éléments un par un, sans jamais charger le fichier en entier. Chaque item passe SEUL dans la chaîne de transformation, hors de toute transaction. Les items transformés sont ensuite copiés en masse dans une table temporaire vide, et UNE instruction les fusionne dans la table du storage — un objet déjà présent et identique n'y est pas réécrit.",
+      "missingDaysHelp_one": "Un item que le fichier ne porte plus est marqué absent, puis SUPPRIMÉ si {{count}} jour s'écoule sans qu'un import le ramène. Le délai est la protection : un export tronqué marque à tort, l'export complet suivant lève la marque.",
+      "missingDaysHelp_other": "Un item que le fichier ne porte plus est marqué absent, puis SUPPRIMÉ si {{count}} jours s'écoulent sans qu'un import le ramène. Le délai est la protection : un export tronqué marque à tort, l'export complet suivant lève la marque."
     },
     "fields": {
       "name": "Nom",
@@ -862,7 +869,9 @@
       "entrySourceModel": "Modèle source de l'entrée {{rank}}",
       "entryChain": "Chaîne de transformation de l'entrée {{rank}}",
       "entrySplit": "Chaîne de découpage de l'entrée {{rank}}",
-      "writeBatch": "Lectures avant enregistrement de l'entrée {{rank}}"
+      "writeBatch": "Lectures avant enregistrement de l'entrée {{rank}}",
+      "removeMissing": "Supprimer les items qui ne sont plus dans l'import",
+      "missingDays": "Délai en jours de l'entrée {{rank}}"
     },
     "editor": {
       "save": "Enregistrer la source",
@@ -892,7 +901,9 @@
       "chaine_sans_etape": "La chaîne « {{detail}} » ne porte aucune étape.",
       "chaine_part_d_ailleurs": "La chaîne part de « {{detail}} », pas du modèle source déclaré.",
       "chaine_arrive_ailleurs": "La chaîne arrive à « {{detail}} », pas au modèle de la donnée cible.",
-      "lot_trop_petit": "Il faut au moins une lecture avant enregistrement ({{detail}} n'écrirait jamais rien)."
+      "lot_trop_petit": "Il faut au moins une lecture avant enregistrement ({{detail}} n'écrirait jamais rien).",
+      "absents_hors_mode_fichier": "Règle de suppression des absents sur une entrée sans mode fichier : seul un dépôt de document porte l'image complète du référentiel.",
+      "delai_trop_petit": "Délai de {{detail}} jour(s) : au moins un jour est requis, sinon l'import suivant supprimerait ce que celui-ci vient de marquer."
     },
     "errors": {
       "nom_pris": "Une autre source porte déjà ce nom sur la branche.",
@@ -1168,7 +1179,13 @@
       "indexesHelp": "Ajoute autant d'index que nécessaire, puis choisis leurs colonnes dans l'arbre du modèle. Trois colonnes au plus par index, et leur ordre compte : un index composite sert les filtres sur sa première colonne, puis sur ses deux premières, et ainsi de suite.",
       "addIndex": "Ajouter un index",
       "removeIndex": "Retirer l'index {{rank}}",
-      "noColumn": "Aucune colonne choisie."
+      "noColumn": "Aucune colonne choisie.",
+      "expiriesHelp": "Une règle supprime les objets dont la propriété date, plus son délai, est passée. La propriété doit être une colonne d'index déclarée ci-dessus : c'est elle qui rend la règle évaluable sans parcourir toute la table.",
+      "noIndexedProperty": "Aucune colonne d'index déclarée : ajoute d'abord un index sur la propriété date, puis reviens poser la règle.",
+      "expiryConsequence_one": "Un objet sera SUPPRIMÉ quand « {{property}} » plus {{count}} jour sera passé.",
+      "expiryConsequence_other": "Un objet sera SUPPRIMÉ quand « {{property}} » plus {{count}} jours seront passés.",
+      "addExpiry": "Ajouter une règle de péremption",
+      "removeExpiry": "Retirer la règle {{rank}}"
     },
     "fields": {
       "name": "Nom",
@@ -1178,7 +1195,10 @@
       "indexes": "Index additionnels",
       "indexName": "Nom de l'index {{rank}}",
       "indexColumns": "Colonnes ({{count}} sur {{max}})",
-      "indexColumnsLabel": "Colonnes de l'index {{name}}"
+      "indexColumnsLabel": "Colonnes de l'index {{name}}",
+      "expiries": "Règles de péremption",
+      "expiryProperty": "Propriété date de la règle {{rank}}",
+      "expiryDays": "Délai en jours de la règle {{rank}}"
     },
     "editor": {
       "save": "Enregistrer le storage",
@@ -1203,7 +1223,11 @@
       "libelle_vide": "Le libellé est obligatoire.",
       "index_sans_colonne": "L'index « {{detail}} » ne porte aucune colonne : il n'indexerait rien.",
       "trop_de_colonnes": "Trop de colonnes ({{detail}}) : trois au plus par index.",
-      "colonne_doublee": "La colonne « {{detail}} » est déclarée deux fois dans le même index."
+      "colonne_doublee": "La colonne « {{detail}} » est déclarée deux fois dans le même index.",
+      "propriete_non_indexee": "« {{detail}} » n'est déclarée dans aucun index : déclarez-la d'abord, sinon la règle devrait parcourir toute la table.",
+      "propriete_doublee": "Deux règles de péremption portent sur « {{detail}} » : gardez la plus courte, l'autre ne s'appliquerait jamais.",
+      "delai_trop_petit": "Délai de {{detail}} jour(s) : au moins un jour est requis.",
+      "date_attendue": "« {{detail}} » n'est pas une chaîne dans le modèle : une règle de péremption se compare sur une date."
     },
     "errors": {
       "nom_pris": "Un autre storage porte déjà ce nom sur la branche.",

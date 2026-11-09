@@ -16,6 +16,7 @@ const ENTRY = {
   split: "",
   unified_transaction: false,
   write_batch: 100,
+  missing_removed_after_days: null,
 };
 const SOURCE = { name: "crm", label: "CRM", storage: "sites", entries: [ENTRY] };
 const BARE = { name: "crm", label: "CRM", storage: "sites", entries: [] };
@@ -208,6 +209,63 @@ describe("the entries of a source (25/10/2026)", () => {
     // Dite AVANT la notation du découpage, qui est ce qui avait induit en erreur.
     expect(chaine.compareDocumentPosition(screen.getByText(/\$\.accounts\[\*\]/)))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("offers the absent-removal rule only under the file mode", async () => {
+    // « Absent de l'import » n'a de sens que pour un dépôt qui porte l'image complète :
+    // un dépôt unitaire ou par tableau ne dit rien de ce qu'il ne contient pas.
+    open(SOURCE);
+    expect(await screen.findByLabelText("Source model of entry 1")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/Delete the items that are no longer in the import/),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/File upload/));
+
+    expect(
+      screen.getByLabelText(/Delete the items that are no longer in the import/),
+    ).not.toBeChecked();
+  });
+
+  it("sends the delay with the entry, and says that items get DELETED", async () => {
+    const calls = open(SOURCE);
+    fireEvent.click(await screen.findByLabelText(/File upload/));
+
+    fireEvent.click(screen.getByLabelText(/Delete the items that are no longer in the import/));
+
+    // Le délai proposé est un mois : assez long pour qu'un export tronqué ait été
+    // remplacé par un export complet avant qu'on supprime.
+    expect(screen.getByLabelText("Delay in days of entry 1")).toHaveValue(30);
+    expect(screen.getByText(/marked absent, then DELETED if 30 days go by/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Delay in days of entry 1"), {
+      target: { value: "10" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Save the source" }));
+    expect(await screen.findByText(/Source saved/)).toBeInTheDocument();
+
+    const body = calls.find((c) => c.key === `PUT ${ROUTE}/crm${Q}`)?.body as {
+      entries: { missing_removed_after_days: number }[];
+    };
+    expect(body.entries[0]?.missing_removed_after_days).toBe(10);
+  });
+
+  it("clears the rule when the file mode is unticked", async () => {
+    // Laissée en place, elle partirait cachée au serveur, qui la refuserait sur un champ
+    // que l'écran n'affiche plus — un refus que personne ne peut relier à son geste.
+    const calls = open(SOURCE);
+    fireEvent.click(await screen.findByLabelText(/File upload/));
+    fireEvent.click(screen.getByLabelText(/Delete the items that are no longer in the import/));
+    expect(screen.getByLabelText("Delay in days of entry 1")).toHaveValue(30);
+
+    fireEvent.click(screen.getByLabelText(/File upload/));
+    fireEvent.submit(screen.getByRole("form", { name: "Save the source" }));
+    expect(await screen.findByText(/Source saved/)).toBeInTheDocument();
+
+    const body = calls.find((c) => c.key === `PUT ${ROUTE}/crm${Q}`)?.body as {
+      entries: { missing_removed_after_days: number | null }[];
+    };
+    expect(body.entries[0]?.missing_removed_after_days).toBeNull();
   });
 
   it("removes an entry", async () => {

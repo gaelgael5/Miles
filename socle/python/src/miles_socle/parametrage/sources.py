@@ -31,6 +31,7 @@ _ENTRY_KEYS = {
     "decoupage",
     "transaction_unifiee",
     "lot_ecriture",
+    "absents_supprimes_apres_jours",
 }
 _MODE_KEYS = {"element", "tableau", "fichier"}
 
@@ -82,6 +83,15 @@ class Entry:
     # Nombre de lectures consécutives avant enregistrement. Il dit TOUS LES COMBIEN on
     # écrit ; la transaction unifiée dit QUAND on valide. Les deux sont indépendants.
     write_batch: int
+    # Délai après lequel un item que cette entrée n'a plus porté est supprimé (Gael,
+    # 09/11/2026). `None` : aucune règle, et c'est le défaut — un paramétrage déjà écrit
+    # ne se met pas à supprimer.
+    #
+    # La règle vit sur l'ENTRÉE et non sur le storage parce qu'« absent de l'import » n'a
+    # de sens que relativement à un dépôt qui prétend porter l'image complète : plusieurs
+    # sources peuvent alimenter le même storage, et un dépôt unitaire ne dit rien de ce
+    # qu'il ne contient pas. L'exigence du mode `fichier` se vérifie à la saisie.
+    missing_removed_after_days: int | None = None
 
 
 @dataclass(frozen=True)
@@ -141,6 +151,7 @@ def _entry(raw: object) -> Entry:
         _optional_text(raw.get("decoupage")),
         _flag(raw.get("transaction_unifiee")),
         _count(raw.get("lot_ecriture")),
+        _optional_count(raw.get("absents_supprimes_apres_jours")),
     )
 
 
@@ -162,6 +173,20 @@ def _count(value: object) -> int:
     """Absent : la valeur par défaut. Un booléen n'est pas un entier, même en Python."""
     if value is None:
         return DEFAULT_WRITE_BATCH
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError
+    return value
+
+
+def _optional_count(value: object) -> int | None:
+    """Absent : aucune règle, et non un délai par défaut.
+
+    Un défaut ferait supprimer dans un paramétrage où personne n'a demandé de
+    suppression — l'absence de règle doit rester l'absence de règle. L'ÉTENDUE (au moins
+    un jour) se juge à la saisie, où l'on sait le dire à qui écrit.
+    """
+    if value is None:
+        return None
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError
     return value

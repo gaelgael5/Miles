@@ -24,6 +24,9 @@ from miles_socle.parametrage.storages import (
     ROOT as ROOT,
 )
 from miles_socle.parametrage.storages import (
+    Expiry as Expiry,
+)
+from miles_socle.parametrage.storages import (
     Index as Index,
 )
 from miles_socle.parametrage.storages import (
@@ -63,6 +66,11 @@ def storage_text(doc: StorageDoc) -> str:
         "cle:",
         *(f"  - {q(k)}" for k in doc.keys),
     ]
+    if doc.expiries:
+        lines.append("peremption:")
+        for rule in doc.expiries:
+            lines.append(f"  - propriete: {q(rule.property)}")
+            lines.append(f"    delai_jours: {rule.days}")
     if doc.indexes:
         lines.append("index:")
         for item in doc.indexes:
@@ -118,4 +126,42 @@ def form_problems(doc: StorageDoc) -> list[StorageProblem]:
                 problems.append(
                     StorageProblem(f"{where}.colonnes[{place}]", "colonne_doublee", column)
                 )
+    problems += _expiry_problems(doc)
+    return problems
+
+
+def _expiry_problems(doc: StorageDoc) -> list[StorageProblem]:
+    """Une règle de péremption (Gael, 09/11/2026) : ce qui se juge sans lire la branche.
+
+    Le TYPE de la propriété, lui, demande le modèle : il est vérifié par `branch_problems`.
+    """
+    # Les colonnes que les index déclarent. La règle doit en viser une : sans colonne
+    # réelle, la sélection deviendrait un parcours de table — et elle désignerait quand
+    # même des suppressions.
+    indexed = {c for item in doc.indexes for c in item.columns}
+    problems = []
+    seen: list[str] = []
+    for rank, rule in enumerate(doc.expiries):
+        where = f"peremption[{rank}]"
+        if property_keys(rule.property) is None:
+            problems.append(
+                StorageProblem(f"{where}.propriete", "chemin_de_propriete_attendu", rule.property)
+            )
+        elif rule.property not in indexed:
+            problems.append(
+                StorageProblem(f"{where}.propriete", "propriete_non_indexee", rule.property)
+            )
+        if rule.property in seen:
+            # Deux règles sur la même propriété : le délai le plus court décide seul, et
+            # la seconde est inerte alors qu'elle se lit comme une règle active.
+            problems.append(
+                StorageProblem(f"{where}.propriete", "propriete_doublee", rule.property)
+            )
+        seen.append(rule.property)
+        if rule.days < 1:
+            # Zéro jour supprime à la date atteinte, sans la fenêtre que le délai est
+            # censé donner ; un délai négatif supprimerait avant elle.
+            problems.append(
+                StorageProblem(f"{where}.delai_jours", "delai_trop_petit", str(rule.days))
+            )
     return problems

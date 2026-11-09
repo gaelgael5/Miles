@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from miles.storages.layout import (
+    Expiry,
     Index,
     StorageDoc,
     form_problems,
@@ -161,3 +162,64 @@ def test_only_the_storage_files_are_listed() -> None:
     paths = ["storages/sites.yaml", "storages/.gitkeep", "sources/crm.yaml", "storages/a/b.yaml"]
 
     assert names_in(paths) == ["sites"]
+
+
+EXPIRY = replace(
+    DOC,
+    indexes=(Index("fin-activite", ("$.EndOfActivity",)),),
+    expiries=(Expiry("$.EndOfActivity", 10),),
+)
+
+
+def test_an_expiry_rule_is_written_and_reads_back_unchanged() -> None:
+    text = storage_text(EXPIRY)
+
+    assert read_storage(text) == EXPIRY
+    assert "peremption" in text
+
+
+def test_a_storage_without_expiry_rule_writes_none() -> None:
+    assert "peremption" not in storage_text(DOC)
+    assert read_storage(storage_text(DOC)).expiries == ()
+
+
+def test_an_expiry_delay_under_one_day_is_refused() -> None:
+    """Zéro jour supprimerait à la date atteinte, sans la fenêtre que le délai est censé
+    donner — et un délai négatif n'a pas de sens du tout."""
+    for days in (0, -1):
+        bad = replace(EXPIRY, expiries=(Expiry("$.EndOfActivity", days),))
+
+        assert ("peremption[0].delai_jours", "delai_trop_petit") in [
+            (p.path, p.code) for p in form_problems(bad)
+        ], days
+
+
+def test_an_expiry_on_a_property_that_no_index_declares_is_refused() -> None:
+    """Sans colonne déclarée, la règle se dégraderait en parcours de table — et elle
+    désignerait quand même des suppressions."""
+    bad = replace(EXPIRY, expiries=(Expiry("$.Autre", 10),))
+
+    assert ("peremption[0].propriete", "propriete_non_indexee") in [
+        (p.path, p.code) for p in form_problems(bad)
+    ]
+
+
+def test_an_expiry_property_that_is_not_a_property_path_is_refused() -> None:
+    bad = replace(EXPIRY, expiries=(Expiry("$.sites[*]", 10),))
+
+    assert ("peremption[0].propriete", "chemin_de_propriete_attendu") in [
+        (p.path, p.code) for p in form_problems(bad)
+    ]
+
+
+def test_two_expiry_rules_on_the_same_property_are_refused() -> None:
+    """Le délai le plus court décide : le second est inerte, et on croirait qu'il agit."""
+    bad = replace(EXPIRY, expiries=(Expiry("$.EndOfActivity", 10), Expiry("$.EndOfActivity", 30)))
+
+    assert ("peremption[1].propriete", "propriete_doublee") in [
+        (p.path, p.code) for p in form_problems(bad)
+    ]
+
+
+def test_a_valid_expiry_rule_raises_no_form_problem() -> None:
+    assert form_problems(EXPIRY) == []

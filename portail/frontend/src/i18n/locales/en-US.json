@@ -348,6 +348,7 @@
       "chaine_part_d_ailleurs": "the chain starts from model “{{detail}}”, not the one the entry declares receiving",
       "chaine_sans_etape": "the chain “{{detail}}” has no step: it transforms nothing",
       "champ_inconnu": "the field “{{detail}}” does not exist in the accounts storage model",
+      "absents_hors_mode_fichier": "absent-removal rule on an entry that does not offer the file mode: only a document upload carries the complete image, a single-object post says nothing about what it does not contain",
       "chemin_de_propriete_attendu": "“{{detail}}” is not a property path (expected: $.property, or $.object.property)",
       "cible_invalide": "target “{{detail}}”: a property path is expected ($.object.property)",
       "cle_doublee": "the same key is declared twice",
@@ -355,9 +356,11 @@
       "cle_inconnue": "unknown key",
       "cle_vide": "no key: without a key an object cannot be recognised from one write to the next, and every import would pile up duplicates",
       "colonne_doublee": "column “{{detail}}” is already in this index: the second one adds nothing",
+      "date_attendue": "“{{detail}}” is not a string in the model: an expiry rule compares a date, and an integer or a boolean carries none",
       "contrat_sans_fichier": "contract declared without any OpenAPI file: it describes nothing",
       "declaration_invalide": "declaration cannot be read, or its name differs from the file name",
       "decoupage_absent": "split missing: in file mode, you must say where the items are (a path ending in [*])",
+      "delai_trop_petit": "delay of {{detail}} day(s): at least one day is required, otherwise the deletion lands without the window the delay is meant to give",
       "document_non_objet": "the document must be a mapping",
       "dossier_d_environnement": "folder named after an environment: an environment is a branch",
       "emplacement_inattendu": "unexpected location: at the root, only contracts/, domains/, shared/, sources/, storages/, transformations/, trads/ and comptes/reference.yaml are expected",
@@ -396,6 +399,8 @@
       "openapi_illisible": "unreadable OpenAPI ({{detail}})",
       "openapi_invalide": "{{detail}}",
       "propriete_inconnue": "property “{{detail}}” does not exist in this storage's model",
+      "propriete_doublee": "two rules target “{{detail}}”: the shortest delay decides alone, and the second is inert",
+      "propriete_non_indexee": "“{{detail}}” is declared in no index: without a real column, the rule would become a table scan",
       "proprietes_vides": "no property: the schema is still a draft",
       "reference_externe": "“{{detail}}”: only Miles models (miles:/…) and the schema's own definitions (#/…) can be referenced",
       "reference_interne_introuvable": "“{{detail}}” points at no part of this schema (for another model: miles:/…, without “#”)",
@@ -851,7 +856,9 @@
       "modesHelp": "At least one method, otherwise the entry exposes nothing.",
       "removeEntry": "Remove entry {{rank}}",
       "writeBatchHelp": "How many objects are transformed, then written, in one go: the batch is bulk-copied into the temporary table, then merged into the storage table by ONE statement. 1 writes each object as it is read, and then costs one round trip per object. This setting says HOW OFTEN one writes; the box above says WHEN one commits — the two are independent.",
-      "fileChainHelp": "What happens on arrival: the file is stored on the stack's disk, then read AS A STREAM — we descend to the split path and enumerate its elements one by one, never loading the whole file. Each item goes through the transformation chain ON ITS OWN, outside any transaction. The transformed items are then bulk-copied into an empty temporary table, and ONE statement merges them into the storage table — an object already there and unchanged is not rewritten."
+      "fileChainHelp": "What happens on arrival: the file is stored on the stack's disk, then read AS A STREAM — we descend to the split path and enumerate its elements one by one, never loading the whole file. Each item goes through the transformation chain ON ITS OWN, outside any transaction. The transformed items are then bulk-copied into an empty temporary table, and ONE statement merges them into the storage table — an object already there and unchanged is not rewritten.",
+      "missingDaysHelp_one": "An item the file no longer carries is marked absent, then DELETED if {{count}} day goes by without an import bringing it back. The delay is the protection: a truncated export marks wrongly, the next complete export lifts the mark.",
+      "missingDaysHelp_other": "An item the file no longer carries is marked absent, then DELETED if {{count}} days go by without an import bringing it back. The delay is the protection: a truncated export marks wrongly, the next complete export lifts the mark."
     },
     "fields": {
       "name": "Name",
@@ -862,7 +869,9 @@
       "entrySourceModel": "Source model of entry {{rank}}",
       "entryChain": "Transformation chain of entry {{rank}}",
       "entrySplit": "Split path of entry {{rank}}",
-      "writeBatch": "Reads before saving, entry {{rank}}"
+      "writeBatch": "Reads before saving, entry {{rank}}",
+      "removeMissing": "Delete the items that are no longer in the import",
+      "missingDays": "Delay in days of entry {{rank}}"
     },
     "editor": {
       "save": "Save the source",
@@ -892,7 +901,9 @@
       "chaine_sans_etape": "Chain “{{detail}}” carries no step.",
       "chaine_part_d_ailleurs": "The chain starts from “{{detail}}”, not from the declared source model.",
       "chaine_arrive_ailleurs": "The chain reaches “{{detail}}”, not the target data model.",
-      "lot_trop_petit": "At least one read before saving is required ({{detail}} would never write anything)."
+      "lot_trop_petit": "At least one read before saving is required ({{detail}} would never write anything).",
+      "absents_hors_mode_fichier": "Absent-removal rule on an entry without the file mode: only a document upload carries the complete image of the referential.",
+      "delai_trop_petit": "Delay of {{detail}} day(s): at least one day is required, otherwise the next import would delete what this one has just marked."
     },
     "errors": {
       "nom_pris": "A different source already has this name on the branch.",
@@ -1168,7 +1179,13 @@
       "indexesHelp": "Add as many indexes as you need, then choose their columns in the model tree. At most three columns per index, and their order matters: a composite index serves filters on its first column, then on its first two, and so on.",
       "addIndex": "Add an index",
       "removeIndex": "Remove index {{rank}}",
-      "noColumn": "No column chosen."
+      "noColumn": "No column chosen.",
+      "expiriesHelp": "A rule deletes the objects whose date property, plus its delay, has passed. The property must be an index column declared above: that is what makes the rule evaluable without scanning the whole table.",
+      "noIndexedProperty": "No index column declared: add an index on the date property first, then come back and set the rule.",
+      "expiryConsequence_one": "An object will be DELETED once “{{property}}” plus {{count}} day has passed.",
+      "expiryConsequence_other": "An object will be DELETED once “{{property}}” plus {{count}} days have passed.",
+      "addExpiry": "Add an expiry rule",
+      "removeExpiry": "Remove rule {{rank}}"
     },
     "fields": {
       "name": "Name",
@@ -1178,7 +1195,10 @@
       "indexes": "Additional indexes",
       "indexName": "Name of index {{rank}}",
       "indexColumns": "Columns ({{count}} of {{max}})",
-      "indexColumnsLabel": "Columns of index {{name}}"
+      "indexColumnsLabel": "Columns of index {{name}}",
+      "expiries": "Expiry rules",
+      "expiryProperty": "Date property of rule {{rank}}",
+      "expiryDays": "Delay in days of rule {{rank}}"
     },
     "editor": {
       "save": "Save the storage",
@@ -1203,7 +1223,11 @@
       "libelle_vide": "The label is required.",
       "index_sans_colonne": "Index “{{detail}}” carries no column: it would index nothing.",
       "trop_de_colonnes": "Too many columns ({{detail}}): at most three per index.",
-      "colonne_doublee": "Column “{{detail}}” is declared twice in the same index."
+      "colonne_doublee": "Column “{{detail}}” is declared twice in the same index.",
+      "propriete_non_indexee": "“{{detail}}” is declared in no index: declare it first, otherwise the rule would have to scan the whole table.",
+      "propriete_doublee": "Two expiry rules target “{{detail}}”: keep the shortest one, the other would never apply.",
+      "delai_trop_petit": "Delay of {{detail}} day(s): at least one day is required.",
+      "date_attendue": "“{{detail}}” is not a string in the model: an expiry rule compares a date."
     },
     "errors": {
       "nom_pris": "A different storage already has this name on the branch.",

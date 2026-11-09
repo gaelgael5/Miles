@@ -40,6 +40,7 @@ ENTRY: dict[str, Any] = {
     "split": "$.accounts[*]",
     "unified_transaction": False,
     "write_batch": 100,
+    "missing_removed_after_days": None,
 }
 SOURCE: dict[str, Any] = {
     "name": "comptes",
@@ -288,4 +289,32 @@ async def test_a_version_cannot_freeze_a_source_broken_outside_miles(forge: Forg
                 }
             ],
         }
+    ]
+
+
+async def test_the_absent_removal_delay_is_declared_in_git_on_a_file_entry(forge: Forge) -> None:
+    """Gael, 09/11/2026 : « suppression des items plus dans l'import depuis N jours »."""
+    declared = await _declare(forge, with_entry(missing_removed_after_days=30))
+    read = await forge.client.get(f"{ROUTE}/comptes", timeout=120)
+
+    assert declared.status_code == 201, declared.text
+    assert read.json()["entries"][0]["missing_removed_after_days"] == 30
+    text = await forge.file("sources/comptes.yaml")
+    assert text is not None
+    assert "absents_supprimes_apres_jours: 30" in text
+
+
+async def test_the_absent_removal_rule_is_refused_without_the_file_mode(forge: Forge) -> None:
+    """Seul un dépôt de document porte l'image complète : rien n'est « absent » ailleurs."""
+    refused = await _declare(
+        forge,
+        with_entry(
+            modes={"element": True, "batch": True, "file": False},
+            split="",
+            missing_removed_after_days=30,
+        ),
+    )
+
+    assert [(p["path"], p["code"]) for p in refused.json()["detail"]["problems"]] == [
+        ("entrees[0].absents_supprimes_apres_jours", "absents_hors_mode_fichier")
     ]

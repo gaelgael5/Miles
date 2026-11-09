@@ -41,6 +41,7 @@ const STORAGE = {
   model: "shared/personne",
   keys: ["$.id"],
   indexes: [{ name: "par-code", columns: ["$.code"] }],
+  expiries: [],
 };
 const VERSION = { number: 1, label: "Racine", commit: "0123456789abcdef", author: "admin", saved_at: "2026-10-22T10:00:00Z" };
 

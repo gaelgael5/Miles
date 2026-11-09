@@ -6,6 +6,7 @@ import { useDataModels } from "../api/dataModels";
 import type { Storage, StorageProblem } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
 import { PathPicker } from "./ModelPathTree";
+import { StorageExpiries } from "./StorageExpiries";
 import { StorageIndexes } from "./StorageIndexes";
 
 export const EMPTY_STORAGE: Storage = {
@@ -14,6 +15,7 @@ export const EMPTY_STORAGE: Storage = {
   model: "",
   keys: [],
   indexes: [],
+  expiries: [],
 };
 
 /**
@@ -119,6 +121,16 @@ export function StorageForm({
             rows={storage.indexes}
             disabled={target.readOnly}
             onChange={(indexes) => set({ indexes })}
+          />
+        </fieldset>
+        <fieldset className="picker-field">
+          <legend>{t("storages.fields.expiries")}</legend>
+          <p className="help">{t("storages.form.expiriesHelp")}</p>
+          <StorageExpiries
+            rows={storage.expiries}
+            indexes={storage.indexes}
+            disabled={target.readOnly}
+            onChange={(expiries) => set({ expiries })}
           />
         </fieldset>
       </fieldset>

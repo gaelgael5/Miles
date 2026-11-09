@@ -13,6 +13,7 @@ const STORAGE = {
   model: "shared/site",
   keys: ["$.code"],
   indexes: [{ name: "par-ville", columns: ["$.adresse.ville"] }],
+  expiries: [],
 };
 const MODELS = {
   [`GET /api/workspaces/retrait/data-models${Q}`]: {
@@ -409,5 +410,79 @@ describe("additional indexes (24/10/2026)", () => {
     fireEvent.click(screen.getByText("Remove index 1"));
 
     expect(screen.queryByLabelText("Name of index 1")).not.toBeInTheDocument();
+  });
+});
+
+describe("expiry rules (09/11/2026)", () => {
+  function open(body: Record<string, unknown> = STORAGE) {
+    const calls = mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS,
+      [`GET ${ROUTE}/sites${Q}`]: { status: 200, body },
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+      [`PUT ${ROUTE}/sites${Q}`]: {
+        status: 200,
+        body: { ...body, rewrite_announced: false },
+      },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition", storage: "sites" });
+    return calls;
+  }
+
+  it("offers only the columns an index declares, not the whole model", async () => {
+    open();
+    fireEvent.click(await screen.findByText("Add an expiry rule"));
+
+    const choices = within(screen.getByLabelText("Date property of rule 1")).getAllByRole(
+      "option",
+    );
+
+    // L'index déclaré ne porte que « $.adresse.ville » : le reste du modèle — « $.code »,
+    // « $.rang » — n'est pas proposé, parce qu'une règle sans colonne réelle deviendrait
+    // un parcours de table tout en désignant des suppressions.
+    expect(choices.map((o) => o.getAttribute("value"))).toEqual(["", "$.adresse.ville"]);
+  });
+
+  it("says in clear that the rule DELETES, with the property and the delay", async () => {
+    open();
+    fireEvent.click(await screen.findByText("Add an expiry rule"));
+    fireEvent.change(screen.getByLabelText("Date property of rule 1"), {
+      target: { value: "$.adresse.ville" },
+    });
+    fireEvent.change(screen.getByLabelText("Delay in days of rule 1"), { target: { value: "10" } });
+
+    // Une règle de suppression qui ne dit pas qu'elle supprime n'est pas lisible.
+    expect(
+      screen.getByText(/will be DELETED once “\$\.adresse\.ville” plus 10 days have passed/),
+    ).toBeInTheDocument();
+  });
+
+  it("sends the rule with the declaration, and takes it back out", async () => {
+    const calls = open();
+    fireEvent.click(await screen.findByText("Add an expiry rule"));
+    fireEvent.change(screen.getByLabelText("Date property of rule 1"), {
+      target: { value: "$.adresse.ville" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save the storage" }));
+    expect(await screen.findByText("Storage saved.")).toBeInTheDocument();
+
+    expect(calls.find((c) => c.key === `PUT ${ROUTE}/sites${Q}`)?.body).toEqual({
+      ...STORAGE,
+      expiries: [{ property: "$.adresse.ville", days: 30 }],
+    });
+
+    fireEvent.click(screen.getByText("Remove rule 1"));
+    expect(screen.queryByLabelText("Date property of rule 1")).not.toBeInTheDocument();
+  });
+
+  it("asks for an index first when no column is declared", async () => {
+    open({ ...STORAGE, indexes: [] });
+
+    // Pas de bouton qui ne mène à rien : l'écran dit par quoi commencer.
+    expect(
+      await screen.findByText(/add an index on the date property first/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Add an expiry rule")).not.toBeInTheDocument();
   });
 });

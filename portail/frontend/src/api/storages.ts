@@ -16,6 +16,20 @@ export interface Index {
 }
 
 /**
+ * Une règle de péremption (Gael, 09/11/2026) : l'objet sort quand sa propriété date,
+ * plus le délai, est passée. « EndOfActivity + 10 jours » pour les points relais.
+ *
+ * La propriété désigne une colonne qu'un index DÉCLARE : sans colonne réelle, la règle
+ * deviendrait un parcours de table tout en désignant des suppressions. L'écran ne propose
+ * donc que les colonnes déclarées.
+ */
+export interface Expiry {
+  property: string;
+  /** En jours. Au moins un : zéro supprimerait à la date atteinte, sans fenêtre. */
+  days: number;
+}
+
+/**
  * Déclaration d'un storage (story 844f15ad), stockée dans la branche : la collection
  * d'objets, son modèle, sa clé fonctionnelle et ce sur quoi on pourra la filtrer.
  *
@@ -32,6 +46,8 @@ export interface Storage {
   /** Jpath évalués sur l'objet STOCKÉ, qui l'identifient d'une écriture à l'autre. */
   keys: string[];
   indexes: Index[];
+  /** Vide : le storage ne se nettoie pas. C'est le défaut, et il le reste. */
+  expiries: Expiry[];
 }
 
 export interface SavedStorage extends Storage {

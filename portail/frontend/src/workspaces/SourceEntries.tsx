@@ -5,9 +5,13 @@ import { useChains } from "../api/chains";
 import { useDataModels } from "../api/dataModels";
 import { DEFAULT_WRITE_BATCH, MAX_BATCH, type SourceEntry } from "../api/sources";
 import type { WorkTarget } from "../api/workTarget";
+import { SourceCleanup } from "./SourceCleanup";
 
 /** Les types d'entrée proposés. Un seul instruit à ce jour, nommé plutôt que sous-entendu. */
 const KINDS = ["web"];
+// Délai proposé quand on coche la règle de nettoyage. Un mois : assez long pour
+// qu'un export tronqué ait été remplacé par un export complet avant qu'on supprime.
+const DEFAULT_MISSING_DAYS = 30;
 
 export function emptyEntry(kind: string): SourceEntry {
   return {
@@ -19,6 +23,9 @@ export function emptyEntry(kind: string): SourceEntry {
     split: "",
     unified_transaction: false,
     write_batch: DEFAULT_WRITE_BATCH,
+    // Aucune règle de nettoyage : une entrée neuve ne supprime rien tant que personne ne
+    // l'a demandé.
+    missing_removed_after_days: null,
   };
 }
 
@@ -41,8 +48,13 @@ function EntryCard({
   const models = useDataModels(target);
   const chains = useChains(target);
   const set = (change: Partial<SourceEntry>) => onChange({ ...entry, ...change });
-  const mode = (change: Partial<SourceEntry["modes"]>) =>
-    set({ modes: { ...entry.modes, ...change } });
+  const mode = (change: Partial<SourceEntry["modes"]>) => {
+    const modes = { ...entry.modes, ...change };
+    // Le mode fichier décoché EFFACE la règle de nettoyage : elle n'a plus de sens, et
+    // laissée en place elle partirait cachée au serveur, qui la refuserait sur un champ
+    // que l'écran n'affiche plus — un refus que personne ne peut relier à son geste.
+    set(modes.file ? { modes } : { modes, missing_removed_after_days: null });
+  };
 
   return (
     <li className="entry-card">
@@ -132,6 +144,16 @@ function EntryCard({
             />
           </label>
           <p className="help">{t("sources.form.splitHelp")}</p>
+          {/* La règle de nettoyage vit ICI, sous le mode fichier, parce qu'« absent de
+              l'import » n'a de sens que pour un dépôt qui porte l'image complète : un
+              dépôt unitaire ne dit rien de ce qu'il ne contient pas. */}
+          <SourceCleanup
+            days={entry.missing_removed_after_days}
+            rank={rank}
+            disabled={disabled}
+            defaultDays={DEFAULT_MISSING_DAYS}
+            onChange={(missing_removed_after_days) => set({ missing_removed_after_days })}
+          />
         </>
       )}
       <label className="field-check">

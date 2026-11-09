@@ -56,6 +56,11 @@ class EntryIO(BaseModel):
     unified_transaction: bool = False
     # Lectures consécutives avant enregistrement ; au moins une, sinon rien n'est écrit.
     write_batch: int = Field(default=DEFAULT_WRITE_BATCH, ge=1)
+    # Délai de suppression des items que cette entrée n'a plus portés. `None` : aucune
+    # règle, et c'est le défaut. L'exigence du mode fichier et l'étendue du délai sont
+    # au diagnostic, qui sait les nommer à l'écran ; le plafond est ici pour refuser tôt
+    # une valeur qui n'a aucun sens comme durée.
+    missing_removed_after_days: int | None = Field(default=None, le=36500)
 
 
 class SourceIO(BaseModel):
@@ -96,6 +101,7 @@ def _doc(body: SourceIO) -> SourceDoc:
                 e.split.strip(),
                 e.unified_transaction,
                 e.write_batch,
+                e.missing_removed_after_days,
             )
             for e in body.entries
         ),
@@ -116,6 +122,7 @@ def _io(doc: SourceDoc) -> SourceIO:
                 split=e.split,
                 unified_transaction=e.unified_transaction,
                 write_batch=e.write_batch,
+                missing_removed_after_days=e.missing_removed_after_days,
             )
             for e in doc.entries
         ],

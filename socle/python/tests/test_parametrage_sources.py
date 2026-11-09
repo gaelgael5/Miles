@@ -104,3 +104,48 @@ def test_les_noms_viennent_des_fichiers_du_repertoire_et_sont_ordonnes() -> None
 
     assert names_in(paths) == ["a", "b"]
     assert source_path("a") == "sources/a.yaml"
+
+
+ABSENTS = """
+nom: "sites-pudo"
+libelle: "Sites PUDO"
+storage: "sites"
+entrees:
+  - type: "web"
+    modele_source: "pudo/site-partenaire"
+    chaine: "site-vers-site"
+    modes:
+      element: false
+      tableau: false
+      fichier: true
+    decoupage: "$.sites[*]"
+    absents_supprimes_apres_jours: 30
+"""
+
+
+def test_une_entree_porte_le_delai_de_suppression_des_absents() -> None:
+    doc = read_source(ABSENTS)
+
+    assert doc is not None
+    assert doc.entries[0].missing_removed_after_days == 30
+
+
+def test_une_entree_sans_delai_de_suppression_n_en_porte_aucun() -> None:
+    """Pas de règle est le défaut : un paramétrage déjà écrit ne se met pas à supprimer."""
+    doc = read_source(DECLARATION)
+
+    assert doc is not None
+    assert doc.entries[0].missing_removed_after_days is None
+
+
+def test_un_delai_de_suppression_des_absents_non_entier_ne_rend_rien() -> None:
+    # Un booléen est un entier en Python, jamais un délai.
+    for delai in ('"30"', "true", "30.5"):
+        assert (
+            read_source(
+                DECLARATION.replace(
+                    "    lot_ecriture: 250", f"    absents_supprimes_apres_jours: {delai}"
+                )
+            )
+            is None
+        ), delai

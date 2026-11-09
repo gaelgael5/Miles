@@ -93,6 +93,10 @@ def source_text(doc: SourceDoc) -> str:
             f"    transaction_unifiee: {flag(entry.unified_transaction)}",
             f"    lot_ecriture: {entry.write_batch}",
         ]
+        if entry.missing_removed_after_days is not None:
+            # Écrit seulement quand la règle existe : une clé toujours présente, même à
+            # zéro, se lirait comme une règle posée et ferait hésiter qui relit le dépôt.
+            lines.append(f"    absents_supprimes_apres_jours: {entry.missing_removed_after_days}")
     return "\n".join(lines) + "\n"
 
 
@@ -134,7 +138,28 @@ def _entry_problems(rank: int, entry: Entry) -> list[SourceProblem]:
             SourceProblem(f"{where}.lot_ecriture", "lot_trop_petit", str(entry.write_batch))
         )
     problems += _split_problems(where, entry.split, modes.file)
+    problems += _missing_problems(where, entry.missing_removed_after_days, modes.file)
     return problems
+
+
+def _missing_problems(where: str, days: int | None, file_mode: bool) -> list[SourceProblem]:
+    """La règle « supprimer les items absents de l'import depuis N jours » (Gael, 09/11/2026).
+
+    Elle exige le mode `fichier` : seul un dépôt de document prétend porter l'image
+    complète du référentiel. Un dépôt unitaire ou par tableau ne dit rien de ce qu'il ne
+    contient pas, donc rien n'y est « absent » — et accepter la règle là ferait marquer,
+    puis supprimer, sur une absence qui n'en est pas une.
+    """
+    if days is None:
+        return []
+    field = f"{where}.absents_supprimes_apres_jours"
+    if not file_mode:
+        return [SourceProblem(field, "absents_hors_mode_fichier")]
+    if days < 1:
+        # Zéro jour supprimerait, à l'import suivant, ce que l'import courant vient de
+        # marquer : le délai est précisément la protection contre un export tronqué.
+        return [SourceProblem(field, "delai_trop_petit", str(days))]
+    return []
 
 
 def _split_problems(where: str, split: str, needed: bool) -> list[SourceProblem]:

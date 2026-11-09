@@ -37,6 +37,14 @@ export interface SourceEntry {
    * COMBIEN on écrit ; la transaction unifiée dit QUAND on valide. Indépendants.
    */
   write_batch: number;
+  /**
+   * Délai après lequel un item que cette entrée n'a plus porté est supprimé (Gael,
+   * 09/11/2026). `null` : aucune règle, et c'est le défaut.
+   *
+   * Réservé au mode fichier : seul un dépôt de document prétend porter l'image complète
+   * du référentiel, et rien n'est « absent » d'un dépôt unitaire.
+   */
+  missing_removed_after_days: number | null;
 }
 
 /**
