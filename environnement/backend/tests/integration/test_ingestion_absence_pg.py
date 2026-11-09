@@ -283,22 +283,78 @@ async def test_un_item_du_fichier_que_le_MODELE_REJETTE_n_est_pas_marque_absent(
         assert set(await depot.marques()) == {M3}
 
 
-async def test_un_item_d_origine_MANUELLE_n_est_jamais_marque(
+async def test_un_item_d_origine_MANUELLE_absent_du_fichier_EST_marque(
     blank_db: str, tmp_path: Path
 ) -> None:
-    """Critère 8 : aucun import ne le porte jamais, donc son `vu_le` est toujours ancien.
+    """Critère 8, ARBITRÉ par Gael le 09/11/2026 contre la première livraison : « si je
+    fais un full et que le point n'y est pas je le marque absent ».
 
-    Le marquer le sortirait au premier nettoyage, et au pire moment, puisque personne ne
-    surveille un objet posé à la main. Même raison que son exclusion de l'écrasement.
+    La marque est un constat sur ce que la source porte, pas un jugement sur l'origine de
+    l'objet : une ligne posée à la main que l'export ignore est précisément celle qu'il
+    faut rendre visible. Son corps n'est pas touché pour autant — l'import ne l'écrase
+    jamais —, et ce que le nettoyage en fait est l'affaire de ses règles.
     """
     async with _ouvre(blank_db, tmp_path) as (_, depot):
         await depot.importe([_item("M-1")])
         await depot.pose_a_la_main(M3)
 
-        await depot.importe([_item("M-1")])
+        ligne = await depot.importe([_item("M-1")])
 
+        assert await depot.marques() == {M3: ligne["started_at"]}
+        apres = (await depot.lignes())[M3]
+        assert apres["origine"] == "manuel"
+        assert "À la main" in apres["objet"]
+
+
+async def test_un_item_MANUEL_que_le_fichier_porte_n_est_pas_marque_et_perd_sa_marque(
+    blank_db: str, tmp_path: Path
+) -> None:
+    """Critère 8 bis, et c'est l'écueil de l'arbitrage ci-dessus.
+
+    La fusion REFUSE d'écraser une ligne manuelle : son `vu_le` n'avance donc pas, et sans
+    autre protection elle serait marquée absente à chaque import — y compris par celui qui
+    la porte. Deux dispositifs distincts l'évitent, et ce test les tient tous les deux :
+    l'aire de préparation, qui empêche la pose, et la levée de fin d'import, que la fusion
+    ne peut pas faire pour une ligne qu'elle n'écrit pas.
+    """
+    async with _ouvre(blank_db, tmp_path) as (_, depot):
+        await depot.importe([_item("M-1")])
+        await depot.pose_a_la_main(M3)
+        # D'abord absente du fichier : elle est marquée.
+        await depot.importe([_item("M-1")])
+        assert set(await depot.marques()) == {M3}
+
+        # Puis portée par le fichier : la source en reparle, la marque tombe.
+        await depot.importe([_item("M-1"), _item("M-3")])
         assert await depot.marques() == {}
-        assert (await depot.lignes())[M3]["origine"] == "manuel"
+
+        # Et elle ne se repose pas tant que le fichier la porte, alors que la fusion
+        # continue de refuser de l'écrire.
+        await depot.importe([_item("M-1"), _item("M-3")])
+        ligne = (await depot.lignes())[M3]
+        assert await depot.marques() == {}
+        assert ligne["origine"] == "manuel"
+        assert "À la main" in ligne["objet"]
+
+
+async def test_un_item_REJETE_qui_portait_une_marque_la_perd(blank_db: str, tmp_path: Path) -> None:
+    """Critère 8 ter : la fusion n'écrit rien pour un item rejeté, donc elle ne peut pas
+    lever sa marque — et la source en parle pourtant. Sans la levée de fin d'import, un
+    item marqué qui revient FAUTIF resterait marqué et serait supprimé au bout du délai :
+    exactement celui qu'il fallait aller corriger."""
+    async with _ouvre(blank_db, tmp_path) as (_, depot):
+        await depot.importe([_item("M-1"), _item("M-2")])
+        await depot.importe([_item("M-1")])
+        assert set(await depot.marques()) == {M2}
+
+        fautif = {**_item("M-2"), "ville": 42}
+        ligne = await depot.importe([_item("M-1"), fautif])
+
+        rapport = json.loads(ligne["report"])
+        assert [o["reason"] for o in rapport["objects"] if o["outcome"] == "rejete"] == [
+            REJECT_MODEL
+        ]
+        assert await depot.marques() == {}
 
 
 async def test_la_pose_et_la_levee_ne_touchent_ni_le_corps_ni_l_empreinte(

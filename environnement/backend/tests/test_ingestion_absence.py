@@ -1,4 +1,4 @@
-"""La POSE de la marque d'absence : ce que l'instruction dit, et quand on ne marque pas.
+"""La POSE et la LEVÉE de la marque d'absence : ce que les instructions disent.
 
 Ce qui est éprouvé ici est NOTRE part : les clauses que la sélection porte, le repli devant
 un item sans clé, et la lecture du nombre de lignes touchées. Que PostgreSQL applique bien
@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from environnement.ingestion.absence import db_mark_absent, mark_statement
+from environnement.ingestion.absence import clear_statement, db_mark_absent, mark_statement
 from environnement.storages.model import StorageTable
 
 DEBUT = datetime(2026, 11, 9, 8, tzinfo=UTC)
@@ -58,9 +58,17 @@ class TestLInstruction:
         précédent import ». C'est cette date qui donne « absent depuis N jours »."""
         assert '"absent_depuis" IS NULL' in mark_statement(TABLE)
 
-    def test_un_item_d_origine_manuelle_est_hors_de_la_selection(self) -> None:
-        """Aucun import ne le porte jamais : le marquer le sortirait au premier nettoyage."""
-        assert "c.origine = 'import'" in mark_statement(TABLE)
+    def test_un_item_d_origine_MANUELLE_est_marque_comme_un_autre(self) -> None:
+        """Arbitrage de Gael du 09/11/2026, contre ce qui avait d'abord été écrit : « si je
+        fais un full et que le point n'y est pas je le marque absent ».
+
+        La marque est un CONSTAT sur ce que la source porte, pas un jugement sur l'origine
+        de l'objet. Une clause sur l'origine aurait rendu le constat impossible à faire
+        pour une ligne manuelle que la source ignore — alors que c'est précisément celle
+        qu'il faut rendre visible. Épargner le manuel, si on le veut, revient aux règles
+        de nettoyage.
+        """
+        assert "origine" not in mark_statement(TABLE)
 
     def test_la_frontiere_est_la_date_de_vue_et_non_celle_de_modification(self) -> None:
         """`vu_le` avance sur toute clé qu'un import porte, même sans changement ;
@@ -79,6 +87,15 @@ class TestLInstruction:
         assert "NOT EXISTS" in sql
         assert "pg_temp.ingestion_prepared p WHERE p.cle = c.cle" in sql
 
+    def test_la_ligne_manuelle_que_le_fichier_PORTE_est_epargnee_par_l_aire(self) -> None:
+        """Sans clause d'origine, c'est la seule chose qui la protège : la fusion refuse de
+        l'écraser, donc son `vu_le` n'avance pas, et elle serait candidate à chaque import.
+        """
+        sql = mark_statement(TABLE)
+
+        assert "NOT EXISTS" in sql
+        assert "c.vu_le < $2" in sql
+
     def test_rien_d_autre_que_la_marque_n_est_ecrit(self) -> None:
         """Ni l'objet, ni l'empreinte, ni `modifie_le` : une marque n'est pas une
         modification venue de la source, et réécrire l'objet referait son stockage TOAST."""
@@ -87,6 +104,33 @@ class TestLInstruction:
         assert sql.count("SET") == 1
         for jamais in ("objet", "empreinte", "version_modele"):
             assert f"{jamais} =" not in sql
+
+
+class TestLaLevee:
+    """La levée depuis l'aire de préparation : ce que la fusion ne peut pas couvrir."""
+
+    def test_la_levee_porte_sur_les_cles_que_le_document_A_portees(self) -> None:
+        """L'exact inverse de la pose, et sur la même source — l'aire porte une ligne par
+        item LU, donc elle couvre aussi l'item rejeté, pour lequel rien n'a été écrit."""
+        sql = clear_statement(TABLE)
+
+        assert 'UPDATE "pudo"."sites"' in sql
+        assert '"absent_depuis" = NULL' in sql
+        assert "EXISTS" in sql and "NOT EXISTS" not in sql
+        assert "pg_temp.ingestion_prepared p WHERE p.cle = c.cle" in sql
+
+    def test_la_levee_ne_regarde_pas_l_origine_ni_la_date_de_vue(self) -> None:
+        """C'est tout son objet : la fusion lève déjà ce qu'elle écrit, et ce qui reste à
+        lever est justement ce qu'elle n'écrit pas — la ligne manuelle, l'item rejeté."""
+        sql = clear_statement(TABLE)
+
+        assert "origine" not in sql
+        assert "vu_le" not in sql
+
+    def test_la_levee_ne_touche_que_des_lignes_DEJA_marquees(self) -> None:
+        """Toucher les autres compterait des lignes sans objet, et ferait écrire la table
+        entière à chaque import."""
+        assert '"absent_depuis" IS NOT NULL' in clear_statement(TABLE)
 
 
 class TestLaPose:
@@ -98,7 +142,8 @@ class TestLaPose:
 
         await db_mark_absent(db, TABLE, started_at=DEBUT)
 
-        assert db.arguments == [(DEBUT, DEBUT)]
+        # La levée ne prend aucun paramètre : elle lit l'aire, qui est celle de cet import.
+        assert db.arguments == [(), (DEBUT, DEBUT)]
 
     @pytest.mark.asyncio
     async def test_le_nombre_de_marques_est_MESURE_sur_l_etiquette_de_la_base(self) -> None:
@@ -119,4 +164,8 @@ class TestLaPose:
         db = _Db(sans_cle=1)
 
         assert await db_mark_absent(db, TABLE, started_at=DEBUT) is None
-        assert db.instructions == []
+        # La LEVÉE a bien eu lieu : elle ne va que dans le sens qui épargne un item, et un
+        # item sans clé n'enlève rien à ce que les items qui en ont une prouvent. Y
+        # renoncer aussi n'aurait protégé personne et aurait laissé sur place des marques
+        # que la source contredit.
+        assert db.instructions == [clear_statement(TABLE)]

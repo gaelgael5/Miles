@@ -180,9 +180,15 @@ WITH candidats AS ({source}
         -- mode et quel que soit son état final (Gael, 09/11/2026). C'est ce qui fait du
         -- délai une protection contre un export tronqué : un fichier amputé marque des
         -- items à tort, le fichier complet du lendemain les démarque, et rien n'a été
-        -- supprimé entre-temps. Ici et non à la fin de l'import, parce que c'est la seule
-        -- ligne qui sait QUELLES clés ont été portées — un import interrompu lève donc
-        -- les marques des items qu'il a écrits, et pas des autres.
+        -- supprimé entre-temps. Ici, parce que c'est la seule écriture qui sait quelles
+        -- clés ont été portées en mode unitaire comme en tableau — un import interrompu
+        -- lève donc les marques des items qu'il a écrits, et pas des autres.
+        --
+        -- Cette clause-ci ne couvre QUE ce qu'elle écrit, donc ni une ligne manuelle (la
+        -- clause `WHERE` ci-dessous la garde), ni un item rejeté (rien n'est écrit pour
+        -- lui) : la source reparle pourtant des deux. `absence.clear_statement` les lève
+        -- à la fin d'un import complet, depuis l'aire de préparation. Ne pas « finir le
+        -- travail » en élargissant l'origine ici : ce serait un aller-retour par LOT.
         {ABSENCE_COLUMN} = NULL
     WHERE {cible}.origine = '{IMPORT_ORIGIN}'
     RETURNING cle
