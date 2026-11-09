@@ -59,10 +59,39 @@ function ObjectDetail({ objet }: { objet: StorageObject | undefined }) {
         {t("storages.changed", { date: instant(objet.modifie_le) })}
         {" · "}
         {t(`storages.origins.${objet.origine}`, { defaultValue: objet.origine })}
+        {/* Dit APRÈS les deux dates, et seulement quand la marque existe : une absence
+            qui s'affiche « — » se lirait comme une donnée manquante, pas comme un objet
+            que les imports portent. */}
+        {objet.absent_depuis !== null && (
+          <>
+            {" · "}
+            <strong>{t("storages.absent", { date: instant(objet.absent_depuis) })}</strong>
+          </>
+        )}
       </p>
       <pre className="mono detail-json">{JSON.stringify(objet.objet, null, 2)}</pre>
     </aside>
   );
+}
+
+/**
+ * La marque d'absence, DANS LA LISTE et pas seulement dans le panneau de détail.
+ *
+ * « On doit pouvoir voir ce qui est absent avant qu'une règle ne le supprime » demande de
+ * le voir sans ouvrir les objets un par un. Rendue dans la cellule qui OUVRE la ligne —
+ * celle de la clé, ou la première colonne quand la clé n'a plus la sienne — parce que
+ * c'est la seule place que le bandeau de colonnes ne décrit pas comme une valeur.
+ *
+ * Rien du tout quand l'objet n'est pas marqué : un « — » se lirait comme une donnée
+ * manquante, pas comme un objet que les imports portent.
+ */
+function AbsenceBadge({ objet }: { objet: StorageObject }) {
+  const { t } = useTranslation();
+
+  if (objet.absent_depuis === null) {
+    return null;
+  }
+  return <span className="badge">{t("storages.absentBadge")}</span>;
 }
 
 /**
@@ -154,6 +183,7 @@ export function StorageObjects({
                 >
                   {cleMontree && (
                     <div className="cell-auto cell-key">
+                      <AbsenceBadge objet={objet} />
                       <button
                         type="button"
                         className="row-open mono"
@@ -174,14 +204,17 @@ export function StorageObjects({
                             l'objet : le geste ne disparaît pas avec la colonne qui le
                             portait, sans quoi la table ne mènerait plus au panneau. */}
                         {!cleMontree && rang === 0 ? (
-                          <button
-                            type="button"
-                            className="row-open mono"
-                            aria-current={objet.cle === ouvert}
-                            onClick={() => setOuvert(objet.cle)}
-                          >
-                            {valeur}
-                          </button>
+                          <>
+                            <AbsenceBadge objet={objet} />
+                            <button
+                              type="button"
+                              className="row-open mono"
+                              aria-current={objet.cle === ouvert}
+                              onClick={() => setOuvert(objet.cle)}
+                            >
+                              {valeur}
+                            </button>
+                          </>
                         ) : (
                           valeur
                         )}

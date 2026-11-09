@@ -55,6 +55,8 @@
     "empty": "Aucun objet ne correspond.",
     "seen": "vu le {{date}}",
     "changed": "modifié le {{date}}",
+    "absent": "absent de l'import depuis le {{date}}",
+    "absentBadge": "absent de l'import",
     "previous": "Page précédente",
     "next": "Page suivante",
     "page": "Page {{page}} sur {{pages}}",

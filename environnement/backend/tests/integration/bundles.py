@@ -384,6 +384,11 @@ def fabrique_import_fichier(
     decoupage: str = "$.magasins[*]",
     transaction_unifiee: bool = False,
     lot_ecriture: int = 2,
+    # Les trois modes de l'entrée, dans l'ordre déclaré. Le mode fichier par défaut et
+    # lui seul : c'est l'objet de cette fabrique. Les autres s'ouvrent pour confronter
+    # DEUX modes au même storage — le cas où une marque posée par le mauvais mode se voit
+    # (story `82bc9dca`).
+    modes: tuple[bool, bool, bool] = (False, False, True),
 ) -> dict[int, VersionFabriquee]:
     """UNE version dont la source expose le mode GROS FICHIER (story 0f14adbd).
 
@@ -409,7 +414,7 @@ def fabrique_import_fichier(
             "magasins-import",
             "magasins",
             "pudo/magasin-import",
-            (False, False, True),
+            modes,
             decoupage=decoupage,
             transaction_unifiee=transaction_unifiee,
             lot_ecriture=lot_ecriture,

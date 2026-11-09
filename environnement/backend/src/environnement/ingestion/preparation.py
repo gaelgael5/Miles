@@ -81,7 +81,16 @@ def prepare_object(
     try:
         check_conformance(objet, validator)
     except ModelViolation as ecart:
-        return _refuse(position, REJECT_MODEL, ecart.detail)
+        # LA CLÉ EST GARDÉE SUR UN REJET DE MODÈLE, quand elle s'extrait (story
+        # `82bc9dca`). Deux conséquences, et la seconde est la raison :
+        #
+        # - le compte-rendu nomme l'item par sa clé, ce que son propre contrat annonce
+        #   déjà (« `key` est nulle quand elle n'a pas pu être extraite ») ;
+        # - surtout, le MARQUAGE DES ABSENTS la lit dans l'aire de préparation pour ne pas
+        #   marquer absent un item dont le document parlait. Sans elle, un item que le
+        #   modèle refuse serait supprimé au bout du délai — c'est-à-dire exactement celui
+        #   qu'il fallait aller corriger. L'objet, lui, reste nul : il n'y a rien à écrire.
+        return _refuse(position, REJECT_MODEL, ecart.detail, _key_or_none(objet, keys))
     try:
         cle = key_of(objet, keys)
     except KeyNotExtractable as manque:
@@ -89,5 +98,16 @@ def prepare_object(
     return PreparedObject(position, cle, objet, fingerprint(objet))
 
 
-def _refuse(position: int, reason: str, detail: str | None) -> PreparedObject:
-    return PreparedObject(position, None, None, None, reason, detail)
+def _key_or_none(objet: Any, keys: KeyRule) -> str | None:
+    """La clé d'un objet déjà REFUSÉ. Nulle sans bruit : l'item est rejeté de toute façon,
+    et une propriété de clé absente est le plus souvent la violation qu'on vient de dire."""
+    try:
+        return key_of(objet, keys)
+    except KeyNotExtractable:
+        return None
+
+
+def _refuse(
+    position: int, reason: str, detail: str | None, key: str | None = None
+) -> PreparedObject:
+    return PreparedObject(position, key, None, None, reason, detail)

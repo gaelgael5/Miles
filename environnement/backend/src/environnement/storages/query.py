@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 from environnement.storages.ddl import quoted
-from environnement.storages.model import StorageTable
+from environnement.storages.model import ABSENCE_COLUMN, StorageTable
 
 # Taille de page par défaut, et son plafond. Bornée des deux côtés : sans plafond, un
 # appelant demanderait la table entière en une fois.
@@ -122,7 +122,18 @@ def build(
     taille = min(max(page_size, 1), MAX_PAGE_SIZE)
     saut = (max(page, 1) - 1) * taille
     colonnes = ", ".join(
-        [quoted("cle"), quoted("objet"), quoted("vu_le"), quoted("modifie_le"), quoted("origine")]
+        [
+            quoted("cle"),
+            quoted("objet"),
+            quoted("vu_le"),
+            quoted("modifie_le"),
+            quoted("origine"),
+            # La marque d'absence est RENDUE, et la sélection ne l'exclut jamais : on doit
+            # pouvoir voir ce qui est absent avant qu'une règle ne le supprime (story
+            # `82bc9dca`). Un filtre implicite sur elle aurait fait disparaître des objets
+            # de l'écran sans que personne ne l'ait demandé.
+            quoted(ABSENCE_COLUMN),
+        ]
         + [quoted(p.column) for p in table.projections]
     )
     # S608 signale l'assemblage, à juste titre : il n'existe pas de requête

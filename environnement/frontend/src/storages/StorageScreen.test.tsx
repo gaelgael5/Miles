@@ -35,8 +35,14 @@ const OBJET = {
   vu_le: "2026-11-02T07:10:00Z",
   modifie_le: "2026-11-02T07:10:00Z",
   origine: "import",
+  // Les imports le portent : pas de marque d'absence. Renseigné et non omis — un champ
+  // absent de la doublure n'est pas `null` mais `undefined`, et l'écran afficherait la
+  // marque sur un objet qui n'en a pas.
+  absent_depuis: null,
   columns: { contact_phone: "0102030405", postes: 3 },
 };
+// Le même objet, ABSENT de l'import depuis une date. L'écran doit continuer de le rendre.
+const OBJET_ABSENT = { ...OBJET, cle: '["A-2"]', absent_depuis: "2026-11-09T06:00:00Z" };
 
 function monte(routes: Routes, name = "accounts") {
   const calls = mockApi(routes);
@@ -169,6 +175,53 @@ describe("la page d'un espace de stockage", () => {
     const table = within(screen.getByRole("region", { name: "Objects found" }));
     expect(table.getByText("$.Contact.Phone")).toBeInTheDocument();
     expect(table.queryByText(/2026/)).not.toBeInTheDocument();
+  });
+
+  it("montre dans la LISTE quels objets sont absents de l'import, et les rend quand même", async () => {
+    // « On doit pouvoir voir ce qui est absent avant qu'une règle ne le supprime »
+    // (story `82bc9dca`) : sans marque dans la liste, il faudrait ouvrir les objets un
+    // par un. Et un objet marqué reste rendu — la lecture ne le filtre jamais.
+    monte({
+      ...UNE_LISTE,
+      "GET /api/storages/accounts/objects": {
+        status: 200,
+        body: { objects: [OBJET, OBJET_ABSENT], total: 2, page: 1, page_size: 50 },
+      },
+    });
+
+    expect(await screen.findByText("2 objects found")).toBeInTheDocument();
+    const table = within(screen.getByRole("region", { name: "Objects found" }));
+    // Une seule marque pour deux objets : celui que l'import porte n'en a pas.
+    expect(table.getAllByText("missing from the import")).toHaveLength(1);
+    expect(table.getByRole("button", { name: "A-1" })).toBeInTheDocument();
+    expect(table.getByRole("button", { name: "A-2" })).toBeInTheDocument();
+  });
+
+  it("dit depuis quand un objet est absent de l'import, dans son panneau", async () => {
+    monte({
+      ...UNE_LISTE,
+      "GET /api/storages/accounts/objects": {
+        status: 200,
+        body: { objects: [OBJET_ABSENT], total: 1, page: 1, page_size: 50 },
+      },
+    });
+    expect(await screen.findByText("1 object found")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "A-2" }));
+
+    const detail = within(screen.getByRole("complementary", { name: "Object" }));
+    expect(detail.getByText(/missing from the import since/)).toBeInTheDocument();
+  });
+
+  it("ne dit rien de l'absence sur un objet que l'import porte", async () => {
+    // Rien du tout, et non un « — » : une absence vide se lirait comme une donnée
+    // manquante. C'est aussi ce test qui mordrait si la doublure omettait le champ.
+    monte(UNE_PAGE);
+    expect(await screen.findByText("1 object found")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "A-1" }));
+
+    expect(screen.queryByText(/missing from the import/)).not.toBeInTheDocument();
   });
 
   it("ne garde pas la colonne de clé quand une colonne du modèle la porte déjà", async () => {

@@ -16,6 +16,7 @@ from __future__ import annotations
 from environnement.storages.ddl import (
     KEY_INDEX,
     add_column,
+    add_fixed_column,
     drop_column,
     drop_index,
     index_name,
@@ -24,6 +25,7 @@ from environnement.storages.ddl import (
     key_index,
 )
 from environnement.storages.model import (
+    ADDABLE_COLUMNS,
     FIXED_COLUMNS,
     REFUSAL_TYPE_CHANGE,
     REFUSAL_UNEXPECTED_SHAPE,
@@ -34,10 +36,20 @@ from environnement.storages.store import ExistingTable
 
 
 def missing_fixed(existing: ExistingTable) -> str | None:
-    """Le nom de la première colonne fixe absente ou mal typée. Nul si la forme tient."""
+    """Le nom de la première colonne fixe absente ou mal typée. Nul si la forme tient.
+
+    **Les colonnes d'`ADDABLE_COLUMNS` absentes ne comptent pas ici** : elles ont été
+    introduites après que des tables de storage tournaient déjà, et l'alignement les
+    AJOUTE. Les compter aurait fait refuser chaque storage en service au premier
+    déploiement qui en introduit une — et ce refus-là n'a aucun geste de réparation,
+    puisqu'une forme inattendue se signale sans se corriger. Mal TYPÉE, en revanche, reste
+    une forme inattendue : la colonne existe et ne porte pas ce qu'on croit.
+    """
     for name, sql_type in FIXED_COLUMNS:
         column = existing.column(name)
         if column is None:
+            if name in ADDABLE_COLUMNS:
+                continue
             return name
         if column.sql_type != sql_type:
             return f"{name}:{column.sql_type}"
@@ -49,6 +61,14 @@ def alignment(
 ) -> tuple[list[str], bool] | StorageRefusal:
     """Ce qu'il faut faire pour que la table porte ce que la version déclare."""
     instructions: list[str] = []
+    # Les colonnes fixes ajoutables qui manquent, AVANT les colonnes dérivées : la marque
+    # d'absence est lue par l'écriture des imports, et une instruction d'alignement qui
+    # échouerait plus loin ne doit pas laisser la table sans elle.
+    instructions += [
+        add_fixed_column(table, name, sql_type)
+        for name, sql_type in FIXED_COLUMNS
+        if name in ADDABLE_COLUMNS and existing.column(name) is None
+    ]
     voulues = {p.column: p for p in table.projections}
     for projection in table.projections:
         column = existing.column(projection.column)

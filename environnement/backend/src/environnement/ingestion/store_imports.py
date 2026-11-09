@@ -36,6 +36,12 @@ class ImportJob:
     size_bytes: int
     version_number: int
     key_id: str
+    # L'instant où CET import a été pris, relu de la ligne qu'on vient d'écrire et non
+    # recalculé par l'appelant. C'est la frontière du marquage des absents (story
+    # `82bc9dca`) : tout ce que l'import porte voit son `vu_le` avancer au-delà. Deux
+    # valeurs — celle posée en base et celle que l'horloge rendrait plus tard — auraient
+    # laissé des items du bon côté de l'une et du mauvais côté de l'autre.
+    started_at: datetime
 
 
 @dataclass(frozen=True)
@@ -107,7 +113,8 @@ async def db_claim_next(db: IngestionDb, storage: str, now: datetime) -> ImportJ
         "UPDATE ingestions SET state = 'en_cours', started_at = $2 WHERE id = ("
         "  SELECT id FROM ingestions WHERE storage = $1 AND state = 'en_file'"
         "  ORDER BY received_at, id FOR UPDATE SKIP LOCKED LIMIT 1"
-        ") RETURNING id, source, storage, file_name, size_bytes, version_number, key_id",
+        ") RETURNING id, source, storage, file_name, size_bytes, version_number, key_id,"
+        " started_at",
         storage,
         now,
     )
@@ -265,6 +272,7 @@ def _job(row: Any) -> ImportJob:
         size_bytes=int(row["size_bytes"] or 0),
         version_number=int(row["version_number"]),
         key_id=row["key_id"],
+        started_at=row["started_at"],
     )
 
 

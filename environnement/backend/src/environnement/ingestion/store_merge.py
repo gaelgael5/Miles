@@ -34,7 +34,7 @@ from typing import Any, Protocol
 from environnement.ingestion.preparation import PreparedObject
 from environnement.ingestion.staging import PREPARED_TABLE, STAGED_TO_WRITE
 from environnement.storages.ddl import quoted
-from environnement.storages.model import StorageTable
+from environnement.storages.model import ABSENCE_COLUMN, StorageTable
 
 # L'origine d'une ligne de storage. Un objet posé à la main n'est jamais écrasé par un
 # import : c'est la seule chose qui distingue les deux, et elle décide d'un refus.
@@ -175,7 +175,15 @@ WITH candidats AS ({source}
         modifie_le = CASE
             WHEN {cible}.empreinte = excluded.empreinte THEN {cible}.modifie_le
             ELSE excluded.modifie_le END,
-        version_modele = excluded.version_modele
+        version_modele = excluded.version_modele,
+        -- LA MARQUE D'ABSENCE TOMBE dès qu'un dépôt reparle de l'item, quel que soit son
+        -- mode et quel que soit son état final (Gael, 09/11/2026). C'est ce qui fait du
+        -- délai une protection contre un export tronqué : un fichier amputé marque des
+        -- items à tort, le fichier complet du lendemain les démarque, et rien n'a été
+        -- supprimé entre-temps. Ici et non à la fin de l'import, parce que c'est la seule
+        -- ligne qui sait QUELLES clés ont été portées — un import interrompu lève donc
+        -- les marques des items qu'il a écrits, et pas des autres.
+        {ABSENCE_COLUMN} = NULL
     WHERE {cible}.origine = '{IMPORT_ORIGIN}'
     RETURNING cle
 )

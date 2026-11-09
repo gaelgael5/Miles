@@ -46,6 +46,12 @@ export interface StorageObject {
   vu_le: string;
   modifie_le: string;
   origine: string;
+  /**
+   * L'instant de l'import complet qui n'a pas porté cet objet — nul tant que les imports
+   * le portent. On doit pouvoir VOIR ce qui est absent avant qu'une règle de nettoyage ne
+   * le supprime, et c'est cette date-là qui décidera de la suppression.
+   */
+  absent_depuis: string | null;
   /** Les colonnes projetées de cet objet : elles disent pourquoi il est dans le résultat. */
   columns: Record<string, unknown>;
 }

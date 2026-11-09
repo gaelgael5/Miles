@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from environnement.storages.ddl import rewrites_table
 from environnement.storages.model import (
+    ABSENCE_COLUMN,
     REFUSAL_TYPE_CHANGE,
     REFUSAL_UNEXPECTED_SHAPE,
     Projection,
@@ -32,7 +34,11 @@ FIXES = (
     ExistingColumn("vu_le", "timestamp with time zone", False),
     ExistingColumn("modifie_le", "timestamp with time zone", False),
     ExistingColumn("version_modele", "integer", False),
+    ExistingColumn("absent_depuis", "timestamp with time zone", False),
 )
+# La forme d'une table posée AVANT la marque d'absence (09/11/2026) : c'est celle des
+# storages déjà en service, et ils doivent traverser le déploiement qui l'introduit.
+AVANT_LA_MARQUE = tuple(c for c in FIXES if c.name != ABSENCE_COLUMN)
 
 
 CLE = ExistingIndex("accounts__cle", ("cle",))
@@ -56,6 +62,22 @@ class TestLaFormeDeLaTable:
 
         assert missing_fixed(sans_empreinte) == "empreinte"
 
+    def test_la_marque_d_absence_absente_ne_fait_PAS_refuser_le_storage(self) -> None:
+        """Les tables en service sont antérieures à cette colonne, et aucun refus de forme
+        ne se répare : les compter aurait rendu chaque storage illisible pour toujours."""
+        ancienne = ExistingTable(columns=AVANT_LA_MARQUE, indexes=(CLE,))
+
+        assert missing_fixed(ancienne) is None
+
+    def test_une_marque_d_absence_MAL_TYPEE_reste_une_forme_inattendue(self) -> None:
+        """La colonne existe et ne porte pas ce qu'on croit : là, on ne répare pas."""
+        autre = ExistingTable(
+            columns=(*AVANT_LA_MARQUE, ExistingColumn(ABSENCE_COLUMN, "text", False)),
+            indexes=(CLE,),
+        )
+
+        assert missing_fixed(autre) == f"{ABSENCE_COLUMN}:text"
+
     def test_une_colonne_fixe_mal_typee_est_nommee_avec_son_type(self) -> None:
         """Signalé, jamais réparé : on ne sait pas ce que cette table porte."""
         autre = ExistingTable(
@@ -74,6 +96,28 @@ class TestLAlignement:
         plan = alignment(TABLE, _existe(ExistingColumn("contact_phone", "text", True)))
 
         assert plan == ([], False)
+
+    def test_une_table_anterieure_a_la_marque_d_absence_la_recoit(self) -> None:
+        """Et la base BOUGE : sans cela, le journal dirait qu'un déploiement n'a rien fait
+        le jour même où il ajoute la colonne que le marquage des absents écrit."""
+        ancienne = ExistingTable(
+            columns=(*AVANT_LA_MARQUE, ExistingColumn("contact_phone", "text", True)),
+            indexes=(CLE, TEL_INDEX),
+        )
+
+        plan = alignment(TABLE, ancienne)
+
+        assert not isinstance(plan, StorageRefusal)
+        instructions, bouge = plan
+        assert bouge is True
+        assert instructions == [
+            'alter table "pudo"."accounts" add column if not exists'
+            ' "absent_depuis" timestamp with time zone'
+        ]
+        # Ni `not null` ni défaut : c'est ce qui fait que PostgreSQL ne réécrit pas la
+        # table, et donc qu'un storage de plusieurs centaines de milliers de lignes n'est
+        # pas verrouillé par ce déploiement.
+        assert not any(rewrites_table(i) for i in instructions)
 
     def test_une_propriete_ajoutee_donne_une_colonne_et_la_base_bouge(self) -> None:
         voulue = StorageTable(**{**TABLE.__dict__, "projections": (TEL, POSTES)})

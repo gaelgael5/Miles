@@ -55,6 +55,8 @@
     "empty": "No object matches.",
     "seen": "seen on {{date}}",
     "changed": "changed on {{date}}",
+    "absent": "missing from the import since {{date}}",
+    "absentBadge": "missing from the import",
     "previous": "Previous page",
     "next": "Next page",
     "page": "Page {{page}} of {{pages}}",

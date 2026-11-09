@@ -33,6 +33,7 @@ from miles_socle.events.model import EventAuthor, EventTypeCatalog
 from miles_socle.parametrage.sources import Entry
 
 from environnement.hosting.gitstore import HostedTree
+from environnement.ingestion.absence import db_mark_absent
 from environnement.ingestion.applystaging import (
     FAILURE_APPLY_TOO_LONG,
     ApplyPlan,
@@ -260,10 +261,20 @@ class FileImports:
         except ApplyTooLong:
             await self._failed(conn, job, FAILURE_APPLY_TOO_LONG, str(plan.seconds), lus)
             return
+        etat = _state_of(rapport, incident)
+        if etat == STATE_PROCESSED:
+            # LE MARQUAGE DES ABSENTS (Gael, 09/11/2026 : « le déclenchement du nettoyage
+            # se traite à la fin de l'import fichier »), et l'endroit n'est pas libre :
+            # `traite` SEUL — un import `incomplet` n'a peut-être pas atteint des items
+            # qu'il aurait portés ; AVANT `db_finish_import` — une panne du marquage
+            # laisse l'ingestion « en cours », que l'entretien remet en file ; et avant
+            # que l'appelant n'ôte l'aire de préparation, qui protège les items rejetés.
+            # Ce que chaque clause de la sélection tient : `absence.py`.
+            await db_mark_absent(conn, prepared.table, started_at=job.started_at)
         await db_finish_import(
             conn,
             job.id,
-            state=_state_of(rapport, incident),
+            state=etat,
             report=rapport,
             items_read=lus,
             now=self.now(),

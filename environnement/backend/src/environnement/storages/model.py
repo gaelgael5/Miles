@@ -10,6 +10,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+# La marque d'absence (Gael, 09/11/2026 : « si clef d'item pas présente, lors d'un import
+# full par upload de fichier, l'item est flagué en base »). Une seule colonne pour la
+# marque ET sa date : nulle quand l'item est porté par les imports, portant l'instant de
+# l'import qui ne l'a pas porté sinon. Deux colonnes — un booléen et une date — auraient
+# pu se contredire, et c'est la date qui décide d'une suppression.
+ABSENCE_COLUMN = "absent_depuis"
+
 # Les colonnes que porte toute table de storage, et leur type. Déclarées ici et nulle
 # part ailleurs : c'est contre cette liste qu'on reconnaît une table conforme, et deux
 # listes auraient fini par décrire deux formes.
@@ -22,8 +29,27 @@ FIXED_COLUMNS: tuple[tuple[str, str], ...] = (
     ("vu_le", "timestamp with time zone"),
     ("modifie_le", "timestamp with time zone"),
     ("version_modele", "integer"),
+    (ABSENCE_COLUMN, "timestamp with time zone"),
 )
 FIXED_NAMES = frozenset(name for name, _ in FIXED_COLUMNS)
+
+# Les colonnes fixes qu'on sait AJOUTER à une table déjà en service, et donc dont
+# l'absence ne fait pas refuser le storage.
+#
+# **Pourquoi cette liste existe.** Les tables de storage ne sont pas posées par les
+# migrations numérotées : elles sont dérivées du paramétrage, et celles qui tournent déjà
+# dans un environnement portent la forme du jour où leur version a été servie. Ajouter une
+# colonne fixe sans cette distinction aurait fait répondre `table_de_forme_inattendue` à
+# CHAQUE storage déjà en service — un refus que rien ne répare, puisque le service signale
+# au lieu de corriger.
+#
+# **Pourquoi celle-ci peut s'ajouter alors que les autres non.** Elle est NULLABLE et sans
+# défaut : PostgreSQL 11 et au-delà posent une telle colonne sans réécrire la table, donc
+# sans verrou long et sans coût proportionnel au nombre de lignes. Les autres colonnes
+# fixes sont `not null` : leur absence n'est pas un retard de version, c'est le signe que
+# la table n'est pas une table de storage — et la remplir supposerait de savoir ce qu'elle
+# porte, ce qu'on ne sait pas.
+ADDABLE_COLUMNS = frozenset({ABSENCE_COLUMN})
 
 # Événements du module : ce qui s'est passé à la pose d'une version.
 STORAGES_MATERIALISED_EVENT = "environment.storages_materialised"

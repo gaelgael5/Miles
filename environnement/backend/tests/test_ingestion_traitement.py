@@ -279,6 +279,11 @@ class TestTraitement:
         assert [o.outcome for o in rapport.objects] == [WRITTEN, REJECTED, WRITTEN]
         assert rapport.objects[1].reason == REJECT_MODEL
         assert db.ecritures == ['["S-1"]', '["S-3"]']
+        # LA CLÉ EST NOMMÉE bien que l'objet soit refusé (story `82bc9dca`) : c'est elle
+        # qui dit à l'appelant lequel de ses items corriger, et c'est elle qui empêche le
+        # marquage des absents de supprimer, au bout du délai, un item dont le document
+        # parlait fidèlement.
+        assert rapport.objects[1].key == '["S-2"]'
 
     @pytest.mark.asyncio
     async def test_une_transformation_en_echec_nomme_l_etape_et_la_cause(self) -> None:

@@ -17,7 +17,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from environnement.storages.ddl import IdentifierError
-from environnement.storages.model import REFUSAL_TABLE_ABSENT, REFUSAL_TABLE_BEHIND
+from environnement.storages.model import (
+    ABSENCE_COLUMN,
+    REFUSAL_TABLE_ABSENT,
+    REFUSAL_TABLE_BEHIND,
+)
 from environnement.storages.query import (
     PAGE_SIZE,
     FilterError,
@@ -70,6 +74,10 @@ class ObjectOut(BaseModel):
     vu_le: datetime
     modifie_le: datetime
     origine: str
+    # L'instant de l'import complet qui n'a pas porté cet item, nul tant que les imports
+    # le portent (story `82bc9dca`). Rendu sur chaque objet plutôt que déduit par l'écran :
+    # c'est cette date, et pas l'ancienneté de `vu_le`, qui décidera d'une suppression.
+    absent_depuis: datetime | None
     # Les colonnes projetées, par nom : c'est sur elles que portent les filtres, et les
     # montrer dit pourquoi un objet est dans le résultat.
     columns: dict[str, Any]
@@ -235,6 +243,7 @@ async def search_objects(
                 vu_le=row["vu_le"],
                 modifie_le=row["modifie_le"],
                 origine=row["origine"],
+                absent_depuis=row[ABSENCE_COLUMN],
                 columns={nom: row[nom] for nom in colonnes},
             )
             for row in rows

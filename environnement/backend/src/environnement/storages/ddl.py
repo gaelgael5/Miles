@@ -14,7 +14,12 @@ from __future__ import annotations
 
 import re
 
-from environnement.storages.model import FIXED_COLUMNS, Projection, StorageTable
+from environnement.storages.model import (
+    ABSENCE_COLUMN,
+    FIXED_COLUMNS,
+    Projection,
+    StorageTable,
+)
 
 # 63 : la limite de PostgreSQL pour un nom. Au-delà, il TRONQUE en silence — deux noms
 # longs se retrouveraient confondus sans qu'aucune erreur ne le dise.
@@ -142,6 +147,13 @@ def _contraintes(name: str) -> str:
         return " not null default 'import'"
     if name in ("vu_le", "modifie_le"):
         return " not null default now()"
+    if name == ABSENCE_COLUMN:
+        # NULLABLE et sans défaut, et les deux sont nécessaires. Nulle, la colonne DIT
+        # « cet item n'est pas absent » : un objet neuf n'est jamais marqué. Sans défaut,
+        # elle s'ajoute à une table déjà en service sans la réécrire (voir
+        # `ADDABLE_COLUMNS`), ce qui est la seule façon d'introduire une colonne fixe
+        # après coup sur des tables que les migrations ne posent pas.
+        return ""
     if name == "version_modele":
         # Pas de défaut : c'est l'ingestion qui sait quelle version du modèle elle a
         # validée, et un défaut à zéro ferait croire qu'on le sait.
@@ -149,11 +161,17 @@ def _contraintes(name: str) -> str:
     return " not null"
 
 
+# Le fragment qui dit qu'une colonne est DÉRIVÉE par la base. Partagé par le producteur
+# et par le reconnaisseur de réécriture : deux littéraux auraient divergé au premier
+# reformatage, et le reconnaisseur se serait tu sans que rien n'échoue.
+_GENERATED = "generated always as"
+
+
 def _column_clause(projection: Projection) -> str:
     """Une colonne dérivée. `stored` : calculée à l'écriture, indexable, jamais écrite."""
     return (
         f"{quoted(projection.column)} {projection.sql_type} "
-        f"generated always as ({derivation(projection)}) stored"
+        f"{_GENERATED} ({derivation(projection)}) stored"
     )
 
 
@@ -195,15 +213,27 @@ def statements_for(table: StorageTable) -> list[str]:
     return [create_schema(table), create_table(table), *create_indexes(table)]
 
 
-# Le fragment qui dit qu'une instruction AJOUTE une colonne dérivée. Partagé par le
-# producteur et par le reconnaisseur ci-dessous : deux littéraux auraient divergé au
-# premier reformatage du SQL, et le reconnaisseur se serait tu sans que rien n'échoue.
+# `if not exists` : l'alignement ne demande que ce qui manque, et cette tolérance ne fait
+# que rendre un rejeu inoffensif — contrairement à celle des index, qui se décide sur un
+# nom et peut taire une création attendue.
 _ADD_COLUMN = " add column if not exists "
 
 
 def add_column(table: StorageTable, projection: Projection) -> str:
     cible = f"{quoted(table.schema)}.{quoted(table.table)}"
     return f"alter table {cible}{_ADD_COLUMN}{_column_clause(projection)}"
+
+
+def add_fixed_column(table: StorageTable, name: str, sql_type: str) -> str:
+    """Ajoute une colonne FIXE à une table déjà en service.
+
+    Réservé à `ADDABLE_COLUMNS` : l'instruction ne porte ni `not null` ni défaut, donc
+    PostgreSQL ne réécrit pas la table. L'appelant a la charge de ne demander que celles-là
+    — une colonne `not null` ajoutée ainsi serait refusée par la base sur une table qui
+    porte déjà des lignes, et au pire moment, c'est-à-dire pendant un déploiement.
+    """
+    cible = f"{quoted(table.schema)}.{quoted(table.table)}"
+    return f"alter table {cible}{_ADD_COLUMN}{quoted(name)} {sql_type}"
 
 
 def rewrites_table(instruction: str) -> bool:
@@ -219,8 +249,16 @@ def rewrites_table(instruction: str) -> bool:
     pourquoi on le DIT au lieu de le payer à l'insu de qui déploie.
 
     Le retrait d'une colonne, lui, ne réécrit rien : PostgreSQL la marque simplement.
+
+    **Ce qui est reconnu est l'AJOUT d'une colonne DÉRIVÉE, et il faut les deux.** Depuis
+    le 09/11/2026 une colonne fixe NULLABLE s'ajoute aussi par `add column` (la marque
+    d'absence), et celle-là ne réécrit rien : PostgreSQL 11 et au-delà se contentent
+    d'inscrire au catalogue qu'elle n'a pas de défaut. Reconnaître le seul ajout aurait
+    fait annoncer un verrou exclusif là où il n'y en a pas — et un avertissement qui crie
+    pour rien finit par ne plus être lu. Reconnaître la seule clause dérivée aurait, à
+    l'inverse, fait annoncer un verrou sur la CRÉATION d'une table, qui n'a rien à bloquer.
     """
-    return _ADD_COLUMN in instruction
+    return _ADD_COLUMN in instruction and _GENERATED in instruction
 
 
 def drop_column(table: StorageTable, column: str) -> str:

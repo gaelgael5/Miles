@@ -192,7 +192,16 @@ class TestLaRequete:
     def test_la_selection_rend_l_objet_ses_dates_et_les_colonnes_projetees(self) -> None:
         requete = build(TABLE, [])
 
-        for attendu in ('"cle"', '"objet"', '"vu_le"', '"modifie_le"', '"origine"'):
+        for attendu in (
+            '"cle"',
+            '"objet"',
+            '"vu_le"',
+            '"modifie_le"',
+            '"origine"',
+            # La marque d'absence : « on doit pouvoir voir ce qui est absent avant qu'une
+            # règle ne le supprime » (story `82bc9dca`).
+            '"absent_depuis"',
+        ):
             assert attendu in requete.sql
         assert '"contact_phone"' in requete.sql
         assert '"postes"' in requete.sql

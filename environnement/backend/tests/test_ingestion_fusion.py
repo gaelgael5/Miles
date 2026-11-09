@@ -185,6 +185,24 @@ async def test_les_items_REJETES_ne_partent_pas_dans_la_charge_de_la_fusion() ->
     assert db.appels[0][3] == [1]
 
 
+async def test_un_depot_qui_reparle_d_un_item_LEVE_sa_marque_d_absence() -> None:
+    """Ici et non à la fin de l'import : cette instruction est la seule à savoir quelles
+    clés un dépôt a portées. C'est ce qui fait du délai une protection contre un export
+    tronqué — le fichier complet du lendemain démarque ce qu'un fichier amputé a marqué."""
+    db = _Db([[_ligne(0, "S-1")]])
+
+    await db_merge_items(db, TABLE, items=[_item(0, "S-1")], now=NOW, model_version=3)
+
+    instruction = db.instructions[0]
+    assert "absent_depuis = NULL" in instruction
+    # Dans le `DO UPDATE`, et non dans les colonnes insérées : une ligne neuve n'a pas de
+    # marque à lever, et nommer la colonne à l'insertion aurait forcé une valeur là où le
+    # défaut de la base dit déjà « pas absent ».
+    avant_conflit, apres_conflit = instruction.split("ON CONFLICT", 1)
+    assert "absent_depuis" not in avant_conflit
+    assert "absent_depuis = NULL" in apres_conflit
+
+
 async def test_la_cte_des_etats_d_avant_part_de_la_SOURCE_et_non_de_la_CIBLE() -> None:
     """Le sens de cette jointure est une décision MESURÉE, pas une préférence d'écriture.
 
