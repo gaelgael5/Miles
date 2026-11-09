@@ -205,8 +205,17 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .row-openable { position: relative; cursor: pointer; }
 .row-openable:hover { background: var(--fond); }
 .row-open {
-  background: none; border: none; padding: 0; margin: 0; color: inherit; font: inherit;
+  background: none; border: none; padding: 0; margin: 0; font: inherit;
   font-size: 16px; font-weight: 600; text-align: left; cursor: pointer;
+  /* ACCENT, et non l'encre héritée : c'est le seul signe qui dit qu'un titre OUVRE
+     quelque chose. Relevé dans les maquettes (09/11/2026), qui écrivent un `<a>` — donc
+     la couleur d'accent — pour le titre de chaque ligne ouvrable, et un `<div>` d'encre
+     pour celui d'une carte qui ne s'ouvre pas. Mesuré sur la stack livrée : tout le reste
+     de la ligne tombait déjà au caractère près sur la maquette — 16px/600, sous-titre
+     mono 12px `--encre-faible`, 20px/22px de marge, filets `--bordure-carte` et
+     `--bordure` — et cette couleur était le dernier écart. Le soulignement reste absent,
+     comme dans la maquette : le survol de la LIGNE entière porte déjà l'indice. */
+  color: var(--accent);
 }
 .row-open::after { content: ""; position: absolute; inset: 0; }
 .row-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
