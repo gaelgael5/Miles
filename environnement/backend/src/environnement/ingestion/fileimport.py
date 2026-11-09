@@ -40,12 +40,8 @@ from environnement.ingestion.applystaging import (
     ApplyTooLong,
     resolve_apply,
 )
-from environnement.ingestion.cleanup import (
-    CleanupRule,
-    db_remove_designated,
-    expiry_rule,
-    missing_rule,
-)
+from environnement.ingestion.cleanup import db_remove_designated
+from environnement.ingestion.cleanup_rules import CleanupRule, expiry_rule, missing_rule
 from environnement.ingestion.files import DepositedFiles
 from environnement.ingestion.importtarget import NotImportable, resolve_importable
 from environnement.ingestion.jsonflux import STRUCTURAL, DocumentUnreadable

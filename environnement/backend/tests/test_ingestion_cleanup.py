@@ -19,13 +19,15 @@ from miles_socle.events.model import EventAuthor, EventTypeCatalog
 from miles_socle.parametrage.sources import Entry, EntryModes, SourceDoc
 
 from environnement.ingestion.cleanup import (
+    OBJECT_REMOVED_EVENT,
+    REMOVAL_WINDOW,
+    db_remove_designated,
+)
+from environnement.ingestion.cleanup_rules import (
     ISO_DATE_RE,
     KIND_EXPIRY,
     KIND_MISSING,
-    OBJECT_REMOVED_EVENT,
-    REMOVAL_WINDOW,
     count_statement,
-    db_remove_designated,
     expiry_rule,
     missing_rule,
     page_statement,
@@ -170,7 +172,7 @@ class TestLesInstructions:
     def test_la_suppression_REND_l_objet_entier(self) -> None:
         """Sans lui, l'event ne porterait qu'une clé et la suppression ne se rattraperait
         pas : la ligne n'existe plus."""
-        from environnement.ingestion.cleanup import delete_statement
+        from environnement.ingestion.cleanup_rules import delete_statement
 
         sql = delete_statement(TABLE)
 

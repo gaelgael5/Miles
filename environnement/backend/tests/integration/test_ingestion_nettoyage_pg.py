@@ -25,7 +25,8 @@ import pytest
 from miles_socle.testing.enrolment_double import EnrolmentDouble
 
 from environnement.ingestion.api_ingest_file import INGEST_FILE_PATH
-from environnement.ingestion.cleanup import KIND_EXPIRY, KIND_MISSING, OBJECT_REMOVED_EVENT
+from environnement.ingestion.cleanup import OBJECT_REMOVED_EVENT
+from environnement.ingestion.cleanup_rules import KIND_EXPIRY, KIND_MISSING
 from environnement.ingestion.outcome import (
     ANOMALY_CLEANUP_REFUSED,
     STATE_PARTIAL,
@@ -213,17 +214,22 @@ async def test_un_item_d_origine_MANUELLE_est_supprime_par_les_DEUX_regles(
     satisfait — alors même que la fusion refuse d'écraser son corps.
     """
     async with _ouvre(blank_db, tmp_path) as (_, depot):
-        await depot.importe([_item("M-1")])
         await depot.pose_a_la_main(M2, fin=LOIN)
         await depot.pose_a_la_main(M3, fin=VIEUX)
-        # M-2 est absent du fichier : il est marqué, puis vieilli.
-        await depot.importe([_item("M-1")])
-        assert await depot.marques() == {M2, M3}
+
+        # M-3 est PORTÉ par le fichier — donc jamais marqué absent, et la fusion refuse
+        # d'écrire son corps —, et il sort quand même : sa donnée est périmée.
+        premier = await depot.importe([_item("M-1"), _item("M-3")])
+
+        assert premier["items_removed"] == 1
+        assert await depot.cles() == {M1, M2}
+        # M-2, lui, est absent du fichier : il est marqué comme un autre.
+        assert await depot.marques() == {M2}
         await depot.vieillit_les_marques(40)
 
-        ligne = await depot.importe([_item("M-1")])
+        second = await depot.importe([_item("M-1")])
 
-        assert ligne["items_removed"] == 2
+        assert second["items_removed"] == 1
         assert await depot.cles() == {M1}
         regles = {event["cle"]: event["rule"] for event in await depot.events_de_suppression()}
         # Chacun est sorti par SA règle, et l'event le dit : sans quoi on ne saurait pas
@@ -306,16 +312,22 @@ async def test_un_import_INCOMPLET_ne_supprime_RIEN(blank_db: str, tmp_path: Pat
     n'a peut-être pas atteint des items qu'il aurait portés. Il ne nettoie donc pas, même
     pour la règle de péremption, qui n'en aurait pourtant rien appris de faux."""
     async with _ouvre(blank_db, tmp_path) as (_, depot):
-        await depot.importe([_item("M-1", fin=VIEUX), _item("M-2")])
-        assert await depot.cles() == {M2}
-        await depot.importe([_item("M-3", fin=VIEUX)])
+        await depot.importe([_item("M-1"), _item("M-2")])
+        await depot.importe([_item("M-1")])
+        assert await depot.marques() == {M2}
+        # Les deux règles désigneraient quelque chose : M-2 est absent depuis 40 jours,
+        # et M-3 porte une date de fin d'activité dépassée.
+        await depot.vieillit_les_marques(40)
+        await depot.pose_a_la_main(M3, fin=VIEUX)
 
-        tronque = _document([_item("M-3", fin=VIEUX)])[:-3]
+        tronque = _document([_item("M-1")])[:-3]
         ligne = await depot.importe([], corps=tronque)
 
         assert ligne["state"] == STATE_PARTIAL
         assert ligne["items_removed"] is None
-        assert M3 in await depot.cles()
+        assert await depot.cles() == {M1, M2, M3}
+        # La marque n'a pas bougé non plus : un import tronqué ne conclut rien.
+        assert await depot.marques() == {M2}
 
 
 async def test_une_regle_NON_EVALUABLE_refuse_tout_le_nettoyage_et_le_DIT(
@@ -354,7 +366,7 @@ async def test_le_plan_de_la_selection_emprunte_l_INDEX_declare_et_ne_convertit_
     plan fait sur un storage réel. Ce qu'on prouve est que l'index DÉCLARÉ PEUT servir
     cette clause — ce qu'une conversion de colonne rendrait impossible.
     """
-    from environnement.ingestion.cleanup import expiry_rule, scan_statement, threshold
+    from environnement.ingestion.cleanup_rules import expiry_rule, scan_statement, threshold
 
     async with _ouvre(blank_db, tmp_path) as (stack, depot):
         await depot.importe([_item("M-1"), _item("M-2")])

@@ -21,7 +21,7 @@ from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from environnement.ingestion.cleanup import (
+from environnement.ingestion.cleanup_rules import (
     CleanupRule,
     count_statement,
     page_statement,
