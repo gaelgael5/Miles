@@ -126,6 +126,23 @@ class StoragesService:
             total = await conn.fetchval(requete.count_sql, *requete.values)
         return list(rows), int(total or 0)
 
+    async def resolve_designated(
+        self, page_sql: str, count_sql: str, *, threshold: Any, limit: int, offset: int
+    ) -> tuple[list[Any], int]:
+        """La page de ce qu'une règle de nettoyage désignerait, et son compte. Ne supprime rien.
+
+        À part de `resolve_search` parce que les deux instructions ne prennent pas les
+        mêmes paramètres : la page est bornée, le compte ne l'est pas, et asyncpg refuse
+        une requête à qui l'on passe un argument de plus qu'elle n'en attend. La MÊME
+        transaction, pour la même raison qu'à la recherche — un total compté dehors
+        annoncerait des pages que la liste ne porte pas, et un import peut nettoyer
+        pendant qu'on regarde.
+        """
+        async with self.pool.acquire() as conn, conn.transaction():
+            rows = await conn.fetch(page_sql, threshold, limit, offset)
+            total = await conn.fetchval(count_sql, threshold)
+        return list(rows), int(total or 0)
+
     async def resolve_lag(self, table: StorageTable) -> tuple[str, ...] | None:
         """Ce que la table n'a pas encore de ce que la version servie déclare.
 

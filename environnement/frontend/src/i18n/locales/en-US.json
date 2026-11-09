@@ -253,6 +253,8 @@
       "unreadable": "This deposit's report could not be read.",
       "counts": "{{written}} written · {{unchanged}} unchanged · {{rejected}} rejected",
       "itemsRead": "{{read}} items read from the document",
+      "itemsRemoved_one": "{{removed}} item removed by the cleanup rules",
+      "itemsRemoved_other": "{{removed}} items removed by the cleanup rules",
       "failure": "Stopped: {{code}} {{detail}}",
       "noRejection": "No object rejected.",
       "reasons": "Rejection reasons",

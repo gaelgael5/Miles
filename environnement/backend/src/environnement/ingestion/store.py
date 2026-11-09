@@ -154,6 +154,11 @@ class CallOutcome:
     # compte dans le compte-rendu, et l'import de fichier est le seul à pouvoir
     # s'interrompre au milieu d'une lecture.
     items_read: int | None
+    # Le nombre d'items que les règles de nettoyage ont supprimés à la fin de CET import
+    # (story `45543845`). Nul quand le nettoyage n'a pas eu lieu — mode synchrone, import
+    # incomplet ou en échec, ou règle refusée —, et le compte-rendu porte alors l'anomalie
+    # qui le dit. Zéro dit l'inverse : les règles ont tourné et n'avaient rien à sortir.
+    items_removed: int | None
     failure_code: str | None
     failure_detail: str | None
     report: Report | None
@@ -162,7 +167,8 @@ class CallOutcome:
 async def db_call_outcome(db: IngestionDb, ingestion_id: str) -> CallOutcome | None:
     row = await db.fetchrow(
         "SELECT id, state, received_at, started_at, apply_started_at, finished_at,"
-        " items_read, failure_code, failure_detail, report FROM ingestions WHERE id = $1",
+        " items_read, items_removed, failure_code, failure_detail, report"
+        " FROM ingestions WHERE id = $1",
         ingestion_id,
     )
     if row is None:
@@ -181,6 +187,7 @@ async def db_call_outcome(db: IngestionDb, ingestion_id: str) -> CallOutcome | N
         apply_started_at=row["apply_started_at"],
         finished_at=row["finished_at"],
         items_read=None if row["items_read"] is None else int(row["items_read"]),
+        items_removed=None if row["items_removed"] is None else int(row["items_removed"]),
         failure_code=row["failure_code"],
         failure_detail=row["failure_detail"],
         report=rapport,

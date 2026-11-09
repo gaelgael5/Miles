@@ -178,6 +178,7 @@ async def db_finish_import(
     now: datetime,
     failure_code: str | None = None,
     failure_detail: str | None = None,
+    items_removed: int | None = None,
 ) -> Acknowledgement:
     """Range l'issue de l'import, et rend l'accusé LU de la ligne écrite.
 
@@ -186,7 +187,11 @@ async def db_finish_import(
     """
     row = await db.fetchrow(
         "UPDATE ingestions SET state = $2, report = $3::jsonb, items_read = $4,"
-        " object_count = $4, finished_at = $5, failure_code = $6, failure_detail = $7"
+        " object_count = $4, finished_at = $5, failure_code = $6, failure_detail = $7,"
+        # Laissé NUL quand l'import n'a pas nettoyé, et c'est la distinction que la
+        # colonne porte : zéro dit « les règles n'avaient rien à sortir », nul dit « le
+        # nettoyage n'a pas eu lieu » — un import incomplet, ou une règle refusée.
+        " items_removed = $8"
         " WHERE id = $1"
         " RETURNING id, source, mode, object_count, received_at, state, report",
         ingestion_id,
@@ -196,6 +201,7 @@ async def db_finish_import(
         now,
         failure_code,
         failure_detail,
+        items_removed,
     )
     return ack_of(row, replayed=False)
 

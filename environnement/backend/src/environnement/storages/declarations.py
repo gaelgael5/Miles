@@ -42,6 +42,7 @@ from environnement.storages.model import (
     REFUSAL_TOO_MANY_COLUMNS,
     REFUSAL_UNKNOWN_PROPERTY,
     REFUSAL_UNREADABLE,
+    ExpiryRule,
     Projection,
     StorageRefusal,
     StorageTable,
@@ -141,6 +142,7 @@ def _resolved(
                 return StorageRefusal(doc.name, projected.code, projected.detail)
             columns.append(projected.column)
         indexes.append(TableIndex(item.name, tuple(columns)))
+    expiries, unresolved = _expiries(doc, by_path, projections)
     return StorageTable(
         storage=doc.name,
         label=doc.label,
@@ -154,7 +156,47 @@ def _resolved(
         # change la forme de `cle` : les objets déjà là gardent l'ancienne, et un import
         # suivant les écrira à neuf au lieu de les mettre à jour.
         keys=usage.key or doc.keys,
+        expiries=expiries,
+        unresolved_expiries=unresolved,
     )
+
+
+def _expiries(
+    doc: StorageDoc, by_path: dict[str, PathEntry], projections: dict[str, Projection]
+) -> tuple[tuple[ExpiryRule, ...], tuple[str, ...]]:
+    """Les règles de péremption résolues, et celles qu'on ne sait plus évaluer.
+
+    **Résolu ici, et non au moment de supprimer** : la colonne d'un chemin ne se dérive
+    que contre le modèle, et c'est ici qu'il est lu. La résoudre plus tard aurait demandé
+    une seconde lecture du modèle, qui pouvait répondre autre chose.
+
+    **Aucune règle ne POSE de colonne**, et c'est la différence avec la boucle des index
+    juste au-dessus. Une règle n'est acceptée que sur une propriété DÉJÀ projetée : la
+    saisie exige qu'elle soit une colonne d'index déclarée (story `5afb7728`), donc une
+    règle qui ne s'y retrouve pas est une règle dont la propriété a été retirée des
+    indexables. Lui dériver une colonne au passage aurait changé la forme de la table pour
+    rendre évaluable une règle que personne n'a revue — et sans index, c'est-à-dire par un
+    parcours de table, ce que le ticket de déclaration interdit nommément.
+
+    Une règle non résolue ne fait PAS refuser le storage : son nom est rendu à part, et
+    c'est le nettoyage — lui seul — qui se refuse (`cleanup.py`).
+    """
+    resolues: list[ExpiryRule] = []
+    perdues: list[str] = []
+    for rule in doc.expiries:
+        entry = by_path.get(rule.property)
+        if entry is None or entry.keys is None:
+            # Disparue du modèle, ou atteinte à travers un tableau : aucune colonne ne
+            # peut plus lui correspondre.
+            perdues.append(rule.property)
+            continue
+        colonne = next((p.column for p in projections.values() if p.keys == entry.keys), None)
+        if colonne is None:
+            # Toujours au modèle, mais plus projetée : la colonne n'existe pas en base.
+            perdues.append(rule.property)
+            continue
+        resolues.append(ExpiryRule(rule.property, colonne, rule.days))
+    return tuple(resolues), tuple(perdues)
 
 
 def _hold(

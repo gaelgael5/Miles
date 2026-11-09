@@ -23,6 +23,9 @@ const ISSUE: Issue = {
   apply_started_at: "2026-11-08T18:26:31Z",
   finished_at: "2026-11-08T18:26:50Z",
   items_read: 194361,
+  // Deux items sortis par les règles de nettoyage : DISCRIMINANT contre zéro, qui est
+  // justement le cas où l'écran ne doit rien dire.
+  items_removed: 2,
   failure_code: null,
   failure_detail: null,
   received: 194361,
@@ -102,6 +105,23 @@ describe("le compte-rendu d'un dépôt", () => {
 
     expect(await screen.findByText(/written/)).toBeInTheDocument();
     expect(screen.queryByText(/Import:/)).not.toBeInTheDocument();
+  });
+
+  it("dit combien d'items les règles de nettoyage ont supprimés", async () => {
+    monte();
+
+    expect(
+      await screen.findByText("2 items removed by the cleanup rules"),
+    ).toBeInTheDocument();
+  });
+
+  it("ne dit RIEN du nettoyage quand il n'a rien supprimé", async () => {
+    // « 0 supprimé » sur chaque import ferait du nettoyage un bruit de fond, alors que
+    // c'est le geste qu'on veut voir quand il a lieu.
+    monte({ items_removed: 0 });
+
+    expect(await screen.findByText(/written/)).toBeInTheDocument();
+    expect(screen.queryByText(/removed by the cleanup rules/)).not.toBeInTheDocument();
   });
 
   it("dit qu'AUCUN objet n'a été rejeté plutôt que de ne rien dire", async () => {

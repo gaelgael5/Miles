@@ -58,6 +58,7 @@ from environnement.ingestion.methods import IngestionMethods
 from environnement.ingestion.overview import IngestionOverview
 from environnement.ingestion.service import IngestionService
 from environnement.ingestion.trial import IngestionTrial
+from environnement.storages.api_cleanup import router as storages_cleanup_router
 from environnement.storages.api_storages import router as storages_router
 from environnement.storages.service import StoragesService
 
@@ -253,6 +254,7 @@ def build_app(lifespan: Lifespan | None = None) -> FastAPI:
     app.include_router(environment_router)
     app.include_router(hosting_router)
     app.include_router(storages_router)
+    app.include_router(storages_cleanup_router)
     app.include_router(api_keys_router)
     app.include_router(ingestion_overview_router)
     app.include_router(ingestion_trial_router)

@@ -88,6 +88,10 @@ export interface CallOutcome {
   finished_at: string | null;
   /** Les items LUS du document. Nul pour les modes synchrones, qui ne s'interrompent pas. */
   items_read: number | null;
+  // Les items que les règles de nettoyage ont supprimés à la fin de cet import. Nul
+  // quand le nettoyage n'a pas eu lieu — import incomplet, mode synchrone — ou qu'il a
+  // été refusé, ce que l'anomalie `nettoyage_refuse` dit alors.
+  items_removed: number | null;
   failure_code: string | null;
   failure_detail: string | null;
   received: number | null;

@@ -13,6 +13,7 @@ from environnement.storages.model import (
     REFUSAL_TOO_MANY_COLUMNS,
     REFUSAL_UNKNOWN_PROPERTY,
     REFUSAL_UNREADABLE,
+    ExpiryRule,
     Projection,
 )
 
@@ -354,3 +355,66 @@ async def test_une_propriete_du_nom_d_une_colonne_fixe_est_prefixee_et_non_refus
         "contact_phone",
         "contact_email",
     ]
+
+
+# Les RÈGLES DE PÉREMPTION, résolues contre le modèle (story `45543845`). Ce qui est en
+# jeu : une règle de suppression dont la propriété a bougé ne doit ni supprimer, ni rendre
+# le storage invisible.
+PEREMPTION = """
+nom: "accounts"
+libelle: "Accounts"
+modele: "pudo/accounts"
+cle:
+  - "$.AccountId"
+peremption:
+  - propriete: "{propriete}"
+    delai_jours: 10
+index:
+  - nom: "index-1"
+    colonnes:
+      - "$.Contact.Phone"
+"""
+
+
+async def _peremption(propriete: str) -> object:
+    tables, refus = await _declare(
+        _arbre(**{"storages/accounts.yaml": PEREMPTION.format(propriete=propriete)})
+    )
+    # Le storage reste SERVI dans les trois cas : le refuser rendrait sa table illisible
+    # pour une règle qui ne concerne que son nettoyage.
+    assert refus == []
+    assert len(tables) == 1
+    return tables[0]
+
+
+@pytest.mark.asyncio
+async def test_une_regle_de_peremption_resout_la_COLONNE_de_sa_propriete() -> None:
+    """Résolue ici, où le modèle est lu : plus tard, le chemin ne donne plus de colonne."""
+    table = await _peremption("$.Contact.Phone")
+
+    assert table.expiries == (ExpiryRule("$.Contact.Phone", "contact_phone", 10),)
+    assert table.unresolved_expiries == ()
+
+
+@pytest.mark.asyncio
+async def test_une_regle_sur_une_propriete_DISPARUE_du_modele_est_rendue_NON_RESOLUE() -> None:
+    """Critère 10 : la règle est refusée et NOMMÉE, et c'est le nettoyage qui se refusera
+    en entier — pas le storage, qui doit rester lisible."""
+    table = await _peremption("$.Disparue")
+
+    assert table.expiries == ()
+    assert table.unresolved_expiries == ("$.Disparue",)
+
+
+@pytest.mark.asyncio
+async def test_une_propriete_du_modele_NON_PROJETEE_ne_fait_pas_naitre_sa_colonne() -> None:
+    """`$.Postes` est au modèle mais n'est ni montrée ni indexée : aucune colonne.
+
+    Lui en dériver une au passage aurait changé la forme de la table pour rendre évaluable
+    une règle que personne n'a revue — et sans index, c'est-à-dire par un parcours de
+    table, ce que le ticket de déclaration interdit nommément.
+    """
+    table = await _peremption("$.Postes")
+
+    assert table.unresolved_expiries == ("$.Postes",)
+    assert [p.column for p in table.projections] == ["contact_phone"]

@@ -38,6 +38,11 @@ ANOMALY_DUPLICATE_KEY = "cle_en_double_dans_le_lot"
 # silence ferait croire à un import de cinquante mille items qu'il n'a eu que deux cents
 # rejets. Les COMPTES, eux, restent exacts.
 ANOMALY_DETAIL_CAPPED = "detail_plafonne"
+# Le NETTOYAGE a été refusé en entier : une règle de péremption désigne une propriété que
+# le modèle servi ne donne plus, ou qui n'est plus projetée. Anomalie du compte-rendu et
+# non échec de l'import — l'import a bien écrit ce qu'il portait —, mais DITE, parce qu'un
+# storage qui cesse de se nettoyer sans un mot est exactement ce qu'on ne veut pas.
+ANOMALY_CLEANUP_REFUSED = "nettoyage_refuse"
 # La SYNTHÈSE par motif a été plafonnée : au-delà, les rejets restent comptés dans le
 # total mais leur motif n'entre plus dans la synthèse.
 ANOMALY_REASONS_CAPPED = "motifs_plafonnes"

@@ -103,6 +103,24 @@ class TableIndex:
 
 
 @dataclass(frozen=True)
+class ExpiryRule:
+    """Une règle de péremption RÉSOLUE contre le modèle : « la colonne + le délai est passée ».
+
+    Déclarée par l'administrateur sur le storage (`peremption:`, story `5afb7728`) et
+    appliquée à la fin d'un import (story `45543845`). Elle est gardée sur la TABLE et non
+    relue au moment de supprimer : la colonne ne se dérive pas du chemin déclaré sans le
+    modèle, et c'est ici — où il est lu — qu'on sait encore à quoi le chemin renvoyait.
+
+    `path` est le chemin DÉCLARÉ, gardé pour le dire : un refus ou un écran qui nommerait
+    `fin_activite` enverrait chercher une colonne interne au lieu de la propriété choisie.
+    """
+
+    path: str
+    column: str
+    days: int
+
+
+@dataclass(frozen=True)
 class StorageTable:
     """Un storage déclaré, résolu contre son modèle : prêt à devenir du SQL."""
 
@@ -117,6 +135,20 @@ class StorageTable:
     # l'ingestion, pas par la base : elle n'est pas une colonne dérivée, et c'est voulu —
     # une règle de clé peut porter sur plusieurs chemins et se composer.
     keys: tuple[str, ...]
+    # Les règles de péremption déclarées, résolues contre le modèle. Vide par défaut : un
+    # storage sans règle ne se nettoie pas, et un paramétrage déjà écrit ne se met pas à
+    # supprimer parce qu'une version l'a traversé.
+    expiries: tuple[ExpiryRule, ...] = ()
+    # Les règles de péremption qu'on ne sait PLUS évaluer, par le chemin qu'elles nomment :
+    # la propriété a disparu du modèle, ou a cessé d'être projetée. Gardées plutôt que
+    # tues, et le nettoyage se refuse ENTIÈREMENT sur ce storage tant qu'il en reste une
+    # (story `45543845`, critère 10) — une règle de suppression qu'on ne sait plus évaluer
+    # ne se rabat pas sur une approximation, et les autres règles du même storage ne
+    # tournent pas non plus : on ne sait pas si elles étaient censées porter seules.
+    #
+    # Le storage, lui, reste SERVI : le refuser rendrait sa table illisible pour une règle
+    # qui ne concerne que son nettoyage, ce qui est bien pire que de ne pas nettoyer.
+    unresolved_expiries: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

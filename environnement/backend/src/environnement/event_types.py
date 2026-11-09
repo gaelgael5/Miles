@@ -8,6 +8,7 @@ from miles_socle.signing import identity_model as module_identity_events
 from environnement.apikeys import model as api_keys_events
 from environnement.hosting import model as hosting_events
 from environnement.identity import service as identity_events
+from environnement.ingestion import cleanup as cleanup_events
 from environnement.ingestion import model as ingestion_events
 from environnement.ingestion import trial as trial_events
 from environnement.ingestion import writeback as writeback_events
@@ -35,4 +36,5 @@ def code_event_types() -> frozenset[str]:
         | ingestion_events.EVENT_TYPES
         | trial_events.EVENT_TYPES
         | writeback_events.EVENT_TYPES
+        | cleanup_events.EVENT_TYPES
     )

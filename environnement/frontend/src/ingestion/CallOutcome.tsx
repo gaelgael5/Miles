@@ -81,6 +81,7 @@ export function CallOutcome({ ingestionId }: { ingestionId: string }) {
     );
   }
   const { written, unchanged, rejected, items_read, failure_code, reasons, anomalies } = issue.data;
+  const removed = issue.data.items_removed;
   return (
     <div className="call-outcome">
       {written !== null && (
@@ -95,6 +96,17 @@ export function CallOutcome({ ingestionId }: { ingestionId: string }) {
       {items_read !== null && (
         <p className="help">
           {t("ingestion.outcome.itemsRead", { count: items_read, read: nombre.format(items_read) })}
+        </p>
+      )}
+      {removed !== null && removed > 0 && (
+        // Montré seulement quand il y a eu des suppressions : « 0 supprimé » sur chaque
+        // import ferait du nettoyage un bruit de fond, alors que c'est le geste qu'on
+        // veut voir quand il a lieu. Le compte nul reste lisible dans le journal.
+        <p className="help">
+          {t("ingestion.outcome.itemsRemoved", {
+            count: removed,
+            removed: nombre.format(removed),
+          })}
         </p>
       )}
       <Durations issue={issue.data} />

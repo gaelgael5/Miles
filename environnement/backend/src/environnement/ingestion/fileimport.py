@@ -40,10 +40,17 @@ from environnement.ingestion.applystaging import (
     ApplyTooLong,
     resolve_apply,
 )
+from environnement.ingestion.cleanup import (
+    CleanupRule,
+    db_remove_designated,
+    expiry_rule,
+    missing_rule,
+)
 from environnement.ingestion.files import DepositedFiles
 from environnement.ingestion.importtarget import NotImportable, resolve_importable
 from environnement.ingestion.jsonflux import STRUCTURAL, DocumentUnreadable
 from environnement.ingestion.outcome import (
+    ANOMALY_CLEANUP_REFUSED,
     STATE_FAILED,
     STATE_FAILED_IMPORT,
     STATE_PARTIAL,
@@ -277,6 +284,7 @@ class FileImports:
             await self._failed(conn, job, FAILURE_APPLY_TOO_LONG, str(plan.seconds), lus)
             return
         etat = _state_of(rapport, incident)
+        supprimes = None
         if etat == STATE_PROCESSED:
             # LE MARQUAGE DES ABSENTS (Gael, 09/11/2026 : « le déclenchement du nettoyage
             # se traite à la fin de l'import fichier »), et l'endroit n'est pas libre :
@@ -286,12 +294,35 @@ class FileImports:
             # que l'appelant n'ôte l'aire de préparation, qui protège les items rejetés.
             # Ce que chaque clause de la sélection tient : `absence.py`.
             await db_mark_absent(conn, prepared.table, started_at=started_at)
+            # LE NETTOYAGE, juste après le marquage et pour la même raison qu'il est ici :
+            # c'est le moment où l'image est fraîche et où les marques viennent d'être
+            # tenues à jour. L'interdit de `9ab435be` — « ne pas déclencher le balayage à
+            # la suite d'une ingestion : un import tronqué deviendrait une purge » — ne
+            # s'étend pas à ces deux règles, et il faut savoir pourquoi avant d'y toucher :
+            # la règle des absents agit N JOURS après une marque qu'un import complet
+            # suivant lève (le délai est la protection, et il remplace le verrou), et la
+            # péremption ne lit que la donnée de l'objet — un import tronqué n'invente
+            # aucune date de fin d'activité.
+            supprimes = await db_remove_designated(
+                self._processing(conn, job),
+                prepared.table,
+                _rules(entry, job, prepared),
+                now=self.now(),
+            )
+            if supprimes is None:
+                # Le refus se LIT : l'écran des appels montre les anomalies du
+                # compte-rendu, et un nettoyage refusé qui ne laisserait qu'une ligne de
+                # journal serait invisible à qui regarde l'import.
+                rapport.anomalies.append(
+                    f"{ANOMALY_CLEANUP_REFUSED}:{','.join(prepared.table.unresolved_expiries)}"
+                )
         await db_finish_import(
             conn,
             job.id,
             state=etat,
             report=rapport,
             items_read=lus,
+            items_removed=supprimes,
             now=self.now(),
             failure_code=None if incident is None else incident[0],
             failure_detail=None if incident is None else incident[1],
@@ -353,6 +384,23 @@ def _prepared_batch(
         if len(paquet) >= taille:
             break
     return paquet
+
+
+def _rules(entry: Entry, job: ImportJob, prepared: Prepared) -> list[CleanupRule]:
+    """Les règles de nettoyage qui valent pour CET import : l'entrée, puis le storage.
+
+    Les deux viennent de la version servie, jamais du code : le délai est une valeur de
+    la déclaration (interdit du ticket). Une entrée sans règle et un storage sans
+    péremption donnent une liste vide, et rien n'est supprimé — c'est le défaut.
+
+    La règle des absents vient de l'ENTRÉE parce qu'elle n'a de sens que relativement à un
+    dépôt qui prétend porter l'image complète ; on est ici dans un import de fichier, donc
+    exactement dans ce cas.
+    """
+    regles: list[CleanupRule] = []
+    if entry.missing_removed_after_days is not None:
+        regles.append(missing_rule(entry.missing_removed_after_days, job.source))
+    return regles + [expiry_rule(rule) for rule in prepared.table.expiries]
 
 
 def _state_of(report: Report, incident: tuple[str, str | None] | None) -> str:

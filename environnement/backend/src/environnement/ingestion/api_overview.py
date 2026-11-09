@@ -114,6 +114,10 @@ class CallOutcomeOut(BaseModel):
     apply_started_at: datetime | None
     finished_at: datetime | None
     items_read: int | None
+    # Les items que les règles de nettoyage ont supprimés à la fin de cet import. Nul
+    # quand le nettoyage n'a pas eu lieu ; l'anomalie `nettoyage_refuse` du compte-rendu
+    # dit le cas où une règle n'était plus évaluable.
+    items_removed: int | None
     failure_code: str | None
     failure_detail: str | None
     received: int | None
@@ -168,6 +172,7 @@ def _outcome(issue: CallOutcome) -> CallOutcomeOut:
         apply_started_at=issue.apply_started_at,
         finished_at=issue.finished_at,
         items_read=issue.items_read,
+        items_removed=issue.items_removed,
         failure_code=issue.failure_code,
         failure_detail=issue.failure_detail,
         received=None if rapport is None else rapport.received,

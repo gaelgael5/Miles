@@ -117,7 +117,13 @@ properties:
 """
 
 
-def _storage(nom: str, modele: str, cle: str, index: list[tuple[str, list[str]]]) -> str:
+def _storage(
+    nom: str,
+    modele: str,
+    cle: str,
+    index: list[tuple[str, list[str]]],
+    peremption: list[tuple[str, int]] | None = None,
+) -> str:
     lignes = [
         f'nom: "{nom}"',
         f'libelle: "{nom.title()}"',
@@ -125,6 +131,14 @@ def _storage(nom: str, modele: str, cle: str, index: list[tuple[str, list[str]]]
         "cle:",
         f'  - "{cle}"',
     ]
+    # Les règles de péremption, dans la forme que le module de paramétrage écrit
+    # (`peremption:` avant `index:`, story 5afb7728). Recopiée ici plutôt que produite par
+    # son écrivain : les tests du module d'environnement n'ont pas accès au portail.
+    if peremption:
+        lignes.append("peremption:")
+        for propriete, jours in peremption:
+            lignes.append(f'  - propriete: "{propriete}"')
+            lignes.append(f"    delai_jours: {jours}")
     if index:
         lignes.append("index:")
         for titre, colonnes in index:
@@ -168,6 +182,7 @@ def _source(
     decoupage: str | None = None,
     transaction_unifiee: bool = False,
     lot_ecriture: int | None = None,
+    absents_apres_jours: int | None = None,
 ) -> str:
     """Une source et son unique entrée web. Les trois modes dans l'ordre déclaré.
 
@@ -193,7 +208,114 @@ def _source(
     rendu += f"    transaction_unifiee: {str(transaction_unifiee).lower()}\n"
     if lot_ecriture is not None:
         rendu += f"    lot_ecriture: {lot_ecriture}\n"
+    # La règle « absents de l'import depuis N jours » vit sur l'ENTRÉE, et la clé n'est
+    # écrite que si la règle existe : une clé toujours présente, même à zéro, se lirait
+    # comme une règle posée.
+    if absents_apres_jours is not None:
+        rendu += f"    absents_supprimes_apres_jours: {absents_apres_jours}\n"
     return rendu
+
+
+# Le modèle du storage NETTOYÉ : celui de `fabrique_nettoyage`, qui porte en plus une
+# propriété DATÉE. Un modèle à part et non la propriété ajoutée au modèle commun : le
+# gabarit d'essai de la source se déduit des propriétés obligatoires du modèle d'entrée, et
+# en ajouter une aurait changé ce que d'autres tests lisent pour une raison sans rapport.
+#
+# `FinActivite` est une CHAÎNE, et c'est tout ce que le modèle prouve : une date reste
+# `text` en colonne à dessein (story c705e801), et c'est l'ordre lexicographique d'un
+# ISO-8601 qui la rend comparable. C'est exactement la situation du champ `EndOfActivity`
+# des points relais, que Gael fera plus tard.
+MAGASIN_DATE_MODELE = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/domains/pudo/magasin
+title: Magasin
+type: object
+required: [Code, Libelle]
+properties:
+  Code: {type: string}
+  Libelle: {type: string}
+  Ville: {type: [string, "null"]}
+  FinActivite: {type: [string, "null"]}
+  FinContrat: {type: [string, "null"]}
+"""
+MAGASIN_DATE_ENTREE = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/domains/pudo/magasin-import
+title: Magasin (entrée)
+type: object
+required: [code, nom, ville, fin]
+properties:
+  code: {type: string}
+  nom: {type: string}
+  ville: {type: string}
+  fin: {type: [string, "null"]}
+  fin2: {type: [string, "null"]}
+"""
+MAGASIN_DATE_TEMPLATE = (
+    '{ "Code": $.code, "Libelle": $.nom, "Ville": $.ville,'
+    ' "FinActivite": $.fin, "FinContrat": $.fin2 }'
+)
+
+
+def fabrique_nettoyage(
+    tmp_path: Path,
+    *,
+    absents_apres_jours: int | None = 30,
+    peremption: list[tuple[str, int]] | None = None,
+    index: list[tuple[str, list[str]]] | None = None,
+    lot_ecriture: int = 2,
+) -> dict[int, VersionFabriquee]:
+    """UNE version dont le storage porte des RÈGLES DE NETTOYAGE (story 45543845).
+
+    La même forme que `fabrique_import_fichier` — une source en mode fichier, un storage,
+    une chaîne —, et ce qui change est ce que les deux déclarations portent : le délai des
+    absents sur l'entrée, les règles de péremption sur le storage. Les deux endroits à la
+    fois, parce que c'est ainsi qu'un storage réel se nettoie et que les faire tourner
+    ensemble est justement ce qu'on veut prouver.
+
+    `index` est paramétrable pour éprouver le cas où une règle de péremption désigne une
+    propriété qui n'est PLUS projetée : la règle reste écrite, la colonne n'existe pas, et
+    le nettoyage doit se refuser en entier.
+    """
+    depot = tmp_path / "nettoyage"
+    git("init", "-q", "-b", "main", str(depot))
+    (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
+    (depot / "storages").mkdir()
+    (depot / "sources").mkdir()
+    (depot / "domains/pudo/messages/magasin.yaml").write_text(MAGASIN_DATE_MODELE, encoding="utf-8")
+    (depot / "domains/pudo/messages/magasin-import.yaml").write_text(
+        MAGASIN_DATE_ENTREE, encoding="utf-8"
+    )
+    (depot / "storages/magasins.yaml").write_text(
+        _storage(
+            "magasins",
+            "pudo/magasin",
+            "$.Code",
+            index
+            if index is not None
+            else [("fin", ["$.FinActivite"]), ("fin2", ["$.FinContrat"])],
+            peremption if peremption is not None else [("$.FinActivite", 10)],
+        ),
+        encoding="utf-8",
+    )
+    (depot / "sources/magasins-import.yaml").write_text(
+        _source(
+            "magasins-import",
+            "magasins",
+            "pudo/magasin-import",
+            (False, False, True),
+            decoupage="$.magasins[*]",
+            lot_ecriture=lot_ecriture,
+            absents_apres_jours=absents_apres_jours,
+        ),
+        encoding="utf-8",
+    )
+    _pose_chaine(depot, "vers-magasins", [("convertir", MAGASIN_DATE_TEMPLATE)])
+    git("add", "-A", cwd=depot)
+    git(*AUTHOR, "commit", "-q", "-m", "nettoyage v1", cwd=depot)
+    git(*AUTHOR, "tag", "-a", "version/1", "-m", "v1", cwd=depot)
+    paquet = tmp_path / "nettoyage-v1.bundle"
+    git("bundle", "create", str(paquet), "version/1", cwd=depot)
+    commit = git("rev-parse", "version/1^{commit}", cwd=depot).strip()
+    return {1: VersionFabriquee(1, commit, paquet.read_bytes(), ("storages/magasins.yaml",))}
 
 
 def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:

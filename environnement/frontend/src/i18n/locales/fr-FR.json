@@ -253,6 +253,8 @@
       "unreadable": "Le compte-rendu de ce dépôt n'a pas pu être lu.",
       "counts": "{{written}} écrits · {{unchanged}} inchangés · {{rejected}} rejetés",
       "itemsRead": "{{read}} items lus du document",
+      "itemsRemoved_one": "{{removed}} item supprimé par les règles de nettoyage",
+      "itemsRemoved_other": "{{removed}} items supprimés par les règles de nettoyage",
       "failure": "Arrêt : {{code}} {{detail}}",
       "noRejection": "Aucun objet rejeté.",
       "reasons": "Motifs de rejet",
