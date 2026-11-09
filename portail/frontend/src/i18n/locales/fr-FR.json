@@ -29,7 +29,7 @@
   },
   "security": {
     "title": "Service de sécurité racine",
-    "intro": "Le service de sécurité (Keycloak) authentifie les utilisateurs du portail et aussi les terminaux de tous les workspaces : s'il est indisponible, aucun terminal ne démarre. Un seul service pour l'installation ; les workspaces y font référence.",
+    "intro": "Le service de sécurité (Keycloak) authentifie les utilisateurs du portail. Un seul service pour l'installation ; les workspaces y font référence.",
     "loading": "Chargement du service de sécurité…",
     "verify": "Vérifier",
     "edit": "Modifier",
@@ -53,7 +53,7 @@
       "unchecked": "Service de sécurité {{id}} : pas encore vérifié.",
       "ok": "Service de sécurité {{id}} : joignable, realm reconnu, accès accordé.",
       "realm_inconnu": "Service de sécurité {{id}} : joignable, mais le realm est inconnu.",
-      "injoignable": "Le service de sécurité {{id}} est injoignable. Les terminaux ne peuvent pas démarrer.",
+      "injoignable": "Service de sécurité {{id}} : injoignable.",
       "refuse": "Service de sécurité {{id}} : joignable, mais le client ou son secret est refusé."
     },
     "errors": {

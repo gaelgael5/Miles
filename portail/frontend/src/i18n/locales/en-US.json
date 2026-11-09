@@ -29,7 +29,7 @@
   },
   "security": {
     "title": "Root security service",
-    "intro": "The security service (Keycloak) authenticates portal users and also the terminals of every workspace: if it is unavailable, no terminal starts. One service for the installation; workspaces reference it.",
+    "intro": "The security service (Keycloak) authenticates portal users. One service for the installation; workspaces reference it.",
     "loading": "Loading the security service…",
     "verify": "Verify",
     "edit": "Edit",
@@ -53,7 +53,7 @@
       "unchecked": "Security service {{id}}: not verified yet.",
       "ok": "Security service {{id}}: reachable, realm recognised, access granted.",
       "realm_inconnu": "Security service {{id}}: reachable, but the realm is unknown.",
-      "injoignable": "Security service {{id}} is unreachable. Terminals cannot start.",
+      "injoignable": "Security service {{id}}: unreachable.",
       "refuse": "Security service {{id}}: reachable, but the client or its secret is refused."
     },
     "errors": {

@@ -76,7 +76,7 @@ describe("SecurityServiceScreen", () => {
     });
   });
 
-  it("names the service when it is unreachable", async () => {
+  it("names the service when it is unreachable, without announcing a consequence", async () => {
     mockApi({
       "GET /api/security-services": {
         status: 200,
@@ -86,9 +86,15 @@ describe("SecurityServiceScreen", () => {
 
     renderScreen();
 
+    // Le message disait « Terminals cannot start. » — périmé depuis l'amendement du
+    // 26/10/2026, qui retire l'authentification des devices à ce service : un device
+    // s'authentifie sur le module d'enrôlement, par paire de clés. Ce qu'une
+    // indisponibilité empêche AUJOURD'HUI n'est posé nulle part, et l'écrire serait
+    // l'inventer — le refus se borne donc à constater (bug `d4063109`, critère 2).
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Security service racine is unreachable. Terminals cannot start.",
+      "Security service racine: unreachable.",
     );
+    expect(screen.queryByText(/Terminals cannot start/)).not.toBeInTheDocument();
   });
 
   it("asks for confirmation before changing a service installations depend on", async () => {
