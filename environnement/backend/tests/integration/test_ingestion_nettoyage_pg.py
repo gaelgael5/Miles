@@ -419,11 +419,18 @@ async def test_une_valeur_qui_n_est_PAS_une_date_ne_fait_pas_tomber_la_selection
         assert ligne["items_removed"] == 0
         assert await depot.cles() == {M1, M2, M3}
         # Le cas est DIT là où quelqu'un peut agir : la restitution montre l'item dont la
-        # forme passe mais qui n'est pas une date, et dit qu'il ne sortira pas.
-        recu = await stack.client.get(f"/api/storages/{TABLE}/nettoyage")
+        # forme passe mais qui n'est pas une date, et dit qu'il ne sortira pas. La règle
+        # est NOMMÉE dans l'appel — la page par défaut est celle de la première règle,
+        # c'est-à-dire des absents, qui ne désigne rien ici.
+        recu = await stack.client.get(
+            f"/api/storages/{TABLE}/nettoyage?regle={KIND_EXPIRY}:$.FinActivite"
+        )
         assert recu.status_code == 200, recu.text
         page = recu.json()
         assert [(o["cle"], o["removable"]) for o in page["objects"]] == [(M3, False)]
+        # Les deux autres ne sont même pas candidates : le motif ISO les a écartées en
+        # SQL, et c'est ce qui épargne « 1999-13-45 » — elle trie SOUS le seuil.
+        assert page["total"] == 1
 
 
 async def test_la_restitution_MONTRE_ce_qui_sortirait_sans_rien_supprimer(

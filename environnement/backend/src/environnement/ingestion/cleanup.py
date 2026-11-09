@@ -110,7 +110,8 @@ async def _apply(
     if non_datees:
         # DIT, et non tu : ces items ne sont pas supprimés, et personne ne peut deviner
         # qu'une règle de péremption ne les atteint pas. C'est la donnée qu'il faut aller
-        # corriger, et l'écran de restitution les montre un par un.
+        # corriger, et la route de restitution les montre un par un, marqués non
+        # supprimables.
         log.warning(
             "peremption_valeur_non_datee",
             storage=table.storage,
