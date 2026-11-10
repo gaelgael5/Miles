@@ -79,3 +79,18 @@ Notes sur `test1` (`host-test-37`), relevées le 2026-10-23 :
   fois par semaine. Un disque qui se remplit entre deux purges bloque donc la construction du
   déploiement qui aurait purgé — c'est arrivé sur `host-test-36` (95 %, 11 Go de cache).
   Remède durable côté image de machine de test (plafond du cache au niveau du démon).
+- **Les URL privées (mesh) des stacks ne répondent à personne sauf au portail** — mesuré le
+  2026-11-10 sur `host-test-37`. Un port publié par Docker est DNATé vers le conteneur : il
+  traverse `FORWARD`, pas `INPUT`. La garde d'égress mesh du provisionnement
+  (`node-mesh-egress-guard.sh`, ticket `447a522f`, dépôt *ressources*) pose en tête de
+  `DOCKER-USER` un `-o wt0 -j DROP` **sans `-m conntrack`** : elle jette le `SYN/ACK` du
+  conteneur vers le pair mesh, alors que son propre commentaire annonce épargner le retour
+  des connexions entrantes. Seule exception, l'IP du portail (`node-agent-gateway-access.sh`,
+  `68a3ebc1`) — d'où un portail qui affiche « Joignable » pendant qu'un poste ne joint rien.
+  Capture : le portail obtient `SYN → SYN/ACK → 200 OK`, le poste n'obtient que des `SYN`
+  retransmis, et le compteur du `DROP` monte d'autant de paquets de 60 octets.
+  Les règles `NETBIRD-ACL-INPUT` qui autorisent 8080-8082 ne servent à rien ici : le DNAT les
+  contourne, leurs compteurs restent à zéro. Correctif = un
+  `-o <mesh> -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN` avant le `DROP`, dans le
+  dépôt *ressources* — jamais une règle tapée à la main sur l'hôte, elle part au reboot.
+  En attendant : `ssh -L 8082:localhost:8082 test1`, qui passe par `OUTPUT` et non `FORWARD`.
