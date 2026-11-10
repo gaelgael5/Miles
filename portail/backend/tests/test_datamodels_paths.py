@@ -97,3 +97,56 @@ def test_a_model_that_references_itself_stops_instead_of_looping() -> None:
 def test_what_is_not_a_schema_gives_nothing() -> None:
     assert paths_of("texte") == []
     assert paths_of(None) == []
+
+
+def test_the_format_travels_beside_the_type_not_inside_it() -> None:
+    """Le défaut relevé par Gael le 10/11/2026 : l'arbre disait « string » d'une date.
+
+    Le `format` est rendu À CÔTÉ de `kind`, qui reste le type JSON Schema nu — c'est lui
+    que le module d'environnement traduit en type SQL.
+    """
+    schema = {
+        "type": "object",
+        "properties": {"EndOfActivityDate": {"type": "string", "format": "date-time"}},
+    }
+
+    assert paths_of(schema) == [
+        PathEntry("$.EndOfActivityDate", "string", "", ("EndOfActivityDate",), "date-time")
+    ]
+
+
+def test_a_property_without_a_format_carries_an_empty_one() -> None:
+    schema = {"type": "object", "properties": {"Name": {"type": "string"}}}
+
+    assert paths_of(schema)[0].format == ""
+
+
+def test_a_format_that_is_not_a_string_is_ignored() -> None:
+    # Le fichier s'édite aussi à la main, hors de Miles : un `format` mal écrit ne doit
+    # pas finir affiché tel quel dans l'arbre.
+    schema = {"type": "object", "properties": {"Name": {"type": "string", "format": 12}}}
+
+    assert paths_of(schema)[0].format == ""
+
+
+def test_the_format_of_an_array_item_travels_too() -> None:
+    schema = {
+        "type": "object",
+        "properties": {"Dates": {"type": "array", "items": {"type": "string", "format": "date"}}},
+    }
+
+    assert [(e.path, e.format) for e in paths_of(schema)] == [
+        ("$.Dates", ""),
+        ("$.Dates[0]", "date"),
+    ]
+
+
+def test_the_format_follows_a_local_ref() -> None:
+    """Un `$ref` interne est résolu avant lecture : le format du nœud VISÉ est rendu."""
+    schema = {
+        "type": "object",
+        "properties": {"Fin": {"$ref": "#/$defs/Horodatage"}},
+        "$defs": {"Horodatage": {"type": "string", "format": "date-time"}},
+    }
+
+    assert paths_of(schema)[0].format == "date-time"

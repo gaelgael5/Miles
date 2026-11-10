@@ -42,6 +42,14 @@ class PathEntry:
     # c'est ce qui interdit d'en faire une colonne projetée, puisqu'il n'existe aucun
     # chemin jsonb scalaire qui y mène.
     keys: tuple[str, ...] | None = None
+    # Le `format` du schéma (« date-time », « uri », « email »…), vide quand il n'en
+    # porte pas. À CÔTÉ de `kind` et jamais fondu dedans : `kind` décide AUSSI du type
+    # SQL d'une colonne projetée (`sql_type_of` du module d'environnement), et l'enrichir
+    # ferait porter au même champ deux rôles qui n'ont pas à bouger ensemble.
+    # Relevé par Gael le 10/11/2026 : l'arbre des propriétés annonçait « string » là où
+    # l'éditeur de modèle montrait « Date-Heure », parce que la marche ne lisait que
+    # `type` — l'information n'était pas perdue en route, elle n'était jamais lue.
+    format: str = ""
 
 
 def paths_of(schema: Any) -> list[PathEntry]:
@@ -72,7 +80,9 @@ def _walk(
             step = f"{path}.{key}" if _plain(str(key)) else f'{path}["{key}"]'
             below = None if keys is None else (*keys, str(key))
             resolved = _resolved(sub, root) or {}
-            found.append(PathEntry(step, _kind(resolved), _title(resolved), below))
+            found.append(
+                PathEntry(step, _kind(resolved), _title(resolved), below, _format(resolved))
+            )
             _walk(sub, root, step, below, found, depth + 1)
         return
     items = node.get("items")
@@ -81,7 +91,7 @@ def _walk(
         # n'apprendrait rien de plus sur la forme.
         step = f"{path}[0]"
         resolved = _resolved(items, root) or {}
-        found.append(PathEntry(step, _kind(resolved), _title(resolved), None))
+        found.append(PathEntry(step, _kind(resolved), _title(resolved), None, _format(resolved)))
         _walk(items, root, step, None, found, depth + 1)
 
 
@@ -97,6 +107,16 @@ def _kind(schema: dict[str, Any]) -> str:
     if kind is None:
         return "object" if isinstance(schema.get("properties"), dict) else "valeur"
     return str(kind)
+
+
+def _format(schema: dict[str, Any]) -> str:
+    """Le `format` du schéma, rendu tel qu'il est écrit.
+
+    Non interprété : JSON Schema laisse le vocabulaire ouvert, et traduire ici « date-time »
+    en un mot choisi par nous ferait diverger ce que l'arbre annonce de ce que le schéma dit.
+    """
+    kind = schema.get("format")
+    return kind if isinstance(kind, str) else ""
 
 
 def _title(schema: dict[str, Any]) -> str:

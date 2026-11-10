@@ -30,6 +30,7 @@ const MODELS = {
         { path: "$.adresse.ville", type: "string", description: "Ville" },
         { path: "$.adresse.pays", type: "string", description: "" },
         { path: "$.rang", type: "integer", description: "" },
+        { path: "$.fin", type: "string", description: "", format: "date-time" },
         { path: "$.enseignes", type: "array", description: "" },
         { path: "$.enseignes[0]", type: "string", description: "" },
       ],
@@ -248,6 +249,12 @@ describe("the property tree (24/10/2026)", () => {
     expect(names.some((n) => n.startsWith("adresse"))).toBe(false);
     expect(names.some((n) => n.startsWith("enseignes"))).toBe(false);
     expect(names.some((n) => n.includes("[0]"))).toBe(false);
+    // Le format est annoncé À CÔTÉ du type : « string » seul faisait passer un champ daté
+    // pour du texte libre (Gael, 10/11/2026).
+    expect(names.some((n) => n.includes("string · date-time"))).toBe(true);
+    // Et les chemins que la doublure rend SANS format ne doivent rien afficher de plus :
+    // sans le repli à vide, la légende dirait « string · undefined ».
+    expect(names.some((n) => n.includes("undefined"))).toBe(false);
     // Elles restent affichées : c'est le chemin pour atteindre leurs enfants.
     expect(within(tree).getByTitle("$.adresse")).toBeInTheDocument();
   });

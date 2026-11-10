@@ -9,6 +9,8 @@ interface PathNode {
   /** Dernier segment, seul affiché : le chemin entier se lit dans l'infobulle. */
   label: string;
   kind: string;
+  /** Le `format` du schéma, affiché à côté du type ; vide quand il n'y en a pas. */
+  format: string;
   description: string;
   children: PathNode[];
 }
@@ -31,6 +33,23 @@ export function lastSegment(path: string): string {
 }
 
 /**
+ * Ce qu'une ligne de l'arbre annonce d'un chemin : son type, son format, son titre.
+ *
+ * Le format est montré À CÔTÉ du type et non à sa place : « string » seul annonçait
+ * « texte » d'un champ que l'éditeur de modèle montre en « Date-Heure » (Gael,
+ * 10/11/2026) — deux écrans qui décrivaient le même champ autrement.
+ *
+ * Le vocabulaire reste celui du schéma, NON TRADUIT. Le traduire ici dupliquerait la
+ * table de `jsonjoy-builder`, le composant tiers qui porte les libellés de l'éditeur
+ * visuel : les deux divergeraient à sa première montée de version, et l'écart serait
+ * alors silencieux.
+ */
+export function captionOf(kind: string, format: string, description: string): string {
+  const type = format === "" ? kind : `${kind} · ${format}`;
+  return description === "" ? type : `${type} — ${description}`;
+}
+
+/**
  * L'arbre des propriétés d'un modèle, à partir de la liste plate que rend le serveur.
  * Un enfant arrive toujours après son parent (parcours descendant côté backend), donc
  * un seul passage suffit : on rattache chaque chemin au plus long préfixe déjà vu.
@@ -43,6 +62,9 @@ export function treeOf(paths: ModelPath[]): PathNode[] {
       path: entry.path,
       label: lastSegment(entry.path),
       kind: entry.type,
+      // Rabattu sur le vide : la valeur vient du réseau, et une réponse sans le champ
+      // afficherait « string · undefined » plutôt que de se taire.
+      format: entry.format ?? "",
       description: entry.description,
       children: [],
     };
@@ -76,7 +98,7 @@ function Branch({
   const { t } = useTranslation();
   const [open, setOpen] = useState(true);
   const pickable = selectable(node.kind, node.path);
-  const caption = node.description === "" ? node.kind : `${node.kind} — ${node.description}`;
+  const caption = captionOf(node.kind, node.format, node.description);
   return (
     <li>
       <span className="tree-row">

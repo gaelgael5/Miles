@@ -89,3 +89,17 @@ def test_une_declaration_retouchee_a_la_main_hors_forme_est_ignoree() -> None:
     schema = {"type": "object", "x-miles": {"key": "$.Id", "columns": [3, "$.Name"]}}
 
     assert usage_of(schema) == ModelUsage(key=(), columns=("$.Name",))
+
+
+def test_le_format_du_schema_voyage_a_cote_du_type_et_non_dedans() -> None:
+    """`kind` reste le type JSON Schema nu : c'est lui qui donne le type SQL d'une colonne.
+
+    Relevé le 10/11/2026 : l'arbre des propriétés annonçait « string » d'un champ que
+    l'éditeur de modèle montre en « Date-Heure ».
+    """
+    schema = {
+        "type": "object",
+        "properties": {"Fin": {"type": "string", "format": "date-time"}},
+    }
+
+    assert paths_of(schema) == [PathEntry("$.Fin", "string", "", ("Fin",), "date-time")]

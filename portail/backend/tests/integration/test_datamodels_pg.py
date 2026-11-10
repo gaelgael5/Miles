@@ -375,6 +375,16 @@ properties:
       properties:
         City: {type: string}
 """
+# Un champ daté : `type: string` seul ne dit pas qu'il porte une date, et c'est ce que
+# l'arbre des propriétés affichait (Gael, 10/11/2026).
+EXEMPLE_HORODATE = """$schema: https://json-schema.org/draft/2020-12/schema
+$id: miles:/shared/compte
+title: Compte
+type: object
+properties:
+  Name: {type: string}
+  EndOfActivityDate: {type: string, format: date-time}
+"""
 EXEMPLE_LIGNE = """$schema: https://json-schema.org/draft/2020-12/schema
 $id: miles:/shared/ligne
 title: Ligne
@@ -432,6 +442,25 @@ async def test_the_paths_follow_arrays_and_references_for_the_editor(forge: Forg
     # Le type voyage avec le chemin : le composant l'affiche sous la proposition.
     by_path = {p["path"]: p for p in got.json()["paths"]}
     assert by_path["$.Count"]["type"] == "integer"
+
+
+async def test_the_format_of_a_path_crosses_the_route_beside_its_type(forge: Forge) -> None:
+    """Le `format` traverse vraiment HTTP, et `type` reste le type JSON Schema nu.
+
+    Les deux ensemble : rendre le format en FONDANT « date-time » dans `type` aurait aussi
+    fait passer cette assertion si elle n'avait porté que sur le format.
+    """
+    await _create(forge, EXEMPLE_HORODATE)
+
+    got = await forge.client.get(f"{ROUTE}/shared/compte/paths", timeout=120)
+
+    assert got.status_code == 200, got.text
+    by_path = {p["path"]: p for p in got.json()["paths"]}
+    assert by_path["$.EndOfActivityDate"]["type"] == "string"
+    assert by_path["$.EndOfActivityDate"]["format"] == "date-time"
+    # Un champ sans format en porte un VIDE, jamais rien : le front n'a pas à distinguer
+    # « absent » de « vide » pour décider s'il affiche quelque chose.
+    assert by_path["$.Name"]["format"] == ""
 
 
 async def test_the_paths_go_through_a_reference_to_another_model(forge: Forge) -> None:

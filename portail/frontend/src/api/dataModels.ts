@@ -46,6 +46,8 @@ export interface ModelPath {
   path: string;
   type: string;
   description: string;
+  /** « date-time », « uri »… quand le schéma le précise ; chaîne vide sinon. */
+  format: string;
 }
 
 /** Les chemins du modèle SOURCE d'une étape, pour l'auto-complétion de l'éditeur. */

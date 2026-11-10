@@ -1,8 +1,8 @@
-import { lastSegment, selectable, treeOf } from "./ModelPathTree";
+import { captionOf, lastSegment, selectable, treeOf } from "./ModelPathTree";
 import { columnsSummary, indexName } from "./StorageIndexes";
 
-function path(p: string, type = "string") {
-  return { path: p, type, description: "" };
+function path(p: string, type = "string", format = "") {
+  return { path: p, type, description: "", format };
 }
 
 describe("treeOf", () => {
@@ -93,5 +93,40 @@ describe("columnsSummary", () => {
 
   it("says plainly when an index has no column yet", () => {
     expect(columnsSummary([], "Aucune colonne")).toBe("Aucune colonne");
+  });
+});
+
+describe("captionOf", () => {
+  it("montre le format À CÔTÉ du type, jamais à sa place", () => {
+    // Le défaut relevé par Gael le 10/11/2026 : l'arbre annonçait « string » d'un champ
+    // que l'éditeur de modèle montre en « Date-Heure ». Les deux moitiés comptent — un
+    // format qui REMPLACERAIT le type passerait un test qui ne vérifierait que lui.
+    expect(captionOf("string", "date-time", "")).toBe("string · date-time");
+  });
+
+  it("se tait sur le format quand le schéma n'en déclare pas", () => {
+    expect(captionOf("string", "", "")).toBe("string");
+  });
+
+  it("garde le titre après le type et son format", () => {
+    expect(captionOf("string", "date-time", "Fin d'activité")).toBe(
+      "string · date-time — Fin d'activité",
+    );
+  });
+
+  it("garde le titre quand il n'y a pas de format", () => {
+    expect(captionOf("integer", "", "Rang")).toBe("integer — Rang");
+  });
+});
+
+describe("treeOf, le format", () => {
+  it("porte le format du chemin jusqu'au nœud", () => {
+    expect(treeOf([path("$.fin", "string", "date-time")])[0]?.format).toBe("date-time");
+  });
+
+  it("rabat sur le vide un chemin rendu sans format", () => {
+    // La valeur vient du réseau : sans ce repli, la légende afficherait « undefined ».
+    const sansFormat = { path: "$.code", type: "string", description: "" };
+    expect(treeOf([sansFormat as never])[0]?.format).toBe("");
   });
 });

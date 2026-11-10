@@ -229,6 +229,11 @@ class PathOut(BaseModel):
     # affiche « <type> · <description> » sous chaque proposition.
     type: str
     description: str
+    # Le `format` du schéma quand il en porte un, vide sinon. À CÔTÉ de `type` et non
+    # fondu dedans : <jslt-editor> lit `type` tel quel, et le module d'environnement en
+    # dérive le type SQL de ses colonnes projetées. Ajout ADDITIF (10/11/2026) — un
+    # consommateur qui ne lit pas ce champ est inchangé.
+    format: str
 
 
 class PathsOut(BaseModel):
@@ -253,7 +258,10 @@ async def model_paths(
     except _REFUSALS as exc:
         return _refusal(exc)
     return PathsOut(
-        paths=[PathOut(path=e.path, type=e.kind, description=e.description) for e in found]
+        paths=[
+            PathOut(path=e.path, type=e.kind, description=e.description, format=e.format)
+            for e in found
+        ]
     )
 
 
