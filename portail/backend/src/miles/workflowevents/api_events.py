@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from miles.datamodels.grammar import MAX_TEXT_BYTES, ModelGrammarError, ModelSyntaxError
 from miles.workflowevents.layout import EventEntry
-from miles.workflowevents.schema import socle_fields
+from miles.workflowevents.schema import socle_schema
 from miles.workflowevents.service import EventNotFoundError, WorkflowEventsService
 from miles.workspaces.model import (
     BranchNotFoundError,
@@ -46,6 +46,8 @@ class EventOut(BaseModel):
     label: str | None
     # Tenue par le système : 1 à la création, +1 à chaque enregistrement qui le change.
     version: int | None
+    # Aucune propriété métier : l'événement ne porte que le socle commun.
+    base_only: bool
 
 
 class EventContentOut(EventOut):
@@ -67,14 +69,6 @@ class EventReplace(BaseModel):
     content: str
 
 
-class SocleFieldOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    name: str
-    type: str
-    # Posée par le moteur à l'intégration : une valeur de l'émetteur est ignorée.
-    read_only: bool
-
-
 def _out(entry: EventEntry) -> EventOut:
     return EventOut(
         scope=entry.scope,
@@ -82,6 +76,7 @@ def _out(entry: EventEntry) -> EventOut:
         path=entry.path,
         label=entry.label,
         version=entry.version,
+        base_only=entry.base_only,
     )
 
 
@@ -140,17 +135,16 @@ async def list_events(
         return _refusal(exc)
 
 
-@router.get("/socle", response_model=list[SocleFieldOut])
-async def socle(workspace_id: str) -> object:
-    """Le socle commun que le moteur valide EN PLUS du schéma métier.
+@router.get("/socle", response_model=None)
+async def socle(workspace_id: str) -> dict[str, Any]:
+    """Le socle commun que le moteur valide EN PLUS du schéma métier, en JSON Schema.
 
-    Servi par le portail plutôt qu'écrit dans le front : la liste est celle du moteur
-    installé, et deux recopies auraient divergé à la première montée de version.
+    Servi par le portail plutôt qu'écrit dans le front : il est lu du moteur installé, et
+    une recopie aurait divergé à la première montée de version. Rendu TEL QUEL plutôt
+    qu'aplati, pour que l'écran le monte dans le même éditeur visuel que les champs
+    métier — c'est ce qui fait voir qu'un événement dérive de ce type.
     """
-    return [
-        SocleFieldOut(name=nom, type=type_declare, read_only=lecture_seule)
-        for nom, type_declare, lecture_seule in socle_fields()
-    ]
+    return socle_schema()
 
 
 @router.get("/{scope}/{name}", response_model=EventContentOut)

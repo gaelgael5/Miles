@@ -17,16 +17,26 @@ const DEMANDE = {
   path: "shared/events/demande_soumise.yaml",
   label: "Demande soumise",
   version: 1,
+  // Discriminant : le badge « socle seul » ne doit PAS s'afficher sur un événement qui
+  // porte des champs métier.
+  base_only: false,
 };
+const NU = { ...DEMANDE, name: "ping", path: "shared/events/ping.yaml", label: "Ping", base_only: true };
 const BLANK =
   "$schema: https://json-schema.org/draft/2020-12/schema\n" +
   "$id: miles:/events/shared/demande_soumise\ntitle: Demande soumise\ntype: object\nproperties: {}\n";
-// Tel que le portail le sert, LU du moteur installé.
-const SOCLE = [
-  { name: "Name", type: "string", read_only: false },
-  { name: "ExternalId", type: "string", read_only: false },
-  { name: "IntegrationDate", type: "string", read_only: true },
-];
+// Tel que le portail le sert : le JSON Schema du moteur, pas une liste de noms.
+const SOCLE = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  title: "urban-workflow base event",
+  type: "object",
+  required: ["Name"],
+  properties: {
+    Name: { type: "string", minLength: 1 },
+    ExternalId: { type: "string" },
+    IntegrationDate: { type: "string", format: "date-time", readOnly: true },
+  },
+};
 
 function routes(extra: Record<string, unknown> = {}) {
   return {
@@ -103,7 +113,10 @@ describe("the event referential", () => {
     expect(alert).toHaveTextContent(/rejects hyphens/);
   });
 
-  it("shows the common base the engine validates on top of the schema", async () => {
+  it("shows the base fields ABOVE the business ones, so the derivation is visible", async () => {
+    // La demande de Gael du 11/11/2026 : « on ne voit pas que les events dérivent d'un
+    // type de base ». Le socle est donc monté dans le MÊME éditeur visuel, verrouillé, et
+    // AVANT les champs métier — comme la vue « Événements » du playground d'urban-workflow.
     await openEvents({
       [`GET ${ROUTE}/shared/demande_soumise?branch=edition`]: {
         status: 200,
@@ -115,12 +128,45 @@ describe("the event referential", () => {
     const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
     fireEvent.click(within(row).getByRole("button", { name: "Demande soumise" }));
 
-    await screen.findByRole("heading", { name: "Common base" });
-    expect(screen.getByText("ExternalId")).toBeInTheDocument();
-    // `IntegrationDate` est posée par le moteur : l'écran doit le dire, sinon quelqu'un
-    // essaiera de la renseigner à l'émission.
-    const integration = screen.getByText("IntegrationDate").closest("li") as HTMLElement;
-    expect(within(integration).getByText("set by the engine")).toBeInTheDocument();
+    const base = await screen.findByRole("group", { name: "Base fields" });
+    // Premier chargement différé de JSONJoy dans ce fichier : plus lent que les suivants.
+    expect(await within(base).findByText("ExternalId", {}, { timeout: 10_000 })).toBeInTheDocument();
+    expect(within(base).getByText("IntegrationDate")).toBeInTheDocument();
+    // Et l'ordre : le socle précède les champs métier dans le document.
+    const business = screen.getByRole("group", { name: "Business fields" });
+    expect(base.compareDocumentPosition(business)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // Non modifiable, et l'écran le dit en une phrase qui nomme la dérivation.
+    expect(within(base).getByText(/Every event derives from it/)).toBeInTheDocument();
+  });
+
+  it("marks in the list an event that carries only the base", async () => {
+    await openEvents({ [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [DEMANDE, NU] } });
+
+    const nu = (await screen.findByText("Ping")).closest("li") as HTMLElement;
+    const porteuse = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
+    expect(within(nu).getByText("base only")).toBeInTheDocument();
+    expect(within(porteuse).queryByText("base only")).not.toBeInTheDocument();
+  });
+
+  it("warns about a business field that collides with the base, before saving", async () => {
+    // Le serveur le refuse (propriete_du_socle), mais un refus au moment d'enregistrer
+    // arrive après le travail.
+    const COLLISION =
+      `${BLANK.replace("properties: {}", "properties:")}  ExternalId:\n    type: integer\n`;
+    await openEvents({
+      [`GET ${ROUTE}/shared/demande_soumise?branch=edition`]: {
+        status: 200,
+        body: { ...DEMANDE, content: COLLISION },
+      },
+      [`GET ${ROUTE}/socle?branch=edition`]: { status: 200, body: SOCLE },
+      [`GET ${MODELS}?branch=edition`]: { status: 200, body: [] },
+    });
+    const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Demande soumise" }));
+
+    const alerte = await screen.findByRole("alert", {}, { timeout: 10_000 });
+    expect(alerte).toHaveTextContent(/ExternalId/);
+    expect(alerte).toHaveTextContent(/saving rejects them/);
   });
 
   it("refuses to show a non-conforming schema without saying which rule broke", async () => {

@@ -20,7 +20,7 @@ from miles.workflowevents.schema import (
     draft,
     normalized,
     parse_event_schema,
-    socle_fields,
+    socle_schema,
 )
 
 DEMANDE = """title: Demande soumise
@@ -52,16 +52,33 @@ def _engine_refuses(text: str, payload: dict[str, object]) -> str | None:
 
 
 class TestLeSocle:
-    def test_le_socle_est_lu_du_moteur_et_non_recopie(self) -> None:
-        noms = {nom for nom, _, _ in socle_fields()}
-        assert noms == set(SOCLE_NAMES)
-        assert {"Name", "Uuid", "ExternalId", "CreationDate", "EventDate", "DedupKey"} <= noms
+    def test_le_socle_est_un_SCHEMA_lu_du_moteur_et_non_recopie(self) -> None:
+        socle = socle_schema()
+
+        assert set(socle["properties"]) == set(SOCLE_NAMES)
+        assert {"Name", "Uuid", "ExternalId", "CreationDate", "EventDate", "DedupKey"} <= set(
+            socle["properties"]
+        )
+        # Rendu en JSON Schema : l'écran le monte dans le même éditeur visuel que les
+        # champs métier, et un agent y lit ce qu'une liste de noms aurait perdu.
+        assert socle["type"] == "object"
+        assert socle["required"] == ["Name"]
+        assert socle["properties"]["Uuid"]["format"] == "uuid"
 
     def test_la_date_d_integration_est_annoncee_comme_posee_par_le_moteur(self) -> None:
         # `readOnly` du JSON Schema : c'est le moteur qui l'écrit à l'intégration, une
         # valeur de l'émetteur est ignorée. L'écran doit pouvoir le dire.
-        lecture_seule = {nom for nom, _, seule in socle_fields() if seule}
+        socle = socle_schema()
+        lecture_seule = {nom for nom, forme in socle["properties"].items() if forme.get("readOnly")}
+
         assert lecture_seule == {"IntegrationDate"}
+
+    def test_le_socle_rendu_est_une_COPIE_du_dictionnaire_du_moteur(self) -> None:
+        """Le moteur porte un singleton de module : le modifier changerait ce que
+        validera l'événement suivant. Discriminant — sans la copie, ce test rougit."""
+        socle_schema()["properties"].pop("Name")
+
+        assert "Name" in socle_schema()["properties"]
 
 
 class TestLesRefusPropresAuxEvenements:

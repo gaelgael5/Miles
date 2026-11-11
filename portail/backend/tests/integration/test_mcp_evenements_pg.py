@@ -66,12 +66,18 @@ async def test_un_evenement_est_cree_lu_remplace_et_supprime_sur_une_branche_enf
     assert await m.forge.file("shared/events/demande_soumise.yaml") is None
 
 
-async def test_le_socle_commun_se_lit_avant_d_ecrire(m: McpForge) -> None:
-    socle = await m.ok("get_event_base", {})
+async def test_le_socle_commun_se_lit_en_SCHEMA_avant_d_ecrire(m: McpForge) -> None:
+    """Rendu en JSON Schema : un agent y lit les `format`, les descriptions et les
+    obligatoires, qu'une liste de noms aurait perdus."""
+    rendu = await m.ok("get_event_base", {})
 
-    champs = {c["name"]: c for c in socle}
-    assert {"Name", "Uuid", "ExternalId", "CreationDate", "EventDate", "DedupKey"} <= set(champs)
-    assert champs["IntegrationDate"]["read_only"] is True
+    assert rendu["kind"] == "event"
+    socle = rendu["schema"]
+    assert {"Name", "Uuid", "ExternalId", "CreationDate", "EventDate", "DedupKey"} <= set(
+        socle["properties"]
+    )
+    assert socle["properties"]["IntegrationDate"]["readOnly"] is True
+    assert socle["required"] == ["Name"]
 
 
 async def test_les_deux_refus_propres_aux_evenements_arrivent_NOMMES(m: McpForge) -> None:

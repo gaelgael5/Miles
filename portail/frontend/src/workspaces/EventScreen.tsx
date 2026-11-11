@@ -14,13 +14,18 @@ import {
 import { ImportSmart } from "../dataModels/ImportSmart";
 import { isBlankSchema, parseSchema, sameSchema, schemaText } from "../dataModels/schemaText";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
-import { SocleTable, withoutSocle } from "./EventSocle";
+import { socleClash, withoutSocle } from "./EventSocle";
 import { ModelRefusal } from "./ModelRefusal";
 
 // Le MÊME éditeur que les modèles de données, chargé paresseusement par le même module :
 // un événement est un JSON Schema écrit en YAML, et c'est tout l'intérêt de la décision
 // du 11/11/2026 — la liste est séparée, l'outil de construction ne l'est pas.
 const SchemaEditor = lazy(() => import("../dataModels/SchemaEditor"));
+// Le socle, dans le MÊME éditeur visuel que les champs métier, verrouillé — c'est ce
+// qui fait voir qu'un événement en dérive (Gael, 11/11/2026, d'après la vue
+// « Événements » du playground d'urban-workflow). Chargé paresseusement comme l'autre :
+// c'est le même composant lourd, et le reste du portail ne paie pas son poids.
+const LockedSchema = lazy(() => import("../dataModels/LockedSchema"));
 
 /** Le schéma déduit, sous l'identité que l'événement tient déjà de sa déclaration. */
 function withIdentity(current: JsonSchema, inferred: Record<string, unknown>): JsonSchema {
@@ -60,6 +65,9 @@ function Editor({
   const [dropped, setDropped] = useState<string[]>([]);
   const dirty = !sameSchema(text, event.content);
   const blank = isBlankSchema(parsed);
+  // Signalée AVANT d'enregistrer : le serveur refuse `propriete_du_socle`, mais un refus
+  // au moment d'enregistrer arrive après le travail.
+  const clash = parsed.ok ? socleClash(parsed.schema, socle.data) : [];
 
   function changed(next: string) {
     onDirty(!sameSchema(next, event.content));
@@ -134,7 +142,7 @@ function Editor({
           onCancel={() => setImporting(false)}
           onImported={(inferred) => {
             setImporting(false);
-            const [metier, retirees] = withoutSocle(inferred, socle.data ?? []);
+            const [metier, retirees] = withoutSocle(inferred, socle.data);
             setDropped(retirees);
             fromVisual(withIdentity(parsed.ok ? parsed.schema : {}, metier));
           }}
@@ -151,7 +159,32 @@ function Editor({
         </p>
       )}
       {replace.isError && <ModelRefusal error={replace.error} />}
-      <div className="card" role="group" aria-label={t("dataModels.editor.title")}>
+      {/* LE SOCLE D'ABORD, et c'est tout l'objet du 11/11/2026 : un événement n'est pas
+          un schéma qui aurait un appendice, c'est un schéma qui DÉRIVE d'un type de base.
+          Montré après les champs métier, ou dans un tableau à part, il se lisait comme une
+          annexe — et personne ne voyait la dérivation. */}
+      {socle.isSuccess && (
+        <div className="card" role="group" aria-label={t("workflowEvents.socle.title")}>
+          <h2>{t("workflowEvents.socle.title")}</h2>
+          <p className="help">{t("workflowEvents.socle.help")}</p>
+          <Suspense
+            fallback={
+              <p className="muted" role="status">
+                {t("dataModels.loading")}
+              </p>
+            }
+          >
+            <LockedSchema schema={socle.data as never} />
+          </Suspense>
+        </div>
+      )}
+      <div className="card" role="group" aria-label={t("workflowEvents.business.title")}>
+        <h2>{t("workflowEvents.business.title")}</h2>
+        {clash.length > 0 && (
+          <div className="alert" role="alert">
+            {t("workflowEvents.socle.clash", { list: clash.join(", ") })}
+          </div>
+        )}
         <Suspense
           fallback={
             <p className="muted" role="status">
@@ -171,7 +204,6 @@ function Editor({
         </Suspense>
         <p className="help">{t("workflowEvents.editor.help")}</p>
       </div>
-      {socle.isSuccess && <SocleTable socle={socle.data} />}
     </>
   );
 }

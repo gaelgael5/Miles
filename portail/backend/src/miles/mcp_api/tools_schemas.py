@@ -27,7 +27,7 @@ from miles.mcp_api.families import (
     unknown,
     written_out,
 )
-from miles.workflowevents.schema import socle_fields
+from miles.workflowevents.schema import socle_schema
 from miles.workshop.domains_service import DomainsService
 
 DomainName = Annotated[
@@ -190,18 +190,16 @@ def register(server: MCPServer) -> None:
         description=(
             "Le socle commun que le moteur valide EN PLUS du schéma d'un ÉVÉNEMENT. À lire"
             " avant d'en écrire un : ces propriétés existent déjà dans tout payload, et les"
-            " redéclarer est refusé (propriete_du_socle). Lu du moteur installé, pas d'une"
-            " liste tenue à la main. Un modèle de données n'a pas de socle."
+            " redéclarer est refusé (propriete_du_socle). Rendu en JSON SCHEMA, lu du moteur"
+            " installé — avec les `format`, les descriptions et les obligatoires, qu'une"
+            " liste de noms aurait perdus. Un modèle de données n'a pas de socle."
         )
     )
-    async def get_event_base(ctx: Context[Any, Request]) -> list[dict[str, Any]]:
+    async def get_event_base(ctx: Context[Any, Request]) -> dict[str, Any]:
         # Aucun workspace, aucune branche : la réponse ne dépend que du moteur installé.
         # Le portillon MCP s'applique quand même, c'est `caller_of` qui l'a déjà exigé.
         caller_of(ctx)
-        return [
-            {"name": nom, "type": type_declare, "read_only": lecture_seule, "kind": EVENT}
-            for nom, type_declare, lecture_seule in socle_fields()
-        ]
+        return {"kind": EVENT, "schema": socle_schema()}
 
     @server.tool(
         description=(

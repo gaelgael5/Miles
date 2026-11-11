@@ -519,9 +519,9 @@
       "body": "{{path}} sera retiré de la branche de travail. Un script de workflow qui le déclare ne se chargera plus."
     },
     "socle": {
-      "title": "Socle commun",
-      "help": "Ces propriétés sont décrites par le moteur, qui les valide en plus du schéma ci-dessus. Elles ne se redéclarent pas : tout payload les porte déjà.",
-      "posed": "posée par le moteur"
+      "title": "Champs de base",
+      "help": "Socle commun à tout événement, posé par le moteur — non modifiables. Tout événement en dérive : ces champs sont déjà dans chaque payload, et le schéma métier ci-dessous ne décrit que ce qui s'y ajoute.",
+      "clash": "{{list}} : champ(s) du socle, déjà présent(s) sur tout événement — à retirer du schéma métier, l'enregistrement les refuse."
     },
     "editor": {
       "back": "← Événements",
@@ -535,6 +535,12 @@
       "invalid": {
         "name": "Nom d'événement invalide : lettres minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le tiret est refusé par le DSL du moteur."
       }
+    },
+    "business": {
+      "title": "Champs métier"
+    },
+    "list": {
+      "baseOnly": "socle seul"
     }
   },
   "versions": {

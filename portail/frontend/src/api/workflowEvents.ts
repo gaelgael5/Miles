@@ -19,19 +19,22 @@ export interface WorkflowEvent {
   label: string | null;
   /** Tenue par le système : 1 à la déclaration, +1 à chaque enregistrement. */
   version: number | null;
+  /** Aucune propriété métier : l'événement ne porte que le socle commun. */
+  base_only: boolean;
 }
 
 export interface WorkflowEventContent extends WorkflowEvent {
   content: string;
 }
 
-/** Une propriété du socle commun, que le moteur valide EN PLUS du schéma métier. */
-export interface SocleField {
-  name: string;
-  type: string;
-  /** Posée par le moteur à l'intégration : une valeur de l'émetteur est ignorée. */
-  read_only: boolean;
-}
+/**
+ * Le socle commun, en JSON Schema, tel que le moteur le porte.
+ *
+ * Un SCHÉMA et non une liste de noms : l'écran le monte dans le même éditeur visuel que
+ * les champs métier, verrouillé, ce qui montre que l'événement en dérive. Un aplatissement
+ * aurait perdu les `format`, les descriptions et les obligatoires.
+ */
+export type SocleSchema = Record<string, unknown>;
 
 export type { ModelProblem };
 
@@ -74,7 +77,7 @@ export function useEventSocle(target: WorkTarget) {
   return useQuery({
     queryKey: ["workflow-event-socle"],
     queryFn: ({ signal }) =>
-      request<SocleField[]>(atBranch(target, "workflow-events", "socle"), { signal }),
+      request<SocleSchema>(atBranch(target, "workflow-events", "socle"), { signal }),
   });
 }
 

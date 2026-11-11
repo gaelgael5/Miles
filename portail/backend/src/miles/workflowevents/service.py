@@ -319,8 +319,10 @@ async def _models(copy: WorkCopy) -> list[ModelEntry]:
 async def _described(copy: WorkCopy, entry: EventEntry) -> EventEntry:
     """L'événement avec son libellé (le `title` du schéma) et sa version (ses métadonnées)."""
     text = await copy.read(entry.path)
+    base_only = False
     try:
-        label = parse_event_schema(text or "").title
+        schema = parse_event_schema(text or "")
+        label, base_only = schema.title, schema.empty
     except ValueError:
         # Illisible ou non conforme (retouché hors de Miles) : listé quand même, sans
         # libellé ; la validation de la branche dira pourquoi. Même repli que les modèles,
@@ -328,4 +330,4 @@ async def _described(copy: WorkCopy, entry: EventEntry) -> EventEntry:
         # version.
         label = None
     version = read_version(await copy.read(meta_path(entry.path)))
-    return EventEntry(entry.scope, entry.name, entry.path, label, version or None)
+    return EventEntry(entry.scope, entry.name, entry.path, label, version or None, base_only)

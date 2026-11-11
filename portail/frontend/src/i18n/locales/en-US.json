@@ -519,9 +519,9 @@
       "body": "{{path}} will be removed from the work branch. A workflow script declaring it will no longer load."
     },
     "socle": {
-      "title": "Common base",
-      "help": "These properties are described by the engine, which validates them on top of the schema above. They are not redeclared: every payload already carries them.",
-      "posed": "set by the engine"
+      "title": "Base fields",
+      "help": "Common base of every event, set by the engine — not editable. Every event derives from it: these fields are already in each payload, and the business schema below only describes what is added to them.",
+      "clash": "{{list}}: base field(s), already present on every event — remove them from the business schema, saving rejects them."
     },
     "editor": {
       "back": "← Events",
@@ -535,6 +535,12 @@
       "invalid": {
         "name": "Invalid event name: lowercase letters, digits and underscores, starting with a letter or a digit. The engine's DSL rejects hyphens."
       }
+    },
+    "business": {
+      "title": "Business fields"
+    },
+    "list": {
+      "baseOnly": "base only"
     }
   },
   "versions": {

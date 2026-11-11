@@ -68,6 +68,8 @@ async def test_un_evenement_declare_est_ecrit_dans_la_branche_puis_relu_et_liste
         "path": "shared/events/demande_soumise.yaml",
         "label": "Demande soumise",
         "version": 1,
+        # Déclaré, donc sans champ métier : il ne porte QUE le socle, et la liste le dit.
+        "base_only": True,
     }
 
     written = await forge.file("shared/events/demande_soumise.yaml")
@@ -142,14 +144,35 @@ async def test_un_nom_que_le_DSL_refuserait_est_refuse_a_la_declaration(forge: F
     assert refused.json()["detail"] == {"field": "name"}
 
 
-async def test_le_socle_commun_est_servi_depuis_le_moteur_installe(forge: Forge) -> None:
+async def test_le_socle_commun_est_servi_en_SCHEMA_depuis_le_moteur_installe(
+    forge: Forge,
+) -> None:
+    """Un JSON Schema, pas une liste de noms : l'écran le monte dans le même éditeur
+    visuel que les champs métier, verrouillé, et c'est ce qui montre la dérivation."""
     served = await forge.client.get(f"{ROUTE}/socle", timeout=120)
 
     assert served.status_code == 200, served.text
-    champs = {c["name"]: c for c in served.json()}
-    assert {"Name", "Uuid", "ExternalId", "CreationDate", "EventDate", "DedupKey"} <= set(champs)
-    assert champs["IntegrationDate"]["read_only"] is True
-    assert champs["Name"]["type"] == "string"
+    socle = served.json()
+    assert socle["type"] == "object"
+    assert {"Name", "Uuid", "ExternalId", "CreationDate", "EventDate", "DedupKey"} <= set(
+        socle["properties"]
+    )
+    assert socle["properties"]["IntegrationDate"]["readOnly"] is True
+    assert socle["properties"]["Uuid"]["format"] == "uuid"
+    assert socle["required"] == ["Name"]
+
+
+async def test_un_evenement_qui_porte_du_metier_n_est_plus_marque_socle_seul(
+    forge: Forge,
+) -> None:
+    await _declare(forge)
+    nu = (await forge.client.get(ROUTE, timeout=120)).json()
+    await _replace(forge, "title: D\ntype: object\nproperties:\n  Montant:\n    type: number\n")
+
+    porteur = (await forge.client.get(ROUTE, timeout=120)).json()
+
+    assert [e["base_only"] for e in nu] == [True]
+    assert [e["base_only"] for e in porteur] == [False]
 
 
 async def test_un_evenement_et_un_modele_ne_se_melangent_jamais(forge: Forge) -> None:

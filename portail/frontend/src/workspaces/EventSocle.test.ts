@@ -1,10 +1,15 @@
-import { withoutSocle } from "./EventSocle";
+import { socleClash, socleNames, withoutSocle } from "./EventSocle";
 
-const SOCLE = [
-  { name: "Name", type: "string", read_only: false },
-  { name: "ExternalId", type: "string", read_only: false },
-  { name: "IntegrationDate", type: "string", read_only: true },
-];
+// Le socle tel que le portail le sert : le JSON Schema du moteur, pas une liste de noms.
+const SOCLE = {
+  type: "object",
+  required: ["Name"],
+  properties: {
+    Name: { type: "string", minLength: 1 },
+    ExternalId: { type: "string" },
+    IntegrationDate: { type: "string", format: "date-time", readOnly: true },
+  },
+};
 
 // Un échantillon RÉEL, tel qu'un émetteur l'envoie : le socle commun, puis le métier.
 // Les valeurs sont discriminantes — si le filtre ne faisait rien, « Montant » suffirait
@@ -52,5 +57,34 @@ describe("withoutSocle", () => {
 
     expect(metier).toEqual({ type: "object" });
     expect(retirees).toEqual([]);
+  });
+});
+
+
+describe("socleNames", () => {
+  it("rend les propriétés que le moteur décrit déjà", () => {
+    expect([...socleNames(SOCLE)].sort()).toEqual(["ExternalId", "IntegrationDate", "Name"]);
+  });
+
+  it("ne suppose rien quand le socle n'est pas encore lu", () => {
+    // La requête est en vol au premier rendu : aucune collision ne doit être annoncée.
+    expect(socleNames(undefined).size).toBe(0);
+  });
+});
+
+describe("socleClash", () => {
+  it("nomme les propriétés métier qui empiètent sur le socle", () => {
+    const schema = {
+      type: "object",
+      properties: { Montant: { type: "number" }, ExternalId: { type: "integer" } },
+    };
+
+    expect(socleClash(schema, SOCLE)).toEqual(["ExternalId"]);
+  });
+
+  it("ne signale rien sur un schéma métier propre", () => {
+    const schema = { type: "object", properties: { Montant: { type: "number" } } };
+
+    expect(socleClash(schema, SOCLE)).toEqual([]);
   });
 });

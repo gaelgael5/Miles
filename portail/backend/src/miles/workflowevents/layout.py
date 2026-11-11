@@ -56,6 +56,11 @@ class EventEntry:
     # version — même raison que pour un modèle.
     label: str | None = field(default=None, compare=False)
     version: int | None = field(default=None, compare=False)
+    # Aucune propriété métier : l'événement ne porte QUE le socle commun. Montré dans la
+    # liste (« socle seul », comme le playground d'urban-workflow le fait) parce que c'est
+    # un état LÉGITIME ici — un `DEFINE EVENT` peut n'apporter que le socle — et que sans
+    # cette mention on ne verrait pas du tout que le socle existe.
+    base_only: bool = field(default=False, compare=False)
 
 
 def event_path(scope: str, name: str) -> str:

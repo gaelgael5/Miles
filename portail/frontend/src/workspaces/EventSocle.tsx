@@ -1,6 +1,31 @@
-import { useTranslation } from "react-i18next";
+import type { SocleSchema } from "../api/workflowEvents";
 
-import type { SocleField } from "../api/workflowEvents";
+/** Les noms que le moteur décrit déjà : les clefs de `properties` du socle. */
+export function socleNames(socle: SocleSchema | undefined): Set<string> {
+  const properties = socle?.["properties"];
+  if (typeof properties !== "object" || properties === null) {
+    return new Set();
+  }
+  return new Set(Object.keys(properties as Record<string, unknown>));
+}
+
+/** Les propriétés du schéma métier qui empiètent sur le socle, dans l'ordre du schéma.
+ *
+ * Montrées AVANT d'enregistrer : le serveur les refuse (`propriete_du_socle`), mais un
+ * refus au moment d'enregistrer arrive après le travail. Le playground d'urban-workflow
+ * fait le même signalement, pour la même raison.
+ */
+export function socleClash(schema: unknown, socle: SocleSchema | undefined): string[] {
+  const reserved = socleNames(socle);
+  if (typeof schema !== "object" || schema === null) {
+    return [];
+  }
+  const properties = (schema as Record<string, unknown>)["properties"];
+  if (typeof properties !== "object" || properties === null) {
+    return [];
+  }
+  return Object.keys(properties as Record<string, unknown>).filter((name) => reserved.has(name));
+}
 
 /**
  * Le schéma déduit d'un échantillon, DÉBARRASSÉ des propriétés du socle, et celles
@@ -14,9 +39,9 @@ import type { SocleField } from "../api/workflowEvents";
  */
 export function withoutSocle(
   inferred: Record<string, unknown>,
-  socle: SocleField[],
+  socle: SocleSchema | undefined,
 ): [Record<string, unknown>, string[]] {
-  const reserved = new Set(socle.map((f) => f.name));
+  const reserved = socleNames(socle);
   const properties = inferred["properties"];
   if (typeof properties !== "object" || properties === null) {
     return [inferred, []];
@@ -36,27 +61,4 @@ export function withoutSocle(
     next["required"] = required.filter((name) => !reserved.has(String(name)));
   }
   return [next, dropped];
-}
-
-/** Le socle commun, tel que le MOTEUR le valide : montré, jamais modifiable. */
-export function SocleTable({ socle }: { socle: SocleField[] }) {
-  const { t } = useTranslation();
-  return (
-    <div className="card">
-      <h2>{t("workflowEvents.socle.title")}</h2>
-      <p className="help">{t("workflowEvents.socle.help")}</p>
-      <ul className="plain-list">
-        {socle.map((field) => (
-          <li key={field.name} className="row">
-            <div className="row-main">
-              <span className="mono">{field.name}</span> <span className="muted">{field.type}</span>
-            </div>
-            {field.read_only && (
-              <span className="badge badge-muted">{t("workflowEvents.socle.posed")}</span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }

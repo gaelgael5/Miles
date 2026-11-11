@@ -118,6 +118,13 @@ function EventRow({
             et c'est la seule chose qu'un script de workflow connaisse de cet écran. */}
         <div className="row-sub mono">{event.name}</div>
       </div>
+      {/* « socle seul » plutôt que rien : un événement sans champ métier est LÉGITIME —
+          il n'apporte que le socle commun — et c'est aussi ce qui fait voir, depuis la
+          liste, que ce socle existe (Gael, 11/11/2026 ; même mention dans le playground
+          d'urban-workflow). */}
+      {event.base_only && (
+        <span className="badge badge-muted">{t("workflowEvents.list.baseOnly")}</span>
+      )}
       <div className="cell">
         <div className="caption">{t("dataModels.list.captionScope")}</div>
         <div className="value">

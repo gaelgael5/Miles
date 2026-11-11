@@ -8,6 +8,7 @@ que d'une recopie.
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 import yaml
@@ -41,18 +42,20 @@ _SOCLE: dict[str, Any] = dict(BASE_EVENT_SCHEMA.get("properties") or {})
 SOCLE_NAMES = frozenset(_SOCLE)
 
 
-def socle_fields() -> list[tuple[str, str, bool]]:
-    """(nom, type, posé par le moteur) de chaque propriété du socle, pour l'écran.
+def socle_schema() -> dict[str, Any]:
+    """Le socle commun, tel que le moteur le porte : un JSON Schema, pas une liste.
 
-    Les montrer est le seul moyen qu'a la personne de savoir sur quoi elle peut compter
-    dans un payload — et de ne pas les redéclarer, ce que la grammaire refuse ci-dessous.
+    Servi comme SCHÉMA et non comme un tableau de noms, et c'est ce que fait aussi la vue
+    « Événements » du playground d'urban-workflow (`api/base-event-schema`) : l'écran peut
+    alors le monter dans le MÊME éditeur visuel que les champs métier, verrouillé — ce qui
+    montre que l'événement DÉRIVE de ce type, là où un tableau à part se lisait comme une
+    annexe. Un aplatissement aurait en outre perdu ce que le schéma dit en plus : les
+    `format`, les descriptions, et quelle propriété est obligatoire.
+
+    Copie profonde : le dictionnaire du moteur est un singleton de module, et un appelant
+    qui le modifierait changerait ce que validera l'événement suivant.
     """
-    champs = []
-    for nom, forme in _SOCLE.items():
-        type_declare = forme.get("type") if isinstance(forme, dict) else None
-        lecture_seule = bool(forme.get("readOnly")) if isinstance(forme, dict) else False
-        champs.append((nom, str(type_declare or "?"), lecture_seule))
-    return champs
+    return copy.deepcopy(BASE_EVENT_SCHEMA)
 
 
 def parse_event_schema(text: str) -> ModelSchema:
