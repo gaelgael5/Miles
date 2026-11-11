@@ -12,15 +12,18 @@ socle commun du moteur, et son nom ne peut pas porter de tiret.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated, Any
 
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
+from miles.datamodels.layout import model_path
 from miles.datamodels.service import ModelNotFoundError
 from miles.mcp_api.calls import Caller
 from miles.mcp_api.errors import refusal
+from miles.workflowevents.layout import event_path
 from miles.workflowevents.service import EventNotFoundError
 
 MODEL = "model"
@@ -83,13 +86,21 @@ class Family:
     # Le code du refus « introuvable » : il NOMME la famille, pour qu'un agent ne cherche
     # pas un modèle quand c'est un événement qui manque.
     unknown_code: str
+    # Le chemin du fichier, pour que le `path` d'un refus se lise dans le même vocabulaire
+    # que la liste `existants` qui l'accompagne — des chemins de dépôt, pas « portée/nom ».
+    path_of: Callable[[str, str], str]
 
 
 def family_of(caller: Caller, kind: str) -> Family:
     if kind == MODEL:
-        return Family(caller.services.data_models, ModelNotFoundError, "modele_inconnu")
+        return Family(caller.services.data_models, ModelNotFoundError, "modele_inconnu", model_path)
     if kind == EVENT:
-        return Family(caller.services.workflow_events, EventNotFoundError, "evenement_inconnu")
+        return Family(
+            caller.services.workflow_events,
+            EventNotFoundError,
+            "evenement_inconnu",
+            event_path,
+        )
     # `attendus` plutôt qu'un message : l'agent corrige sans relire la documentation.
     raise ToolError(refusal("champ_invalide", champ="kind", raison="forme", attendus=list(KINDS)))
 
@@ -115,6 +126,11 @@ async def unknown(
 
     `path` dit ce qui a été DEMANDÉ et `existants` ce qu'il y a : les deux ensemble, parce
     qu'un agent qui ne voit que la liste ne sait pas lequel de ses appels a échoué.
+
+    Et `path` est le chemin du FICHIER, comme avant l'unification du 11/11/2026 : un test
+    d'intégration l'a rappelé en rougissant. Changer ce champ pour « portée/nom » aurait
+    été une rupture de contrat que rien n'annonçait — et une incohérence, puisque la liste
+    `existants` juste à côté porte des chemins de dépôt.
     """
     chosen = family_of(caller, kind)
     existing = await chosen.service.resolve_list(caller.viewer, workspace_id, branch=branch)
@@ -122,7 +138,7 @@ async def unknown(
         refusal(
             chosen.unknown_code,
             kind=kind,
-            path=f"{scope}/{name}" if scope or name else "",
+            path=chosen.path_of(scope, name) if scope and name else "",
             existants=[e.path for e in existing],
         )
     )

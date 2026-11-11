@@ -193,6 +193,9 @@ async def test_unknown_or_used_models_name_what_exists_and_who_uses_them(m: McpF
 
     assert unknown == {
         "code": "modele_inconnu",
+        # `kind` est AJOUTÉ par l'unification du 11/11/2026 ; `path` reste le chemin du
+        # fichier, et c'est ce test qui a empêché de changer sa sémantique en douce.
+        "kind": "model",
         "path": "shared/messages/absent.yaml",
         "existants": ["domains/suivi/messages/colis.yaml", "shared/messages/personne.yaml"],
     }
