@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from urban_json import FunctionRegistry, default_registry
@@ -13,6 +13,7 @@ from miles_socle.transform.engine import (
     UnsupportedConstructError,
     compile_template,
     evaluate,
+    function_registry,
 )
 
 BUDGET = 10_000
@@ -210,3 +211,58 @@ def test_a_function_missing_from_the_catalogue_is_refused_when_written() -> None
     assert [(v.construct, v.detail) for v in caught.value.violations] == [
         ("fonction_inconnue", "http_get")
     ]
+
+
+class TestLesFonctionsAArgumentsParesseux:
+    """Neuf fonctions du cœur reçoivent des positions NON ÉVALUÉES (urban-json 0.6.0).
+
+    `_registry()` reconstruit un registre à partir du registre du moteur. Tant qu'il ne
+    reportait pas `lazy_args`, ces fonctions recevaient des arguments évalués là où elles
+    attendent un callable — **sans qu'aucune exception ne le dise** : `sort` rendait la
+    liste dans son ordre d'entrée, `groupby` groupait chaque élément tout seul, et
+    `trydefault` laissait filer l'erreur qu'il est censé rattraper. Mesuré le 11/11/2026
+    en reconstruisant le registre sans le champ.
+
+    Les jeux d'essai sont DISCRIMINANTS : un tri dont l'ordre naturel coïnciderait avec
+    l'ordre de la clef serait vert dans les deux cas — c'est ce qui m'est arrivé sur deux
+    éléments avant d'en prendre trois.
+    """
+
+    LIGNES: ClassVar[dict[str, Any]] = {
+        "l": [{"n": 1, "v": "c"}, {"n": 2, "v": "a"}, {"n": 3, "v": "b"}]
+    }
+
+    def test_sort_trie_par_la_clef_et_non_par_l_ordre_d_entree(self) -> None:
+        rendu = evaluate(compile_template('{ "t": sort($.l, $.v) }'), self.LIGNES, 100_000)
+
+        assert [e["v"] for e in rendu["t"]] == ["a", "b", "c"]
+
+    def test_groupby_groupe_par_la_valeur_de_la_clef(self) -> None:
+        rendu = evaluate(compile_template('{ "t": groupby($.l, $.v) }'), self.LIGNES, 100_000)
+
+        assert sorted(rendu["t"]) == ["a", "b", "c"]
+
+    def test_countby_compte_par_la_valeur_de_la_clef(self) -> None:
+        document = {"l": [{"v": "a"}, {"v": "a"}, {"v": "b"}]}
+
+        rendu = evaluate(compile_template('{ "t": countby($.l, $.v) }'), document, 100_000)
+
+        assert rendu["t"] == {"a": 2, "b": 1}
+
+    def test_trydefault_rattrape_l_erreur_au_lieu_de_la_laisser_filer(self) -> None:
+        document = {"a": "pas un nombre"}
+
+        rendu = evaluate(
+            compile_template('{ "t": trydefault(parsenumber($.a), -1) }'), document, 100_000
+        )
+
+        assert rendu["t"] == -1
+
+    def test_le_registre_de_miles_porte_les_positions_paresseuses_du_moteur(self) -> None:
+        """La garde directe : ce qui a été oublié est un CHAMP, pas un comportement."""
+        registre = function_registry()
+
+        assert registre.lazy_args_of("sort") == (1,)
+        assert registre.lazy_args_of("trydefault") == (0, 1)
+        # Discriminant : une fonction sans position paresseuse n'en gagne pas.
+        assert registre.lazy_args_of("upper") == ()

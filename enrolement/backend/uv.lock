@@ -848,7 +848,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'testing'", specifier = ">=0.24" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "structlog", specifier = ">=24.4" },
-    { name = "urban-json", marker = "extra == 'transform'", specifier = "==0.2.1" },
+    { name = "urban-json", marker = "extra == 'transform'", specifier = "==0.6.0" },
 ]
 provides-extras = ["testing", "transform"]
 

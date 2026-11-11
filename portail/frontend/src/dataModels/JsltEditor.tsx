@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import { opensSource, runsOn } from "./jsltKeys";
 
@@ -88,6 +89,12 @@ export default function JsltEditor({
   /** Chemins du modèle source, proposés sur « $ » et « @ » (composant >= 0.2.0). */
   paths?: unknown[];
 }) {
+  const { i18n } = useTranslation();
+  // La langue de l'aide à la signature (composant >= 0.4.0) : l'infobulle ET la page de
+  // référence qu'elle lie. Passée explicitement, parce que le repli du composant est
+  // `<html lang>`, figé à « en » dans `index.html` — sans cet attribut, un visiteur qui a
+  // choisi le français dans « Mon profil » lirait une aide anglaise.
+  const lang = i18n.language.startsWith("fr") ? "fr" : "en";
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<EditorElement | null>(null);
   // Tenu dans une ref : l'écouteur du composant vit plus longtemps qu'un rendu, et
@@ -115,6 +122,7 @@ export default function JsltEditor({
       }
       const element = document.createElement("jslt-editor") as EditorElement;
       element.setAttribute("catalog-url", CATALOG);
+      element.setAttribute("lang", lang);
       element.setAttribute("aria-label", ariaLabel);
       element.value = value;
       element.addEventListener("input", () => changed.current(element.value));
@@ -158,6 +166,12 @@ export default function JsltEditor({
   useEffect(() => {
     editor.current?.toggleAttribute("readonly", readOnly);
   }, [readOnly]);
+
+  useEffect(() => {
+    // La langue se change depuis « Mon profil » sans recharger : l'attribut suit, sinon
+    // l'aide resterait dans la langue d'avant jusqu'au prochain montage de l'écran.
+    editor.current?.setAttribute("lang", lang);
+  }, [lang]);
 
   useEffect(() => {
     if (editor.current !== null) {

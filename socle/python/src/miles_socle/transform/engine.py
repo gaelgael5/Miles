@@ -233,7 +233,27 @@ def _registry() -> FunctionRegistry:
         # silence à la faveur d'une montée de version ; détail dans LESSONS.md.
         if not info.function.__module__.startswith(_CORE_MODULE):
             continue
-        registry.register(name, info.function, info.path_args, info.description)
+        # TOUT ce que le moteur sait de la fonction est reporté, pas seulement ce que
+        # Miles lit. `lazy_args` est le cas qui l'a prouvé (urban-json 0.6.0, 11/11/2026) :
+        # neuf fonctions du cœur reçoivent certaines positions NON ÉVALUÉES, sous forme de
+        # callable — `sort` calcule ainsi une clef par élément, `trydefault` n'évalue son
+        # repli que si la première expression lève. Oublier ce champ ne lève RIEN : `sort`
+        # rendait la liste dans son ordre d'entrée, `groupby` groupait chaque élément tout
+        # seul, et `trydefault` rendait `null` au lieu du repli. Mesuré avant la correction.
+        #
+        # `description_en` et `doc` suivent pour la même raison, et en servent une autre :
+        # le catalogue de l'intellisense DÉRIVE de ce registre, et sans eux l'éditeur
+        # perdrait l'infobulle anglaise et le lien vers la page de référence.
+        registry.register(
+            name,
+            info.function,
+            info.path_args,
+            info.description,
+            info.kind,
+            info.lazy_args,
+            info.description_en,
+            info.doc,
+        )
     # Écart voulu au convert du moteur (voir _strict_convert) : il le remplace.
     registry.register(CAST_FUNCTION, _strict_convert, (), _CAST_DESCRIPTION)
     return registry

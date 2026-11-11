@@ -80,3 +80,57 @@ async def test_models_come_from_the_branch_with_their_properties() -> None:
     ]
     assert await app_floor(read) == "2.4.0"
     assert await models_catalog([], read) == []
+
+
+class TestLeCatalogueDeLIntellisense:
+    """Ce que l'éditeur PROPOSE doit être ce que l'évaluation ACCEPTE.
+
+    Jusqu'au 11/11/2026 la route servait le registre global d'`urban-json` — celui qui
+    porte en plus tout plugin installé et les fonctions de genre `output`. L'écart valait
+    deux noms, et la montée en 0.6.0 l'aurait porté à cinq sans que rien ne le dise : il
+    grandissait de lui-même à chaque version. C'est ce test qui l'empêche de revenir.
+    """
+
+    def test_le_catalogue_servi_est_celui_du_profil_d_ecriture(self) -> None:
+        import urban_json_editor
+        from urban_json import default_registry as moteur
+
+        from miles.transform.api_editor import jslt_functions
+
+        servi = {f["name"] for f in jslt_functions().functions}
+
+        assert servi == set(function_registry().names())
+        # Discriminant : le registre global en propose davantage, et c'est bien ce qu'on
+        # a cessé de servir.
+        assert {f["name"] for f in urban_json_editor.catalog(moteur)} - servi == {
+            "to_block",
+            "to_csv",
+            "to_json",
+            "to_xml",
+            "to_yaml",
+        }
+
+    def test_aucune_fonction_de_genre_output_n_est_proposee(self) -> None:
+        from miles.transform.api_editor import jslt_functions
+
+        genres = {f.get("kind") for f in jslt_functions().functions}
+
+        # `output` n'a de sens que dans `$directives.output`, que Miles n'admet pas : la
+        # proposer enverrait écrire ce que le moteur refuse dans le corps d'un template.
+        assert genres == {"function"}
+
+    def test_chaque_fonction_du_coeur_porte_son_lien_de_documentation(self) -> None:
+        """L'aide à la signature de l'éditeur 0.4.0 en fait un lien cliquable.
+
+        Le registre de Miles est RECONSTRUIT : sans le report de `doc` et de
+        `description_en`, le catalogue serait complet et muet.
+        """
+        from miles.transform.api_editor import jslt_functions
+
+        servi = {f["name"]: f for f in jslt_functions().functions}
+
+        assert servi["sort"]["doc"] == "fonctions/sort"
+        assert servi["sort"]["description_en"]
+        # `lazy_args` aussi : c'est lui que l'éditeur lit pour savoir qu'une position
+        # reçoit une expression et non une valeur.
+        assert servi["sort"]["lazy_args"] == [1]

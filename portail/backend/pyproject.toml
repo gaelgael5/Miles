@@ -41,9 +41,17 @@ dependencies = [
     # socle porte le moteur qui ÉVALUE, le portail importe `urban_json` pour son
     # diagnostic d'ÉCRITURE (`chains/conformance.py`, qui lit `JsltKind`). Deux versions
     # feraient juger un template contre une grammaire que l'évaluation n'applique pas.
-    "urban-json==0.3.0",
+    # Montée 0.3.0 → 0.6.0 le 11/11/2026 : le delta est mesuré au pyproject du socle, qui
+    # porte le moteur. Le point qui regarde LE PORTAIL : 104 fonctions entrent dans ce que
+    # l'intellisense propose, et le genre `output` passe de 2 à 5 noms refusés.
+    "urban-json==0.6.0",
     # Web Component <jslt-editor> et ses assets, servis par le backend (24/10/2026).
-    "urban-json-editor==0.3.0",
+    # 0.3.0 → 0.4.0 le 11/11/2026, avec `urban-json>=0.6.0` : les deux montent ensemble,
+    # l'éditeur le DÉCLARE. Il apporte l'aide à la signature — le paramètre en cours de
+    # saisie en gras, et un lien vers la page de référence de la fonction —, servie par un
+    # asset de plus (`jslt-signature.js`) que `urban_json_editor.mount` sert sans rien à
+    # changer ici : le composant l'importe lui-même depuis `jslt-editor.js`.
+    "urban-json-editor==0.4.0",
     # Moteur de workflow piloté par un DSL (Gael, 11/11/2026) : c'est lui qui dit ce
     # qu'EST un événement — un nom, un libellé, un JSON Schema écrit en YAML, des clés
     # d'anti-doublon. Le portail l'embarque pour DIAGNOSTIQUER ce qu'il écrit, comme pour

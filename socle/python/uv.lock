@@ -744,7 +744,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'testing'", specifier = ">=0.24" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "structlog", specifier = ">=24.4" },
-    { name = "urban-json", marker = "extra == 'transform'", specifier = "==0.3.0" },
+    { name = "urban-json", marker = "extra == 'transform'", specifier = "==0.6.0" },
 ]
 provides-extras = ["testing", "transform"]
 
@@ -1206,12 +1206,12 @@ wheels = [
 
 [[package]]
 name = "urban-json"
-version = "0.3.0"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "antlr4-python3-runtime" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c9/5d/f4ca1a201f63c5b5b94e363214e6094fed56991f17511ed424d660caad15/urban_json-0.3.0.tar.gz", hash = "sha256:cabb78670ece81f6391f481a5867f8ce275cdc91fdcb15e9f25ab2e2acad14ad", size = 125944, upload-time = "2026-11-10T16:14:24.311Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/08/b25bff64862b15f6cd4c107dbf2824a808be17e16edac5cbc92b7b0a6dce/urban_json-0.6.0.tar.gz", hash = "sha256:c822293f8914bd922ac790f296e73bf6acf944270f37b5f4951a2f9243385fb2", size = 199978, upload-time = "2026-11-11T17:48:04.753Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a4/78/2984bb639776fcfd11c3948a94956968c4b5d9fcd7a97da695a93a9b25ce/urban_json-0.3.0-py3-none-any.whl", hash = "sha256:3ba76d7d78c9943df3915144fcc0a565d77805dd488e0baf6752c4564a272c11", size = 114466, upload-time = "2026-11-10T16:14:22.994Z" },
+    { url = "https://files.pythonhosted.org/packages/44/36/0bb60e84c169f762f95b1a8719b999e3e6ba536a586f370910eec8134a63/urban_json-0.6.0-py3-none-any.whl", hash = "sha256:26c45036fa5db6ed3e83c469125bebaf366815f90e2dd15529c97fb60257d3c2", size = 167256, upload-time = "2026-11-11T17:48:02.961Z" },
 ]
