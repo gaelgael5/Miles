@@ -106,6 +106,8 @@ def _refusal(exc: Exception) -> JSONResponse:
         detail = {"code": "yaml_invalide", "message": exc.message}
         return _error(unprocessable, detail | {"line": exc.line, "column": exc.column})
     if isinstance(exc, ModelGrammarError):
+        # Tout manquement qui arrive ici vient d'un événement (`EventGrammarError`, qui en
+        # est une sous-classe) : c'est le même nom que rend la surface MCP, et c'est voulu.
         problems = [{"path": p.path, "code": p.code, "detail": p.detail} for p in exc.problems]
         return _error(unprocessable, {"code": "evenement_non_conforme", "problems": problems})
     if isinstance(exc, EventNotFoundError):

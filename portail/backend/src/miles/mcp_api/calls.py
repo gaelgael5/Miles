@@ -19,6 +19,7 @@ from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE
 from miles.mcp_api.errors import refusal, refusal_code
 from miles.obo.service import Actor
 from miles.transform.api_transform import step_problem_out
+from miles.workflowevents.schema import EventGrammarError
 from miles.workshop.trads import TradsFileError
 from miles.workshop.trads_keys_errors import (
     KeyUnknownError,
@@ -163,7 +164,16 @@ def tool_refusal(exc: Exception) -> ToolError | None:
         )
     elif isinstance(exc, ModelGrammarError):
         problems = [{"path": p.path, "code": p.code, "detail": p.detail} for p in exc.problems]
-        code, detail = "modele_non_conforme", {"problems": problems}
+        # AVANT le cas général : `EventGrammarError` en est une sous-classe, et sans ce test
+        # le même défaut s'appellerait `modele_non_conforme` par MCP et
+        # `evenement_non_conforme` par la route de l'écran. Un agent qui apprend un code sur
+        # un canal le réutiliserait sur l'autre.
+        nom = (
+            "evenement_non_conforme"
+            if isinstance(exc, EventGrammarError)
+            else "modele_non_conforme"
+        )
+        code, detail = nom, {"problems": problems}
     elif isinstance(exc, ChainInvalidError):
         problems = [step_problem_out(p).model_dump() for p in exc.problems]
         code, detail = "chaine_invalide", {"problems": problems}

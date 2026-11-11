@@ -17,12 +17,26 @@ from miles.datamodels.grammar import ModelGrammarError, Problem, load_yaml
 from miles.datamodels.schema import DIALECT, ModelSchema, parse_schema
 from miles.workflowevents.layout import event_id
 
+
 # LU du moteur installé, jamais recopié (`urban_workflow.schemas.BASE_EVENT_SCHEMA`) : le
 # socle commun de tout événement — `Name`, `Uuid`, `ExternalId`, `CreationDate`,
 # `EventDate`, `DedupKey`, et `IntegrationDate` que le moteur pose lui-même à
 # l'intégration. Une recopie aurait divergé à la première montée de version sans que rien
 # ne le signale, et c'est précisément ce que le portail doit éviter : il refuse à
 # l'écriture ce que le moteur refuserait à l'exécution, donc il doit refuser d'après LUI.
+class EventGrammarError(ModelGrammarError):
+    """Un événement non conforme, et c'est une SOUS-CLASSE, non un alias.
+
+    Le dépôt a écrit ailleurs qu'une sous-classe est un piège (`ModelSyntaxError` est un
+    alias, pas une sous-classe, pour que l'erreur du socle ne traverse pas tous les
+    `except` du produit). Ici le raisonnement s'inverse, et c'est délibéré : tout endroit
+    qui attrape `ModelGrammarError` DOIT continuer à attraper celle-ci — la validation de
+    branche en rend les manquements, l'écran les affiche de la même façon. Ce que la
+    sous-classe apporte, c'est le NOM du refus : le même défaut ne doit pas s'appeler
+    `modele_non_conforme` par MCP et `evenement_non_conforme` par la route de l'écran.
+    """
+
+
 _SOCLE: dict[str, Any] = dict(BASE_EVENT_SCHEMA.get("properties") or {})
 SOCLE_NAMES = frozenset(_SOCLE)
 
@@ -67,7 +81,7 @@ def parse_event_schema(text: str) -> ModelSchema:
         if nom in SOCLE_NAMES
     ]
     if problems:
-        raise ModelGrammarError(problems)
+        raise EventGrammarError(problems)
     return schema
 
 
@@ -80,7 +94,7 @@ def normalized(text: str, scope: str, name: str) -> str:
     """
     data = load_yaml(text)
     if not isinstance(data, dict):
-        raise ModelGrammarError([Problem("", "document_non_objet")])
+        raise EventGrammarError([Problem("", "document_non_objet")])
     head = {"$schema": DIALECT, "$id": event_id(scope, name)}
     rest = {k: v for k, v in data.items() if k not in head}
     return yaml.safe_dump(head | rest, allow_unicode=True, sort_keys=False)

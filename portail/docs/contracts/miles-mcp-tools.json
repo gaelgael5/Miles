@@ -441,6 +441,230 @@
       }
     },
     {
+      "name": "list_workflow_events",
+      "description": "Liste les événements de workflow d'une branche, avec leur emplacement. Ce sont les événements qu'un DEFINE EVENT peut désigner ; ils ne se mélangent pas aux modèles de données (list_data_models).",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "title": "list_workflow_eventsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_workflow_event",
+      "description": "Lit un événement de workflow : son emplacement et son YAML tel quel.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "« shared » pour un événement transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "title": "Scope",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom de l'événement, celui qu'un DEFINE EVENT écrira : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le TIRET est refusé — le DSL du moteur ne sait pas l'écrire.",
+            "title": "Name",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "scope",
+          "name"
+        ],
+        "title": "get_workflow_eventArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_event_base",
+      "description": "Le socle commun que le moteur valide EN PLUS du schéma d'un événement. À lire avant d'écrire : ces propriétés existent déjà dans tout payload, et les redéclarer est refusé (propriete_du_socle). Lu du moteur installé, pas d'une liste tenue à la main.",
+      "inputSchema": {
+        "properties": {},
+        "title": "get_event_baseArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_workflow_event",
+      "description": "Crée un événement de workflow (JSON Schema 2020-12 en YAML) dans une branche enfant. Refus structurés : yaml_invalide, evenement_non_conforme (tous les écarts, dont schema_ferme et propriete_du_socle), nom_pris, domaine_inconnu.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "« shared » pour un événement transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "title": "Scope",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom de l'événement, celui qu'un DEFINE EVENT écrira : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le TIRET est refusé — le DSL du moteur ne sait pas l'écrire.",
+            "title": "Name",
+            "type": "string"
+          },
+          "content": {
+            "description": "L'événement : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son libellé. `$schema` et `$id` sont posés par Miles. Le schéma décrit les données MÉTIER seulement : le moteur valide en plus un socle commun (voir get_event_base), dont les propriétés ne se redéclarent pas. `additionalProperties: false` est refusé, car le socle rendrait alors tout payload réel invalide. Un modèle de données se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom>.",
+            "title": "Content",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "scope",
+          "name",
+          "content"
+        ],
+        "title": "create_workflow_eventArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "replace_workflow_event",
+      "description": "Remplace le schéma d'un événement existant, dans une branche enfant. Le nom ne change pas : renommer, c'est créer puis supprimer — et un script de workflow qui déclare l'ancien nom ne se chargera plus. La version monte de 1, tenue par Miles.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "« shared » pour un événement transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "title": "Scope",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom de l'événement, celui qu'un DEFINE EVENT écrira : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le TIRET est refusé — le DSL du moteur ne sait pas l'écrire.",
+            "title": "Name",
+            "type": "string"
+          },
+          "content": {
+            "description": "L'événement : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son libellé. `$schema` et `$id` sont posés par Miles. Le schéma décrit les données MÉTIER seulement : le moteur valide en plus un socle commun (voir get_event_base), dont les propriétés ne se redéclarent pas. `additionalProperties: false` est refusé, car le socle rendrait alors tout payload réel invalide. Un modèle de données se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom>.",
+            "title": "Content",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "scope",
+          "name",
+          "content"
+        ],
+        "title": "replace_workflow_eventArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_workflow_event",
+      "description": "Supprime un événement d'une branche enfant. Rien dans le paramétrage ne le désigne encore, donc aucun refus « utilisé » : c'est le script de workflow qui le déclare qui cessera de se charger.",
+      "inputSchema": {
+        "properties": {
+          "workspace_id": {
+            "description": "Identifiant du workspace (voir list_workspaces).",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "scope": {
+            "description": "« shared » pour un événement transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "title": "Scope",
+            "type": "string"
+          },
+          "name": {
+            "description": "Nom de l'événement, celui qu'un DEFINE EVENT écrira : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le TIRET est refusé — le DSL du moteur ne sait pas l'écrire.",
+            "title": "Name",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
+            "title": "Branch"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "scope",
+          "name"
+        ],
+        "title": "delete_workflow_eventArguments",
+        "type": "object"
+      }
+    },
+    {
       "name": "list_chains",
       "description": "Liste les chaînes de transformations d'une branche. Une chaîne illisible (retouchée hors de Miles) apparaît avec label null.",
       "inputSchema": {

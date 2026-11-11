@@ -9,7 +9,7 @@ import structlog
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
 
-from miles.datamodels.grammar import ModelGrammarError, Problem
+from miles.datamodels.grammar import Problem
 from miles.datamodels.layout import SHARED, ModelEntry
 from miles.datamodels.layout import entry_of as model_entry_of
 from miles.datamodels.meta import meta_path, meta_text, read_version
@@ -23,7 +23,12 @@ from miles.workflowevents.layout import (
     event_path,
     visible,
 )
-from miles.workflowevents.schema import draft, normalized, parse_event_schema
+from miles.workflowevents.schema import (
+    EventGrammarError,
+    draft,
+    normalized,
+    parse_event_schema,
+)
 from miles.workshop.domains import domains_in
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceConflictError, checked_label
@@ -104,6 +109,29 @@ class WorkflowEventsService:
         scope, name, label = checked_scope(scope), checked_name(slug), checked_label(label)
         return await self._create(
             author, workspace_id, scope, name, draft(scope, name, label), branch
+        )
+
+    async def resolve_create(
+        self,
+        author: EventAuthor,
+        workspace_id: str,
+        scope: str,
+        name: str,
+        content: str,
+        *,
+        branch: str | None = None,
+    ) -> tuple[EventEntry, str | None]:
+        """Écrit un événement depuis son schéma complet ; rejeu du même schéma : None.
+
+        Sert la surface MCP, pas l'écran : un agent décrit l'événement en UN appel, là où
+        la personne déclare puis complète. Aucune route HTTP ne l'expose, et c'est
+        volontaire — une route que rien ne consomme est de la surface pour rien.
+        """
+        scope, name = checked_scope(scope), checked_name(name)
+        # Vérifié avant tout accès au dépôt : un document refusé ne coûte aucun clone.
+        parse_event_schema(content)
+        return await self._create(
+            author, workspace_id, scope, name, normalized(content, scope, name), branch
         )
 
     async def resolve_replace(
@@ -237,7 +265,7 @@ async def _check_references(copy: WorkCopy, entry: EventEntry, schema: ModelSche
         if (scope, name) not in known or not visible(entry, (scope, name))
     ]
     if missing:
-        raise ModelGrammarError(missing)
+        raise EventGrammarError(missing)
 
 
 async def _entries(copy: WorkCopy) -> list[EventEntry]:
