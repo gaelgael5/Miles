@@ -24,12 +24,36 @@ class CountriesDb(Protocol):
 
 async def db_list_countries(db: CountriesDb, only_active: bool) -> list[Any]:
     """Les pays, tous ou seulement les actifs. Relu à chaque appel, jamais mis en cache :
-    un pays activé sert aussitôt, sans redémarrage."""
+    un pays activé sert aussitôt, sans redémarrage.
+
+    `has_holidays` dit si le pays a un fichier de règles de jours fériés. Un `EXISTS` et
+    non une jointure : l'écran n'affiche pas l'URL dans la liste, et la jointure aurait
+    rapporté deux colonnes que personne ne lit sur 249 lignes. Il sort de la LISTE parce
+    que c'est là que l'association doit se voir (Gael, 11/11/2026) — sans lui, il faudrait
+    déplier chaque pays pour savoir lesquels en ont.
+    """
     return await db.fetch(
-        "SELECT slug, alpha2, active FROM reference_countries"
-        " WHERE ($1::boolean IS FALSE OR active) ORDER BY slug",
+        "SELECT c.slug, c.alpha2, c.active,"
+        " EXISTS (SELECT 1 FROM reference_country_holidays h WHERE h.slug = c.slug)"
+        " AS has_holidays"
+        " FROM reference_countries c"
+        " WHERE ($1::boolean IS FALSE OR c.active) ORDER BY c.slug",
         only_active,
     )
+
+
+async def db_holiday_rule(db: CountriesDb, slug: str) -> Any | None:
+    """Le fichier de règles d'un pays, ou None s'il n'en a pas.
+
+    None n'est pas une erreur : calendarium couvre 111 pays vérifiés là où le référentiel
+    en porte 249. « Ce pays n'a pas de règles » est donc un état normal, qui s'affiche —
+    et un refus l'aurait fait passer pour une panne.
+    """
+    rows = await db.fetch(
+        "SELECT calendarium_country, source_url FROM reference_country_holidays WHERE slug = $1",
+        slug,
+    )
+    return rows[0] if rows else None
 
 
 # Le descripteur du référentiel des pays, lu par le geste partagé d'activation. Les deux

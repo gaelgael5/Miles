@@ -48,6 +48,7 @@ from miles.oauth.clients import OAuthClientsService
 from miles.oauth.flow import OAuthFlow
 from miles.obo.service import ActorIdentitiesService
 from miles.pairing.service import PairingService
+from miles.reference.holidays import bundled_dates
 from miles.reference.service import CountriesService
 from miles.reference.timezones import TimezonesService
 from miles.routing import include_api_routers
@@ -145,7 +146,13 @@ def create_app() -> FastAPI:
         # socle : ils lisent `app.state.secrets`, posé juste au-dessus.
         # Le référentiel donné des pays. APRÈS le socle, dont il lit les cultures ACTIVES
         # pour appliquer la règle de repli des libellés — ils ne sont pas en base.
-        app.state.countries = CountriesService(pool, app.state.cultures, catalog, utc_now)
+        # Le moteur de jours fériés est bâti ICI, avant que la boucle ne serve : il lit
+        # 111 fichiers de règles embarqués par le paquet (102 ms), ce qui n'a rien à faire
+        # sur un chemin asynchrone. Mémorisé par processus, donc gratuit aux montages
+        # suivants.
+        app.state.countries = CountriesService(
+            pool, app.state.cultures, catalog, utc_now, bundled_dates()
+        )
         app.state.timezones = TimezonesService(pool, app.state.cultures, catalog, utc_now)
         app.state.security = SecurityServices(
             pool, http, app.state.secrets, catalog, utc_now, settings.allow_http_identity_providers

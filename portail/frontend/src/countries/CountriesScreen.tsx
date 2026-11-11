@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { PageHead } from "@miles/socle-web";
 
 import { type Country, useCountries, useSetCountriesActive } from "../api/countries";
+import { CountryHolidays } from "./CountryHolidays";
 import { CountryTimezones } from "./CountryTimezones";
 
 function CountryRow({
@@ -16,9 +17,12 @@ function CountryRow({
   onToggle: () => void;
 }) {
   const { t } = useTranslation();
-  // Déplié à la demande, et c'est ce qui tient le coût : le panneau ne se monte que là,
-  // donc les fuseaux d'un pays ne sont lus que si quelqu'un les regarde.
-  const [deplie, setDeplie] = useState(false);
+  // Dépliés à la demande, et c'est ce qui tient le coût : un panneau ne se monte que là,
+  // donc les fuseaux et les jours fériés d'un pays ne sont lus que si quelqu'un les
+  // regarde. Deux états SÉPARÉS et non un onglet : les deux se consultent ensemble —
+  // « quels fuseaux, et quels jours fériés » est une seule question.
+  const [fuseaux, setFuseaux] = useState(false);
+  const [feries, setFeries] = useState(false);
   return (
     <li className="row">
       <label className="field-check row-main">
@@ -29,17 +33,36 @@ function CountryRow({
         <span className="muted">{country.alpha2}</span>
       </label>
       {country.active && <span className="badge badge-success">{t("countries.active")}</span>}
+      {/* L'association pays → fichier de règles se VOIT dans la liste, sans rien déplier :
+          c'est ce que Gael a demandé le 11/11/2026, et sans cette pastille il faudrait
+          ouvrir 249 pays pour savoir lesquels en ont un. */}
+      {country.has_holidays && (
+        <span className="badge">{t("countries.holidays.badge")}</span>
+      )}
       <div className="actions row-actions">
         <button
           type="button"
           className="btn btn-secondary"
-          aria-expanded={deplie}
-          onClick={() => setDeplie((ouvert) => !ouvert)}
+          aria-expanded={fuseaux}
+          onClick={() => setFuseaux((ouvert) => !ouvert)}
         >
           {t("countries.timezones.open")}
         </button>
+        {/* Le bouton n'existe que s'il y a des règles : offrir un panneau qui ne pourrait
+            dire que « aucune règle » ferait cliquer 138 fois pour rien. */}
+        {country.has_holidays && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            aria-expanded={feries}
+            onClick={() => setFeries((ouvert) => !ouvert)}
+          >
+            {t("countries.holidays.open")}
+          </button>
+        )}
       </div>
-      {deplie && <CountryTimezones countrySlug={country.slug} />}
+      {fuseaux && <CountryTimezones countrySlug={country.slug} />}
+      {feries && <CountryHolidays countrySlug={country.slug} />}
     </li>
   );
 }

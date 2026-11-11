@@ -1293,6 +1293,21 @@
       "retained": "Retained",
       "sharedWith": "This zone also serves: {{countries}}. Retaining it here retains it for those countries too.",
       "changeFailed": "The change was refused. Nothing was modified."
+    },
+    "holidays": {
+      "open": "Public holidays",
+      "loading": "Computing this country's public holidays…",
+      "unreachable": "This country's public holidays could not be read.",
+      "unavailable": "This country's rules are associated in the database, but the installed engine does not carry them. Check the calendarium package version.",
+      "help": "This country's rules come from the calendarium repository. Miles does not copy them: it reads them and computes the days below.",
+      "source": "Source file of the rules",
+      "sourceOpen": "Open {{file}} on GitHub",
+      "window": "Days computed from {{start}} to {{end}}",
+      "free": "Day off",
+      "notFree": "Not a day off",
+      "shifted": "Observed on {{observed}}",
+      "none": "No public holiday computed over the next twelve months.",
+      "badge": "Public holidays"
     }
   },
   "timezones": {

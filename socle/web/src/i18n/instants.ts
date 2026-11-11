@@ -58,3 +58,38 @@ export function useDuration(): (milliseconds: number) => string {
     return `${minutes.format(entières)} ${secondes.format(Math.round((milliseconds % 60_000) / 1000))}`;
   };
 }
+
+/**
+ * Formate une DATE CIVILE (« 2026-07-14 ») dans la culture de l'interface.
+ *
+ * TROISIÈME point unique de ce module, et il ne se confond pas avec `useInstant` — deux
+ * défauts distincts l'imposent, et il faut les deux pour comprendre pourquoi ce n'est pas
+ * une redite.
+ *
+ * **Le décalage d'un jour.** Une chaîne de date seule est parsée par ECMAScript comme
+ * minuit **UTC**. Affichée ensuite dans le fuseau du navigateur, elle recule d'un jour
+ * partout à l'ouest de Greenwich : le 14 juillet d'un jour férié français s'afficherait
+ * « 13 juillet » à Montréal. D'où `timeZone: "UTC"`, qui est la garde et non un détail —
+ * la date n'a pas de fuseau, c'est une case de calendrier.
+ *
+ * **L'heure qu'il ne faut pas montrer.** `useInstant` rend date ET heure ; un jour férié
+ * s'afficherait « 14/07/2026 00:00:00 », où le minuit est un artefact du transport.
+ *
+ * `Intl.DateTimeFormat` prend la culture en ARGUMENT, là où `toLocaleDateString` prend
+ * celle du navigateur : c'est pourquoi la règle `no-restricted-syntax` du dépôt laisse
+ * passer la première et interdit la seconde.
+ *
+ * Le jour de la semaine est inclus : sur un calendrier de jours fériés, savoir qu'une fête
+ * tombe un samedi est précisément ce qu'on vient y lire.
+ */
+export function useCalendarDate(): (value: string) => string {
+  const { i18n } = useTranslation();
+  const format = new Intl.DateTimeFormat(i18n.language, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  return (value: string) => format.format(new Date(`${value}T00:00:00Z`));
+}

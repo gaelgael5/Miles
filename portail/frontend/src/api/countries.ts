@@ -19,9 +19,43 @@ export interface Country {
    */
   label: string;
   active: boolean;
+  /**
+   * Le pays a-t-il un fichier de règles de jours fériés ? Dans la LISTE, pour que
+   * l'association se voie sans déplier 249 pays un par un. Faux n'est pas une anomalie :
+   * calendarium couvre 111 pays vérifiés.
+   */
+  has_holidays: boolean;
+}
+
+/** Un jour calculé par le moteur : sa date légale, le jour chômé, et ce qu'il est. */
+export interface HolidayDay {
+  /** Date civile ISO (« 2026-07-14 »), sans heure ni fuseau : une case de calendrier. */
+  date: string;
+  /** Le jour réellement chômé. Égal à `date` quand la règle ne reporte rien. */
+  observed: string;
+  name: string;
+  /** Chômé ou non : toutes les périodes d'un fichier ne sont pas des jours de congé. */
+  free: boolean;
+  shifted: boolean;
+}
+
+export interface CountryHolidays {
+  /** Le nom du pays chez calendarium, qui n'est pas le libellé affiché (`United_States`). */
+  country: string;
+  /** L'URL brute du fichier de règles, telle que la base la porte. */
+  source_url: string;
+  /** La page GitHub navigable : c'est celle qu'on clique. */
+  page_url: string;
+  start: string;
+  end: string;
+  days: HolidayDay[];
 }
 
 const COUNTRIES_KEY = ["countries"] as const;
+// Clé SÉPARÉE de celle des pays, et non dérivée d'elle : activer un pays invalide la liste
+// (`useSetCountriesActive`), et une clé dérivée ferait relire les jours fériés de chaque
+// panneau ouvert — alors que l'activation ne change aucune règle de calendrier.
+const HOLIDAYS_KEY = ["country-holidays"] as const;
 
 /**
  * Les pays, filtrés PAR LE SERVEUR.
@@ -58,5 +92,23 @@ export function useSetCountriesActive() {
       }),
     // Toutes les lectures de pays se relisent, quelle que soit la culture ou le filtre.
     onSuccess: () => client.invalidateQueries({ queryKey: COUNTRIES_KEY }),
+  });
+}
+
+/**
+ * Les règles de jours fériés d'un pays et les jours des 12 prochains mois.
+ *
+ * Les jours sont CALCULÉS par le serveur à chaque lecture, jamais stockés : une fenêtre
+ * stockée demanderait de savoir quand la rafraîchir, pour une fonction qui coûte moins
+ * d'une milliseconde par année.
+ *
+ * Le hook ne se monte que lorsqu'un panneau est déplié — comme celui des fuseaux : 249
+ * pays dépliés d'office feraient 249 calculs que personne ne regarde.
+ */
+export function useCountryHolidays(slug: string) {
+  return useQuery({
+    queryKey: [...HOLIDAYS_KEY, slug],
+    queryFn: ({ signal }) =>
+      request<CountryHolidays>(`/api/countries/${encodeURIComponent(slug)}/holidays`, { signal }),
   });
 }

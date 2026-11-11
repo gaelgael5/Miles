@@ -15,6 +15,16 @@ dependencies = [
     # Elle servait déjà à ENGENDRER la migration des cultures ; elle sert maintenant aussi
     # à l'exécution. Version figée : une version de CLDR qui change renomme des pays.
     "babel==2.17.0",
+    # Calcul des jours fériés par pays (Gael, 11/11/2026). Le nom d'import est
+    # `calendarium`, la distribution `black-beard-calendarium` — le nom nu était pris.
+    # Dépendance d'EXÉCUTION : les jours des 12 prochains mois sont calculés au moment
+    # d'afficher, jamais stockés. Les stocker aurait voulu dire choisir une fenêtre et la
+    # rafraîchir, c'est-à-dire réinventer un cache pour une fonction à 0,4 ms par année.
+    # Elle n'apporte AUCUNE dépendance transitive : le paquet n'utilise que la bibliothèque
+    # standard, vérifié sur ses métadonnées PyPI. Version épinglée : le dépôt amont n'a ni
+    # changelog ni engagement de compatibilité, et il porte les DONNÉES du référentiel —
+    # une montée peut donc changer des dates calculées, pas seulement du code.
+    "black-beard-calendarium==0.4.0",
     "cryptography>=44",
     "fastapi>=0.115",
     "httpx>=0.27",
@@ -97,3 +107,11 @@ python_version = "3.12"
 strict = true
 mypy_path = "src"
 packages = ["miles"]
+
+# `calendarium` n'embarque pas de marqueur `py.typed` : sans cette exception, l'import
+# lui-même est une erreur en mode strict. Bornée à ce paquet, et le seul endroit qui
+# l'importe (`reference/holidays.py`) annote aussitôt le moteur avec le protocole
+# `DatesSource` — c'est là que la vérification se fait, une fois, au lieu de se perdre.
+[[tool.mypy.overrides]]
+module = ["calendarium", "calendarium.*"]
+ignore_missing_imports = true

@@ -42,6 +42,10 @@ class Country:
     alpha2: str
     label: str
     active: bool
+    # Le pays a-t-il un fichier de règles de jours fériés ? Dans la LISTE et non seulement
+    # dans le détail : l'association doit se voir sans déplier 249 pays un par un. Faux
+    # n'est pas une anomalie — calendarium couvre 111 pays vérifiés.
+    has_holidays: bool = False
 
 
 @dataclass(frozen=True)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 import asyncpg
 import structlog
@@ -12,12 +12,21 @@ from miles_socle.events.model import EventAuthor, EventTypeCatalog
 from miles.reference.activation import foldcase as _foldcase
 from miles.reference.activation import matches
 from miles.reference.activation import resolve_set_active as _resolve_set_active
+from miles.reference.holidays import (
+    DatesSource,
+    HolidayDay,
+    HolidayRule,
+    days_in_window,
+    page_url,
+    window,
+)
 from miles.reference.labels import country_name, resolve_label
 from miles.reference.model import (
     Country,
 )
 from miles.reference.store import (
     COUNTRIES,
+    db_holiday_rule,
     db_list_countries,
 )
 
@@ -44,6 +53,10 @@ class CountriesService:
     cultures: CulturesService
     catalog: EventTypeCatalog
     now: Callable[[], datetime]
+    # Le moteur de calendarium, construit une fois au démarrage. Passé au service plutôt
+    # que construit dedans : un test de ce service éprouve un découpage de fenêtre, pas la
+    # lecture de 111 fichiers de règles.
+    dates: DatesSource
 
     async def resolve_list(
         self, *, culture: str | None, only_active: bool, search: str | None = None
@@ -88,6 +101,36 @@ class CountriesService:
             slugs=slugs,
             active=active,
         )
+
+    async def resolve_holidays(self, slug: str) -> Holidays | None:
+        """Les règles d'un pays et les jours des 12 prochains mois. None : aucune règle.
+
+        La fenêtre part d'AUJOURD'HUI, lu par l'horloge injectée du service et non par
+        `date.today()` : un test qui dépend de l'horloge réelle échoue un jour sur cent, et
+        celui-là échouerait précisément les jours intéressants — passages d'année et
+        29 février.
+        """
+        row = await db_holiday_rule(self.pool, slug)
+        if row is None:
+            return None
+        pays = str(row["calendarium_country"])
+        source = str(row["source_url"])
+        debut, fin = window(self.now().date())
+        jours = days_in_window(self.dates, pays, debut, fin)
+        return Holidays(HolidayRule(pays, source, page_url(source)), tuple(jours), debut, fin)
+
+
+@dataclass(frozen=True)
+class Holidays:
+    """Ce qu'un pays a de fériés : d'où viennent ses règles, et ce qu'elles donnent."""
+
+    rule: HolidayRule
+    days: tuple[HolidayDay, ...]
+    # Les bornes RENDUES, et non laissées à l'écran de les recalculer : il annonce la
+    # fenêtre qu'il montre, et deux calculs de « 12 prochains mois » de part et d'autre
+    # auraient fini par ne pas dire la même chose.
+    start: date
+    end: date
 
 
 def _libelle(alpha2: str, slug: str, culture: str | None, actives: frozenset[str]) -> str:

@@ -11,6 +11,7 @@ from miles_socle.cultures.service import CulturesService
 from miles_socle.events.model import EventTypeCatalog
 
 from miles.event_types import code_event_types
+from miles.reference.holidays import bundled_dates
 from miles.reference.model import COUNTRY_ACTIVATED_EVENT, COUNTRY_DEACTIVATED_EVENT
 from miles.reference.service import CountriesService
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
@@ -38,7 +39,7 @@ async def _stack(dsn: str, tmp_path: Path) -> AsyncIterator[PortalStack]:
         catalog = EventTypeCatalog(code_event_types())
         portal.app.state.cultures = CulturesService(portal.pool, catalog, utc_now)
         portal.app.state.countries = CountriesService(
-            portal.pool, portal.app.state.cultures, catalog, utc_now
+            portal.pool, portal.app.state.cultures, catalog, utc_now, bundled_dates()
         )
         yield portal
 

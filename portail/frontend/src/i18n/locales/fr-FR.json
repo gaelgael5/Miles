@@ -1293,6 +1293,21 @@
       "retained": "Retenu",
       "sharedWith": "Ce fuseau sert aussi : {{countries}}. Le retenir ici le retient pour ces pays aussi.",
       "changeFailed": "Le changement a été refusé. Rien n'a été modifié."
+    },
+    "holidays": {
+      "open": "Jours fériés",
+      "loading": "Calcul des jours fériés de ce pays…",
+      "unreachable": "Les jours fériés de ce pays n'ont pas pu être lus.",
+      "unavailable": "Les règles de ce pays sont associées en base, mais le moteur installé ne les porte pas. Vérifiez la version du paquet calendarium.",
+      "help": "Les règles de ce pays viennent du dépôt calendarium. Miles ne les recopie pas : il les lit et calcule les jours ci-dessous.",
+      "source": "Fichier source des règles",
+      "sourceOpen": "Ouvrir {{file}} sur GitHub",
+      "window": "Jours calculés du {{start}} au {{end}}",
+      "free": "Chômé",
+      "notFree": "Non chômé",
+      "shifted": "Reporté au {{observed}}",
+      "none": "Aucun jour férié calculé sur les douze prochains mois.",
+      "badge": "Jours fériés"
     }
   },
   "timezones": {

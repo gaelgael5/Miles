@@ -272,6 +272,15 @@ wheels = [
 ]
 
 [[package]]
+name = "black-beard-calendarium"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/c4/269c7258f9cd535b267cd07b4b1ae933ff63b58efbddc8daa1cabf785778/black_beard_calendarium-0.4.0.tar.gz", hash = "sha256:82e54992ba5598cbc1d39720e001043fa58ae7e1f8eeaafe1a2284fab96f1034", size = 80045, upload-time = "2026-11-04T18:57:34.642Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/6e/ccb9094d546c5a8ecb7d53bab09a0d6cc3001bbd83fdd14e2a302d3b1dba/black_beard_calendarium-0.4.0-py3-none-any.whl", hash = "sha256:b8a83852ae0858b322ec45622ad3025333b3861194f3e5adec7588df812d299e", size = 125406, upload-time = "2026-11-04T18:57:33.144Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -994,6 +1003,7 @@ dependencies = [
     { name = "argon2-cffi" },
     { name = "asyncpg" },
     { name = "babel" },
+    { name = "black-beard-calendarium" },
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "httpx" },
@@ -1030,6 +1040,7 @@ requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1" },
     { name = "asyncpg", specifier = ">=0.30" },
     { name = "babel", specifier = "==2.17.0" },
+    { name = "black-beard-calendarium", specifier = "==0.4.0" },
     { name = "cryptography", specifier = ">=44" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },

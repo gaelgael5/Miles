@@ -12,8 +12,20 @@ import "../i18n/i18n";
 // est globale. Le reste — la liste, le filtre, l'activation groupée — est éprouvé par
 // `CountriesScreen.test.tsx`.
 
-const LUXEMBOURG: Country = { slug: "LUX", alpha2: "LU", label: "Luxembourg", active: true };
-const FRANCE: Country = { slug: "FRA", alpha2: "FR", label: "France", active: true };
+const LUXEMBOURG: Country = {
+  slug: "LUX",
+  alpha2: "LU",
+  label: "Luxembourg",
+  active: true,
+  has_holidays: false,
+};
+const FRANCE: Country = {
+  slug: "FRA",
+  alpha2: "FR",
+  label: "France",
+  active: true,
+  has_holidays: false,
+};
 
 // Trois pays pour une zone : c'est le cas qui justifie l'avertissement.
 const BRUXELLES: Timezone = {
