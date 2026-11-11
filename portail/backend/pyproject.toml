@@ -27,7 +27,11 @@ dependencies = [
     "pyjwt[crypto]>=2.9",
     "pyyaml>=6.0",
     "structlog>=24.4",
-    "urban-json==0.2.1",
+    # MÊME version que l'extra `transform` du socle, et les deux bougent ensemble : le
+    # socle porte le moteur qui ÉVALUE, le portail importe `urban_json` pour son
+    # diagnostic d'ÉCRITURE (`chains/conformance.py`, qui lit `JsltKind`). Deux versions
+    # feraient juger un template contre une grammaire que l'évaluation n'applique pas.
+    "urban-json==0.3.0",
     # Web Component <jslt-editor> et ses assets, servis par le backend (24/10/2026).
     "urban-json-editor==0.3.0",
     "uvicorn[standard]>=0.32",

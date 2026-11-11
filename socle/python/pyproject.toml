@@ -48,7 +48,14 @@ testing = [
 # installer le moteur. Un produit qui importe ce sous-paquet sans l'extra échoue à
 # l'import, au démarrage — jamais sur un chemin de données.
 transform = [
-    "urban-json==0.2.1",
+    # Montée 0.2.1 → 0.3.0 le 11/11/2026, pour les fonctions de dates. Mesurée dans les
+    # DEUX sens avant d'être épinglée (leçon du 03/11, tranchée par Gael) : quatre
+    # fonctions ENTRENT dans le profil d'écriture — `dateadd`, `datesub`, `datediff`,
+    # `datepart`, qui vivent dans `urban_json.functions` que `_registry()` admet —, aucune
+    # n'en sort, 69 → 73. Et `parsing`, `ast`, `runtime`, `jsonpath`, dont ce socle importe
+    # les internes SANS aucun engagement de stabilité, sont identiques octet pour octet
+    # entre les deux versions : c'est ce qui autorise la montée sans relire chaque visiteur.
+    "urban-json==0.3.0",
 ]
 
 [dependency-groups]
