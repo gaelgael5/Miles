@@ -18,6 +18,12 @@ from tests.integration.test_datamodels_pg import PERSONNE, body_of
 
 pytestmark = pytest.mark.integration
 
+# Une seule série de primitives pour les deux familles : le premier argument dit laquelle
+# (décision de Gael, 11/11/2026).
+KIND = {"kind": "event"}
+# Les modèles de données passent par les MÊMES primitives, avec l'autre valeur.
+MODELE = {"kind": "model"}
+
 WS = {"workspace_id": "retrait"}
 EDIT = WS | {"branch": "edition"}
 DEMANDE = "title: Demande soumise\ntype: object\nproperties:\n  Montant:\n    type: number\n"
@@ -40,14 +46,14 @@ def _event(content: str, name: str = "demande_soumise") -> dict[str, str]:
 async def test_un_evenement_est_cree_lu_remplace_et_supprime_sur_une_branche_enfant(
     m: McpForge,
 ) -> None:
-    cree = await m.ok("create_workflow_event", EDIT | _event(DEMANDE))
-    rejeu = await m.ok("create_workflow_event", EDIT | _event(DEMANDE))
+    cree = await m.ok("create_schema", KIND | EDIT | _event(DEMANDE))
+    rejeu = await m.ok("create_schema", KIND | EDIT | _event(DEMANDE))
     change = DEMANDE + "  Dossier:\n    type: string\n"
-    remplace = await m.ok("replace_workflow_event", EDIT | _event(change))
-    lu = await m.ok("get_workflow_event", EDIT | {"scope": "shared", "name": "demande_soumise"})
-    liste = await m.ok("list_workflow_events", EDIT)
+    remplace = await m.ok("replace_schema", KIND | EDIT | _event(change))
+    lu = await m.ok("get_schema", KIND | EDIT | {"scope": "shared", "name": "demande_soumise"})
+    liste = await m.ok("list_schemas", KIND | EDIT)
     supprime = await m.ok(
-        "delete_workflow_event", EDIT | {"scope": "shared", "name": "demande_soumise"}
+        "delete_schema", KIND | EDIT | {"scope": "shared", "name": "demande_soumise"}
     )
 
     assert cree["path"] == "shared/events/demande_soumise.yaml" and cree["commit"]
@@ -70,12 +76,16 @@ async def test_le_socle_commun_se_lit_avant_d_ecrire(m: McpForge) -> None:
 
 async def test_les_deux_refus_propres_aux_evenements_arrivent_NOMMES(m: McpForge) -> None:
     ferme = await m.refused(
-        "create_workflow_event",
-        EDIT | _event("title: D\ntype: object\nadditionalProperties: false\nproperties: {}\n"),
+        "create_schema",
+        KIND
+        | EDIT
+        | _event("title: D\ntype: object\nadditionalProperties: false\nproperties: {}\n"),
     )
     socle = await m.refused(
-        "create_workflow_event",
-        EDIT | _event("title: D\ntype: object\nproperties:\n  ExternalId:\n    type: integer\n"),
+        "create_schema",
+        KIND
+        | EDIT
+        | _event("title: D\ntype: object\nproperties:\n  ExternalId:\n    type: integer\n"),
     )
 
     # Le NOM du refus d'abord : c'est lui qu'un agent apprend, et il doit être le même
@@ -88,17 +98,17 @@ async def test_les_deux_refus_propres_aux_evenements_arrivent_NOMMES(m: McpForge
 
 
 async def test_un_nom_que_le_DSL_refuserait_est_refuse(m: McpForge) -> None:
-    refuse = await m.refused("create_workflow_event", EDIT | _event(DEMANDE, "demande-soumise"))
+    refuse = await m.refused("create_schema", KIND | EDIT | _event(DEMANDE, "demande-soumise"))
 
     assert "name" in str(refuse)
 
 
 async def test_un_evenement_inconnu_se_refuse_en_NOMMANT_ceux_qui_existent(m: McpForge) -> None:
     """Un agent se corrige alors sans appel exploratoire — même geste que pour un modèle."""
-    await m.ok("create_workflow_event", EDIT | _event(DEMANDE))
+    await m.ok("create_schema", KIND | EDIT | _event(DEMANDE))
 
     refuse = await m.refused(
-        "get_workflow_event", EDIT | {"scope": "shared", "name": "pas_celui_la"}
+        "get_schema", KIND | EDIT | {"scope": "shared", "name": "pas_celui_la"}
     )
 
     assert "evenement_inconnu" in str(refuse)
@@ -106,22 +116,24 @@ async def test_un_evenement_inconnu_se_refuse_en_NOMMANT_ceux_qui_existent(m: Mc
 
 
 async def test_un_evenement_decrit_son_payload_avec_un_modele(m: McpForge) -> None:
-    await m.ok("create_data_model", EDIT | body_of(PERSONNE))
+    await m.ok("create_schema", MODELE | EDIT | body_of(PERSONNE))
 
-    cree = await m.ok("create_workflow_event", EDIT | _event(AVEC_MODELE))
+    cree = await m.ok("create_schema", KIND | EDIT | _event(AVEC_MODELE))
 
     assert cree["commit"]
     # Et le modèle ne peut plus être supprimé : l'événement le désigne.
-    refuse = await m.refused("delete_data_model", EDIT | {"scope": "shared", "name": "personne"})
+    refuse = await m.refused(
+        "delete_schema", MODELE | EDIT | {"scope": "shared", "name": "personne"}
+    )
     assert "shared/events/demande_soumise.yaml" in str(refuse)
 
 
 async def test_les_deux_listes_ne_se_melangent_pas_pour_un_agent_non_plus(m: McpForge) -> None:
-    await m.ok("create_data_model", EDIT | body_of(PERSONNE))
-    await m.ok("create_workflow_event", EDIT | _event(DEMANDE))
+    await m.ok("create_schema", MODELE | EDIT | body_of(PERSONNE))
+    await m.ok("create_schema", KIND | EDIT | _event(DEMANDE))
 
-    modeles = await m.ok("list_data_models", EDIT)
-    evenements = await m.ok("list_workflow_events", EDIT)
+    modeles = await m.ok("list_schemas", MODELE | EDIT)
+    evenements = await m.ok("list_schemas", KIND | EDIT)
 
     assert [e["name"] for e in modeles] == ["personne"]
     assert [e["name"] for e in evenements] == ["demande_soumise"]
@@ -131,7 +143,7 @@ async def test_une_cle_seule_ne_change_aucun_evenement(m: McpForge) -> None:
     """Fail closed : une clé n'est personne, et une écriture agit comme la personne."""
     cle_seule = {"Authorization": f"Bearer {m.secret}"}
 
-    refuse = await m.refused("create_workflow_event", EDIT | _event(DEMANDE), headers=cle_seule)
+    refuse = await m.refused("create_schema", KIND | EDIT | _event(DEMANDE), headers=cle_seule)
 
     assert "personne_requise" in str(refuse)
     assert await m.forge.file("shared/events/demande_soumise.yaml") is None

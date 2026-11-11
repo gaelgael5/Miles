@@ -23,6 +23,7 @@ from miles.datamodels.layout import (
     visible,
 )
 from miles.datamodels.meta import meta_path, meta_text, read_version
+from miles.datamodels.patch import patched as _patched
 from miles.datamodels.paths import PathEntry, paths_of
 from miles.datamodels.schema import (
     ModelSchema,
@@ -201,26 +202,66 @@ class DataModelsService:
         version monte de 1, tenue par le système (Gael, 23/10/2026).
         """
         scope, name = checked_scope(scope), checked_name(name)
-        schema = parse_schema(content)
-        content = normalized(content, scope, name)
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
+            entry, commit = await self._rewrite(copy, author, scope, name, content)
+        if commit is None:
+            return entry, None
+        await self._event(workspace_id, REPLACED_EVENT, author, entry, commit, copy.branch)
+        log.info("modele_de_donnees_remplace", workspace=workspace_id, path=entry.path)
+        return entry, commit
+
+    async def resolve_patch(
+        self,
+        author: EventAuthor,
+        workspace_id: str,
+        scope: str,
+        name: str,
+        apply: Callable[[dict[str, Any]], dict[str, Any]],
+        *,
+        branch: str | None = None,
+    ) -> tuple[ModelEntry, str | None]:
+        """Modifie le schéma par une mutation locale (une propriété), en UN seul passage.
+
+        L'appelant fournit la mutation ; le service lit, applique, puis repart par le MÊME
+        chemin qu'un remplacement entier — donc mêmes écarts, même version, même event.
+        Un seul `checkout` : lire par `resolve_get` puis écrire par `resolve_replace`
+        interrogerait la forge deux fois pour un geste (enabler 782ce1e9).
+        """
+        scope, name = checked_scope(scope), checked_name(name)
         entry = ModelEntry(scope, name, model_path(scope, name))
         async with self.branches.checkout(
             workspace_id, branch, by=author, gesture=Gesture.EDIT
         ) as copy:
-            existing = await copy.read(entry.path)
-            if existing is None:
+            text = await copy.read(entry.path)
+            if text is None:
                 raise ModelNotFoundError(entry.path)
-            if existing == content:
-                return await _described(copy, entry), None
-            await _check_references(copy, entry, schema)
-            version = read_version(await copy.read(meta_path(entry.path))) + 1
-            await copy.write(entry.path, content)
-            await copy.write(meta_path(entry.path), meta_text(version))
-            commit = await self.branches.commit(copy, f"Modèle de données {entry.path}", author)
-            entry = await _described(copy, entry)
+            entry, commit = await self._rewrite(copy, author, scope, name, _patched(text, apply))
+        if commit is None:
+            return entry, None
         await self._event(workspace_id, REPLACED_EVENT, author, entry, commit, copy.branch)
         log.info("modele_de_donnees_remplace", workspace=workspace_id, path=entry.path)
         return entry, commit
+
+    async def _rewrite(
+        self, copy: WorkCopy, author: EventAuthor, scope: str, name: str, content: str
+    ) -> tuple[ModelEntry, str | None]:
+        """Le coeur d'un remplacement, dans une copie déjà ouverte ; None : rien à écrire."""
+        schema = parse_schema(content)
+        content = normalized(content, scope, name)
+        entry = ModelEntry(scope, name, model_path(scope, name))
+        existing = await copy.read(entry.path)
+        if existing is None:
+            raise ModelNotFoundError(entry.path)
+        if existing == content:
+            return await _described(copy, entry), None
+        await _check_references(copy, entry, schema)
+        version = read_version(await copy.read(meta_path(entry.path))) + 1
+        await copy.write(entry.path, content)
+        await copy.write(meta_path(entry.path), meta_text(version))
+        commit = await self.branches.commit(copy, f"Modèle de données {entry.path}", author)
+        return await _described(copy, entry), commit
 
     async def _create(
         self,

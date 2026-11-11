@@ -13,9 +13,9 @@ from miles.apikeys.model import KeyPrincipal
 from miles.mcp_api import (
     tools_accounts,
     tools_chains,
-    tools_events,
-    tools_models,
+    tools_properties,
     tools_reads,
+    tools_schemas,
     tools_trads,
     tools_trads_keys,
 )
@@ -171,8 +171,8 @@ def build_server() -> MCPServer:
         }
 
     tools_accounts.register(server)
-    tools_models.register(server)
-    tools_events.register(server)
+    tools_schemas.register(server)
+    tools_properties.register(server)
     tools_chains.register(server)
     tools_reads.register(server)
     tools_trads.register(server)

@@ -12,7 +12,7 @@ from miles.contracts.reading import Contract
 from miles.git.snapshot import CommitNotFoundError
 from miles.mcp_api.calls import Caller, caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
-from miles.mcp_api.tools_models import ReadBranch, Workspace
+from miles.mcp_api.families import ReadBranch, Workspace
 from miles.transform.catalog import functions_catalog
 from miles.workshop.domains import DomainNotFoundError, Element
 from miles.workshop.targeted import ContractUnknownError, TargetedReads

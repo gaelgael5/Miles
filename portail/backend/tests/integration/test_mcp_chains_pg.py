@@ -12,6 +12,10 @@ from tests.integration.test_sources_pg import BRUT, COMPTE, SOURCE, STORAGE
 
 pytestmark = pytest.mark.integration
 
+# Une seule série de primitives pour les deux familles : le premier argument dit laquelle
+# (décision de Gael, 11/11/2026).
+KIND = {"kind": "model"}
+
 EDIT = {"workspace_id": "retrait", "branch": "edition"}
 STEPS = [
     {"name": "normaliser", "template": '{ "code": $.code }', "target": None},
@@ -82,7 +86,7 @@ async def test_unknown_or_designated_chains_name_what_exists_and_who_uses_them(
 ) -> None:
     # La source désigne un modèle source depuis le 24/10/2026 : il doit exister.
     for model in (COMPTE, BRUT):
-        await m.ok("create_data_model", EDIT | body_of(model))
+        await m.ok("create_schema", KIND | EDIT | body_of(model))
     await m.ok("save_chain", EDIT | {"slug": "comptes-import", "label": "Import", "steps": STEPS})
     # La source désigne un storage depuis le 24/10/2026 : il existe avant elle.
     stored = await m.forge.client.post(
@@ -122,7 +126,7 @@ async def test_mcp_names_what_a_step_writes_beside_its_destination_model(m: McpF
         "shared",
         "cible",
     )
-    await m.ok("create_data_model", EDIT | body_of(cible))
+    await m.ok("create_schema", KIND | EDIT | body_of(cible))
     steps = [STEPS[0] | {"destination_model": "miles:/shared/cible"}]
 
     saved = await m.ok("save_chain", EDIT | {"slug": "import", "label": "Import", "steps": steps})

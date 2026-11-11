@@ -189,10 +189,15 @@
       }
     },
     {
-      "name": "list_data_models",
-      "description": "Liste les modèles de données d'une branche, avec leur emplacement.",
+      "name": "list_schemas",
+      "description": "Liste les schémas d'une branche, avec leur emplacement. `kind` choisit la famille : les modèles de données, ou les événements de workflow.",
       "inputSchema": {
         "properties": {
+          "kind": {
+            "description": "« model » pour un modèle de données, « event » pour un événement de workflow. Les deux sont des JSON Schema 2020-12 écrits en YAML, dans DEUX listes séparées : un storage ou une source ne peut désigner qu'un modèle.",
+            "title": "Kind",
+            "type": "string"
+          },
           "workspace_id": {
             "description": "Identifiant du workspace (voir list_workspaces).",
             "title": "Workspace Id",
@@ -213,29 +218,35 @@
           }
         },
         "required": [
+          "kind",
           "workspace_id"
         ],
-        "title": "list_data_modelsArguments",
+        "title": "list_schemasArguments",
         "type": "object"
       }
     },
     {
-      "name": "get_data_model",
-      "description": "Lit un modèle de données : son emplacement et son YAML tel quel.",
+      "name": "get_schema",
+      "description": "Lit un schéma : son emplacement et son YAML tel quel.",
       "inputSchema": {
         "properties": {
+          "kind": {
+            "description": "« model » pour un modèle de données, « event » pour un événement de workflow. Les deux sont des JSON Schema 2020-12 écrits en YAML, dans DEUX listes séparées : un storage ou une source ne peut désigner qu'un modèle.",
+            "title": "Kind",
+            "type": "string"
+          },
           "workspace_id": {
             "description": "Identifiant du workspace (voir list_workspaces).",
             "title": "Workspace Id",
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un modèle transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "description": "« shared » pour un schéma transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
           "name": {
-            "description": "Nom du modèle (celui de son fichier, sans extension).",
+            "description": "Nom du schéma, celui de son fichier. Pour un ÉVÉNEMENT, c'est aussi le nom qu'un DEFINE EVENT écrira, et le tiret y est refusé : le DSL du moteur ne sait pas l'écrire (minuscules, chiffres et soulignés).",
             "title": "Name",
             "type": "string"
           },
@@ -254,36 +265,42 @@
           }
         },
         "required": [
+          "kind",
           "workspace_id",
           "scope",
           "name"
         ],
-        "title": "get_data_modelArguments",
+        "title": "get_schemaArguments",
         "type": "object"
       }
     },
     {
-      "name": "create_data_model",
-      "description": "Crée un modèle de données (JSON Schema 2020-12 en YAML) dans une branche enfant. Refus structurés : yaml_invalide, modele_non_conforme (tous les écarts), nom_pris, domaine_inconnu (le domaine se crée d'abord par create_domain).",
+      "name": "create_schema",
+      "description": "Crée un schéma dans une branche enfant. Refus structurés : yaml_invalide, modele_non_conforme ou evenement_non_conforme selon `kind` (tous les écarts), nom_pris, domaine_inconnu (le domaine se crée d'abord par create_domain).",
       "inputSchema": {
         "properties": {
+          "kind": {
+            "description": "« model » pour un modèle de données, « event » pour un événement de workflow. Les deux sont des JSON Schema 2020-12 écrits en YAML, dans DEUX listes séparées : un storage ou une source ne peut désigner qu'un modèle.",
+            "title": "Kind",
+            "type": "string"
+          },
           "workspace_id": {
             "description": "Identifiant du workspace (voir list_workspaces).",
             "title": "Workspace Id",
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un modèle transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "description": "« shared » pour un schéma transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
           "name": {
-            "description": "Nom du modèle (celui de son fichier, sans extension).",
+            "description": "Nom du schéma, celui de son fichier. Pour un ÉVÉNEMENT, c'est aussi le nom qu'un DEFINE EVENT écrira, et le tiret y est refusé : le DSL du moteur ne sait pas l'écrire (minuscules, chiffres et soulignés).",
             "title": "Name",
             "type": "string"
           },
           "content": {
-            "description": "Le modèle : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son label. `$schema` et `$id` sont posés par Miles. Un autre modèle se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom>.",
+            "description": "Le schéma : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son label. `$schema` et `$id` sont posés par Miles. Un MODÈLE se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom> — depuis un modèle comme depuis un événement. Pour un ÉVÉNEMENT, le schéma ne décrit que les données MÉTIER : le moteur valide en plus un socle commun (get_event_base), dont les propriétés ne se redéclarent pas, et `additionalProperties: false` est refusé parce qu'il rendrait tout payload réel invalide.",
             "title": "Content",
             "type": "string"
           },
@@ -302,37 +319,43 @@
           }
         },
         "required": [
+          "kind",
           "workspace_id",
           "scope",
           "name",
           "content"
         ],
-        "title": "create_data_modelArguments",
+        "title": "create_schemaArguments",
         "type": "object"
       }
     },
     {
-      "name": "replace_data_model",
-      "description": "Remplace le schéma d'un modèle existant, dans une branche enfant. Le nom ne change pas : renommer, c'est créer puis supprimer. La version monte de 1, tenue par Miles.",
+      "name": "replace_schema",
+      "description": "Remplace le schéma ENTIER d'un élément existant, dans une branche enfant. Pour ne changer qu'une propriété, préférer set_schema_property : l'artefact est plus petit, et ce qu'il ne nomme pas ne peut pas disparaître. Le nom ne change pas : renommer, c'est créer puis supprimer. La version monte de 1, tenue par Miles.",
       "inputSchema": {
         "properties": {
+          "kind": {
+            "description": "« model » pour un modèle de données, « event » pour un événement de workflow. Les deux sont des JSON Schema 2020-12 écrits en YAML, dans DEUX listes séparées : un storage ou une source ne peut désigner qu'un modèle.",
+            "title": "Kind",
+            "type": "string"
+          },
           "workspace_id": {
             "description": "Identifiant du workspace (voir list_workspaces).",
             "title": "Workspace Id",
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un modèle transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "description": "« shared » pour un schéma transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
           "name": {
-            "description": "Nom du modèle (celui de son fichier, sans extension).",
+            "description": "Nom du schéma, celui de son fichier. Pour un ÉVÉNEMENT, c'est aussi le nom qu'un DEFINE EVENT écrira, et le tiret y est refusé : le DSL du moteur ne sait pas l'écrire (minuscules, chiffres et soulignés).",
             "title": "Name",
             "type": "string"
           },
           "content": {
-            "description": "Le modèle : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son label. `$schema` et `$id` sont posés par Miles. Un autre modèle se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom>.",
+            "description": "Le schéma : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son label. `$schema` et `$id` sont posés par Miles. Un MODÈLE se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom> — depuis un modèle comme depuis un événement. Pour un ÉVÉNEMENT, le schéma ne décrit que les données MÉTIER : le moteur valide en plus un socle commun (get_event_base), dont les propriétés ne se redéclarent pas, et `additionalProperties: false` est refusé parce qu'il rendrait tout payload réel invalide.",
             "title": "Content",
             "type": "string"
           },
@@ -351,32 +374,38 @@
           }
         },
         "required": [
+          "kind",
           "workspace_id",
           "scope",
           "name",
           "content"
         ],
-        "title": "replace_data_modelArguments",
+        "title": "replace_schemaArguments",
         "type": "object"
       }
     },
     {
-      "name": "delete_data_model",
-      "description": "Supprime un modèle d'une branche enfant. Refusé (modele_utilise) tant qu'un autre modèle le désigne : le refus nomme lesquels.",
+      "name": "delete_schema",
+      "description": "Supprime un schéma d'une branche enfant. Un MODÈLE encore désigné est refusé (modele_utilise) : le refus nomme ce qui le désigne, un autre modèle ou un événement. Un ÉVÉNEMENT n'est désigné par rien du paramétrage ; c'est le script de workflow qui le déclare qui cessera de se charger.",
       "inputSchema": {
         "properties": {
+          "kind": {
+            "description": "« model » pour un modèle de données, « event » pour un événement de workflow. Les deux sont des JSON Schema 2020-12 écrits en YAML, dans DEUX listes séparées : un storage ou une source ne peut désigner qu'un modèle.",
+            "title": "Kind",
+            "type": "string"
+          },
           "workspace_id": {
             "description": "Identifiant du workspace (voir list_workspaces).",
             "title": "Workspace Id",
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un modèle transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "description": "« shared » pour un schéma transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
           "name": {
-            "description": "Nom du modèle (celui de son fichier, sans extension).",
+            "description": "Nom du schéma, celui de son fichier. Pour un ÉVÉNEMENT, c'est aussi le nom qu'un DEFINE EVENT écrira, et le tiret y est refusé : le DSL du moteur ne sait pas l'écrire (minuscules, chiffres et soulignés).",
             "title": "Name",
             "type": "string"
           },
@@ -395,17 +424,27 @@
           }
         },
         "required": [
+          "kind",
           "workspace_id",
           "scope",
           "name"
         ],
-        "title": "delete_data_modelArguments",
+        "title": "delete_schemaArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_event_base",
+      "description": "Le socle commun que le moteur valide EN PLUS du schéma d'un ÉVÉNEMENT. À lire avant d'en écrire un : ces propriétés existent déjà dans tout payload, et les redéclarer est refusé (propriete_du_socle). Lu du moteur installé, pas d'une liste tenue à la main. Un modèle de données n'a pas de socle.",
+      "inputSchema": {
+        "properties": {},
+        "title": "get_event_baseArguments",
         "type": "object"
       }
     },
     {
       "name": "create_domain",
-      "description": "Ajoute un domaine (répertoire domains/<nom>/) dans une branche enfant. Un modèle de domaine ne peut se créer que dans un domaine existant. Déjà là : sans effet.",
+      "description": "Ajoute un domaine (répertoire domains/<nom>/) dans une branche enfant. Un schéma de domaine ne peut se créer que dans un domaine existant. Déjà là : sans effet.",
       "inputSchema": {
         "properties": {
           "workspace_id": {
@@ -441,112 +480,55 @@
       }
     },
     {
-      "name": "list_workflow_events",
-      "description": "Liste les événements de workflow d'une branche, avec leur emplacement. Ce sont les événements qu'un DEFINE EVENT peut désigner ; ils ne se mélangent pas aux modèles de données (list_data_models).",
+      "name": "set_schema_property",
+      "description": "Pose ou remplace UNE propriété d'un schéma, dans une branche enfant — sans renvoyer le document. Le reste du schéma (autres propriétés, $defs, mots-clefs d'extension) est conservé tel quel. Le document complet est ensuite validé comme un remplacement entier : mêmes écarts, même version, même event. Refus de chemin : propriete_inconnue, chemin_sans_proprietes, tableau_sans_items, renvoi_traverse — chacun nomme ce qui existe à cet endroit.",
       "inputSchema": {
         "properties": {
-          "workspace_id": {
-            "description": "Identifiant du workspace (voir list_workspaces).",
-            "title": "Workspace Id",
+          "kind": {
+            "description": "« model » pour un modèle de données, « event » pour un événement de workflow. Les deux sont des JSON Schema 2020-12 écrits en YAML, dans DEUX listes séparées : un storage ou une source ne peut désigner qu'un modèle.",
+            "title": "Kind",
             "type": "string"
           },
-          "branch": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
-            "title": "Branch"
-          }
-        },
-        "required": [
-          "workspace_id"
-        ],
-        "title": "list_workflow_eventsArguments",
-        "type": "object"
-      }
-    },
-    {
-      "name": "get_workflow_event",
-      "description": "Lit un événement de workflow : son emplacement et son YAML tel quel.",
-      "inputSchema": {
-        "properties": {
           "workspace_id": {
             "description": "Identifiant du workspace (voir list_workspaces).",
             "title": "Workspace Id",
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un événement transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "description": "« shared » pour un schéma transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
           "name": {
-            "description": "Nom de l'événement, celui qu'un DEFINE EVENT écrira : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le TIRET est refusé — le DSL du moteur ne sait pas l'écrire.",
+            "description": "Nom du schéma, celui de son fichier. Pour un ÉVÉNEMENT, c'est aussi le nom qu'un DEFINE EVENT écrira, et le tiret y est refusé : le DSL du moteur ne sait pas l'écrire (minuscules, chiffres et soulignés).",
             "title": "Name",
             "type": "string"
           },
-          "branch": {
+          "path": {
+            "description": "Le chemin de la propriété, segment par segment depuis la racine du schéma : [\"Montant\"] pour une propriété de premier niveau, [\"adresse\", \"ville\"] pour une propriété imbriquée, [\"lignes\", \"[]\", \"article\"] pour une propriété des éléments d'un tableau. Une LISTE et non un chemin pointé : un nom de propriété JSON Schema peut contenir un point. Un `$ref` ne se traverse pas (refus renvoi_traverse) : modifiez le schéma qu'il désigne.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Path",
+            "type": "array"
+          },
+          "schema": {
+            "description": "Le schéma de CETTE propriété, en YAML : « type: string » , « type: number », « type: array\\nitems:\\n  type: string », ou un renvoi vers un modèle — « $ref: miles:/shared/personne ». C'est ainsi qu'on ajoute ou change un renvoi : il n'y a pas de primitive à part pour ça.",
+            "title": "Schema",
+            "type": "string"
+          },
+          "required": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "boolean"
               },
               {
                 "type": "null"
               }
             ],
             "default": null,
-            "description": "Slug de la branche à lire ; absent : la branche de base du workspace.",
-            "title": "Branch"
-          }
-        },
-        "required": [
-          "workspace_id",
-          "scope",
-          "name"
-        ],
-        "title": "get_workflow_eventArguments",
-        "type": "object"
-      }
-    },
-    {
-      "name": "get_event_base",
-      "description": "Le socle commun que le moteur valide EN PLUS du schéma d'un événement. À lire avant d'écrire : ces propriétés existent déjà dans tout payload, et les redéclarer est refusé (propriete_du_socle). Lu du moteur installé, pas d'une liste tenue à la main.",
-      "inputSchema": {
-        "properties": {},
-        "title": "get_event_baseArguments",
-        "type": "object"
-      }
-    },
-    {
-      "name": "create_workflow_event",
-      "description": "Crée un événement de workflow (JSON Schema 2020-12 en YAML) dans une branche enfant. Refus structurés : yaml_invalide, evenement_non_conforme (tous les écarts, dont schema_ferme et propriete_du_socle), nom_pris, domaine_inconnu.",
-      "inputSchema": {
-        "properties": {
-          "workspace_id": {
-            "description": "Identifiant du workspace (voir list_workspaces).",
-            "title": "Workspace Id",
-            "type": "string"
-          },
-          "scope": {
-            "description": "« shared » pour un événement transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
-            "title": "Scope",
-            "type": "string"
-          },
-          "name": {
-            "description": "Nom de l'événement, celui qu'un DEFINE EVENT écrira : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le TIRET est refusé — le DSL du moteur ne sait pas l'écrire.",
-            "title": "Name",
-            "type": "string"
-          },
-          "content": {
-            "description": "L'événement : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son libellé. `$schema` et `$id` sont posés par Miles. Le schéma décrit les données MÉTIER seulement : le moteur valide en plus un socle commun (voir get_event_base), dont les propriétés ne se redéclarent pas. `additionalProperties: false` est refusé, car le socle rendrait alors tout payload réel invalide. Un modèle de données se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom>.",
-            "title": "Content",
-            "type": "string"
+            "description": "true rend la propriété obligatoire, false la rend facultative, et OMIS ne touche pas à la liste des obligatoires — pour qu'une correction de type ne dégrade pas une obligation qu'on n'a pas nommée. Une propriété neuve naît facultative.",
+            "title": "Required"
           },
           "branch": {
             "anyOf": [
@@ -563,39 +545,49 @@
           }
         },
         "required": [
+          "kind",
           "workspace_id",
           "scope",
           "name",
-          "content"
+          "path",
+          "schema"
         ],
-        "title": "create_workflow_eventArguments",
+        "title": "set_schema_propertyArguments",
         "type": "object"
       }
     },
     {
-      "name": "replace_workflow_event",
-      "description": "Remplace le schéma d'un événement existant, dans une branche enfant. Le nom ne change pas : renommer, c'est créer puis supprimer — et un script de workflow qui déclare l'ancien nom ne se chargera plus. La version monte de 1, tenue par Miles.",
+      "name": "remove_schema_property",
+      "description": "Retire UNE propriété d'un schéma, dans une branche enfant, et son obligation avec elle — la laisser dans `required` ferait un schéma qu'aucun document ne peut satisfaire. Le reste du schéma est conservé tel quel.",
       "inputSchema": {
         "properties": {
+          "kind": {
+            "description": "« model » pour un modèle de données, « event » pour un événement de workflow. Les deux sont des JSON Schema 2020-12 écrits en YAML, dans DEUX listes séparées : un storage ou une source ne peut désigner qu'un modèle.",
+            "title": "Kind",
+            "type": "string"
+          },
           "workspace_id": {
             "description": "Identifiant du workspace (voir list_workspaces).",
             "title": "Workspace Id",
             "type": "string"
           },
           "scope": {
-            "description": "« shared » pour un événement transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
+            "description": "« shared » pour un schéma transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
             "title": "Scope",
             "type": "string"
           },
           "name": {
-            "description": "Nom de l'événement, celui qu'un DEFINE EVENT écrira : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le TIRET est refusé — le DSL du moteur ne sait pas l'écrire.",
+            "description": "Nom du schéma, celui de son fichier. Pour un ÉVÉNEMENT, c'est aussi le nom qu'un DEFINE EVENT écrira, et le tiret y est refusé : le DSL du moteur ne sait pas l'écrire (minuscules, chiffres et soulignés).",
             "title": "Name",
             "type": "string"
           },
-          "content": {
-            "description": "L'événement : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet (type: object). `title` est son libellé. `$schema` et `$id` sont posés par Miles. Le schéma décrit les données MÉTIER seulement : le moteur valide en plus un socle commun (voir get_event_base), dont les propriétés ne se redéclarent pas. `additionalProperties: false` est refusé, car le socle rendrait alors tout payload réel invalide. Un modèle de données se désigne par $ref: miles:/shared/<nom> ou miles:/domains/<domaine>/<nom>.",
-            "title": "Content",
-            "type": "string"
+          "path": {
+            "description": "Le chemin de la propriété, segment par segment depuis la racine du schéma : [\"Montant\"] pour une propriété de premier niveau, [\"adresse\", \"ville\"] pour une propriété imbriquée, [\"lignes\", \"[]\", \"article\"] pour une propriété des éléments d'un tableau. Une LISTE et non un chemin pointé : un nom de propriété JSON Schema peut contenir un point. Un `$ref` ne se traverse pas (refus renvoi_traverse) : modifiez le schéma qu'il désigne.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Path",
+            "type": "array"
           },
           "branch": {
             "anyOf": [
@@ -612,55 +604,13 @@
           }
         },
         "required": [
+          "kind",
           "workspace_id",
           "scope",
           "name",
-          "content"
+          "path"
         ],
-        "title": "replace_workflow_eventArguments",
-        "type": "object"
-      }
-    },
-    {
-      "name": "delete_workflow_event",
-      "description": "Supprime un événement d'une branche enfant. Rien dans le paramétrage ne le désigne encore, donc aucun refus « utilisé » : c'est le script de workflow qui le déclare qui cessera de se charger.",
-      "inputSchema": {
-        "properties": {
-          "workspace_id": {
-            "description": "Identifiant du workspace (voir list_workspaces).",
-            "title": "Workspace Id",
-            "type": "string"
-          },
-          "scope": {
-            "description": "« shared » pour un événement transverse, sinon le nom d'un domaine existant (list_domains ; create_domain pour en ajouter un).",
-            "title": "Scope",
-            "type": "string"
-          },
-          "name": {
-            "description": "Nom de l'événement, celui qu'un DEFINE EVENT écrira : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le TIRET est refusé — le DSL du moteur ne sait pas l'écrire.",
-            "title": "Name",
-            "type": "string"
-          },
-          "branch": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Slug d'une branche ENFANT du workspace, obligatoire : la branche de base est en lecture seule. Le refus liste les branches enfants existantes. La personne pour qui vous appelez doit y avoir la main (refus prise_de_main_requise sinon) ; la modification reste locale jusqu'à publish_branch.",
-            "title": "Branch"
-          }
-        },
-        "required": [
-          "workspace_id",
-          "scope",
-          "name"
-        ],
-        "title": "delete_workflow_eventArguments",
+        "title": "remove_schema_propertyArguments",
         "type": "object"
       }
     },
