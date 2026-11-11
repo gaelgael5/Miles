@@ -77,6 +77,13 @@ docker run -d --name "$RUN_ID-gitea" --network "$RUN_ID" \
 # --build-context socle=… : même mécanisme que le compose du produit. Sans lui, le
 # verrou référence un paquet absent du contexte et la construction échoue sur la
 # résolution, pas sur le code.
+# Une campagne bâtit des images : même garde que le déploiement, même plancher.
+# Posée ICI et non dans `integration.sh` : la garde se partage, la SÉQUENCE reste au
+# produit (décision du 28/10/2026). Mesure du 11/11/2026 : les campagnes de la
+# journée ont porté le disque de la machine de test de 75 % à 87 % — la garde du
+# matin ne couvrait que `dev-deploy.sh`, et une garde qui protège une moitié des
+# bâtisseurs protège mal.
+socle_espace_avant_construction "${ESPACE_MINIMUM_MO:-4096}"
 docker build -q --target test -t "$RUN_ID-backend" \
   --build-context "socle=$PRODUIT_DIR/../socle/python" "$PRODUIT_DIR/backend" >/dev/null
 

@@ -8,6 +8,12 @@
 # produits diffèrent vraiment : le portail lance une forge git et un courtier MQTT, les deux
 # autres un fournisseur OIDC jetable.
 
+# La garde d'espace est partagée avec le déploiement : une campagne bâtit des images
+# comme lui, et le disque ne fait pas la différence. Elle vit dans son propre fichier
+# plutôt que dans `gardes.sh`, qu'une campagne n'a pas à sourcer en entier.
+# shellcheck source=espace.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/espace.sh"
+
 socle_it_docker_present() {
   command -v docker >/dev/null \
     || { echo "docker introuvable : voir https://docs.docker.com/engine/install/" >&2; exit 1; }
