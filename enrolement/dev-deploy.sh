@@ -35,6 +35,14 @@ SERVICE_NAME="miles-enrolement"
 CONTAINER_WAIT_S=90
 HEALTH_WAIT_S=120
 PURGE_EVERY_S=$((7 * 24 * 3600))
+# Plancher d'espace libre sous lequel on purge le cache AVANT de bâtir. Ce n'est pas une
+# mesure de ce qu'une construction consomme — elle varie avec ce qui a changé — mais un
+# plancher délibérément large : une construction qui échoue faute de place échoue TARD et
+# laisse la stack à terre, alors que la purge ne coûte que des couches qu'on reconstruira.
+# Fixé après la mesure du 11/11/2026 sur host-test-37 : 1,9 Go libres suffisaient à faire
+# tenir le déploiement sur un fil.
+ESPACE_MINIMUM_MO=4096
+
 
 # Les GARDES viennent du socle, la SÉQUENCE reste ici (décision de Gael du 28/10/2026).
 # Chaque garde encode une panne mesurée et était écrite trois fois ; elle se répare
@@ -126,6 +134,10 @@ socle_declaration_annuaire
 unset PORTAL_TOKEN
 
 socle_step 5 "construction des images depuis la copie du dépôt"
+# L'espace AVANT de bâtir, et seulement s'il manque : la purge hebdomadaire est après le
+# contrôle de santé, donc trop tard pour la construction qui a besoin de la place. Lecture
+# de `df` et retour immédiat sur une machine au large.
+socle_espace_avant_construction "$ESPACE_MINIMUM_MO"
 # Jamais sautée : c'est ici, sur copie fraîche, qu'on prouve que les images se bâtissent.
 socle_compose build --pull \
   || socle_fail "construction en échec : défaut du dépôt, à corriger d'abord"
