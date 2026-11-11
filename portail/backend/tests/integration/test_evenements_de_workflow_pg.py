@@ -198,13 +198,16 @@ async def test_une_branche_qui_porte_un_evenement_reste_gelable(forge: Forge) ->
 async def test_un_evenement_retouche_hors_de_miles_bloque_la_version_en_le_nommant(
     forge: Forge,
 ) -> None:
-    await _declare(forge)
-    # Hors de Miles : l'`$id` ne correspond plus à l'emplacement du fichier, et c'est cet
-    # URI qui met l'événement hors de portée des storages.
+    """La validation de branche lit les événements du DÉPÔT, pas ce que Miles vient d'écrire.
+
+    Semé hors de Miles avec un `$id` qui ne correspond pas à son emplacement : c'est cet
+    URI qui met l'événement hors de portée des storages, et un fichier qui l'a perdu ne
+    doit pas pouvoir entrer dans une version.
+    """
     await forge.seed(
         {
-            "shared/events/demande_soumise.yaml": normalized_event(
-                "title: D\ntype: object\nproperties: {}\n", "shared", "autre_nom"
+            "shared/events/autre_evenement.yaml": normalized_event(
+                "title: Autre\ntype: object\nproperties: {}\n", "shared", "pas_le_bon_nom"
             )
         }
     )
@@ -212,11 +215,11 @@ async def test_un_evenement_retouche_hors_de_miles_bloque_la_version_en_le_nomma
     freezable = await forge.client.get(FREEZABLE, timeout=120)
 
     rapports = {r["path"]: [p["code"] for p in r["problems"]] for r in freezable.json()["reports"]}
-    assert rapports["shared/events/demande_soumise.yaml"] == ["id_different_du_fichier"]
+    assert rapports["shared/events/autre_evenement.yaml"] == ["id_different_du_fichier"]
 
 
 async def test_aucune_route_des_evenements_n_est_atteignable_sans_session(forge: Forge) -> None:
-    anonyme = httpx.AsyncClient(base_url=forge.portal.base_url, timeout=120)
+    """Fail closed : le portillon refuse, et il faut le mesurer route par route."""
     appels = (
         ("GET", ROUTE, None),
         ("GET", f"{ROUTE}/socle", None),
@@ -225,7 +228,7 @@ async def test_aucune_route_des_evenements_n_est_atteignable_sans_session(forge:
         ("PUT", f"{ROUTE}/shared/demande_soumise", {"content": "type: object\n"}),
         ("DELETE", f"{ROUTE}/shared/demande_soumise", None),
     )
-    async with anonyme:
+    async with forge.portal.anonymous() as visiteur:
         for methode, url, body in appels:
-            refused = await anonyme.request(methode, url, json=body)
+            refused = await visiteur.request(methode, url, json=body, timeout=120)
             assert refused.status_code in (401, 403), f"{methode} {url} -> {refused.status_code}"
