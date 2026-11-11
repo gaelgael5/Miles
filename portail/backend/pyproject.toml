@@ -134,3 +134,11 @@ packages = ["miles"]
 [[tool.mypy.overrides]]
 module = ["calendarium", "calendarium.*"]
 ignore_missing_imports = true
+
+# `urban_workflow` n'embarque pas de marqueur `py.typed` : sans cette exception, l'import
+# lui-même est une erreur en mode strict. Bornée à ce paquet, et le seul endroit qui
+# l'importe (`workflowevents/schema.py`) annote aussitôt ce qu'il en tire — le socle
+# commun d'un événement — en `dict[str, Any]` : la vérification se fait là, une fois.
+[[tool.mypy.overrides]]
+module = ["urban_workflow", "urban_workflow.*"]
+ignore_missing_imports = true

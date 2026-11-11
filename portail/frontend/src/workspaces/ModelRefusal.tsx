@@ -31,6 +31,11 @@ function errorKey(error: unknown, fields: Record<string, string>): [string, Reco
   if (detail?.code === "modele_non_conforme") {
     return ["dataModels.errors.grammar", {}];
   }
+  // Le même écran, deux familles de documents : le message de tête dit LAQUELLE est
+  // refusée, et les manquements s'affichent dessous par le même chemin.
+  if (detail?.code === "evenement_non_conforme") {
+    return ["workflowEvents.errors.grammar", {}];
+  }
   if (detail?.code === "utilise") {
     return ["dataModels.errors.inUse", { list: (detail.by ?? []).join(", ") }];
   }

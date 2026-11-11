@@ -112,7 +112,8 @@
       "accountReference": "Account reference",
       "sources": "Data sources",
       "trads": "Translations",
-      "tradsCoverage": "Coverage"
+      "tradsCoverage": "Coverage",
+      "events": "Events"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -332,7 +333,8 @@
         "branche_inconnue": "This branch is unknown to the workspace.",
         "prise_de_main_requise": "Take over this branch in “All workspaces” to change it.",
         "nom_fige": "The model name (nom:) does not change: it is frozen at creation.",
-        "domaine_inconnu": "This domain does not exist on the branch: add it first."
+        "domaine_inconnu": "This domain does not exist on the branch: add it first.",
+        "evenement_inconnu": "This event does not exist on this branch."
       },
       "unexpected": "The operation failed. See the back-office logs."
     },
@@ -401,10 +403,12 @@
       "propriete_inconnue": "property “{{detail}}” does not exist in this storage's model",
       "propriete_doublee": "two rules target “{{detail}}”: the shortest delay decides alone, and the second is inert",
       "propriete_non_indexee": "“{{detail}}” is declared in no index: without a real column, the rule would become a table scan",
+      "propriete_du_socle": "“{{detail}}” belongs to the common event base, set by the engine: redeclaring it would apply two schemas to the same property",
       "proprietes_vides": "no property: the schema is still a draft",
       "reference_externe": "“{{detail}}”: only Miles models (miles:/…) and the schema's own definitions (#/…) can be referenced",
       "reference_interne_introuvable": "“{{detail}}” points at no part of this schema (for another model: miles:/…, without “#”)",
       "reference_non_convertible": "“{{detail}}” does not point at a schema of the contract: only components.schemas become models",
+      "schema_ferme": "closed schema (additionalProperties: false): the engine adds the common event base, whose properties would then be rejected — no real payload would pass",
       "schema_invalide": "not valid JSON Schema 2020-12: {{detail}}",
       "schema_trop_profond": "schema nested more than {{detail}} levels deep",
       "slug_different_du_dossier": "the slug differs from its folder ({{detail}})",
@@ -491,6 +495,46 @@
       "failed": "Inference failed.",
       "noObject": "The sample holds no object: a model always describes an object.",
       "unwrapped": "The sample was a list: the model describes one of its elements, all merged."
+    }
+  },
+  "workflowEvents": {
+    "back": "← Workspaces",
+    "title": "Events — {{name}}",
+    "intro": "The events a workflow accepts, versioned in",
+    "add": "Declare an event",
+    "empty": "No event in the work branch.",
+    "fields": {
+      "label": "Label",
+      "slug": "DSL name",
+      "domain": "Domain"
+    },
+    "form": {
+      "title": "New event",
+      "slugHelp": "Proposed from the label; it is the name written in a DEFINE EVENT, and the name of the file. Lowercase letters, digits and underscores — the engine's DSL rejects hyphens.",
+      "domainHelp": "Shared: shared/events, visible from every domain. A domain missing from the list is added with “Add a domain”.",
+      "submit": "Declare the event"
+    },
+    "deleteConfirm": {
+      "title": "Delete this event?",
+      "body": "{{path}} will be removed from the work branch. A workflow script declaring it will no longer load."
+    },
+    "socle": {
+      "title": "Common base",
+      "help": "These properties are described by the engine, which validates them on top of the schema above. They are not redeclared: every payload already carries them.",
+      "posed": "set by the engine"
+    },
+    "editor": {
+      "back": "← Events",
+      "help": "The schema describes the BUSINESS data of the event. A “miles:/…” reference points at a data model visible from this scope."
+    },
+    "import": {
+      "socleDropped": "Base properties dropped from the inference: {{list}}. The engine already describes them — redeclaring them would be rejected."
+    },
+    "errors": {
+      "grammar": "The event does not follow the grammar:",
+      "invalid": {
+        "name": "Invalid event name: lowercase letters, digits and underscores, starting with a letter or a digit. The engine's DSL rejects hyphens."
+      }
     }
   },
   "versions": {

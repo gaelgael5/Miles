@@ -35,6 +35,7 @@ from miles.pairing.service import PairingService
 from miles.sources.service import SourcesService
 from miles.storages.service import StoragesService
 from miles.transform.api_catalog import CatalogService
+from miles.workflowevents.service import WorkflowEventsService
 from miles.workshop.branches import BranchesService
 from miles.workshop.domains_service import DomainsService
 from miles.workshop.holds import BranchHoldsService
@@ -98,6 +99,7 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
         portal.pool, state.workspaces, resolver, workdirs, holds, state.git_identities, hosts
     )
     state.data_models = DataModelsService(portal.pool, branches, catalog, utc_now)
+    state.workflow_events = WorkflowEventsService(portal.pool, branches, catalog, utc_now)
     state.domains = DomainsService(portal.pool, branches, catalog, utc_now)
     state.workshop = WorkshopService(portal.pool, branches, catalog, utc_now)
     state.contracts = ContractsService(portal.pool, branches, catalog, utc_now)

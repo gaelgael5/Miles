@@ -112,7 +112,8 @@
       "accountReference": "Référence de compte",
       "sources": "Sources de données",
       "trads": "Traductions",
-      "tradsCoverage": "Couverture"
+      "tradsCoverage": "Couverture",
+      "events": "Événements"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -332,7 +333,8 @@
         "branche_inconnue": "Cette branche n'est pas connue du workspace.",
         "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier.",
         "nom_fige": "Le nom du modèle (nom:) ne change pas : il est figé à la création.",
-        "domaine_inconnu": "Ce domaine n'existe pas dans la branche : ajoutez-le d'abord."
+        "domaine_inconnu": "Ce domaine n'existe pas dans la branche : ajoutez-le d'abord.",
+        "evenement_inconnu": "Cet événement n'existe pas sur cette branche."
       },
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     },
@@ -401,10 +403,12 @@
       "propriete_inconnue": "la propriété « {{detail}} » n'existe pas dans le modèle de ce storage",
       "propriete_doublee": "deux règles portent sur « {{detail}} » : le délai le plus court décide seul, et la seconde est inerte",
       "propriete_non_indexee": "« {{detail}} » n'est déclarée dans aucun index : sans colonne réelle, la règle deviendrait un parcours de table",
+      "propriete_du_socle": "« {{detail}} » appartient au socle commun des événements, posé par le moteur : la redéclarer ferait s'appliquer deux schémas à la même propriété",
       "proprietes_vides": "aucune propriété : le schéma est encore un brouillon",
       "reference_externe": "« {{detail}} » : seuls les modèles de Miles (miles:/…) et les définitions du schéma (#/…) se désignent",
       "reference_interne_introuvable": "« {{detail}} » ne désigne aucune partie de ce schéma (pour un autre modèle : miles:/…, sans « # »)",
       "reference_non_convertible": "« {{detail}} » ne désigne pas un schéma du contrat : seuls les components.schemas deviennent des modèles",
+      "schema_ferme": "schéma fermé (additionalProperties: false) : le moteur ajoute le socle commun de tout événement, dont les propriétés seraient alors refusées — aucun payload réel ne passerait",
       "schema_invalide": "non conforme à JSON Schema 2020-12 : {{detail}}",
       "schema_trop_profond": "schéma imbriqué sur plus de {{detail}} niveaux",
       "slug_different_du_dossier": "le slug diffère de son dossier ({{detail}})",
@@ -491,6 +495,46 @@
       "failed": "La déduction a échoué.",
       "noObject": "L'échantillon ne contient aucun objet : un modèle décrit toujours un objet.",
       "unwrapped": "L'échantillon était une liste : le modèle décrit un de ses éléments, tous fusionnés."
+    }
+  },
+  "workflowEvents": {
+    "back": "← Workspaces",
+    "title": "Événements — {{name}}",
+    "intro": "Les événements qu'un workflow accepte, versionnés dans",
+    "add": "Déclarer un événement",
+    "empty": "Aucun événement dans la branche de travail.",
+    "fields": {
+      "label": "Libellé",
+      "slug": "Nom dans le DSL",
+      "domain": "Domaine"
+    },
+    "form": {
+      "title": "Nouvel événement",
+      "slugHelp": "Proposé d'après le libellé ; c'est le nom écrit dans un DEFINE EVENT, et celui du fichier. Lettres minuscules, chiffres et soulignés — le tiret est refusé par le DSL du moteur.",
+      "domainHelp": "Transverse : shared/events, visible de tous les domaines. Un domaine absent de la liste s'ajoute avec « Ajouter un domaine ».",
+      "submit": "Déclarer l'événement"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer cet événement ?",
+      "body": "{{path}} sera retiré de la branche de travail. Un script de workflow qui le déclare ne se chargera plus."
+    },
+    "socle": {
+      "title": "Socle commun",
+      "help": "Ces propriétés sont décrites par le moteur, qui les valide en plus du schéma ci-dessus. Elles ne se redéclarent pas : tout payload les porte déjà.",
+      "posed": "posée par le moteur"
+    },
+    "editor": {
+      "back": "← Événements",
+      "help": "Le schéma décrit les données MÉTIER de l'événement. Un renvoi « miles:/… » désigne un modèle de données visible depuis cette portée."
+    },
+    "import": {
+      "socleDropped": "Propriétés du socle retirées de la déduction : {{list}}. Le moteur les décrit déjà — les redéclarer serait refusé."
+    },
+    "errors": {
+      "grammar": "L'événement ne suit pas la grammaire :",
+      "invalid": {
+        "name": "Nom d'événement invalide : lettres minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le tiret est refusé par le DSL du moteur."
+      }
     }
   },
   "versions": {

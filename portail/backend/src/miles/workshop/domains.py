@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 # les mappings se rangent par sens. Même découpage que le squelette d'un dépôt.
 SECTIONS = (
     "messages",
+    # Les événements de workflow du domaine (Gael, 11/11/2026) : une rubrique, parce
+    # qu'ils ont leur propre liste dans l'écran et ne se mélangent pas aux messages.
+    "events",
     "mappings/inbound",
     "mappings/outbound",
     "referentials",

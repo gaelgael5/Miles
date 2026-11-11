@@ -35,8 +35,21 @@ INITIAL_MANIFEST: dict[str, Any] = {
 
 # Arborescence retenue au cadrage (« Back-office — capacités attendues »). Elle porte
 # le métier par domaine et le transverse à la racine — et aucun dossier d'environnement.
-_SHARED = {"messages", "components", "referentials", "theme"}
-_DOMAIN = {"messages", "mappings", "referentials", "components", "screens", "scenarios"}
+# `events` ajouté le 11/11/2026 (Gael) : les événements de workflow ont leur propre
+# liste, donc leur propre rubrique — à côté des messages et non parmi eux. Sans cette
+# ligne, la validation de la branche rapporterait chaque événement écrit comme un
+# « emplacement inattendu » et aucune version ne pourrait plus être enregistrée : c'est
+# exactement la panne qu'avait produite l'oubli de `comptes/` le 31/10/2026.
+_SHARED = {"messages", "events", "components", "referentials", "theme"}
+_DOMAIN = {
+    "messages",
+    "events",
+    "mappings",
+    "referentials",
+    "components",
+    "screens",
+    "scenarios",
+}
 _MAPPINGS = {"inbound", "outbound"}
 SKELETON = (
     "contracts",

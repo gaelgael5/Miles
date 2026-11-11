@@ -31,6 +31,7 @@ describe("App, selon la branche vue", () => {
       "GET /api/workspaces/retrait/data-models?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/contracts?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/storages?branch=essai": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/workflow-events?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/versions?branch=essai": { status: 200, body: [] },
       // Simulée, et avec du CONTENU : sans elle la carte du graphe s'afficherait
       // quand même — sur son chemin d'erreur — et l'assertion ne distinguerait pas
@@ -90,6 +91,12 @@ describe("App, selon la branche vue", () => {
     fireEvent.click(within(nav).getByRole("button", { name: "Storages" }));
     expect(
       await screen.findByRole("heading", { name: "Storages — Retrait de colis" }),
+    ).toBeInTheDocument();
+    // Même garde pour « Events » (11/11/2026) : le référentiel d'événements a sa propre
+    // entrée, et un écran qu'aucune entrée n'ouvre n'existe pas.
+    fireEvent.click(within(nav).getByRole("button", { name: "Events" }));
+    expect(
+      await screen.findByRole("heading", { name: "Events — Retrait de colis" }),
     ).toBeInTheDocument();
     // « Data models » PORTE des entrées : depuis le 30/10/2026 son bouton replie le
     // groupe, et l'écran s'ouvre par l'entrée dédiée — un clic ne fait qu'une chose.

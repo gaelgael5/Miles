@@ -32,6 +32,7 @@ from miles.datamodels.schema import (
     references_in,
 )
 from miles.git.workcopy import WorkCopy
+from miles.workflowevents.layout import entry_of as event_entry_of
 from miles.workshop.domains import domains_in
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceConflictError, checked_label
@@ -271,7 +272,7 @@ class DataModelsService:
             entries = await _entries(copy)
             if entry not in entries:
                 raise ModelNotFoundError(entry.path)
-            users = await _users(copy, entries, entry)
+            users = await _users(copy, entry)
             if users:
                 raise ModelInUseError(users)
             await copy.remove(entry.path)
@@ -331,14 +332,25 @@ async def _described(copy: WorkCopy, entry: ModelEntry) -> ModelEntry:
     return ModelEntry(entry.scope, entry.name, entry.path, label, version or None)
 
 
-async def _users(copy: WorkCopy, entries: list[ModelEntry], target: ModelEntry) -> list[str]:
-    """Modèles qui désignent `target` : sa suppression les casserait."""
+async def _users(copy: WorkCopy, target: ModelEntry) -> list[str]:
+    """Documents qui désignent `target` : sa suppression les casserait.
+
+    Les ÉVÉNEMENTS de workflow en font partie depuis le 11/11/2026, et c'est la condition
+    pour les autoriser à décrire leur payload avec un modèle : sans cette ligne, supprimer
+    un modèle laisserait un événement avec un `$ref` qui ne résout plus — la version de la
+    branche le refuserait, mais trop tard, après la suppression et depuis un autre écran.
+    """
     users = []
-    for other in entries:
-        if other == target:
+    for path in await copy.paths():
+        model = entry_of(path)
+        if model == target:
             continue
-        if (target.scope, target.name) in references_in(await copy.read(other.path) or ""):
-            users.append(other.path)
+        # Les seuls documents qui peuvent désigner un modèle : un autre modèle, ou un
+        # événement. Les autres fichiers du dépôt ne sont pas relus pour rien.
+        if model is None and event_entry_of(path) is None:
+            continue
+        if (target.scope, target.name) in references_in(await copy.read(path) or ""):
+            users.append(path)
     return users
 
 

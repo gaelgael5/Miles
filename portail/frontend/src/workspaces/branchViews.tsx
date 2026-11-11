@@ -14,6 +14,8 @@ import { ContractScreen } from "./ContractScreen";
 import { ContractsScreen } from "./ContractsScreen";
 import { DataModelScreen } from "./DataModelScreen";
 import { DataModelsScreen } from "./DataModelsScreen";
+import { EventScreen } from "./EventScreen";
+import { EventsScreen } from "./EventsScreen";
 import { DerivedModelScreen } from "./DerivedModelScreen";
 import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
@@ -255,6 +257,31 @@ function viewScreen(
             contract: ref.slug,
             derived: `${ref.slug}/${ref.version}/${ref.name}`,
           })
+        }
+      />
+    );
+  }
+  if (selection.view === "events" && selection.event !== undefined) {
+    const [scope = "", name = ""] = selection.event.split("/");
+    return (
+      <EventScreen
+        key={key}
+        target={target}
+        scope={scope}
+        name={name}
+        onBack={() => onSelect({ id: workspace.id, view: "events", branch })}
+      />
+    );
+  }
+  if (selection.view === "events") {
+    return (
+      <EventsScreen
+        key={key}
+        workspace={workspace}
+        target={target}
+        onBack={back}
+        onOpen={(e) =>
+          onSelect({ id: workspace.id, view: "events", branch, event: `${e.scope}/${e.name}` })
         }
       />
     );

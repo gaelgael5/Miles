@@ -16,6 +16,10 @@ from miles.datamodels.layout import ModelEntry, entry_of, visible
 from miles.datamodels.schema import model_id, parse_schema
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import MANIFEST, diagnose
+from miles.workflowevents.layout import EventEntry, event_id
+from miles.workflowevents.layout import entry_of as event_entry_of
+from miles.workflowevents.layout import visible as event_visible
+from miles.workflowevents.schema import parse_event_schema
 from miles.workshop.chain_validation import chain_reports, source_reports, storage_reports
 
 _CONTRACT_FILE_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/(?P<file>[^/]+)$")
@@ -33,7 +37,8 @@ class FileReport:
 async def validate_branch(copy: WorkCopy) -> list[FileReport]:
     """Toutes les règles connues du paramétrage, sur l'état de la copie ; vide : valide.
 
-    Ne couvre que ce qui est instruit à ce jour — arborescence, modèles, contrats. Chaque
+    Ne couvre que ce qui est instruit à ce jour — arborescence, modèles, événements de
+    workflow, contrats. Chaque
     nouvel objet du paramétrage (mappings, écrans…) ajoute ici sa vérification : une
     version ne fige qu'un état qui passe toutes les règles (story 94b06105, critère 3).
     """
@@ -47,6 +52,10 @@ async def validate_branch(copy: WorkCopy) -> list[FileReport]:
         problems = await _model_problems(copy, entries, entry)
         if problems:
             reports.append(FileReport(entry.path, problems))
+    for event in [e for e in map(event_entry_of, paths) if e is not None]:
+        problems = await _event_problems(copy, entries, event)
+        if problems:
+            reports.append(FileReport(event.path, problems))
     for path in paths:
         problems = await _contract_problems(copy, paths, path)
         if problems:
@@ -93,6 +102,40 @@ async def _model_problems(
         Problem(where, "modele_inconnu", f"{scope}/{name}")
         for where, (scope, name) in schema.references
         if (scope, name) not in known or not visible(entry, (scope, name))
+    ]
+    return tuple(problems)
+
+
+async def _event_problems(
+    copy: WorkCopy, models: list[ModelEntry], entry: EventEntry
+) -> tuple[Problem, ...]:
+    """Manquements du schéma d'un événement de workflow.
+
+    Les mêmes règles qu'un modèle, à une exception près qui est une DÉCISION : un
+    événement SANS propriété métier n'est pas un brouillon. Un `DEFINE EVENT` peut très
+    bien n'apporter que le socle commun — un nom, un `ExternalId`, une date — et déclencher
+    une transition sur ce seul fait. Interdire les propriétés vides ici, comme on le fait
+    pour un modèle, refuserait de figer un référentiel parfaitement légitime.
+    """
+    text = await copy.read(entry.path) or ""
+    try:
+        schema = parse_event_schema(text)
+    except ModelSyntaxError as exc:
+        where = f"ligne {exc.line}, colonne {exc.column}" if exc.line else None
+        return (Problem("", "yaml_invalide", where),)
+    except ModelGrammarError as exc:
+        return tuple(exc.problems)
+    problems = []
+    # Retouché hors de Miles, un fichier peut ne plus porter l'`$id` de son emplacement :
+    # c'est cet URI qui met l'événement hors de portée des storages et des sources.
+    expected = event_id(entry.scope, entry.name)
+    if schema.identifier != expected:
+        problems.append(Problem("$id", "id_different_du_fichier", expected))
+    known = {(m.scope, m.name) for m in models}
+    problems += [
+        Problem(where, "modele_inconnu", f"{scope}/{name}")
+        for where, (scope, name) in schema.references
+        if (scope, name) not in known or not event_visible(entry, (scope, name))
     ]
     return tuple(problems)
 

@@ -50,6 +50,7 @@ from miles.transform.api_editor import JSLT_EDITOR_PATH
 from miles.transform.api_editor import router as jslt_editor_router
 from miles.transform.api_transform import chains_router
 from miles.transform.api_transform import router as transform_router
+from miles.workflowevents.api_events import router as workflow_events_router
 from miles.workshop.api_branches import router as branches_router
 from miles.workshop.api_branches import views_router as branch_views_router
 from miles.workshop.api_domains import router as domains_router
@@ -90,6 +91,7 @@ def include_api_routers(app: FastAPI) -> None:
     app.include_router(countries_router)
     app.include_router(timezones_router)
     app.include_router(data_models_router)
+    app.include_router(workflow_events_router)
     app.include_router(domains_router)
     app.include_router(workshop_router)
     app.include_router(contracts_router)

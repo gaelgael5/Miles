@@ -13,6 +13,10 @@ import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
 const VIEWS: WorkspaceView[] = [
   "branch",
   "dataModels",
+  // Les événements juste après les modèles (Gael, 11/11/2026) : ils se construisent
+  // avec le même écran, et l'un peut décrire son payload avec l'autre. Leur liste,
+  // elle, reste séparée — c'est tout l'objet de la décision.
+  "events",
   "contracts",
   "transformations",
   // « storages » avant « sources » : on déclare ce qui est stocké avant de dire
@@ -128,7 +132,8 @@ export function WorkspaceViews({
                 here && selection?.view === view && selection.contract === undefined &&
                 selection.chain === undefined &&
                 selection.source === undefined &&
-                selection.model === undefined
+                selection.model === undefined &&
+                selection.event === undefined
                   ? "page"
                   : undefined
               }

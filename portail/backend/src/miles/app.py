@@ -56,6 +56,7 @@ from miles.security.service import SecurityServices
 from miles.sources.service import SourcesService
 from miles.storages.service import StoragesService
 from miles.transform.api_catalog import CatalogService
+from miles.workflowevents.service import WorkflowEventsService
 from miles.workshop.branches import BranchesService
 from miles.workshop.domains_service import DomainsService
 from miles.workshop.holds import BranchHoldsService
@@ -183,6 +184,7 @@ def create_app() -> FastAPI:
             git_hosts,
         )
         app.state.data_models = DataModelsService(pool, branches, catalog, utc_now)
+        app.state.workflow_events = WorkflowEventsService(pool, branches, catalog, utc_now)
         app.state.domains = DomainsService(pool, branches, catalog, utc_now)
         app.state.workshop = WorkshopService(pool, branches, catalog, utc_now)
         app.state.contracts = ContractsService(pool, branches, catalog, utc_now)
