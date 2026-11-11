@@ -74,6 +74,7 @@ class CountriesService:
                 row["alpha2"],
                 _libelle(row["alpha2"], row["slug"], culture, actives),
                 row["active"],
+                row["has_holidays"],
             )
             for row in rows
         ]

@@ -147,9 +147,13 @@ async def test_aucune_route_ne_cree_ni_ne_change_une_association(
 ) -> None:
     """L'association est DONNÉE : aucune route ne l'écrit, comme pour les pays eux-mêmes."""
     async with _stack(blank_db, tmp_path) as portal:
-        for methode in ("post", "put", "patch", "delete"):
-            appel = getattr(portal.client, methode)
-            reponse = await appel("/api/countries/FRA/holidays", json={"country": "Atlantis"})
+        for methode in ("POST", "PUT", "PATCH", "DELETE"):
+            # `request` et non `client.delete(...)` : httpx refuse un corps sur `delete`,
+            # et c'est bien un corps qu'on veut présenter — une route qui écrirait
+            # écrirait CECI.
+            reponse = await portal.client.request(
+                methode, "/api/countries/FRA/holidays", json={"country": "Atlantis"}
+            )
 
             assert reponse.status_code == 405, f"{methode} : {reponse.text}"
         async with portal.pool.acquire() as conn:

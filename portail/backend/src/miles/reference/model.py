@@ -45,7 +45,14 @@ class Country:
     # Le pays a-t-il un fichier de règles de jours fériés ? Dans la LISTE et non seulement
     # dans le détail : l'association doit se voir sans déplier 249 pays un par un. Faux
     # n'est pas une anomalie — calendarium couvre 111 pays vérifiés.
-    has_holidays: bool = False
+    #
+    # SANS VALEUR PAR DÉFAUT, et c'est une correction du 11/11/2026 : écrit `= False`, le
+    # champ rendait le constructeur appelable sans lui, et `resolve_list` l'a effectivement
+    # omis — la pastille ne s'affichait jamais, sans qu'aucun test unitaire ni mypy ne
+    # puisse le voir. Seule la campagne d'intégration l'a trouvé, 53 minutes plus tard.
+    # Un défaut sur un champ qui vient de la BASE est un repli silencieux : il transforme
+    # une donnée manquante en donnée fausse. Sans lui, l'omission ne compile plus.
+    has_holidays: bool
 
 
 @dataclass(frozen=True)

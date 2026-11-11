@@ -82,7 +82,17 @@ async def test_aucune_route_ne_cree_ni_ne_supprime_un_pays(blank_db: str, tmp_pa
             for chemin, methodes in schema.items()
             if chemin.startswith("/api/countries")
         }
-        assert routes == {"/api/countries": ["get"], "/api/countries/activation": ["post"]}
+        # `/{slug}/holidays` ajouté le 11/11/2026, et la garde a fait exactement son
+        # travail : elle a rougi EN NOMMANT la route neuve, ce qui force à dire pourquoi
+        # elle est admise. Elle l'est parce qu'elle LIT — l'association pays → fichier de
+        # règles est elle-même donnée, chargée par la migration 0033, et aucune route ne
+        # l'écrit (c'est éprouvé à part dans `test_jours_feries_pg.py`). Ce qui est
+        # interdit ici reste interdit : ni création, ni suppression, ni renommage d'un pays.
+        assert routes == {
+            "/api/countries": ["get"],
+            "/api/countries/activation": ["post"],
+            "/api/countries/{slug}/holidays": ["get"],
+        }
 
 
 async def test_le_libelle_suit_la_culture_active_du_visiteur(blank_db: str, tmp_path: Path) -> None:
