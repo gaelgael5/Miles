@@ -1018,6 +1018,7 @@ dependencies = [
     { name = "structlog" },
     { name = "urban-json" },
     { name = "urban-json-editor" },
+    { name = "urban-workflow", extra = ["schemas"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -1055,6 +1056,7 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.4" },
     { name = "urban-json", specifier = "==0.3.0" },
     { name = "urban-json-editor", specifier = "==0.3.0" },
+    { name = "urban-workflow", extras = ["schemas"], specifier = "==0.2.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
@@ -1847,6 +1849,24 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b0/67/e44af529b5ea92d57d736da9f99991e614f78b34e1464b0d468129e18d5f/urban_json_editor-0.3.0.tar.gz", hash = "sha256:03f9217fb2e665b1fd7ec68797ef7051421d131bb691d51da1ced2a5fb585f63", size = 26819, upload-time = "2026-10-31T12:48:16.213Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/42/ae/d66f0349ed6bcea90ba7ad909f96e50cd9b005dd00574b69c3ce906717b0/urban_json_editor-0.3.0-py3-none-any.whl", hash = "sha256:a5118c64400af851eb6d1046043cefe9b75d18f1dc3f6dd2135a972f9e03da5f", size = 23749, upload-time = "2026-10-31T12:48:14.948Z" },
+]
+
+[[package]]
+name = "urban-workflow"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "urban-json" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d1/67/a227b61f520845ee0fd9483d1309dfbd6e241ff28f891d991ca7b25460d6/urban_workflow-0.2.1.tar.gz", hash = "sha256:8ab6209736817f8ec1223e2569d4e51f8731d2d328a3f85735903532dffe116d", size = 143838, upload-time = "2026-11-08T14:47:01.404Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/3c/683d7a5688f9ebdbd69c19db34780eb3d524012523ee04fc4c64742c5bc6/urban_workflow-0.2.1-py3-none-any.whl", hash = "sha256:a32e0083bf169eaafcef3ee035d5bf840f825e16bbb7446e5e9b2cba13dd8022", size = 112415, upload-time = "2026-11-08T14:47:00.061Z" },
+]
+
+[package.optional-dependencies]
+schemas = [
+    { name = "jsonschema" },
+    { name = "pyyaml" },
 ]
 
 [[package]]

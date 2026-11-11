@@ -44,6 +44,25 @@ dependencies = [
     "urban-json==0.3.0",
     # Web Component <jslt-editor> et ses assets, servis par le backend (24/10/2026).
     "urban-json-editor==0.3.0",
+    # Moteur de workflow piloté par un DSL (Gael, 11/11/2026) : c'est lui qui dit ce
+    # qu'EST un événement — un nom, un libellé, un JSON Schema écrit en YAML, des clés
+    # d'anti-doublon. Le portail l'embarque pour DIAGNOSTIQUER ce qu'il écrit, comme pour
+    # les chaînes JSLT : refuser au moment de poser ce que le moteur refuserait à
+    # l'exécution, plutôt que de le découvrir dans un environnement.
+    #
+    # Extra `schemas`, et surtout PAS `sql` : `schemas` n'apporte que `PyYAML` et
+    # `jsonschema`, déjà déclarés tous les deux ci-dessus — aucun paquet de plus, et la
+    # déclaration dit ce qu'on utilise. `sql` tirerait SQLAlchemy, que l'invariant du
+    # dépôt exclut (asyncpg, aucun ORM) : `urban_workflow.storage_sql` ne s'importe pas.
+    #
+    # Version épinglée au strict, et la mesure du 11/11/2026 dit pourquoi : le dépôt amont
+    # publie 0.2.1 sur PyPI alors que sa branche `main` déclare encore 0.1.0 — la
+    # documentation lue sur GitHub décrit donc autre chose que ce qu'on installe, à cinq
+    # modules près (`artifacts`, `dsl/expressions`, `dsl/surface`, `schemas`, `scripts`
+    # n'existent pas sur `main`). La source qui fait foi est le tag `v0.2.1`, identique
+    # octet pour octet à la roue publiée. Son `urban-json>=0.2.1` est satisfait par le
+    # `==0.3.0` déjà épinglé, et le runtime ANTLR arrive déjà par lui : zéro paquet neuf.
+    "urban-workflow[schemas]==0.2.1",
     "uvicorn[standard]>=0.32",
 ]
 
