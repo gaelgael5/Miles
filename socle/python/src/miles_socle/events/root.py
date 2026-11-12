@@ -1,19 +1,30 @@
-"""La racine technique commune à TOUS les events, quelle que soit leur notion.
+"""La racine technique commune à TOUS les events, quelle que soit leur catégorie.
 
 Décision de Gael du 12/11/2026 : « tous les events dans l'application tombent dans la même
 table d'évènement […] avec une racine technique d'event qui est la même et qui est basée
-sur le package urban-workflow ». Trois notions s'y distinguent — voir `EventNotion` —, mais
-la racine ne varie pas : c'est elle qui fait qu'un event du back-office et un event venu
-d'un device se relisent de la même façon.
+sur le package urban-workflow ». Puis, le même jour : « l'event qui utilise un objet racine
+fourni par urban-workflow doit être surchargé par un objet racine commun qui portera la
+catégorie et d'autre futures propriétés si ça arrive. »
 
-**Pourquoi la racine est RECOPIÉE ici plutôt qu'importée d'urban-workflow.** Mesuré le
+Il y a donc **deux racines, et c'est voulu** :
+
+- `ENGINE_ROOT_SCHEMA` — celle du moteur, telle qu'il la porte. Elle ne nous appartient
+  pas : on la suit.
+- `ROOT_SCHEMA` — **celle de Miles**, qui est la première PLUS ce que Miles ajoute
+  (`MILES_FIELDS`). C'est d'elle que dérive tout schéma d'event, et c'est elle que l'écran
+  montre verrouillée au-dessus des champs métier.
+
+Ce découpage est ce qui permet d'ajouter une propriété à nous sans toucher à la copie de
+l'amont, et de voir en un coup d'œil ce qui vient de qui — « d'autres futures propriétés si
+ça arrive » devient une ligne dans `MILES_FIELDS`, pas une divergence silencieuse.
+
+**Pourquoi la racine du moteur est RECOPIÉE ici plutôt qu'importée.** Mesuré le
 12/11/2026 : `urban-workflow` dépend d'`urban-json` sans extra, et tire le runtime ANTLR.
 L'importer depuis le socle imposerait le moteur de transformation au module d'enrôlement,
 qui n'en installe aucun — invariant du dépôt, tenu par `tests/`. La divergence que toute
 copie finit par produire est tenue par une garde DU PORTAIL, seul produit qui a le moteur
-installé : `tests/test_racine_des_events.py` compare cette déclaration à
-`BASE_EVENT_SCHEMA` et rougit sur un champ ajouté, retiré ou dont le format a changé. Une
-copie éprouvée, pas une copie laissée vivre.
+installé : `tests/test_racine_des_events.py` compare champ par champ et rougit sur un champ
+ajouté, retiré ou dont le format a changé. Une copie éprouvée, pas une copie laissée vivre.
 
 **Où vivent ces champs** : dans les COLONNES du journal, nommées par `COLUMN_OF_FIELD`, et
 jamais dans le bloc de propriétés. Un champ de la racine rangé dans le bloc serait
@@ -23,11 +34,12 @@ différemment — ce que le catalogue de types ne pourrait plus rattraper.
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any, Final
 
-ROOT_SCHEMA: Final[dict[str, Any]] = {
+ENGINE_ROOT_SCHEMA: Final[dict[str, Any]] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "urban-workflow base event",
     "type": "object",
@@ -48,14 +60,53 @@ ROOT_SCHEMA: Final[dict[str, Any]] = {
     "required": ["Name"],
 }
 
+# Ce que Miles ajoute à la racine du moteur, et rien d'autre. Toute propriété posée ici est
+# verrouillée pour les schémas métier, exactement comme celles du moteur.
+#
+# `Category` dit QUI INTRODUIT l'event (Gael, 12/11/2026), et c'est de là que l'IHM de
+# configuration tire le droit de l'éditer ou non : un type introduit par du code y est en
+# lecture seule. **Son énumération n'est pas close** — « je ne sais pas si les catégories
+# sont au complet. probablement pas » —, donc le schéma déclare la propriété sans fixer la
+# liste des valeurs : un `enum` écrit ici avant l'arbitrage se retrouverait dans un contrat
+# publié, où une valeur manquante devient une rupture. La liste sera tenue par le catalogue
+# de types (story 3f4905bf), seul endroit qui doit la refuser quand elle est inconnue.
+MILES_FIELDS: Final[Mapping[str, Any]] = {
+    "Category": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Qui introduit l'event ; un type introduit par du code est en "
+        "lecture seule dans l'IHM de configuration.",
+    },
+}
+
+
+def _miles_root() -> dict[str, Any]:
+    """La racine du moteur, surchargée de ce que Miles ajoute.
+
+    Assemblée et non recopiée à la main : une recopie aurait figé les sept champs du moteur
+    une seconde fois, et la garde du portail n'en aurait surveillé qu'une.
+    """
+    racine = copy.deepcopy(ENGINE_ROOT_SCHEMA)
+    racine["title"] = "racine commune des events de Miles"
+    racine["properties"].update(copy.deepcopy(dict(MILES_FIELDS)))
+    return racine
+
+
+ROOT_SCHEMA: Final[dict[str, Any]] = _miles_root()
+
 # La correspondance champ de la racine ↔ colonne du journal, écrite UNE fois. Les quatre
 # premières existaient avant la décision du 12/11/2026 sous d'autres noms : le journal
-# portait déjà la racine sans le dire. Les trois dernières sont ce que la racine apporte —
-# et `ExternalId` répond exactement à une décision de l'epic qui n'avait pas de support :
-# « quand la modification vient d'un message reçu, l'event consigne l'identifiant de ce
-# message, stable à travers les ré-émissions ».
+# portait déjà la racine du moteur sans le dire. Les trois suivantes sont ce que cette
+# racine apporte — et `ExternalId` répond exactement à une décision de l'epic qui n'avait
+# pas de support : « quand la modification vient d'un message reçu, l'event consigne
+# l'identifiant de ce message, stable à travers les ré-émissions ».
 #
-# `DedupKey` a sa colonne mais AUCUN producteur, et c'est délibéré. Une colonne que
+# `Category` n'y est PAS, et c'est délibéré : son énumération n'est pas close, donc aucun
+# producteur ne peut poser une valeur juste aujourd'hui. Une colonne qu'on ne sait pas
+# remplir se remplirait de la première valeur plausible. Elle viendra avec le catalogue de
+# types, qui est l'endroit où la catégorie est déclarée.
+#
+# `DedupKey` a sa colonne mais AUCUN producteur, et c'est délibéré aussi. Une colonne que
 # personne n'écrit ressemble sinon à un oubli, et le prochain lecteur la câblerait sur ce
 # qu'il a sous la main : le candidat le plus proche serait justement le pire — le nonce de
 # l'enveloppe d'appel est NEUF à chaque envoi, donc deux émissions du même message auraient
@@ -77,12 +128,14 @@ COLUMN_OF_FIELD: Final[Mapping[str, str]] = {
     "DedupKey": "dedup_key",
 }
 
+ENGINE_ROOT_FIELDS: Final[frozenset[str]] = frozenset(ENGINE_ROOT_SCHEMA["properties"])
+#: Tout ce qu'un schéma métier ne peut pas redéclarer : la racine du moteur ET nos ajouts.
 ROOT_FIELDS: Final[frozenset[str]] = frozenset(ROOT_SCHEMA["properties"])
 
-# Ce que Miles ajoute autour de la racine et qu'urban-workflow ne connaît pas : l'auteur
-# `(annuaire, sub)`, les objets concernés et leur numéro de séquence, et la provenance de
-# la date fonctionnelle. Nommé ici pour que la lecture de `COLUMN_OF_FIELD` ne laisse pas
-# croire que les autres colonnes du journal sont un oubli.
+# Ce que Miles ajoute autour de la racine, en colonnes, et qui n'entre pas dans le schéma
+# d'un event : l'auteur `(annuaire, sub)`, les objets concernés et leur numéro de séquence,
+# et la provenance de la date fonctionnelle. Nommé ici pour que la lecture de
+# `COLUMN_OF_FIELD` ne laisse pas croire que les autres colonnes du journal sont un oubli.
 OUTSIDE_ROOT: Final[tuple[str, ...]] = (
     "author_directory",
     "author_subject",
@@ -97,9 +150,11 @@ class EventNotion(StrEnum):
     """Les notions d'event que Gael distingue (12/11/2026), dans ses mots.
 
     Elles ne changent ni la racine ni la table : elles disent **de quoi un type d'event
-    parle**, ce qu'aucun nom de type ne dit de façon fiable. Un type d'event en porte une
-    et une seule, et il n'y a pas de notion par défaut — c'est le catalogue des types
-    (story 3f4905bf) qui l'exige à la déclaration.
+    parle**, ce qu'aucun nom de type ne dit de façon fiable.
+
+    **Leur rapport avec `Category` est une question ouverte** : la notion dit de quoi
+    l'event parle, la catégorie dit qui l'introduit. Rien ne s'appuie encore sur cette
+    énumération ; si l'arbitrage les fusionne, c'est elle qui disparaît.
     """
 
     # « des évènements techniques du backoffice permettant de traiter des sujets

@@ -1,6 +1,7 @@
 import { socleClash, socleNames, withoutSocle } from "./EventSocle";
 
-// Le socle tel que le portail le sert : le JSON Schema du moteur, pas une liste de noms.
+// Le socle tel que le portail le sert : le JSON Schema de la racine commune de Miles —
+// celle du moteur, surchargée de ce que Miles ajoute —, pas une liste de noms.
 const SOCLE = {
   type: "object",
   required: ["Name"],

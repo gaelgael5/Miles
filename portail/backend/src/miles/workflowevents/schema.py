@@ -12,19 +12,23 @@ import copy
 from typing import Any
 
 import yaml
-from urban_workflow.schemas import BASE_EVENT_SCHEMA
+from miles_socle.events.root import ROOT_SCHEMA
 
 from miles.datamodels.grammar import ModelGrammarError, Problem, load_yaml
 from miles.datamodels.schema import DIALECT, ModelSchema, parse_schema
 from miles.workflowevents.layout import event_id
 
 
-# LU du moteur installé, jamais recopié (`urban_workflow.schemas.BASE_EVENT_SCHEMA`) : le
-# socle commun de tout événement — `Name`, `Uuid`, `ExternalId`, `CreationDate`,
-# `EventDate`, `DedupKey`, et `IntegrationDate` que le moteur pose lui-même à
-# l'intégration. Une recopie aurait divergé à la première montée de version sans que rien
-# ne le signale, et c'est précisément ce que le portail doit éviter : il refuse à
-# l'écriture ce que le moteur refuserait à l'exécution, donc il doit refuser d'après LUI.
+# LU de la racine commune du socle (`miles_socle.events.root.ROOT_SCHEMA`), qui est celle
+# du moteur SURCHARGÉE de ce que Miles ajoute — `Category` depuis le 12/11/2026 (Gael :
+# « l'event qui utilise un objet racine fourni par urban-workflow doit être surchargé par
+# un objet racine commun qui portera la catégorie »).
+#
+# Lu de là et non d'`urban_workflow` directement, alors que le portail a le moteur
+# installé : la racine de Miles est ce dont dérive un événement, et la prendre du moteur
+# ferait accepter ici un champ métier nommé `Category` que le reste du système réserve. La
+# fidélité à l'amont reste tenue, à un seul endroit : `tests/test_racine_des_events.py`
+# compare la copie du socle au `BASE_EVENT_SCHEMA` du moteur installé.
 class EventGrammarError(ModelGrammarError):
     """Un événement non conforme, et c'est une SOUS-CLASSE, non un alias.
 
@@ -38,12 +42,12 @@ class EventGrammarError(ModelGrammarError):
     """
 
 
-_SOCLE: dict[str, Any] = dict(BASE_EVENT_SCHEMA.get("properties") or {})
+_SOCLE: dict[str, Any] = dict(ROOT_SCHEMA.get("properties") or {})
 SOCLE_NAMES = frozenset(_SOCLE)
 
 
 def socle_schema() -> dict[str, Any]:
-    """Le socle commun, tel que le moteur le porte : un JSON Schema, pas une liste.
+    """Le socle commun, tel que Miles le porte : un JSON Schema, pas une liste.
 
     Servi comme SCHÉMA et non comme un tableau de noms, et c'est ce que fait aussi la vue
     « Événements » du playground d'urban-workflow (`api/base-event-schema`) : l'écran peut
@@ -52,10 +56,10 @@ def socle_schema() -> dict[str, Any]:
     annexe. Un aplatissement aurait en outre perdu ce que le schéma dit en plus : les
     `format`, les descriptions, et quelle propriété est obligatoire.
 
-    Copie profonde : le dictionnaire du moteur est un singleton de module, et un appelant
+    Copie profonde : le dictionnaire du socle est un singleton de module, et un appelant
     qui le modifierait changerait ce que validera l'événement suivant.
     """
-    return copy.deepcopy(BASE_EVENT_SCHEMA)
+    return copy.deepcopy(ROOT_SCHEMA)
 
 
 def parse_event_schema(text: str) -> ModelSchema:
