@@ -19,12 +19,9 @@ d'où les deux côte à côte. **Ce que le contrat publié expose — le numéro
 pas encore tranché**, et c'est pour cela que ce module ne décide pas de la forme du fil :
 il déclare le vocabulaire, une seule fois, et le contrat choisira.
 
-Le trou connu, et il est mesuré : urban-workflow **injecte lui-même** un event technique
-`$_result` dans chaque workflow (« technical result of execution of an order pushed by the
-current workflow »). Il n'est introduit ni par notre code, ni par une IHM, ni par un
-device, ni par le paramétrage — aucune catégorie de cette liste ne lui va. Tant qu'elle
-n'est pas tranchée, `of_slug` le refusera comme n'importe quel inconnu, ce qui est le bon
-comportement : un event sans catégorie juste ne doit pas en recevoir une par défaut.
+**Ce que le contrat publie, tranché le 12/11/2026** : « On reste sur les numéros ». C'est
+donc le NUMÉRO qui voyage, et la racine commune déclare `Category` en entier énuméré — le
+nom reste ici, pour les écrans et pour la lecture d'un diff.
 """
 
 from __future__ import annotations
@@ -59,6 +56,12 @@ CATEGORIES: Final[tuple[EventCategory, ...]] = (
     # La seule éditable : déclarée dans le paramétrage du workspace, émise par le terminal.
     # C'est elle que l'écran des événements laisse modifier.
     EventCategory(5, "device-fonctionnel", code_introduced=False),
+    # Ajoutée le 12/11/2026 sur un trou MESURÉ, pas supposé : urban-workflow injecte
+    # lui-même un event technique `$_result` dans chaque workflow (« technical result of
+    # execution of an order pushed by the current workflow »). Il n'est introduit ni par
+    # notre code, ni par une IHM, ni par un device, ni par le paramétrage — aucune des six
+    # premières ne lui allait, et sans elle un workflow réel ne se chargeait pas.
+    EventCategory(6, "moteur-workflow", code_introduced=True),
 )
 
 _BY_SLUG: Final[dict[str, EventCategory]] = {item.slug: item for item in CATEGORIES}

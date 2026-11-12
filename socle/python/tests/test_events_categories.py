@@ -29,6 +29,7 @@ class TestLesCategoriesDEvent:
             (3, "system-front"),
             (4, "device-socle"),
             (5, "device-fonctionnel"),
+            (6, "moteur-workflow"),
         ]
 
     def test_une_seule_categorie_est_editable_dans_l_ihm(self) -> None:
@@ -46,7 +47,7 @@ class TestLesCategoriesDEvent:
         [
             (of_slug, "system-backend", "system-backend"),
             (of_slug, "", "''"),
-            (of_number, 6, "6"),
+            (of_number, 7, "7"),
             (of_number, -1, "-1"),
         ],
         ids=["nom-regroupe-abandonne", "nom-vide", "numero-hors-liste", "numero-negatif"],

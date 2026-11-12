@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from miles_socle.events.categories import CATEGORIES
 from miles_socle.events.root import (
     COLUMN_OF_FIELD,
     ENGINE_ROOT_FIELDS,
@@ -34,14 +35,20 @@ class TestLaRacineDeMilesSurchargeCelleDuMoteur:
         # silencieuse. Ici elle devient un échec de test.
         assert set(MILES_FIELDS) & ENGINE_ROOT_FIELDS == set()
 
-    def test_la_categorie_est_declaree_sans_figer_ses_valeurs(self) -> None:
-        """Son énumération n'est pas close (« probablement pas », Gael) : un `enum` écrit
-        trop tôt partirait dans un contrat publié, où une valeur manquante est une
-        rupture."""
+    def test_la_categorie_est_un_entier_enumere_derive_des_categories_declarees(self) -> None:
+        """« On reste sur les numéros » (Gael, 12/11/2026) : c'est le numéro qui voyage.
+
+        Et l'énumération est DÉRIVÉE de la liste des catégories, jamais recopiée : une
+        catégorie ajoutée là-bas doit entrer ici toute seule, sinon le schéma refuserait
+        une valeur que le code accepte. Ce test est ce qui tient cette dérivation.
+        """
         categorie = ROOT_SCHEMA["properties"]["Category"]
 
-        assert categorie["type"] == "string"
-        assert "enum" not in categorie
+        assert categorie["type"] == "integer"
+        assert categorie["enum"] == [item.number for item in CATEGORIES]
+        # Discriminant : sept catégories déclarées, donc sept valeurs — un `enum` figé à
+        # six serait vert sur la seule comparaison de type.
+        assert len(categorie["enum"]) == len(CATEGORIES)
 
     def test_la_racine_du_moteur_n_est_pas_modifiee_par_l_assemblage(self) -> None:
         # Assemblée par copie profonde : sans elle, ajouter `Category` à la racine de Miles

@@ -39,6 +39,8 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any, Final
 
+from miles_socle.events.categories import CATEGORIES
+
 ENGINE_ROOT_SCHEMA: Final[dict[str, Any]] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "urban-workflow base event",
@@ -65,15 +67,21 @@ ENGINE_ROOT_SCHEMA: Final[dict[str, Any]] = {
 #
 # `Category` dit QUI INTRODUIT l'event (Gael, 12/11/2026), et c'est de là que l'IHM de
 # configuration tire le droit de l'éditer ou non : un type introduit par du code y est en
-# lecture seule. **Son énumération n'est pas close** — « je ne sais pas si les catégories
-# sont au complet. probablement pas » —, donc le schéma déclare la propriété sans fixer la
-# liste des valeurs : un `enum` écrit ici avant l'arbitrage se retrouverait dans un contrat
-# publié, où une valeur manquante devient une rupture. La liste sera tenue par le catalogue
-# de types (story 3f4905bf), seul endroit qui doit la refuser quand elle est inconnue.
+# lecture seule.
+#
+# **Un ENTIER, et son énumération est celle des catégories déclarées.** « On reste sur les
+# numéros » (Gael, 12/11/2026) : c'est le numéro qui voyage sur le fil et dans le contrat
+# publié, donc le porter en chaîne ici aurait donné deux formes pour la même valeur — un
+# écran la lirait `5`, un contrat `"device-fonctionnel"`, et la conversion se serait
+# installée quelque part au milieu.
+#
+# L'énumération est DÉRIVÉE de `CATEGORIES`, jamais recopiée : une septième catégorie
+# ajoutée là-bas entre ici toute seule. Une liste écrite à la main aurait laissé passer un
+# ajout, et le schéma aurait refusé une valeur que le code accepte.
 MILES_FIELDS: Final[Mapping[str, Any]] = {
     "Category": {
-        "type": "string",
-        "minLength": 1,
+        "type": "integer",
+        "enum": [item.number for item in CATEGORIES],
         "description": "Qui introduit l'event ; un type introduit par du code est en "
         "lecture seule dans l'IHM de configuration.",
     },
