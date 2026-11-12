@@ -57,6 +57,8 @@ EVENT_SHAPES = (
     ),
 )
 EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
+# Ce que `_event` ajoute à CHAQUE bloc de ce module (voir `trads_keys`).
+AJOUTE_PAR_LE_HELPER: tuple[str, ...] = ("branch",)
 
 
 class ContextTakenError(WorkspaceConflictError):

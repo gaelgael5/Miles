@@ -12,31 +12,49 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from miles_socle.events.catalog import EventShape, closed_block
 
 HOSTING_OBJECT_KIND = "hosted_version"
 VERSION_SERVED_EVENT = "hosting.version_served"
 VERSION_REFUSED_EVENT = "hosting.version_refused"
+# L'ORDRE reçu, que `_write_event` ajoute à TOUT event de ce module : le numéro de version
+# et le commit ordonné. Mesuré le 12/11/2026, et la première version de ces formes les
+# avait ratés — lire le site d'appel ne suffit pas quand un helper complète le bloc, et
+# c'est la campagne d'intégration qui l'a dit. Une garde les tient désormais ensemble
+# (`tests/test_formes_des_events.py`).
+_ORDRE: dict[str, Any] = {
+    "number": {"type": "integer", "minimum": 1},
+    # DÉRIVÉ de `COMMIT_RE` ci-dessous, qui est la forme du CHECK de la migration 0015.
+    "ordered_commit": {"type": "string", "pattern": r"^[0-9a-f]{40}$"},
+}
 # Deux blocs et non un seul portant les deux champs facultatifs : les deux questions ne
 # se posent jamais ensemble, et un champ nul obligerait à l'interpréter pour savoir
-# laquelle on relit. Les formes sont mesurées sur `service.py`, seul producteur des deux.
+# laquelle on relit.
 EVENT_SHAPES = (
     EventShape(
         VERSION_SERVED_EVENT,
         "Version servie par cette stack",
-        # DÉRIVÉ de `COMMIT_RE` ci-dessous, qui est la forme du CHECK de la migration 0015.
-        closed_block({"commit": {"type": "string", "pattern": r"^[0-9a-f]{40}$"}}),
+        # `commit` est ce qu'on SERT ; `ordered_commit` ce qui avait été demandé. Les deux,
+        # parce que le refus `commit_inattendu` existe précisément quand ils diffèrent.
+        closed_block({**_ORDRE, "commit": {"type": "string", "pattern": r"^[0-9a-f]{40}$"}}),
     ),
     EventShape(
         VERSION_REFUSED_EVENT,
         "Version non servie",
         # Un motif et non une énumération : ce module en déclare onze, et les énumérer ici
         # ferait une douzième liste à tenir d'accord avec la première.
-        closed_block({"refusal": {"type": "string", "pattern": r"^[a-z][a-z0-9_]{0,39}$"}}),
+        closed_block(
+            {**_ORDRE, "refusal": {"type": "string", "pattern": r"^[a-z][a-z0-9_]{0,39}$"}}
+        ),
     ),
 )
 EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
+# Les types que `HostingService._write_event` écrit, donc ceux dont le bloc doit
+# déclarer l'ordre reçu. Nommés ici plutôt que recopiés dans le test : le jour où un
+# troisième type passe par ce helper, il entre dans la garde tout seul.
+EVENT_TYPES_ORDONNES: tuple[str, ...] = (VERSION_SERVED_EVENT, VERSION_REFUSED_EVENT)
 
 # La MÊME forme que le CHECK de la migration 0015 : la base tient l'invariant pour de bon,
 # le code est le seul à pouvoir refuser en nommant ce qui pèche.

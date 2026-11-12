@@ -53,12 +53,19 @@ EVENT_SHAPES = (
     EventShape(
         KEY_DELETED_EVENT,
         "Clé de traduction supprimée",
-        # Les CULTURES dont la valeur a disparu avec la clé : c'est ce que la confirmation
-        # annonçait, et la seule trace de ce qui a été perdu.
-        closed_block({**_CLE, "cultures": {"type": "array", "items": NAME}}),
+        # Le NOMBRE de fichiers de cultures dont la valeur a disparu avec la clé : c'est
+        # ce que la confirmation annonçait, et la seule trace de ce qui a été perdu. Un
+        # COMPTE et non la liste des cultures — mesuré le 12/11/2026, la première version
+        # de cette forme avait supposé une liste et la campagne l'a refusée. Au moins un :
+        # `removed == 0` lève `KeyUnknownError` avant d'écrire l'event.
+        closed_block({**_CLE, "cultures": {"type": "integer", "minimum": 1}}),
     ),
 )
 EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
+# Ce que `_event` ajoute à CHAQUE bloc de ce module. Nommé ici pour que la garde des
+# formes (`tests/test_formes_des_events.py`) le tienne sans le recopier : un helper qui
+# complète un bloc fermé sans que le type le déclare refuse TOUS ses events.
+AJOUTE_PAR_LE_HELPER: tuple[str, ...] = ("context", "branch")
 # Borne d'une page de clés : un contexte en porte des milliers au bout d'un an, et l'écran
 # doit rester utilisable (critère 18).
 PAGE_MAX = 200
