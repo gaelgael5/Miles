@@ -21,7 +21,7 @@ from typing import Any
 import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from environnement.hosting.gitstore import HostedTree
 from environnement.storages.ddl import (
@@ -80,7 +80,7 @@ class Outcome:
 class StoragesService:
     pool: asyncpg.Pool
     tree: HostedTree
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_materialise(self, version_number: int) -> Outcome:

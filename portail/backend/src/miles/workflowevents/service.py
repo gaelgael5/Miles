@@ -8,7 +8,7 @@ from typing import Any
 import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from miles.datamodels.grammar import Problem
 from miles.datamodels.layout import SHARED, ModelEntry
@@ -63,7 +63,7 @@ class WorkflowEventsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_list(

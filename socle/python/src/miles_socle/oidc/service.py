@@ -9,8 +9,9 @@ import asyncpg
 import httpx
 import structlog
 
+from miles_socle.events.catalog import EventShape
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 from miles_socle.oidc.model import (
     CULTURE_RE,
     LABEL_CULTURE,
@@ -60,7 +61,64 @@ CREATED_EVENT = "oidc.connector.created"
 UPDATED_EVENT = "oidc.connector.updated"
 DELETED_EVENT = "oidc.connector.deleted"
 ADMIN_RECOGNIZED_EVENT = "oidc.admin_recognized"
-EVENT_TYPES = frozenset({CREATED_EVENT, UPDATED_EVENT, DELETED_EVENT, ADMIN_RECOGNIZED_EVENT})
+# Le secret client n'apparaît que par son slug, et c'est déjà vrai de `_changes` : la
+# forme ci-dessous ne fait que l'inscrire dans le contrat au lieu de le laisser à la
+# vigilance de celui qui ajoutera un champ suivi.
+_UN_CHANGEMENT: Mapping[str, Any] = {
+    "type": "object",
+    # `before` et `after` acceptent n'importe quelle valeur JSON — ce sont les champs
+    # suivis du connecteur, de la chaîne au dictionnaire de libellés. Les contraindre
+    # obligerait à redire ici la forme de chaque champ, qui vit dans `validate_input`.
+    "properties": {"before": {}, "after": {}},
+    "required": ["before", "after"],
+    "additionalProperties": False,
+}
+EVENT_SHAPES = (
+    EventShape(
+        CREATED_EVENT,
+        "Connecteur OIDC créé",
+        {
+            "type": "object",
+            "properties": {"issuer": {"type": "string", "minLength": 1}},
+            "required": ["issuer"],
+            "additionalProperties": False,
+        },
+    ),
+    EventShape(
+        UPDATED_EVENT,
+        "Connecteur OIDC modifié",
+        {
+            "type": "object",
+            # Seuls les champs qui ont CHANGÉ sont présents, et chacun porte son avant et
+            # son après : deux cases sont des réglages de sécurité, et le journal doit
+            # dire qui les a cochées. Un objet vide est donc possible sans être faux.
+            "properties": {"changes": {"type": "object", "additionalProperties": _UN_CHANGEMENT}},
+            "required": ["changes"],
+            "additionalProperties": False,
+        },
+    ),
+    # Le connecteur a disparu : son identifiant est l'objet de l'event, et il n'y a rien
+    # d'autre à dire. Son émetteur se relit dans l'event de création.
+    EventShape(
+        DELETED_EVENT,
+        "Connecteur OIDC supprimé",
+        {"type": "object", "properties": {}, "additionalProperties": False},
+    ),
+    EventShape(
+        ADMIN_RECOGNIZED_EVENT,
+        "Administrateur reconnu par un connecteur",
+        {
+            "type": "object",
+            # Le `sub` et jamais l'adresse ni le nom : l'identité est le couple
+            # (annuaire, sub), et le reste est cosmétique chez le fournisseur.
+            "properties": {"sub": {"type": "string", "minLength": 1}},
+            "required": ["sub"],
+            "additionalProperties": False,
+        },
+    ),
+)
+# DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté.
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 CALLBACK_PATH = "/api/auth/oidc/callback"
 # Le temps de s'authentifier chez le fournisseur ; au-delà, la tentative est perdue.
 ATTEMPT_TTL = timedelta(minutes=10)
@@ -101,7 +159,7 @@ class OidcService:
     pool: asyncpg.Pool
     http: httpx.AsyncClient
     secrets: SecretsService
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     public_url: str | None
     allow_http_issuer: bool

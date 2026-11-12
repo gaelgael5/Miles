@@ -7,7 +7,7 @@ from datetime import datetime
 import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from miles.contracts.derived import (
     checked_model_name,
@@ -34,7 +34,7 @@ class ContractModelsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_model(

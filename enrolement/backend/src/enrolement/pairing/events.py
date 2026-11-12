@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any, get_args
+
+from miles_socle.events.catalog import EventShape
+from miles_socle.signing.protocol import PeerSpecies
+
 # Les types d'events de CE module et les objets qu'ils nomment, plus le libellé de son
 # secret de signature. Dans leur propre fichier parce que les cinq parties du service en
 # écrivent et que `event_types.py` les relit : les laisser dans `model.py`, qui porte les
@@ -43,18 +49,130 @@ PEER_CONTACT_CHANGED_EVENT = "pairing.peer_contact_changed"
 GIT_CONNECTION_OBJECT_KIND = "confided_git_connection"
 GIT_CONNECTIONS_CONFIDED_EVENT = "pairing.git_connections_confided"
 GIT_CREDENTIAL_RENEWED_EVENT = "pairing.git_credential_renewed"
-EVENT_TYPES = frozenset(
+# --- Les formes, c'est-à-dire le bloc de propriétés que chaque fait porte -------------
+# Mesurées sur les producteurs eux-mêmes le 12/11/2026, un par un : ce fichier ne décrit
+# pas ce qu'on aimerait écrire, il décrit ce que les cinq parties du service écrivent.
+# Les blocs sont FERMÉS — ajouter une propriété sans la déclarer ici fait refuser l'event
+# au lieu de la laisser entrer sans que l'écran ni le contrat n'en sachent rien.
+
+_EMPREINTE: Mapping[str, Any] = {"type": "string", "minLength": 1}
+# DÉRIVÉE du contrat, jamais recopiée : l'espèce voyage dans la chaîne signée, et une
+# troisième espèce ajoutée là-bas doit entrer ici toute seule.
+_ESPECE: Mapping[str, Any] = {"type": "string", "enum": list(get_args(PeerSpecies))}
+# L'environnement est nommé par son identifiant ET par ses deux noms du moment : c'est
+# sous le nom de l'époque qu'on relira ce journal, et les deux noms sont renommables.
+_ENVIRONNEMENT: Mapping[str, Mapping[str, Any]] = {
+    "environment_id": {"type": "string", "minLength": 1},
+    "environment_slug": {"type": "string", "minLength": 1},
+    "environment_label": {"type": "string", "minLength": 1},
+}
+
+
+def _ferme(proprietes: Mapping[str, Any]) -> dict[str, Any]:
+    """Un bloc fermé dont toutes les propriétés sont obligatoires.
+
+    Obligatoires et non facultatives : un producteur qui omettrait une propriété écrirait
+    un event incomplet, et c'est au moment de l'écriture qu'on peut encore le dire. Une
+    valeur qui peut manquer est NULLE et déclarée telle — `pairing.revoked` le fait pour
+    l'environnement quitté —, parce qu'un nul se relit et qu'une absence s'interprète.
+    """
+    return {
+        "type": "object",
+        "properties": dict(proprietes),
+        "required": sorted(proprietes),
+        "additionalProperties": False,
+    }
+
+
+_ENVIRONNEMENT_POSE = _ferme(_ENVIRONNEMENT)
+# Le déplacement porte les SIX champs : il y avait quelque chose avant, et c'est ce
+# « avant » qu'on viendra chercher. Les champs du précédent sont ABSENTS et non nuls dans
+# les deux autres faits — un rattachement qui porterait `previous_environment_id: null`
+# ferait chercher un déplacement qui n'a pas eu lieu, et le bloc fermé l'interdit.
+_ENVIRONNEMENT_DEPLACE = _ferme(
     {
-        REQUEST_OPENED_EVENT,
-        REQUEST_REJECTED_EVENT,
-        REQUEST_EXPIRED_EVENT,
-        PAIRING_CONFIRMED_EVENT,
-        ENVIRONMENT_DESIGNATED_EVENT,
-        ENVIRONMENT_ATTACHED_EVENT,
-        ENVIRONMENT_MOVED_EVENT,
-        PAIRING_REVOKED_EVENT,
-        PEER_CONTACT_CHANGED_EVENT,
-        GIT_CONNECTIONS_CONFIDED_EVENT,
-        GIT_CREDENTIAL_RENEWED_EVENT,
+        **_ENVIRONNEMENT,
+        **{f"previous_{nom}": forme for nom, forme in _ENVIRONNEMENT.items()},
     }
 )
+
+EVENT_SHAPES = (
+    EventShape(
+        REQUEST_OPENED_EVENT,
+        "Demande d'appariement ouverte",
+        _ferme(
+            {
+                "public_key_fingerprint": _EMPREINTE,
+                "declared_name": {"type": "string", "minLength": 1},
+                "species": _ESPECE,
+            }
+        ),
+    ),
+    # Refus et expiration ne portent rien : l'objet de l'event est l'origine de la
+    # demande, et le fait est entier. Ce qu'elle déclarait se relit dans son ouverture.
+    EventShape(REQUEST_REJECTED_EVENT, "Demande d'appariement refusée", _ferme({})),
+    EventShape(REQUEST_EXPIRED_EVENT, "Demande d'appariement expirée", _ferme({})),
+    EventShape(
+        PAIRING_CONFIRMED_EVENT,
+        "Appariement conclu",
+        _ferme({"public_key_fingerprint": _EMPREINTE, "species": _ESPECE}),
+    ),
+    EventShape(
+        ENVIRONMENT_DESIGNATED_EVENT, "Environnement désigné par une demande", _ENVIRONNEMENT_POSE
+    ),
+    EventShape(ENVIRONMENT_ATTACHED_EVENT, "Environnement rattaché", _ENVIRONNEMENT_POSE),
+    EventShape(ENVIRONMENT_MOVED_EVENT, "Appariement déplacé", _ENVIRONNEMENT_DEPLACE),
+    EventShape(
+        PAIRING_REVOKED_EVENT,
+        "Appariement révoqué",
+        _ferme(
+            {
+                "public_key_fingerprint": _EMPREINTE,
+                # NULS pour un appariement hérité, qui n'en portait aucun : les trois
+                # champs sont là, et c'est leur nullité qui dit « aucun environnement ».
+                **{nom: {"type": ["string", "null"]} for nom in _ENVIRONNEMENT},
+                # `null` ET RIEN D'AUTRE, tant que le référentiel des devices n'existe
+                # pas : écrire 0 serait indiscernable, dans un an, d'un vrai « aucun
+                # device n'a été libéré ». Ce schéma rougira le jour où le référentiel
+                # arrivera, et c'est le bon moment pour y penser.
+                "devices_released": {"type": "null"},
+                # Un entier, et non nul : les connexions git confiées existent, et un
+                # environnement n'en porte jamais — la base le lui interdit. Zéro est
+                # donc une vérité ici, là où pour les devices il aurait été un mensonge.
+                "git_connections_destroyed": {"type": "integer", "minimum": 0},
+            }
+        ),
+    ),
+    EventShape(
+        PEER_CONTACT_CHANGED_EVENT,
+        "Adresse de contact du pair changée",
+        _ferme({"contact_url": {"type": "string", "minLength": 1}}),
+    ),
+    EventShape(
+        GIT_CONNECTIONS_CONFIDED_EVENT,
+        "Connexions git confiées",
+        _ferme(
+            {
+                "revision": {"type": "integer", "minimum": 0},
+                # Les IDENTIFIANTS, jamais les credentials — pas même tronqués. Le journal
+                # est lu bien plus largement que la table des connexions.
+                "connections": {"type": "array", "items": {"type": "string", "minLength": 1}},
+                "renewed": {"type": "array", "items": {"type": "string", "minLength": 1}},
+                "destroyed": {"type": "array", "items": {"type": "string", "minLength": 1}},
+            }
+        ),
+    ),
+    EventShape(
+        GIT_CREDENTIAL_RENEWED_EVENT,
+        "Credential git renouvelé",
+        _ferme(
+            {
+                "peer_base_url": {"type": "string", "minLength": 1},
+                "revision": {"type": "integer", "minimum": 0},
+            }
+        ),
+    ),
+)
+# DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté,
+# et la plus courte aurait fait refuser au journal un event que ce module écrit.
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)

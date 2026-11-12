@@ -7,7 +7,7 @@ from datetime import datetime
 import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 from miles_socle.git.failures import classify
 
 from miles.git.graph import CommitNode, read_graph
@@ -54,7 +54,7 @@ class BranchesService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_list(self, workspace_id: str) -> list[BranchEntry]:

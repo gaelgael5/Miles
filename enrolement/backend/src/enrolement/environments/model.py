@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import UUID
+
+from miles_socle.events.catalog import EventShape
 
 ENVIRONMENT_OBJECT_KIND = "environment"
 
@@ -15,15 +19,57 @@ ENVIRONMENT_DELETED_EVENT = "environment.deleted"
 # journal sans avoir à interpréter l'absence d'une propriété.
 ENVIRONMENT_WORKSPACE_PLACED_EVENT = "environment.workspace_placed"
 ENVIRONMENT_WORKSPACE_CLEARED_EVENT = "environment.workspace_cleared"
-EVENT_TYPES = frozenset(
-    {
-        ENVIRONMENT_CREATED_EVENT,
-        ENVIRONMENT_RENAMED_EVENT,
-        ENVIRONMENT_DELETED_EVENT,
-        ENVIRONMENT_WORKSPACE_PLACED_EVENT,
-        ENVIRONMENT_WORKSPACE_CLEARED_EVENT,
+# --- Les formes, mesurées sur les producteurs de `service.py` -------------------------
+_NOM: Mapping[str, Any] = {"type": "string", "minLength": 1}
+_WORKSPACE: Mapping[str, Any] = {"type": "string", "minLength": 1}
+
+
+def _ferme(proprietes: Mapping[str, Any]) -> dict[str, Any]:
+    """Un bloc fermé dont toutes les propriétés sont obligatoires (voir `pairing.events`)."""
+    return {
+        "type": "object",
+        "properties": dict(proprietes),
+        "required": sorted(proprietes),
+        "additionalProperties": False,
     }
+
+
+_IDENTITE = _ferme({"slug": _NOM, "label": _NOM})
+EVENT_SHAPES = (
+    EventShape(ENVIRONMENT_CREATED_EVENT, "Environnement déclaré", _IDENTITE),
+    EventShape(
+        ENVIRONMENT_RENAMED_EVENT,
+        "Environnement renommé",
+        # Les valeurs précédentes sont dans l'event, et c'est tout l'intérêt : un journal
+        # qui ne dit pas ce qu'il y avait avant ne permet pas de retrouver ce qu'une
+        # procédure désignait la semaine dernière.
+        _ferme({"slug": _NOM, "label": _NOM, "previous_slug": _NOM, "previous_label": _NOM}),
+    ),
+    # Les deux noms sont redits à la suppression : la ligne a disparu, et l'event reste la
+    # seule trace de ce qu'elle portait.
+    EventShape(ENVIRONMENT_DELETED_EVENT, "Environnement supprimé", _IDENTITE),
+    EventShape(
+        ENVIRONMENT_WORKSPACE_PLACED_EVENT,
+        "Workspace placé sur un environnement",
+        # `workspace_id` est une CHAÎNE ici et NUL dans l'event de retrait : c'est la
+        # branche du producteur qui le garantit, et c'est ce qui rend les deux faits
+        # discernables sans interpréter l'absence d'une propriété. Le précédent, lui, est
+        # nul au premier placement.
+        _ferme({"workspace_id": _WORKSPACE, "previous_workspace_id": {"type": ["string", "null"]}}),
+    ),
+    EventShape(
+        ENVIRONMENT_WORKSPACE_CLEARED_EVENT,
+        "Workspace retiré d'un environnement",
+        _ferme(
+            {
+                "workspace_id": {"type": "null"},
+                "previous_workspace_id": {"type": ["string", "null"]},
+            }
+        ),
+    ),
 )
+# DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté.
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 MAX_LABEL_LENGTH = 80
 MAX_SLUG_LENGTH = 48

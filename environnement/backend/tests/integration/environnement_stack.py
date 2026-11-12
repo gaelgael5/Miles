@@ -9,6 +9,7 @@ from typing import Any
 import asyncpg
 import httpx
 from fastapi import FastAPI
+from miles_socle.events.model import EventTypeCatalog
 from miles_socle.testing.files import ADMIN_PASSWORD, ADMIN_USERNAME, BASE_ENV, admin_env, write_env
 from miles_socle.testing.stack import open_socle_stack, utc_now
 
@@ -123,7 +124,7 @@ async def open_stack(
         tmp_path=tmp_path,
         build_app=build_app,
         migrations_dir=DEFAULT_MIGRATIONS_DIR,
-        event_types=code_event_types(),
+        catalog=EventTypeCatalog(code_event_types()),
         base_url=BASE_URL,
         public_url=public_url,
         admin_email=admin_email,

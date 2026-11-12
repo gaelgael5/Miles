@@ -8,8 +8,9 @@ from typing import Any
 import asyncpg
 import structlog
 
+from miles_socle.events.catalog import EventShape
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.model import (
     Consumer,
@@ -46,7 +47,37 @@ CREATED_EVENT = "secret.created"
 VALUE_REPLACED_EVENT = "secret.value_replaced"
 RELABELED_EVENT = "secret.relabeled"
 DELETED_EVENT = "secret.deleted"
-EVENT_TYPES = frozenset({CREATED_EVENT, VALUE_REPLACED_EVENT, RELABELED_EVENT, DELETED_EVENT})
+
+
+def _bloc(**proprietes: Any) -> Mapping[str, Any]:
+    """Un bloc FERMÉ, dont toutes les propriétés sont obligatoires.
+
+    Fermé parce que ces blocs sont ceux d'un journal de secrets : le jour où quelqu'un y
+    ajoutera une propriété, il faut qu'il la déclare ici — c'est le seul endroit où l'on
+    relit « qu'est-ce que ce journal porte, au juste ? » avant d'ouvrir l'écran à tout le
+    monde. La valeur du secret n'y entre jamais, même tronquée.
+    """
+    return {
+        "type": "object",
+        "properties": proprietes,
+        "required": sorted(proprietes),
+        "additionalProperties": False,
+    }
+
+
+_TYPE_DU_SECRET = _bloc(secret_type={"type": "string", "minLength": 1})
+EVENT_SHAPES = (
+    EventShape(CREATED_EVENT, "Secret créé", _TYPE_DU_SECRET),
+    # Aucune propriété, et c'est le fait entier : « la valeur a changé ». Ni l'ancienne ni
+    # la nouvelle, ni leur longueur — tout cela aide à la retrouver.
+    EventShape(VALUE_REPLACED_EVENT, "Valeur de secret remplacée", _bloc()),
+    EventShape(RELABELED_EVENT, "Secret renommé", _bloc(label={"type": "string"})),
+    # Le type est redit à la suppression : la ligne a disparu, et c'est l'event qui reste
+    # la seule trace de ce qu'elle portait.
+    EventShape(DELETED_EVENT, "Secret supprimé", _TYPE_DU_SECRET),
+)
+# DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté.
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 _OBJECT_KIND = "secret"
 
 
@@ -62,7 +93,7 @@ class SecretsService:
 
     pool: asyncpg.Pool
     cipher: SecretCipher
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     # Ce qui doit SAVOIR qu'une valeur vient d'être remplacée. Optionnel, nul par défaut,
     # et le socle ne sait pas ce qu'un produit en fait : il dit « la valeur de ce secret a

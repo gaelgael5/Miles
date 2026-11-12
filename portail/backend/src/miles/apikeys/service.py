@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from miles.apikeys.model import (
     KEY_ID_RE,
@@ -68,7 +68,7 @@ class ApiKeysService:
     """Clés d'API de service (story 0d4e4f75) : émission, droits, révocation, authentification."""
 
     pool: asyncpg.Pool
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_issue(

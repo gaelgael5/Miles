@@ -25,7 +25,7 @@ from typing import Any, Protocol
 
 import structlog
 from miles_socle.events.journal import EventDb, db_write_events
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 from miles_socle.parametrage.layout import MODEL_RE
 from miles_socle.parametrage.refs import ReadFile
 from miles_socle.transform.chain import Chain
@@ -128,7 +128,7 @@ class Processing:
     """
 
     db: ProcessingDb
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     budget: int
     author: EventAuthor

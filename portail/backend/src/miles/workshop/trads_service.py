@@ -7,7 +7,7 @@ from datetime import datetime
 import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from miles.git.workcopy import WorkCopy
 from miles.workshop.target import Gesture, WorkBranches
@@ -69,7 +69,7 @@ class TradsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     # Seuil de signalement d'une couverture très basse, en pour cent (story 82e60880,
     # critère 8). Porté par le service et non lu au point d'usage : c'est lui qui décide,

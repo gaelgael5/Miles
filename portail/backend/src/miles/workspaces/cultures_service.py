@@ -8,7 +8,7 @@ from typing import Any
 import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workshop.trads import file_missing_keys
@@ -46,7 +46,7 @@ class WorkspaceCulturesService:
     # Pour compter, dans le dépôt, ce qui manque avant d'accepter un changement de culture
     # par défaut : le référentiel vit dans git, pas en base.
     branches: WorkBranches
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_cultures(self, workspace_id: str) -> WorkspaceCultures:

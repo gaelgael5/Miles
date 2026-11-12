@@ -36,7 +36,7 @@ from miles_socle.auth.sessions import (
 )
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.migrations import resolve_apply_migrations
-from miles_socle.events.model import EventTypeCatalog
+from miles_socle.events.model import EventChecker
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.testing.files import ADMIN_USERNAME, BASE_ENV, admin_env, write_env
 
@@ -91,7 +91,7 @@ class SocleStack:
     env_file: Path
     http: httpx.AsyncClient
     cipher: SecretCipher
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     base_url: str
 
     def anonymous(self) -> httpx.AsyncClient:
@@ -108,13 +108,18 @@ async def open_socle_stack(
     tmp_path: Path,
     build_app: Callable[[], FastAPI],
     migrations_dir: Path,
-    event_types: frozenset[str],
+    catalog: EventChecker,
     base_url: str,
     public_url: str,
     admin_email: str | None,
     session_ttl: timedelta = timedelta(hours=1),
 ) -> AsyncIterator[SocleStack]:
     """Monte les services du socle sur une base réelle et rend un client administrateur.
+
+    `catalog` est le CATALOGUE du produit et non la liste de ses noms de types : c'est lui
+    qui sait lequel il tient — celui qui ne connaît que des noms, ou celui qui déclare
+    aussi le bloc de chaque type. Monter ses tests sur un autre catalogue que son `app.py`
+    ferait passer une suite entière sans éprouver ce que le conteneur refusera.
 
     `admin_email=None` monte une installation NEUVE, sans administrateur : c'est l'état
     dans lequel l'écran d'amorçage est ouvert, et le seul où il l'est. Le client rendu n'a
@@ -132,7 +137,6 @@ async def open_socle_stack(
         env, backup = write_env(
             tmp_path, BASE_ENV if admin_email is None else admin_env(admin_email)
         )
-        catalog = EventTypeCatalog(event_types)
         cipher = SecretCipher(bytes(range(32)))
         app = build_app()
         store = AdminAccountStore.file_load(env, backup)

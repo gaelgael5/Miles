@@ -8,7 +8,7 @@ from datetime import datetime
 import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from miles.git.holdspace import HeldCopy
 from miles.git.shelf import ShelfMissingError, ShelfTakenError, drop_shelf, merge_shelf, shelve
@@ -52,7 +52,7 @@ async def resume(
     pool: asyncpg.Pool,
     copy: HeldCopy,
     shelf: Shelf,
-    catalog: EventTypeCatalog,
+    catalog: EventChecker,
     now: Callable[[], datetime],
 ) -> None:
     """Fusionne le rangement dans l'espace qu'on vient d'ouvrir, puis le retire de la forge."""
@@ -83,7 +83,7 @@ class ShelvesService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_list(self, workspace_id: str) -> list[Shelf]:

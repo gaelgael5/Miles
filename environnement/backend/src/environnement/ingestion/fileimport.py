@@ -29,7 +29,7 @@ from typing import Any
 import asyncpg
 import structlog
 from miles_socle.apikeys.model import KEY_DIRECTORY
-from miles_socle.events.model import EventAuthor, EventTypeCatalog
+from miles_socle.events.model import EventAuthor, EventChecker
 from miles_socle.parametrage.sources import Entry
 
 from environnement.hosting.gitstore import HostedTree
@@ -102,7 +102,7 @@ class FileImports:
     pool: asyncpg.Pool
     tree: HostedTree
     files: DepositedFiles
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     limits: ImportLimits
 

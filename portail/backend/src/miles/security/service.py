@@ -10,7 +10,7 @@ import asyncpg
 import httpx
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 from miles_socle.oidc.model import CONNECTOR_ID_RE, ConnectorInputError, validate_issuer
 from miles_socle.secrets.model import Consumer, SecretError
 from miles_socle.secrets.service import SecretsService, resolve_attach_secret, resolve_detach_secret
@@ -97,7 +97,7 @@ class SecurityServices:
     pool: asyncpg.Pool
     http: httpx.AsyncClient
     secrets: SecretsService
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     allow_http: bool
 

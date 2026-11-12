@@ -34,7 +34,7 @@ import structlog
 from fastapi import FastAPI
 from miles_socle.apikeys.presentation import API_KEY_HEADER
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from environnement.apikeys.self_key import SelfKeyService
 from environnement.ingestion.api_ingest import INGEST_PATH
@@ -69,7 +69,7 @@ class TrialOutcome:
 class IngestionTrial:
     pool: asyncpg.Pool
     self_keys: SelfKeyService
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_trial(

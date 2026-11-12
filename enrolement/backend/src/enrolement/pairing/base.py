@@ -7,7 +7,7 @@ from typing import Any
 import asyncpg
 import httpx
 import structlog
-from miles_socle.events.model import EventTypeCatalog
+from miles_socle.events.model import EventChecker
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.service import SecretsService
 from miles_socle.signing.identity import ModuleIdentityService
@@ -46,7 +46,7 @@ class PairingBase:
     pool: asyncpg.Pool
     secrets: SecretsService
     cipher: SecretCipher
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     origin: str | None
     # Le client des appels SORTANTS. Ce module n'en émettait aucun avant le

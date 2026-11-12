@@ -16,7 +16,7 @@ from miles_socle.testing.stack import SocleStack, open_socle_stack, utc_now
 from enrolement.app import build_app
 from enrolement.config import DEFAULT_MIGRATIONS_DIR
 from enrolement.environments.service import EnvironmentService
-from enrolement.event_types import code_event_types
+from enrolement.event_types import code_event_catalog
 from enrolement.hosting.gitcache import HostingCache
 from enrolement.hosting.relay import HostingRelay
 from enrolement.hosting.service import HostingService
@@ -102,7 +102,7 @@ async def open_stack(
         tmp_path=tmp_path,
         build_app=build_app,
         migrations_dir=DEFAULT_MIGRATIONS_DIR,
-        event_types=code_event_types(),
+        catalog=code_event_catalog(),
         base_url=BASE_URL,
         public_url=public_url,
         admin_email=admin_email,

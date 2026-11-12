@@ -25,7 +25,7 @@ from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import (
     LOCAL_DIRECTORY,
     EventAuthor,
-    EventTypeCatalog,
+    EventChecker,
     NewEvent,
     ObjectRef,
 )
@@ -89,7 +89,7 @@ class ModuleIdentityService:
     pool: asyncpg.Pool
     secrets: SecretsService
     cipher: SecretCipher
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     # Nomme le module dans l'écran des secrets. Seul champ qui diffère d'un produit à
     # l'autre : « une clé privée de signature » sans plus de précision serait, sur une

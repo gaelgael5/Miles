@@ -32,7 +32,7 @@ from miles_socle.auth.context import AuthContext, utc_now
 from miles_socle.auth.throttle import LoginThrottle
 from miles_socle.cultures.service import CulturesService
 from miles_socle.events.journal import JOURNAL_TABLES
-from miles_socle.events.model import EventAuthor, EventTypeCatalog
+from miles_socle.events.model import EventAuthor, EventChecker
 from miles_socle.events.service import EventsService
 from miles_socle.health.probe import resolve_health
 from miles_socle.journal.maintenance import JournalMaintenance
@@ -79,7 +79,7 @@ def wire_socle_services(
     pool: asyncpg.Pool,
     store: AdminAccountStore,
     cipher: SecretCipher,
-    catalog: EventTypeCatalog,
+    catalog: EventChecker,
     http: httpx.AsyncClient,
     expected_schema_version: int,
     now: Callable[[], datetime] = utc_now,

@@ -34,7 +34,7 @@ import structlog
 # journal doit le dire de la même façon dans les deux produits.
 from miles_socle.apikeys.model import KEY_DIRECTORY
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from environnement.apikeys.model import KeyPrincipal
 from environnement.apikeys.service import ApiKeysService
@@ -79,7 +79,7 @@ class IngestionService:
     pool: asyncpg.Pool
     tree: HostedTree
     keys: ApiKeysService
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     # Borne de l'évaluation d'un template. C'est un TIERS qui fournit le document ici,
     # pas l'auteur du template : sans borne, un document démesuré retiendrait le service.

@@ -8,7 +8,7 @@ from typing import Any
 import asyncpg
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 from miles_socle.git.access import GitAccess
 from miles_socle.git.forge import RepositoryUrlError, parse_base_url
 from miles_socle.secrets.model import Consumer, SecretError
@@ -69,7 +69,7 @@ class ConnectionsService:
     pool: asyncpg.Pool
     resolver: AccessResolver
     verifier: DependentsVerifier
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     extra_hosts: Sequence[str] = field(default=())
 

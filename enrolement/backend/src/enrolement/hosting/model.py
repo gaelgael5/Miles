@@ -11,8 +11,12 @@ comporte pas comme son paramétrage.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
+
+from miles_socle.events.catalog import EventShape
 
 VERSION_ORDERED_EVENT = "environment.version_ordered"
 VERSION_SERVED_EVENT = "environment.version_served"
@@ -21,20 +25,75 @@ VERSION_REFUSED_EVENT = "environment.version_refused"
 # dire. Un event à elle parce que personne ne l'a demandée — elle est la conséquence d'un
 # autre geste, et sans trace on chercherait qui a retiré la version.
 VERSION_RELEASED_EVENT = "environment.version_released"
-EVENT_TYPES = frozenset(
-    {
-        VERSION_ORDERED_EVENT,
-        VERSION_SERVED_EVENT,
-        VERSION_REFUSED_EVENT,
-        VERSION_RELEASED_EVENT,
-    }
-)
-
 # La MÊME forme que le CHECK de la migration 0017. Écrite aux deux endroits parce que la
 # base est la seule à tenir l'invariant pour de bon, et que le code est le seul à pouvoir
 # refuser en nommant ce qui pèche.
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 REFUSAL_RE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+
+# --- Les formes, mesurées sur `service.py` et sur `environments/service.py` -----------
+_WORKSPACE: dict[str, Any] = {"type": "string", "minLength": 1}
+# DÉRIVÉE de `COMMIT_RE` ci-dessus, qui est elle-même la forme du CHECK de la migration
+# 0017 : un commit complet, parce que cette valeur voyage jusque dans une commande git
+# chez le pair, et qu'un préfixe court ne se récupère pas d'une forge.
+_COMMIT: dict[str, Any] = {"type": "string", "pattern": COMMIT_RE.pattern}
+# Les refus que NOUS produisons sont des constantes de ce module ; ceux du pair
+# arrivent dans sa réponse et passent par `readable_refusal`. Le motif est donc la
+# seule borne commune aux deux provenances, et il est DÉRIVÉ, pas recopié.
+_REFUS: dict[str, Any] = {"type": "string", "pattern": REFUSAL_RE.pattern}
+
+
+def _ferme(proprietes: Mapping[str, Any]) -> dict[str, Any]:
+    """Un bloc fermé dont toutes les propriétés sont obligatoires (voir `pairing.events`)."""
+    return {
+        "type": "object",
+        "properties": dict(proprietes),
+        "required": sorted(proprietes),
+        "additionalProperties": False,
+    }
+
+
+EVENT_SHAPES = (
+    EventShape(
+        VERSION_ORDERED_EVENT,
+        "Version ordonnée à un environnement",
+        _ferme(
+            {
+                "workspace_id": _WORKSPACE,
+                "number": {"type": "integer", "minimum": 1},
+                "commit": _COMMIT,
+                # Le libellé est au journal et PAS au contrat : ici il date le choix tel
+                # qu'il a été lu, et c'est ce qu'on voudra relire dans un an.
+                "label": {"type": "string"},
+            }
+        ),
+    ),
+    # `commit` et `refusal` sont l'un l'autre exclusifs, et c'est l'invariant que la base
+    # tient aussi (`hosted_version_reponse_coherente`) : les deux types d'event portent
+    # les mêmes propriétés, et c'est leur NULLITÉ qui dit lequel des deux on relit. Un
+    # seul type les portant tous deux facultatifs laisserait choisir lequel croire.
+    EventShape(
+        VERSION_SERVED_EVENT,
+        "Version appliquée par l'environnement",
+        _ferme({"workspace_id": _WORKSPACE, "commit": _COMMIT, "refusal": {"type": "null"}}),
+    ),
+    EventShape(
+        VERSION_REFUSED_EVENT,
+        "Version non appliquée par l'environnement",
+        _ferme({"workspace_id": _WORKSPACE, "commit": {"type": "null"}, "refusal": _REFUS}),
+    ),
+    EventShape(
+        VERSION_RELEASED_EVENT,
+        "Version retirée faute de workspace",
+        # Le workspace PRÉCÉDENT, et il n'est jamais nul : une version ordonnée suppose un
+        # workspace placé — le choix se fait sur son dépôt —, et tout changement de
+        # workspace retire la version dans la MÊME transaction. Pas de version sans
+        # workspace, donc pas de retrait sans précédent.
+        _ferme({"previous_workspace_id": _WORKSPACE}),
+    ),
+)
+# DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté.
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 # Les refus que NOUS produisons en poussant l'ordre. Ceux du pair arrivent dans sa
 # réponse, et sont validés avant d'être écrits : ils viennent d'un autre service.

@@ -21,11 +21,10 @@ from miles_socle.auth.admin_account import AdminAccount
 from miles_socle.auth.admin_store import AdminAccountStore
 from miles_socle.auth.context import AuthContext
 from miles_socle.auth.throttle import LoginThrottle
-from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.probe import HealthReport
 
 from enrolement.app import build_app
-from enrolement.event_types import code_event_types
+from enrolement.event_types import code_event_catalog
 from enrolement.pairing.service import PairingService
 
 
@@ -68,7 +67,7 @@ def pairing_service(db: Any) -> PairingService:
         pool=cast(Any, db),
         secrets=cast(Any, None),
         cipher=cast(Any, None),
-        catalog=EventTypeCatalog(code_event_types()),
+        catalog=code_event_catalog(),
         now=lambda: datetime.now(UTC),
         origin=None,
         # Aucun appel sortant n'est émis par les refus éprouvés ici : ils se décident sur

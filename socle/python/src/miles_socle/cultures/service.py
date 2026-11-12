@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
@@ -8,8 +8,9 @@ from typing import Any, Protocol
 import asyncpg
 import structlog
 
+from miles_socle.events.catalog import EventShape
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 log = structlog.get_logger(__name__)
 
@@ -17,7 +18,25 @@ log = structlog.get_logger(__name__)
 FALLBACK_CULTURE = "en-US"
 ACTIVATED_EVENT = "culture.activated"
 DEACTIVATED_EVENT = "culture.deactivated"
-EVENT_TYPES = frozenset({ACTIVATED_EVENT, DEACTIVATED_EVENT})
+# Le même bloc pour les deux faits : un seul geste les produit, et il compte les cultures
+# qu'il a réellement changées. Les codes eux-mêmes ne sont pas ici — ils sont les OBJETS
+# de l'event, un par culture changée, et les répéter dans le bloc donnerait deux listes à
+# tenir d'accord.
+_COMPTE: Mapping[str, Any] = {
+    "type": "object",
+    "properties": {"count": {"type": "integer", "minimum": 1}},
+    "required": ["count"],
+    # Fermé : un rejeu n'écrit rien, donc `count` vaut au moins 1 et rien d'autre ne
+    # s'ajoute. Ce que le journal ajoute lui-même est toléré par le catalogue.
+    "additionalProperties": False,
+}
+EVENT_SHAPES = (
+    EventShape(ACTIVATED_EVENT, "Cultures activées", _COMPTE),
+    EventShape(DEACTIVATED_EVENT, "Cultures désactivées", _COMPTE),
+)
+# DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté,
+# et la plus courte aurait fait refuser au journal un event que le produit écrit.
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 MAX_CODES_PER_CHANGE = 2000
 
 
@@ -76,7 +95,7 @@ class CulturesService:
     """
 
     pool: asyncpg.Pool
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_list(self, only_active: bool) -> list[Culture]:

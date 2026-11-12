@@ -7,7 +7,7 @@ from datetime import datetime
 import asyncpg
 import structlog
 from miles_socle.cultures.service import CulturesService
-from miles_socle.events.model import EventAuthor, EventTypeCatalog
+from miles_socle.events.model import EventAuthor, EventChecker
 
 from miles.reference.activation import foldcase, matches
 from miles.reference.activation import resolve_set_active as _resolve_set_active
@@ -30,7 +30,7 @@ class TimezonesService:
 
     pool: asyncpg.Pool
     cultures: CulturesService
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_list(

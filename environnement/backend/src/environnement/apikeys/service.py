@@ -21,7 +21,7 @@ import asyncpg
 import structlog
 from miles_socle.apikeys.model import KEY_ID_RE, key_digest, new_key, same_digest, shown_prefix
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from environnement.apikeys.model import (
     API_KEY_OBJECT_KIND,
@@ -73,7 +73,7 @@ class ApiKeysService:
     # des storages et de l'hébergement — son verrou sérialise les gestes, et un second
     # ouvert sur le même chemin aurait son propre verrou.
     tree: HostedTree
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_declared_sources(self) -> tuple[str, ...]:

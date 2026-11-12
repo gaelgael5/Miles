@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from miles_socle.events.catalog import EventShape
 from miles_socle.signing.peers import IdentityError
 
 # La ligne unique de `module_identity` : une seule valeur est admise par la contrainte de
@@ -26,7 +27,21 @@ SIGNING_KEY_CONSUMER_KIND = "module_identity"
 # Type d'event écrit à la naissance de l'identité. Chaque produit l'ajoute à son catalogue :
 # le journal refuse un type inconnu, et c'est voulu.
 IDENTITY_CREATED_EVENT = "module.identity_created"
-EVENT_TYPES = frozenset({IDENTITY_CREATED_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        IDENTITY_CREATED_EVENT,
+        "Identité du module engendrée",
+        {
+            "type": "object",
+            # L'EMPREINTE, et pas même la clé publique en entier : elle suffit à
+            # reconnaître une clé dans un journal, et c'est elle qu'un humain compare.
+            "properties": {"public_key_fingerprint": {"type": "string", "minLength": 1}},
+            "required": ["public_key_fingerprint"],
+            "additionalProperties": False,
+        },
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class IdentityMissingError(IdentityError):

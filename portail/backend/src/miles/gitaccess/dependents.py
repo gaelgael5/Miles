@@ -8,7 +8,7 @@ from typing import Any
 
 import asyncpg
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 from miles_socle.git.access import GitAccess
 from miles_socle.git.forge import parse_repository, repository_under
 
@@ -30,7 +30,7 @@ class DependentsVerifier:
     """
 
     pool: asyncpg.Pool
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     extra_hosts: Sequence[str] = ()
 

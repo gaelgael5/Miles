@@ -9,7 +9,7 @@ import asyncpg
 import httpx
 import structlog
 from miles_socle.events.journal import EventDb, db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 from miles_socle.git.forge import RepositoryUrlError, parse_repository
 from miles_socle.secrets.crypto import Sealed, SecretCipher
 from miles_socle.secrets.model import Secret
@@ -84,7 +84,7 @@ class GitIdentitiesService:
     pool: asyncpg.Pool
     cipher: SecretCipher
     http: httpx.AsyncClient
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     extra_git_hosts: Sequence[str] = field(default=())
 

@@ -10,7 +10,7 @@ import asyncpg
 import structlog
 from miles_socle.auth.admin_store import AdminAccountStore
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 
 from miles.apikeys.model import Access, Grant, KeyPrincipal
 from miles.oauth.clients import REVOKED_EVENT
@@ -43,7 +43,7 @@ class OAuthAccess:
 
     pool: asyncpg.Pool
     store: AdminAccountStore
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     def still_admin(self, kind: str, subject: str, email: str | None) -> bool:

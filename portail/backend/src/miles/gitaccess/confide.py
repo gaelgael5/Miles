@@ -10,7 +10,7 @@ import asyncpg
 import httpx
 import structlog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
 from miles_socle.pairing.events import PEER_OBJECT_KIND
 from miles_socle.pairing.model import PeerMissingError
 from miles_socle.pairing.peer_calls import peer_detail
@@ -70,7 +70,7 @@ class GitConfidingService:
     pool: asyncpg.Pool
     secrets: SecretsService
     pairing: PairingService
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
 
     async def resolve_transmit(

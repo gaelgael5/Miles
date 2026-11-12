@@ -7,7 +7,7 @@ from datetime import date, datetime
 import asyncpg
 import structlog
 from miles_socle.cultures.service import CulturesService
-from miles_socle.events.model import EventAuthor, EventTypeCatalog
+from miles_socle.events.model import EventAuthor, EventChecker
 
 from miles.reference.activation import foldcase as _foldcase
 from miles.reference.activation import matches
@@ -51,7 +51,7 @@ class CountriesService:
     # désactivée ne sert plus rien. Le service des cultures est relu à chaque lecture pour
     # la même raison que la liste des pays — une culture activée vaut aussitôt.
     cultures: CulturesService
-    catalog: EventTypeCatalog
+    catalog: EventChecker
     now: Callable[[], datetime]
     # Le moteur de calendarium, construit une fois au démarrage. Passé au service plutôt
     # que construit dedans : un test de ce service éprouve un découpage de fenêtre, pas la
