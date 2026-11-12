@@ -22,6 +22,21 @@ const EVENT: JournalEvent = {
   author_subject: "admin",
   properties: { slug: "pat-forge" },
   objects: [{ kind: "secret", id: "pat-forge", sequence: 1 }],
+  // Le cas de l'atelier : un geste humain n'a aucun des trois champs de la racine.
+  external_id: null,
+  dedup_key: null,
+  creation_date: null,
+};
+// Le cas d'un event venu d'un message : la racine commune est renseignée. Des valeurs
+// DISCRIMINANTES — une date de création différente des deux autres dates de l'event —,
+// sans quoi l'écran pourrait afficher trois fois la même sans que rien ne rougisse.
+const VENU_D_UN_MESSAGE: JournalEvent = {
+  ...EVENT,
+  id: "33333333-3333-4333-8333-333333333333",
+  type: "device.reported",
+  external_id: "msg-4242",
+  dedup_key: "d1:2026-11-09",
+  creation_date: "2026-11-09T06:15:00Z",
 };
 const DATE_D_ECRITURE: JournalEvent = {
   ...EVENT,
@@ -256,5 +271,34 @@ describe("l'écran du journal d'events", () => {
     } finally {
       await act(() => i18n.changeLanguage("en-US"));
     }
+  });
+
+  it("shows the common root fields of an event that came from a message", async () => {
+    // Les trois champs que la racine apporte (12/11/2026) : sans eux à l'écran, on ne peut
+    // pas constater après coup qu'un même message est arrivé deux fois.
+    monte({ "GET /api/events": { status: 200, body: page({ events: [VENU_D_UN_MESSAGE] }) } });
+    expect(await screen.findByText(/1 event\(s\)/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "device.reported" }));
+
+    const detail = within(screen.getByRole("complementary", { name: "Event details" }));
+    expect(detail.getByText("msg-4242")).toBeInTheDocument();
+    expect(detail.getByText("d1:2026-11-09")).toBeInTheDocument();
+    expect(detail.getByText("External id")).toBeInTheDocument();
+    // La date de création est rendue dans la culture de l'interface, comme les deux autres.
+    expect(detail.getByText(/11\/9\/2026, 6:15:00/)).toBeInTheDocument();
+  });
+
+  it("leaves out the root fields an atelier event does not have", async () => {
+    // Trois faits à « — » sur chaque event d'un atelier rallongeraient le détail que Gael
+    // a fait réduire, pour une information qui n'existe pas.
+    monte(UN_EVENT);
+    expect(await screen.findByText(/1 event\(s\)/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "secret.created" }));
+
+    const detail = within(screen.getByRole("complementary", { name: "Event details" }));
+    expect(detail.queryByText("External id")).not.toBeInTheDocument();
+    expect(detail.queryByText("Dedup key")).not.toBeInTheDocument();
   });
 });

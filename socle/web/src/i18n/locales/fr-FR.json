@@ -343,7 +343,10 @@
       "writtenAt": "Écrit le",
       "functionalAt": "Date fonctionnelle",
       "author": "Auteur",
-      "objects": "Objets concernés"
+      "objects": "Objets concernés",
+      "externalId": "Identifiant externe",
+      "dedupKey": "Clé d'anti-doublon",
+      "creationDate": "Créé le (chez le producteur)"
     },
     "detail": {
       "title": "Détail de l'event",

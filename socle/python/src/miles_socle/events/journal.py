@@ -86,11 +86,15 @@ RETURNING object_kind, object_id, last_sequence
 # ferait dépendre l'encodage d'une inférence du pilote, qui peut changer sous nous.
 _INSERT_EVENTS = """
 INSERT INTO events (id, type, functional_at, functional_at_source, written_at,
-                    author_directory, author_subject, properties)
-SELECT id, type, functional_at, source, $8, directory, subject, properties::jsonb
+                    author_directory, author_subject, properties,
+                    external_id, dedup_key, creation_date)
+SELECT id, type, functional_at, source, $11, directory, subject, properties::jsonb,
+       external_id, dedup_key, creation_date
 FROM unnest($1::uuid[], $2::text[], $3::timestamptz[], $4::text[],
-            $5::text[], $6::text[], $7::text[])
-     AS t(id, type, functional_at, source, directory, subject, properties)
+            $5::text[], $6::text[], $7::text[],
+            $8::text[], $9::text[], $10::timestamptz[])
+     AS t(id, type, functional_at, source, directory, subject, properties,
+          external_id, dedup_key, creation_date)
 """
 
 # `written_at` recopié depuis l'event, et non joint : c'est la clé de partition, et les
@@ -183,6 +187,9 @@ async def db_write_events(
             s.event.author,
             s.properties,
             attribues,
+            s.event.external_id,
+            s.event.dedup_key,
+            s.event.creation_date,
         )
         for s, attribues in zip(scelles, sequences, strict=True)
     ]
@@ -241,6 +248,11 @@ async def _db_insert_events(db: EventDb, scelles: Sequence[_Scelle], written_at:
         [s.event.author.directory for s in scelles],
         [s.event.author.subject for s in scelles],
         [json.dumps(s.properties) for s in scelles],
+        # Les trois champs de la racine commune. Nuls quand l'appelant n'en a pas : un
+        # geste humain dans l'atelier n'a ni identifiant externe ni clé d'anti-doublon.
+        [s.event.external_id for s in scelles],
+        [s.event.dedup_key for s in scelles],
+        [s.event.creation_date for s in scelles],
         written_at,
     )
 

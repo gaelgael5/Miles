@@ -343,7 +343,10 @@
       "writtenAt": "Written on",
       "functionalAt": "Functional date",
       "author": "Author",
-      "objects": "Objects"
+      "objects": "Objects",
+      "externalId": "External id",
+      "dedupKey": "Dedup key",
+      "creationDate": "Created on (at the producer)"
     },
     "detail": {
       "title": "Event details",

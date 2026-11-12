@@ -43,6 +43,11 @@ class EventOut(BaseModel):
     author_subject: str
     properties: dict[str, Any]
     objects: list[ObjectOut]
+    # Les champs de la racine commune (12/11/2026). Rendus même nuls : l'écran doit pouvoir
+    # dire « pas d'identifiant externe » plutôt que de laisser croire qu'il ne sait pas.
+    external_id: str | None = None
+    dedup_key: str | None = None
+    creation_date: datetime | None = None
 
 
 class WindowOut(BaseModel):
@@ -124,6 +129,9 @@ def _out(resultat: SearchResult) -> EventsOut:
                 objects=[
                     ObjectOut(kind=o.kind, id=o.id, sequence=o.sequence) for o in event.objects
                 ],
+                external_id=event.external_id,
+                dedup_key=event.dedup_key,
+                creation_date=event.creation_date,
             )
             for event in resultat.page.events
         ],

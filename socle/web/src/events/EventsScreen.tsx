@@ -107,6 +107,27 @@ function EventDetail({ event }: { event: JournalEvent | undefined }) {
           <dt className="caption">{t("events.fields.objects")}</dt>
           <dd className="value">{objets === "" ? "—" : objets}</dd>
         </div>
+        {/* Les champs de la racine commune ne sont montrés QUE renseignés : trois faits à
+            « — » sur chaque event de l'atelier rallongeraient le détail que Gael a fait
+            réduire le 04/11/2026, pour une information qui n'existe pas. */}
+        {event.external_id !== null && (
+          <div>
+            <dt className="caption">{t("events.fields.externalId")}</dt>
+            <dd className="value mono">{event.external_id}</dd>
+          </div>
+        )}
+        {event.dedup_key !== null && (
+          <div>
+            <dt className="caption">{t("events.fields.dedupKey")}</dt>
+            <dd className="value mono">{event.dedup_key}</dd>
+          </div>
+        )}
+        {event.creation_date !== null && (
+          <div>
+            <dt className="caption">{t("events.fields.creationDate")}</dt>
+            <dd className="value">{instant(event.creation_date)}</dd>
+          </div>
+        )}
         {Object.entries(event.properties).map(([clef, valeur]) => (
           <div key={clef}>
             <dt className="caption">{clef}</dt>

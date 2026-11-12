@@ -38,6 +38,11 @@ class FoundEvent:
     author_subject: str
     properties: dict[str, Any]
     objects: tuple[FoundObject, ...]
+    # Les champs de la racine commune que les events écrits avant le 12/11/2026 n'ont pas :
+    # nuls, et la relecture ne doit pas tomber dessus.
+    external_id: str | None = None
+    dedup_key: str | None = None
+    creation_date: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -65,7 +70,8 @@ async def db_count_events(db: SearchDb, filtre: EventFilter, window: Window) -> 
 # même ligne, PostgreSQL n'étant tenu à aucun ordre entre lignes égales.
 _PAGE = """
 SELECT e.id, e.type, e.functional_at, e.functional_at_source, e.written_at,
-       e.author_directory, e.author_subject, e.properties
+       e.author_directory, e.author_subject, e.properties,
+       e.external_id, e.dedup_key, e.creation_date
 FROM events e
 WHERE {ou}
 ORDER BY e.written_at DESC, e.id
@@ -131,4 +137,7 @@ def _event(row: Any, objets: tuple[FoundObject, ...]) -> FoundEvent:
         row["author_subject"],
         json.loads(brut) if isinstance(brut, str) else brut,
         objets,
+        row["external_id"],
+        row["dedup_key"],
+        row["creation_date"],
     )

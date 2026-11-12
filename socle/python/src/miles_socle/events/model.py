@@ -68,6 +68,13 @@ class NewEvent:
     author: EventAuthor
     properties: Mapping[str, Any] = field(default_factory=dict)
     functional_at: datetime | None = None
+    # Les trois champs que la racine commune apporte (`root.py`, décision du 12/11/2026) :
+    # l'identifiant de l'event chez son producteur, sa clé d'anti-doublon, et la date à
+    # laquelle il a été créé là-bas. Ils vivent en colonnes, pas dans le bloc de
+    # propriétés, et restent facultatifs : un geste humain dans l'atelier n'en a aucun.
+    external_id: str | None = None
+    dedup_key: str | None = None
+    creation_date: datetime | None = None
 
     def __post_init__(self) -> None:
         if not _NAME_RE.match(self.type):
@@ -78,6 +85,27 @@ class NewEvent:
             raise EventError("objet cité deux fois dans le même event")
         if self.functional_at is not None and self.functional_at.tzinfo is None:
             raise EventError("date fonctionnelle sans fuseau : ambiguë")
+        # Même refus que pour la date fonctionnelle : une date sans fuseau se relirait dans
+        # celui du serveur, et deux producteurs n'ont pas le même.
+        if self.creation_date is not None and self.creation_date.tzinfo is None:
+            raise EventError("date de création sans fuseau : ambiguë")
+        _checked(self.external_id, "identifiant externe")
+        _checked(self.dedup_key, "clé d'anti-doublon")
+
+
+def _checked(value: str | None, name: str) -> None:
+    """Un champ de racine facultatif : absent, ou une vraie valeur — jamais entre les deux.
+
+    La chaîne vide est refusée et non convertie en `None` : reçue d'un producteur, elle dit
+    qu'il croyait poser une valeur. La borne de longueur est celle des identifiants
+    d'objet : la colonne est libre, et une clé d'anti-doublon de dix kilo-octets passerait.
+    """
+    if value is None:
+        return
+    if not value:
+        raise EventError(f"{name} vide : l'omettre plutôt que l'envoyer vide")
+    if len(value) > 200:
+        raise EventError(f"{name} trop long : {len(value)} caractères pour 200 au plus")
 
 
 @dataclass(frozen=True)
@@ -90,6 +118,9 @@ class WrittenEvent:
     author: EventAuthor
     properties: Mapping[str, Any]
     sequences: Mapping[ObjectRef, int]
+    external_id: str | None = None
+    dedup_key: str | None = None
+    creation_date: datetime | None = None
 
     @property
     def functional_at_in_future(self) -> bool:

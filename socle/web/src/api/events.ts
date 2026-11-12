@@ -19,6 +19,11 @@ export interface JournalEvent {
   author_subject: string;
   properties: Record<string, unknown>;
   objects: EventObject[];
+  /** Les trois champs de la racine commune (12/11/2026). Nuls pour un geste humain de
+   * l'atelier, qui n'a ni identifiant chez un producteur ni clé d'anti-doublon. */
+  external_id: string | null;
+  dedup_key: string | null;
+  creation_date: string | null;
 }
 
 export interface EventWindow {

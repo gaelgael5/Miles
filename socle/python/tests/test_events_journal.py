@@ -19,6 +19,12 @@ from miles_socle.events.model import (
 )
 
 NOW = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
+# Les rangs des paramètres de l'insertion des events, nommés pour que les tests ne les
+# comptent pas à la main : propriétés, puis les trois champs de la racine commune.
+_PROPRIETES = 6
+_EXTERNAL_ID = 7
+_DEDUP_KEY = 8
+_CREATION_DATE = 9
 CATALOG = EventTypeCatalog(frozenset({"group.created", "device.assigned"}))
 AUTHOR = EventAuthor("local", "admin")
 
@@ -127,7 +133,9 @@ async def test_write_event_numbers_each_object_and_writes_properties() -> None:
     written = await db_write_event(db, event, CATALOG, lambda: NOW)
 
     assert written.sequences == {ObjectRef("group", "g1"): 1, ObjectRef("device", "d2"): 7}
-    proprietes, instant = db.executed[0][1][-2], db.executed[0][1][-1]
+    # Les rangs ont bougé le 12/11/2026 : les trois champs de la racine commune s'insèrent
+    # entre les propriétés et l'instant d'écriture, qui reste le dernier paramètre.
+    proprietes, instant = db.executed[0][1][_PROPRIETES], db.executed[0][1][-1]
     assert [json.loads(p) for p in proprietes] == [{"group": "g1"}]
     assert instant == NOW
     # Les objets sont envoyés triés : ordre de verrouillage fixe.
@@ -198,6 +206,12 @@ async def test_write_events_outside_transaction_is_refused() -> None:
         ({"objects": (ObjectRef("group", "g1"), ObjectRef("group", "g1"))}, "deux fois"),
         ({"type": "Group Created"}, "type d'event invalide"),
         ({"functional_at": datetime(2026, 10, 19)}, "sans fuseau"),
+        # Les champs de la racine commune : même exigence que pour la date fonctionnelle,
+        # et une chaîne vide est refusée plutôt que convertie en « absent ».
+        ({"creation_date": datetime(2026, 10, 19)}, "date de création sans fuseau"),
+        ({"external_id": ""}, "identifiant externe vide"),
+        ({"dedup_key": ""}, "clé d'anti-doublon vide"),
+        ({"external_id": "x" * 201}, "trop long"),
     ],
 )
 def test_new_event_rejects_malformed_events(overrides: dict[str, Any], message: str) -> None:
@@ -246,3 +260,67 @@ async def test_object_history_of_unknown_object_is_empty_without_gaps() -> None:
     history = await db_object_history(_FakeEventDb(), ObjectRef("group", "inconnu"))
 
     assert history.events == [] and history.missing_sequences == []
+
+
+class TestLaRacineCommuneDesEvents:
+    """Les trois champs que la racine apporte (Gael, 12/11/2026) partent bien à l'écriture.
+
+    Ils vivent en COLONNES et jamais dans le bloc de propriétés : un champ de la racine
+    rangé dans le bloc serait redéclaré par chaque type d'event. Ces tests gardent donc les
+    deux côtés — ce qui part en paramètre, et ce que le bloc ne contient pas.
+    """
+
+    AILLEURS = datetime(2026, 10, 18, 9, 30, tzinfo=UTC)
+
+    async def test_les_trois_champs_partent_a_l_insertion_et_restent_hors_du_bloc(self) -> None:
+        db = _FakeEventDb()
+        event = _event(
+            properties={"group": "g1"},
+            external_id="msg-4242",
+            dedup_key="g1:2026-10-18",
+            creation_date=self.AILLEURS,
+        )
+
+        ecrit = await db_write_event(db, event, CATALOG, lambda: NOW)
+
+        args = db.executed[0][1]
+        assert args[_EXTERNAL_ID] == ["msg-4242"]
+        assert args[_DEDUP_KEY] == ["g1:2026-10-18"]
+        assert args[_CREATION_DATE] == [self.AILLEURS]
+        # Le bloc ne les reprend pas : c'est tout l'intérêt de les avoir mis en colonnes.
+        assert json.loads(args[_PROPRIETES][0]) == {"group": "g1"}
+        assert (ecrit.external_id, ecrit.dedup_key, ecrit.creation_date) == (
+            "msg-4242",
+            "g1:2026-10-18",
+            self.AILLEURS,
+        )
+
+    async def test_un_event_qui_n_en_a_aucun_les_envoie_nuls(self) -> None:
+        """Le cas de l'atelier : un geste humain n'a ni identifiant externe ni doublon."""
+        db = _FakeEventDb()
+
+        ecrit = await db_write_event(db, _event(), CATALOG, lambda: NOW)
+
+        args = db.executed[0][1]
+        assert (args[_EXTERNAL_ID], args[_DEDUP_KEY], args[_CREATION_DATE]) == (
+            [None],
+            [None],
+            [None],
+        )
+        assert (ecrit.external_id, ecrit.dedup_key, ecrit.creation_date) == (None, None, None)
+
+    async def test_deux_events_de_meme_identifiant_externe_sont_tous_les_deux_ecrits(self) -> None:
+        """Décision de l'epic : deux réceptions du même message restent visibles.
+
+        C'est ce qui rend l'idempotence constatable après coup — dédoublonner ici
+        effacerait la preuve que le message est arrivé deux fois.
+        """
+        db = _FakeEventDb()
+        lot = [_event(external_id="msg-7"), _event(external_id="msg-7")]
+
+        ecrits = await db_write_events(db, lot, CATALOG, lambda: NOW)
+
+        assert [e.external_id for e in ecrits] == ["msg-7", "msg-7"]
+        assert db.executed[0][1][_EXTERNAL_ID] == ["msg-7", "msg-7"]
+        # Et leurs numéros de séquence se suivent : deux faits distincts sur le même objet.
+        assert [e.sequences[ObjectRef("group", "g1")] for e in ecrits] == [1, 2]

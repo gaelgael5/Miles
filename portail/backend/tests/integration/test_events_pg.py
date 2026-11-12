@@ -12,6 +12,9 @@ from miles_socle.db.migrations import resolve_apply_migrations
 from miles_socle.events.history import db_object_history
 from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.search import EventFilter
+from miles_socle.events.service import EventsService
+from miles_socle.events.store_search import FoundEvent
 
 from miles.config import DEFAULT_MIGRATIONS_DIR
 
@@ -183,3 +186,65 @@ async def test_event_overhead_on_mass_modification_is_proportional_to_objects(
     # quadratique donnerait 16 ; la marge absorbe le bruit d'une machine partagée.
     growth = overhead[large] / overhead[small]
     assert growth < (large / small) * 1.5
+
+
+class TestLaRacineCommuneDesEvents:
+    """Les trois champs que la racine apporte, sur une base réelle (12/11/2026).
+
+    La doublure du socle dit qu'ils partent en paramètre ; seule une base dit qu'ils
+    atterrissent, qu'ils se relisent par le chemin de l'écran, et que la garde de base
+    refuse ce que l'application refuse déjà.
+    """
+
+    AILLEURS = datetime(2026, 11, 10, 7, 30, tzinfo=UTC)
+
+    async def _page(self, pool: asyncpg.Pool) -> tuple[FoundEvent, ...]:
+        return (await EventsService(pool, _now).resolve_search(EventFilter(), 1, 50)).page.events
+
+    async def test_les_trois_champs_font_l_aller_retour_par_le_chemin_de_l_ecran(
+        self, db: asyncpg.Pool
+    ) -> None:
+        event = NewEvent(
+            "thing.created",
+            (ObjectRef("thing", "t1"),),
+            AUTHOR,
+            {"n": 1},
+            external_id="msg-4242",
+            dedup_key="t1:2026-11-10",
+            creation_date=self.AILLEURS,
+        )
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(conn, event, CATALOG, _now)
+
+        relu = (await self._page(db))[0]
+
+        assert (relu.external_id, relu.dedup_key, relu.creation_date) == (
+            "msg-4242",
+            "t1:2026-11-10",
+            self.AILLEURS,
+        )
+        # Le bloc de propriétés ne les a pas absorbés : ils sont en colonnes.
+        assert relu.properties == {"n": 1}
+
+    async def test_un_event_sans_ces_champs_se_relit_sans_tomber(self, db: asyncpg.Pool) -> None:
+        """Le cas des events écrits AVANT le 12/11/2026 : trois colonnes nulles."""
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(conn, _event("t1"), CATALOG, _now)
+
+        relu = (await self._page(db))[0]
+
+        assert (relu.external_id, relu.dedup_key, relu.creation_date) == (None, None, None)
+
+    async def test_la_base_refuse_une_chaine_vide_que_l_application_refuse_deja(
+        self, db: asyncpg.Pool
+    ) -> None:
+        """Garde de dernier recours : un `UPDATE` direct ne doit pas pouvoir la poser.
+
+        L'application refuse la chaîne vide dans `NewEvent` ; ce test éprouve l'AUTRE
+        barrière, celle qui tiendra le jour où un correctif écrira en SQL.
+        """
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(conn, _event("t1"), CATALOG, _now)
+
+        with pytest.raises(asyncpg.CheckViolationError, match="events_external_id_non_vide"):
+            await db.execute("UPDATE events SET external_id = ''")
