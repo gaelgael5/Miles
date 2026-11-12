@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from miles_socle.events.catalog import EventShape, closed_block
+
 # Ce qu'un pays du référentiel EST, et les refus qu'il produit. Le mot « référentiel »
 # est déjà pris trois fois dans ce produit — référentiels d'objets ingérés, référentiels de
 # mapping de git, storages — et c'est pourquoi ni le module, ni les routes, ni l'écran ne
@@ -19,14 +21,17 @@ COUNTRY_DEACTIVATED_EVENT = "country.deactivated"
 TIMEZONE_OBJECT_KIND = "timezone"
 TIMEZONE_ACTIVATED_EVENT = "timezone.activated"
 TIMEZONE_DEACTIVATED_EVENT = "timezone.deactivated"
-EVENT_TYPES = frozenset(
-    {
-        COUNTRY_ACTIVATED_EVENT,
-        COUNTRY_DEACTIVATED_EVENT,
-        TIMEZONE_ACTIVATED_EVENT,
-        TIMEZONE_DEACTIVATED_EVENT,
-    }
+# Le COMPTE des codes réellement changés, et non la liste : les codes sont les OBJETS de
+# l'event, un par code changé. Un rejeu n'écrit rien, donc le compte vaut au moins un.
+_COMPTE: dict[str, object] = {"count": {"type": "integer", "minimum": 1}}
+EVENT_SHAPES = (
+    EventShape(COUNTRY_ACTIVATED_EVENT, "Pays activés", closed_block(_COMPTE)),
+    EventShape(COUNTRY_DEACTIVATED_EVENT, "Pays désactivés", closed_block(_COMPTE)),
+    EventShape(TIMEZONE_ACTIVATED_EVENT, "Fuseaux horaires activés", closed_block(_COMPTE)),
+    EventShape(TIMEZONE_DEACTIVATED_EVENT, "Fuseaux horaires désactivés", closed_block(_COMPTE)),
 )
+# DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté.
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 @dataclass(frozen=True)

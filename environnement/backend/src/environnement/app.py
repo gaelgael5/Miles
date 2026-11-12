@@ -18,7 +18,6 @@ from miles_socle.cultures.api_cultures import router as cultures_router
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.pool import db_create_pool
 from miles_socle.events.api_events import router as events_router
-from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.api_health import router as health_router
 from miles_socle.journal.api_journal import MAINTENANCE_PATH
 from miles_socle.journal.api_journal import router as journal_router
@@ -35,7 +34,7 @@ from environnement.apikeys.api_apikeys import router as api_keys_router
 from environnement.apikeys.self_key import SelfKeyService
 from environnement.apikeys.service import ApiKeysService
 from environnement.config import Settings
-from environnement.event_types import code_event_types
+from environnement.event_types import code_event_catalog
 from environnement.hosting.api_hosting import router as hosting_router
 from environnement.hosting.api_peer_hosting import router as peer_hosting_router
 from environnement.hosting.gitstore import HostedTree
@@ -84,7 +83,7 @@ def create_app() -> FastAPI:
     store = AdminAccountStore.file_load(settings.env_file, settings.env_backup_file)
     # Même règle pour la clé des secrets : absente ou mal formée, on ne démarre pas.
     cipher = SecretCipher(parse_secrets_key(settings.secrets_key.get_secret_value()))
-    catalog = EventTypeCatalog(code_event_types())
+    catalog = code_event_catalog()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

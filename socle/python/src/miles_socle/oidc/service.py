@@ -9,9 +9,9 @@ import asyncpg
 import httpx
 import structlog
 
-from miles_socle.events.catalog import EventShape
+from miles_socle.events.catalog import EventCatalog, EventShape
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.oidc.model import (
     CULTURE_RE,
     LABEL_CULTURE,
@@ -159,7 +159,7 @@ class OidcService:
     pool: asyncpg.Pool
     http: httpx.AsyncClient
     secrets: SecretsService
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     public_url: str | None
     allow_http_issuer: bool

@@ -104,6 +104,19 @@ function EventDetail({ event }: { event: JournalEvent | undefined }) {
           </dd>
         </div>
         <div>
+          <dt className="caption">{t("events.fields.category")}</dt>
+          {/* Toujours montrée, contrairement aux trois champs facultatifs plus bas : la
+              catégorie est NOT NULL en base, et c'est elle qui dira demain si le type est
+              éditable dans l'IHM de configuration. Le numéro est la forme publiée ; le
+              libellé n'est que son rendu, avec un repli qui le nomme pour qu'une huitième
+              catégorie servie par le backend ne s'affiche pas vide. */}
+          <dd className="value">
+            {t([`events.categories.${event.category}`, "events.categories.unknown"], {
+              number: event.category,
+            })}
+          </dd>
+        </div>
+        <div>
           <dt className="caption">{t("events.fields.objects")}</dt>
           <dd className="value">{objets === "" ? "—" : objets}</dd>
         </div>

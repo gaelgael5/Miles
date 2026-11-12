@@ -6,8 +6,9 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.contracts.derived import (
     checked_model_name,
@@ -18,12 +19,20 @@ from miles.contracts.derived import (
 from miles.contracts.layout import checked_slug, version_path, versions_in
 from miles.contracts.openapi import parse_contract
 from miles.contracts.service import ContractNotFoundError
+from miles.event_shapes import COUNT, GESTURE, NAME
 from miles.workshop.target import Gesture, WorkBranches
 
 log = structlog.get_logger(__name__)
 
 REDERIVED_EVENT = "contract.models_rederived"
-EVENT_TYPES = frozenset({REDERIVED_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        REDERIVED_EVENT,
+        "Modèles de contrat redérivés",
+        closed_block({"slug": NAME, "version": COUNT, **GESTURE}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 @dataclass(frozen=True)
@@ -34,7 +43,7 @@ class ContractModelsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_model(

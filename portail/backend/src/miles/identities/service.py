@@ -8,12 +8,14 @@ from datetime import datetime
 import asyncpg
 import httpx
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import EventDb, db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.git.forge import RepositoryUrlError, parse_repository
 from miles_socle.secrets.crypto import Sealed, SecretCipher
 from miles_socle.secrets.model import Secret
 
+from miles.event_shapes import NAME
 from miles.identities.forge_api import (
     EmailOrigin,
     ForgeAccount,
@@ -26,7 +28,15 @@ log = structlog.get_logger(__name__)
 
 REGISTERED_EVENT = "user.git_identity_registered"
 REMOVED_EVENT = "user.git_identity_removed"
-EVENT_TYPES = frozenset({REGISTERED_EVENT, REMOVED_EVENT})
+# La connexion et le LOGIN chez la forge : c'est l'identité git de la personne, et elle
+# n'est jamais le jeton. Les deux faits portent le même bloc — au retrait, le login est
+# celui que la ligne portait, et c'est la seule trace qui en reste.
+_IDENTITE: dict[str, object] = {"connection": NAME, "login": NAME}
+EVENT_SHAPES = (
+    EventShape(REGISTERED_EVENT, "Identité git enregistrée", closed_block(_IDENTITE)),
+    EventShape(REMOVED_EVENT, "Identité git retirée", closed_block(_IDENTITE)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 MAX_TOKEN_LENGTH = 1024
 
 
@@ -84,7 +94,7 @@ class GitIdentitiesService:
     pool: asyncpg.Pool
     cipher: SecretCipher
     http: httpx.AsyncClient
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     extra_git_hosts: Sequence[str] = field(default=())
 

@@ -9,19 +9,32 @@ from typing import Any
 import asyncpg
 import httpx
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.oidc.model import CONNECTOR_ID_RE, ConnectorInputError, validate_issuer
 from miles_socle.secrets.model import Consumer, SecretError
 from miles_socle.secrets.service import SecretsService, resolve_attach_secret, resolve_detach_secret
 
+from miles.event_shapes import NAME
 from miles.security.probe import Outcome, probe_keycloak
 
 log = structlog.get_logger(__name__)
 
 DECLARED_EVENT = "security_service.declared"
 UPDATED_EVENT = "security_service.updated"
-EVENT_TYPES = frozenset({DECLARED_EVENT, UPDATED_EVENT})
+# L'adresse, le royaume et l'identifiant de client : les trois réglages par lesquels on
+# joint un service de sécurité. Le SECRET du client n'y est pas et ne doit pas y venir —
+# il vit dans les secrets, et le journal est lu bien plus largement.
+_SERVICE: dict[str, object] = {"base_url": NAME, "realm": NAME, "client_id": NAME}
+EVENT_SHAPES = (
+    EventShape(DECLARED_EVENT, "Service de sécurité déclaré", closed_block(_SERVICE)),
+    # Les trois réglages sont redits en entier à chaque modification, et non seulement
+    # ceux qui changent : c'est l'état joignable à cet instant qu'on viendra relire le
+    # jour où une authentification échoue.
+    EventShape(UPDATED_EVENT, "Service de sécurité modifié", closed_block(_SERVICE)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 SECRET_TYPE = "SECURITY_SERVICE_CLIENT_SECRET"  # noqa: S105  # nom du type, pas une valeur
 _REALM_RE = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
 _CONSUMER_KIND = "security_service"
@@ -97,7 +110,7 @@ class SecurityServices:
     pool: asyncpg.Pool
     http: httpx.AsyncClient
     secrets: SecretsService
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     allow_http: bool
 

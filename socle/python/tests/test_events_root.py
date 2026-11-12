@@ -57,9 +57,17 @@ class TestLaRacineDeMilesSurchargeCelleDuMoteur:
         assert "Category" not in ENGINE_ROOT_SCHEMA["properties"]
         assert ENGINE_ROOT_SCHEMA["title"] == "urban-workflow base event"
 
-    def test_la_categorie_n_a_pas_de_colonne_de_journal(self) -> None:
-        """Délibéré : rien ne sait encore poser une valeur juste. Ce test tombera le jour où
-        le catalogue de types déclarera les catégories, et c'est le bon moment pour y
-        penser."""
-        assert set(COLUMN_OF_FIELD) == ENGINE_ROOT_FIELDS
-        assert "Category" not in COLUMN_OF_FIELD
+    def test_chaque_champ_de_la_racine_a_sa_colonne_de_journal(self) -> None:
+        """Les huit, et c'est nouveau depuis le 12/11/2026.
+
+        La version précédente de ce test affirmait l'inverse — `Category` n'avait PAS de
+        colonne, parce que rien ne savait poser une valeur juste. Il a rougi le jour où
+        les trois produits ont déclaré la catégorie de chacun de leurs types, ce qui était
+        exactement son rôle. Ce qu'il tient maintenant : aucun champ de la racine ne vit
+        dans le bloc de propriétés, et un neuvième champ ajouté là-haut devra dire où il
+        se range avant d'être servi.
+        """
+        assert set(COLUMN_OF_FIELD) == ROOT_FIELDS
+        assert COLUMN_OF_FIELD["Category"] == "category"
+        # Discriminant : les sept du moteur sont toujours là, la surcharge n'en a perdu aucun.
+        assert ENGINE_ROOT_FIELDS <= set(COLUMN_OF_FIELD)

@@ -6,9 +6,11 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
+from miles.event_shapes import BRANCH, NAME
 from miles.git.workcopy import WorkCopy
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workshop.trads import culture_file, cultures_in
@@ -29,7 +31,34 @@ log = structlog.get_logger(__name__)
 KEY_SAVED_EVENT = "trads_key.saved"
 KEY_RENAMED_EVENT = "trads_key.renamed"
 KEY_DELETED_EVENT = "trads_key.deleted"
-EVENT_TYPES = frozenset({KEY_SAVED_EVENT, KEY_RENAMED_EVENT, KEY_DELETED_EVENT})
+# `_event` ajoute le contexte et la branche aux trois faits : une clé de traduction
+# n'existe que dans un contexte, et le dire dans chaque event évite d'aller le chercher.
+_CLE: dict[str, object] = {"key": NAME, "context": NAME, "branch": BRANCH}
+EVENT_SHAPES = (
+    EventShape(
+        KEY_SAVED_EVENT,
+        "Clé de traduction enregistrée",
+        # `new` distingue la création de la mise à jour sans deux types d'event : c'est le
+        # même geste à l'écran, et la question « depuis quand cette clé existe-t-elle ? »
+        # se lit par ce booléen.
+        closed_block({**_CLE, "new": {"type": "boolean"}}),
+    ),
+    EventShape(
+        KEY_RENAMED_EVENT,
+        "Clé de traduction renommée",
+        # L'ancien nom est `key`, le nouveau `new_key` : les deux, parce qu'on relit ce
+        # journal en cherchant sous le nom qu'on employait à l'époque.
+        closed_block({**_CLE, "new_key": NAME}),
+    ),
+    EventShape(
+        KEY_DELETED_EVENT,
+        "Clé de traduction supprimée",
+        # Les CULTURES dont la valeur a disparu avec la clé : c'est ce que la confirmation
+        # annonçait, et la seule trace de ce qui a été perdu.
+        closed_block({**_CLE, "cultures": {"type": "array", "items": NAME}}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 # Borne d'une page de clés : un contexte en porte des milliers au bout d'un an, et l'écran
 # doit rester utilisable (critère 18).
 PAGE_MAX = 200
@@ -49,7 +78,7 @@ class TradsKeysService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_page(

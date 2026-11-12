@@ -15,9 +15,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from miles_socle.events.model import EventAuthor, EventTypeCatalog
+from miles_socle.events.model import EventAuthor
 
-from environnement.event_types import code_event_types
+from environnement.event_types import code_event_catalog
 from environnement.ingestion.applystaging import ApplyPlan, resolve_apply
 from environnement.ingestion.conformance import model_validator
 from environnement.ingestion.keys import key_rule
@@ -147,7 +147,7 @@ class _Conn:
 def _processing(conn: _Conn) -> Processing:
     return Processing(
         db=conn,
-        catalog=EventTypeCatalog(code_event_types()),
+        catalog=code_event_catalog(),
         now=lambda: NOW,
         budget=100_000,
         author=EventAuthor("apikey", "k-1"),

@@ -6,8 +6,9 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.accounts.checks import delivery_problem
 from miles.accounts.layout import (
@@ -20,6 +21,7 @@ from miles.accounts.layout import (
     read_reference,
     reference_text,
 )
+from miles.event_shapes import GESTURE, NAME
 from miles.storages.layout import names_in as storage_names_in
 from miles.storages.layout import read_storage, storage_path
 from miles.workshop.reading import Read
@@ -29,7 +31,18 @@ log = structlog.get_logger(__name__)
 
 SAVED_EVENT = "account_reference.saved"
 REMOVED_EVENT = "account_reference.removed"
-EVENT_TYPES = frozenset({SAVED_EVENT, REMOVED_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        SAVED_EVENT,
+        "Référence de compte enregistrée",
+        # `storage` est ABSENT quand la livraison n'en nomme aucun, et non nul : c'est le
+        # seul type d'ici dont une propriété est facultative, parce que la référence peut
+        # être posée sans storage de destination.
+        closed_block({**GESTURE, "storage": NAME}, tuple(GESTURE)),
+    ),
+    EventShape(REMOVED_EVENT, "Référence de compte retirée", closed_block(GESTURE)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class StorageUnknownError(Exception):
@@ -97,7 +110,7 @@ class AccountsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_get(

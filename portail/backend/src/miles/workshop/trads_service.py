@@ -6,9 +6,11 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
+from miles.event_shapes import BRANCH, COUNT, NAME
 from miles.git.workcopy import WorkCopy
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workshop.trads import (
@@ -36,7 +38,25 @@ CREATED_EVENT = "trads_context.created"
 RELABELLED_EVENT = "trads_context.relabelled"
 DELETED_EVENT = "trads_context.deleted"
 OBSOLETE_REMOVED_EVENT = "trads_context.obsolete_removed"
-EVENT_TYPES = frozenset({CREATED_EVENT, RELABELLED_EVENT, DELETED_EVENT, OBSOLETE_REMOVED_EVENT})
+# `_event` ajoute la branche aux quatre faits.
+_CONTEXTE: dict[str, object] = {"context": NAME, "branch": BRANCH}
+EVENT_SHAPES = (
+    EventShape(CREATED_EVENT, "Contexte de traduction créé", closed_block(_CONTEXTE)),
+    EventShape(RELABELLED_EVENT, "Contexte de traduction renommé", closed_block(_CONTEXTE)),
+    EventShape(
+        DELETED_EVENT,
+        "Contexte de traduction supprimé",
+        # Les deux COMPTES que la confirmation annonçait : combien de clés et combien de
+        # valeurs la suppression a emportées. La seule trace de ce qui a disparu.
+        closed_block({**_CONTEXTE, "keys": COUNT, "values": COUNT}),
+    ),
+    EventShape(
+        OBSOLETE_REMOVED_EVENT,
+        "Culture obsolète retirée d'un contexte",
+        closed_block({**_CONTEXTE, "culture": NAME, "values": COUNT}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class ContextTakenError(WorkspaceConflictError):
@@ -69,7 +89,7 @@ class TradsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     # Seuil de signalement d'une couverture très basse, en pour cent (story 82e60880,
     # critère 8). Porté par le service et non lu au point d'usage : c'est lui qui décide,

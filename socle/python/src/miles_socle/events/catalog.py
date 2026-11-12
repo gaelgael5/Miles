@@ -47,6 +47,34 @@ JOURNAL_ADDED: Mapping[str, Any] = {
 }
 
 
+def closed_block(
+    properties: Mapping[str, Any], required: Iterable[str] | None = None
+) -> dict[str, Any]:
+    """Le bloc d'un type d'event : FERMÉ, et tout obligatoire sauf restriction.
+
+    Fermé par défaut, et c'est le choix du 12/11/2026 : une propriété ajoutée par un
+    producteur sans être déclarée ici n'entrerait ni dans l'écran ni dans le contrat
+    publié, et personne ne le verrait. Ce que le journal ajoute lui-même reste toléré
+    (`JOURNAL_ADDED`), sans quoi tout event écrit par la surface MCP serait refusé.
+
+    Tout obligatoire par défaut pour la même raison : un producteur qui omettrait une
+    propriété écrirait un event incomplet, et c'est à l'écriture qu'on peut encore le
+    dire. Une valeur qui peut manquer se déclare NULLE — un nul se relit, une absence
+    s'interprète. `required` ne se restreint que là où DEUX producteurs du même type
+    écrivent des blocs différents, et le commentaire doit alors dire lesquels.
+
+    Au socle et non recopié dans chaque module : les trente-et-un modules des trois
+    produits en ont besoin, et trente-et-une copies auraient divergé — la première qui
+    aurait oublié `additionalProperties` aurait ouvert son bloc sans que rien ne le dise.
+    """
+    return {
+        "type": "object",
+        "properties": dict(properties),
+        "required": sorted(properties if required is None else required),
+        "additionalProperties": False,
+    }
+
+
 @dataclass(frozen=True)
 class EventShape:
     """Un type d'event tel que le MODULE qui le produit le déclare : sans sa catégorie.

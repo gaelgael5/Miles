@@ -7,9 +7,11 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
+from miles.event_shapes import BRANCH, COMMIT, NAME
 from miles.git.holdspace import HeldCopy
 from miles.git.shelf import ShelfMissingError, ShelfTakenError, drop_shelf, merge_shelf, shelve
 from miles.workshop.holds_db import Hold, db_hold
@@ -28,7 +30,31 @@ log = structlog.get_logger(__name__)
 
 UNLOCKED_EVENT = "branch_hold.unlocked"
 RESUMED_EVENT = "branch_hold.resumed"
-EVENT_TYPES = frozenset({UNLOCKED_EVENT, RESUMED_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        UNLOCKED_EVENT,
+        "Prise de main déverrouillée par un administrateur",
+        # Le DÉTENTEUR dépossédé est nommé par son identité (annuaire, sub) : c'est un
+        # geste d'administration sur le travail de quelqu'un d'autre, et le journal doit
+        # dire sur qui. L'étagère et son commit sont NULS quand il n'y avait rien à
+        # mettre de côté — un déverrouillage sans travail en cours est le cas ordinaire.
+        closed_block(
+            {
+                "slug": NAME,
+                "holder_directory": NAME,
+                "holder_subject": NAME,
+                "shelf": {"type": ["string", "null"]},
+                "commit": {"type": ["string", "null"], "pattern": COMMIT["pattern"]},
+            }
+        ),
+    ),
+    EventShape(
+        RESUMED_EVENT,
+        "Travail mis de côté repris",
+        closed_block({"slug": NAME, "shelf": BRANCH, "commit": COMMIT}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 # Un login de forge tel que GitHub les admet : il devient un segment de nom de branche.
 _LOGIN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}$")
 
@@ -52,7 +78,7 @@ async def resume(
     pool: asyncpg.Pool,
     copy: HeldCopy,
     shelf: Shelf,
-    catalog: EventChecker,
+    catalog: EventCatalog,
     now: Callable[[], datetime],
 ) -> None:
     """Fusionne le rangement dans l'espace qu'on vient d'ouvrir, puis le retire de la forge."""
@@ -83,7 +109,7 @@ class ShelvesService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(self, workspace_id: str) -> list[Shelf]:

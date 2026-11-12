@@ -27,9 +27,9 @@ from typing import Any, Protocol
 import asyncpg
 import structlog
 
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.events.model import (
     DelegatedAuthor,
-    EventChecker,
     EventError,
     FunctionalAtSource,
     NewEvent,
@@ -87,14 +87,14 @@ RETURNING object_kind, object_id, last_sequence
 _INSERT_EVENTS = """
 INSERT INTO events (id, type, functional_at, functional_at_source, written_at,
                     author_directory, author_subject, properties,
-                    external_id, dedup_key, creation_date)
-SELECT id, type, functional_at, source, $11, directory, subject, properties::jsonb,
-       external_id, dedup_key, creation_date
+                    external_id, dedup_key, creation_date, category)
+SELECT id, type, functional_at, source, $12, directory, subject, properties::jsonb,
+       external_id, dedup_key, creation_date, category
 FROM unnest($1::uuid[], $2::text[], $3::timestamptz[], $4::text[],
             $5::text[], $6::text[], $7::text[],
-            $8::text[], $9::text[], $10::timestamptz[])
+            $8::text[], $9::text[], $10::timestamptz[], $11::smallint[])
      AS t(id, type, functional_at, source, directory, subject, properties,
-          external_id, dedup_key, creation_date)
+          external_id, dedup_key, creation_date, category)
 """
 
 # `written_at` recopié depuis l'event, et non joint : c'est la clé de partition, et les
@@ -120,6 +120,11 @@ class _Scelle:
     source: FunctionalAtSource
     properties: dict[str, Any]
     objects: tuple[ObjectRef, ...]
+    # Le NUMÉRO de la catégorie, pris au catalogue et jamais à l'appelant : la catégorie
+    # dit QUI introduit l'event, et c'est une propriété du type, pas du geste. La laisser
+    # passer par `NewEvent` aurait permis à un producteur de se déclarer d'une autre
+    # catégorie que la sienne, et le verrou de l'IHM de configuration en dépend.
+    category: int
 
 
 def _properties(event: NewEvent) -> dict[str, Any]:
@@ -135,7 +140,7 @@ def _properties(event: NewEvent) -> dict[str, Any]:
 async def db_write_event(
     db: EventDb,
     event: NewEvent,
-    catalog: EventChecker,
+    catalog: EventCatalog,
     now: Callable[[], datetime],
 ) -> WrittenEvent:
     """Écrit l'event dans la transaction ouverte par la modification qu'il trace.
@@ -149,7 +154,7 @@ async def db_write_event(
 async def db_write_events(
     db: EventDb,
     events: Sequence[NewEvent],
-    catalog: EventChecker,
+    catalog: EventCatalog,
     now: Callable[[], datetime],
 ) -> list[WrittenEvent]:
     """Écrit le lot d'events en trois instructions, dans la transaction de l'appelant.
@@ -171,7 +176,7 @@ async def db_write_events(
         # avant toute écriture, pour que la modification tombe avec son event.
         catalog.check_event(event)
     written_at = now()
-    scelles = [_scelle(event, written_at) for event in events]
+    scelles = [_scelle(event, written_at, catalog) for event in events]
     sequences = await _reserved(db, scelles)
 
     async def ecrire() -> None:
@@ -189,6 +194,7 @@ async def db_write_events(
             s.event.author,
             s.properties,
             attribues,
+            s.category,
             s.event.external_id,
             s.event.dedup_key,
             s.event.creation_date,
@@ -197,7 +203,7 @@ async def db_write_events(
     ]
 
 
-def _scelle(event: NewEvent, written_at: datetime) -> _Scelle:
+def _scelle(event: NewEvent, written_at: datetime, catalog: EventCatalog) -> _Scelle:
     functional_at = event.functional_at or written_at
     source: FunctionalAtSource = "caller" if event.functional_at is not None else "write_time"
     return _Scelle(
@@ -207,6 +213,10 @@ def _scelle(event: NewEvent, written_at: datetime) -> _Scelle:
         source=source,
         properties=_properties(event),
         objects=tuple(sorted(event.objects)),
+        # `of` a déjà réussi dans `check_event` ci-dessus : le type est déclaré, et c'est
+        # sa déclaration qui porte la catégorie. Aucun défaut, aucun repli — un type sans
+        # catégorie n'existe pas, puisque `DeclaredEvent` l'exige.
+        category=catalog.of(event.type).category.number,
     )
 
 
@@ -255,6 +265,7 @@ async def _db_insert_events(db: EventDb, scelles: Sequence[_Scelle], written_at:
         [s.event.external_id for s in scelles],
         [s.event.dedup_key for s in scelles],
         [s.event.creation_date for s in scelles],
+        [s.category for s in scelles],
         written_at,
     )
 

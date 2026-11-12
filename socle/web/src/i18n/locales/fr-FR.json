@@ -346,7 +346,8 @@
       "objects": "Objets concernés",
       "externalId": "Identifiant externe",
       "dedupKey": "Clé d'anti-doublon",
-      "creationDate": "Créé le (chez le producteur)"
+      "creationDate": "Créé le (chez le producteur)",
+      "category": "Catégorie"
     },
     "detail": {
       "title": "Détail de l'event",
@@ -362,6 +363,16 @@
       "window": "Les bornes de dates sont inversées : la date de début est après celle de fin.",
       "pair": "Ce filtre se donne par paire : l'annuaire avec le compte, le genre d'objet avec son identifiant.",
       "unexpected": "Le journal n'a pas pu être lu."
+    },
+    "categories": {
+      "0": "Back-office de configuration",
+      "1": "Back-office d'enrôlement",
+      "2": "Back-office d'environnement",
+      "3": "Front du système",
+      "4": "Socle du device",
+      "5": "Fonctionnel du device",
+      "6": "Moteur de workflow",
+      "unknown": "Catégorie {{number}}"
     }
   }
 }

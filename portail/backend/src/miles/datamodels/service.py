@@ -7,8 +7,9 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.parametrage.example import example_of
 from miles_socle.parametrage.refs import inline_refs
 
@@ -32,6 +33,7 @@ from miles.datamodels.schema import (
     parse_schema,
     references_in,
 )
+from miles.event_shapes import GESTURE, NAME
 from miles.git.workcopy import WorkCopy
 from miles.workflowevents.layout import entry_of as event_entry_of
 from miles.workshop.domains import domains_in
@@ -43,7 +45,15 @@ log = structlog.get_logger(__name__)
 CREATED_EVENT = "data_model.created"
 DELETED_EVENT = "data_model.deleted"
 REPLACED_EVENT = "data_model.replaced"
-EVENT_TYPES = frozenset({CREATED_EVENT, DELETED_EVENT, REPLACED_EVENT})
+# Le CHEMIN du modèle dans le dépôt, et le geste : les trois faits portent le même bloc,
+# parce que la question qu'on leur pose est la même — « quel modèle, et dans quel commit ? ».
+_MODELE: dict[str, Any] = {"path": NAME, **GESTURE}
+EVENT_SHAPES = (
+    EventShape(CREATED_EVENT, "Modèle de données créé", closed_block(_MODELE)),
+    EventShape(DELETED_EVENT, "Modèle de données supprimé", closed_block(_MODELE)),
+    EventShape(REPLACED_EVENT, "Modèle de données remplacé", closed_block(_MODELE)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class ModelNotFoundError(Exception):
@@ -67,7 +77,7 @@ class DataModelsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(

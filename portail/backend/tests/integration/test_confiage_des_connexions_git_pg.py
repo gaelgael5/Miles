@@ -9,12 +9,11 @@ from typing import Any
 
 import httpx
 import pytest
-from miles_socle.events.model import EventTypeCatalog
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.service import SecretsService
 from miles_socle.testing.enrolment_double import EXPECTED_CODE, PEER_ORIGIN, EnrolmentDouble
 
-from miles.event_types import code_event_types
+from miles.event_types import code_event_catalog
 from miles.gitaccess.confide import GitConfidingService
 from miles.gitaccess.confide_model import (
     CONFIDED_EVENT,
@@ -56,7 +55,7 @@ async def _stack(
     recomposer autrement ferait éprouver un câblage que la production n'a pas.
     """
     async with open_portal_stack(dsn, tmp_path) as portal:
-        catalog = EventTypeCatalog(code_event_types())
+        catalog = code_event_catalog()
         cipher = SecretCipher(os.urandom(32))
         secrets = SecretsService(portal.pool, cipher, catalog, utc_now, _pat_remplace(portal))
         state = portal.app.state

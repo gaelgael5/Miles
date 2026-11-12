@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from miles_socle.pairing.events import EVENT_SHAPES as EVENT_SHAPES
 from miles_socle.pairing.events import EVENT_TYPES as EVENT_TYPES
 from miles_socle.pairing.events import PAIRING_CANCELLED_EVENT as PAIRING_CANCELLED_EVENT
 from miles_socle.pairing.events import PAIRING_REQUESTED_EVENT as PAIRING_REQUESTED_EVENT

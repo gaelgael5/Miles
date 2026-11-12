@@ -16,7 +16,7 @@ from miles_socle.auth.context import utc_now
 from miles_socle.auth.gate import auth_gate
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.pool import db_create_pool
-from miles_socle.events.model import EventAuthor, EventTypeCatalog
+from miles_socle.events.model import EventAuthor
 from miles_socle.journal.api_journal import MAINTENANCE_PATH
 from miles_socle.log_config import configure_logging
 from miles_socle.pairing.api_peer import router as peer_router
@@ -30,7 +30,7 @@ from miles.contracts.models_service import ContractModelsService
 from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import ContractsService
 from miles.datamodels.service import DataModelsService
-from miles.event_types import code_event_types
+from miles.event_types import code_event_catalog
 from miles.git.holdspace import HOLDS_DIR, HoldSpaces
 from miles.git.workdirs import WorkDirs
 from miles.gitaccess.confide import GitConfidingService
@@ -87,7 +87,7 @@ def create_app() -> FastAPI:
     store = AdminAccountStore.file_load(settings.env_file, settings.env_backup_file)
     # Même règle pour la clé des secrets : absente ou mal formée, on ne démarre pas.
     cipher = SecretCipher(parse_secrets_key(settings.secrets_key.get_secret_value()))
-    catalog = EventTypeCatalog(code_event_types())
+    catalog = code_event_catalog()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

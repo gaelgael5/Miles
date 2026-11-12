@@ -23,10 +23,13 @@ from datetime import datetime
 from typing import Any
 
 import structlog
+from miles_socle.events.catalog import EventShape, closed_block
 from miles_socle.events.journal import db_write_events
 from miles_socle.events.model import NewEvent, ObjectRef
 
 from environnement.ingestion.cleanup_rules import (
+    KIND_EXPIRY,
+    KIND_MISSING,
     CleanupRule,
     delete_statement,
     removable,
@@ -39,7 +42,34 @@ from environnement.storages.model import StorageTable
 log = structlog.get_logger(__name__)
 
 OBJECT_REMOVED_EVENT = "environment.storage_object_removed"
-EVENT_TYPES = frozenset({OBJECT_REMOVED_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        OBJECT_REMOVED_EVENT,
+        "Objet retiré d'un storage",
+        closed_block(
+            {
+                "storage": {"type": "string", "minLength": 1},
+                "model": {"type": "string", "minLength": 1},
+                "ingestion": {"type": "string", "minLength": 1},
+                # DÉRIVÉ des deux genres de règle : un troisième entrerait ici tout seul.
+                "rule": {"type": "string", "enum": [KIND_MISSING, KIND_EXPIRY]},
+                # `property` pour une péremption, `source` pour les absents : chacun est
+                # NUL quand l'autre parle. Une trace qui nommerait « péremption » tout
+                # court enverrait chercher laquelle des règles d'un storage a supprimé
+                # l'objet.
+                "property": {"type": ["string", "null"]},
+                "source": {"type": ["string", "null"]},
+                "days": {"type": "integer", "minimum": 0},
+                # L'objet ENTIER, et c'est délibéré : la ligne n'existe plus, et un event
+                # qui n'en garderait que la clé ne permettrait pas de la reposer. Son
+                # schéma est celui du modèle, que ce module ne connaît pas — on exige donc
+                # un objet, sans dire lequel.
+                "objet": {"type": "object"},
+            }
+        ),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 # Combien d'items une fenêtre emporte. Cent, comme la fenêtre de fusion : la transaction
 # reste courte, et les events de la fenêtre partent en trois instructions quel que soit

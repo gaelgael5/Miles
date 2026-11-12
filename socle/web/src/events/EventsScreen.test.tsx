@@ -22,6 +22,8 @@ const EVENT: JournalEvent = {
   author_subject: "admin",
   properties: { slug: "pat-forge" },
   objects: [{ kind: "secret", id: "pat-forge", sequence: 1 }],
+  // Introduit par le back-office de configuration — le cas de presque tout ce journal.
+  category: 0,
   // Le cas de l'atelier : un geste humain n'a aucun des trois champs de la racine.
   external_id: null,
   dedup_key: null,
@@ -37,6 +39,9 @@ const VENU_D_UN_MESSAGE: JournalEvent = {
   external_id: "msg-4242",
   dedup_key: "d1:2026-11-09",
   creation_date: "2026-11-09T06:15:00Z",
+  // DISCRIMINANTE : un event venu d'un device n'est pas introduit par le back-office, et
+  // c'est la seule des sept catégories que l'IHM de configuration laissera éditer.
+  category: 5,
 };
 const DATE_D_ECRITURE: JournalEvent = {
   ...EVENT,
@@ -300,5 +305,40 @@ describe("l'écran du journal d'events", () => {
     const detail = within(screen.getByRole("complementary", { name: "Event details" }));
     expect(detail.queryByText("External id")).not.toBeInTheDocument();
     expect(detail.queryByText("Dedup key")).not.toBeInTheDocument();
+  });
+});
+
+describe("la catégorie de l'event", () => {
+  it("names who introduced the type, not its number", async () => {
+    monte(UN_EVENT);
+    expect(await screen.findByText(/1 event\(s\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("secret.created"));
+
+    // Le libellé, pas le « 0 » : le numéro est la forme publiée, pas la forme lue.
+    expect(screen.getByText("Configuration back office")).toBeInTheDocument();
+  });
+
+  it("tells an event reported by a device apart", async () => {
+    monte({
+      "GET /api/events": {
+        status: 200,
+        body: page({ events: [VENU_D_UN_MESSAGE], total: 1 }),
+      },
+    });
+    expect(await screen.findByText(/1 event\(s\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("device.reported"));
+
+    expect(screen.getByText("Device functional")).toBeInTheDocument();
+  });
+
+  it("names a category the backend serves and the front does not know", async () => {
+    // Repli VISIBLE plutôt que case vide : une huitième catégorie déclarée au backend
+    // s'affichera « Category 7 » le temps que le front la nomme.
+    const inconnue: JournalEvent = { ...EVENT, category: 7 };
+    monte({ "GET /api/events": { status: 200, body: page({ events: [inconnue], total: 1 }) } });
+    expect(await screen.findByText(/1 event\(s\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("secret.created"));
+
+    expect(screen.getByText("Category 7")).toBeInTheDocument();
   });
 });

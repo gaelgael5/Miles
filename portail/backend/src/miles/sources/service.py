@@ -6,12 +6,14 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.datamodels.grammar import load_yaml
 from miles.datamodels.layout import MODEL_RE, model_path
 from miles.datamodels.service import inlined_schema
+from miles.event_shapes import GESTURE, NAME
 from miles.sources import openapi
 from miles.sources.checks import branch_problems
 from miles.sources.layout import (
@@ -31,7 +33,12 @@ log = structlog.get_logger(__name__)
 
 SAVED_EVENT = "data_source.saved"
 DELETED_EVENT = "data_source.deleted"
-EVENT_TYPES = frozenset({SAVED_EVENT, DELETED_EVENT})
+_SOURCE: dict[str, object] = {"source": NAME, **GESTURE}
+EVENT_SHAPES = (
+    EventShape(SAVED_EVENT, "Source de données enregistrée", closed_block(_SOURCE)),
+    EventShape(DELETED_EVENT, "Source de données supprimée", closed_block(_SOURCE)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class SourceInvalidError(Exception):
@@ -70,7 +77,7 @@ class SourcesService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(

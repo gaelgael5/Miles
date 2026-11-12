@@ -8,9 +8,8 @@ from typing import Any
 
 import pytest
 from miles_socle.cultures.service import CulturesService
-from miles_socle.events.model import EventTypeCatalog
 
-from miles.event_types import code_event_types
+from miles.event_types import code_event_catalog
 from miles.reference.holidays import bundled_dates
 from miles.reference.model import TIMEZONE_ACTIVATED_EVENT, TIMEZONE_DEACTIVATED_EVENT
 from miles.reference.service import CountriesService
@@ -34,7 +33,7 @@ HEURE_EUROPE_CENTRALE = "heure d\u2019Europe centrale"
 @asynccontextmanager
 async def _stack(dsn: str, tmp_path: Path) -> AsyncIterator[PortalStack]:
     async with open_portal_stack(dsn, tmp_path) as portal:
-        catalog = EventTypeCatalog(code_event_types())
+        catalog = code_event_catalog()
         portal.app.state.cultures = CulturesService(portal.pool, catalog, utc_now)
         portal.app.state.countries = CountriesService(
             portal.pool, portal.app.state.cultures, catalog, utc_now, bundled_dates()

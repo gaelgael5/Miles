@@ -19,6 +19,9 @@ export interface JournalEvent {
   author_subject: string;
   properties: Record<string, unknown>;
   objects: EventObject[];
+  /** Qui introduit ce type d'event : le NUMÉRO, qui est la forme publiée. Un type
+   * introduit par du code sera en lecture seule dans l'IHM de configuration. */
+  category: number;
   /** Les trois champs de la racine commune (12/11/2026). Nuls pour un geste humain de
    * l'atelier, qui n'a ni identifiant chez un producteur ni clé d'anti-doublon. */
   external_id: string | null;

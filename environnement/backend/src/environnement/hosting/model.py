@@ -13,10 +13,30 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
+from miles_socle.events.catalog import EventShape, closed_block
+
 HOSTING_OBJECT_KIND = "hosted_version"
 VERSION_SERVED_EVENT = "hosting.version_served"
 VERSION_REFUSED_EVENT = "hosting.version_refused"
-EVENT_TYPES = frozenset({VERSION_SERVED_EVENT, VERSION_REFUSED_EVENT})
+# Deux blocs et non un seul portant les deux champs facultatifs : les deux questions ne
+# se posent jamais ensemble, et un champ nul obligerait à l'interpréter pour savoir
+# laquelle on relit. Les formes sont mesurées sur `service.py`, seul producteur des deux.
+EVENT_SHAPES = (
+    EventShape(
+        VERSION_SERVED_EVENT,
+        "Version servie par cette stack",
+        # DÉRIVÉ de `COMMIT_RE` ci-dessous, qui est la forme du CHECK de la migration 0015.
+        closed_block({"commit": {"type": "string", "pattern": r"^[0-9a-f]{40}$"}}),
+    ),
+    EventShape(
+        VERSION_REFUSED_EVENT,
+        "Version non servie",
+        # Un motif et non une énumération : ce module en déclare onze, et les énumérer ici
+        # ferait une douzième liste à tenir d'accord avec la première.
+        closed_block({"refusal": {"type": "string", "pattern": r"^[a-z][a-z0-9_]{0,39}$"}}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 # La MÊME forme que le CHECK de la migration 0015 : la base tient l'invariant pour de bon,
 # le code est le seul à pouvoir refuser en nommant ce qui pèche.

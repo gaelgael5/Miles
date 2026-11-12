@@ -8,8 +8,9 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 log = structlog.get_logger(__name__)
 
@@ -68,7 +69,7 @@ class GivenReferential:
 async def resolve_set_active(
     *,
     pool: asyncpg.Pool,
-    catalog: EventChecker,
+    catalog: EventCatalog,
     now: Callable[[], datetime],
     referential: GivenReferential,
     author: EventAuthor,

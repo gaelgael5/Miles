@@ -24,8 +24,9 @@ from uuid import UUID
 import asyncpg
 import httpx
 import structlog
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.git.access import GitAccess
 from miles_socle.git.failures import GitAccessError
 from miles_socle.git.forge import Repository, RepositoryUrlError, parse_repository
@@ -88,7 +89,7 @@ class HostingService:
 
     pool: asyncpg.Pool
     cipher: SecretCipher
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     module: ModuleIdentityService
     http: httpx.AsyncClient

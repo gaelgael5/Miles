@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from miles_socle.events.catalog import EventShape, closed_block
+
 # La marque d'absence (Gael, 09/11/2026 : « si clef d'item pas présente, lors d'un import
 # full par upload de fichier, l'item est flagué en base »). Une seule colonne pour la
 # marque ET sa date : nulle quand l'item est porté par les imports, portant l'instant de
@@ -57,7 +59,39 @@ STORAGE_REFUSED_EVENT = "environment.storage_refused"
 STORAGES_OBJECT_KIND = "storages"
 # Déclarés ici, et le catalogue du produit les y prend : un type écrit par le code et
 # absent du catalogue fait rendre 500 au premier event, et c'est arrivé le 29/10/2026.
-EVENT_TYPES = frozenset({STORAGES_MATERIALISED_EVENT, STORAGE_REFUSED_EVENT})
+_NOMS: dict[str, object] = {"type": "array", "items": {"type": "string", "minLength": 1}}
+EVENT_SHAPES = (
+    EventShape(
+        STORAGES_MATERIALISED_EVENT,
+        "Storages matérialisés",
+        closed_block(
+            {
+                "version": {"type": "integer", "minimum": 1},
+                # Ce qui a CHANGÉ, pas ce qui est en place : un journal qui annonce une
+                # pose à chaque rejeu ne se lit plus. L'event n'est d'ailleurs écrit que
+                # si l'un des trois n'est pas vide.
+                "changed": _NOMS,
+                "refused": _NOMS,
+                "forgotten": _NOMS,
+            }
+        ),
+    ),
+    EventShape(
+        STORAGE_REFUSED_EVENT,
+        "Storage refusé",
+        closed_block(
+            {
+                "version": {"type": "integer", "minimum": 1},
+                "storage": {"type": "string", "minLength": 1},
+                "refusal": {"type": "string", "pattern": r"^[a-z][a-z0-9_]{0,39}$"},
+                # NUL et non absent : tous les refus n'ont pas de détail, et une absence
+                # ferait chercher si le producteur a oublié de le joindre.
+                "detail": {"type": ["string", "null"]},
+            }
+        ),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 # Motifs de refus d'un storage. Chacun appelle un geste différent dans le paramétrage,
 # donc chacun a son nom — un refus unique les enverrait tous chercher au même endroit.

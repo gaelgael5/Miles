@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, get_args
 
-from miles_socle.events.catalog import EventShape
+from miles_socle.events.catalog import EventShape, closed_block
 from miles_socle.signing.protocol import PeerSpecies
 
 # Les types d'events de CE module et les objets qu'ils nomment, plus le libellé de son
@@ -68,28 +68,12 @@ _ENVIRONNEMENT: Mapping[str, Mapping[str, Any]] = {
 }
 
 
-def _ferme(proprietes: Mapping[str, Any]) -> dict[str, Any]:
-    """Un bloc fermé dont toutes les propriétés sont obligatoires.
-
-    Obligatoires et non facultatives : un producteur qui omettrait une propriété écrirait
-    un event incomplet, et c'est au moment de l'écriture qu'on peut encore le dire. Une
-    valeur qui peut manquer est NULLE et déclarée telle — `pairing.revoked` le fait pour
-    l'environnement quitté —, parce qu'un nul se relit et qu'une absence s'interprète.
-    """
-    return {
-        "type": "object",
-        "properties": dict(proprietes),
-        "required": sorted(proprietes),
-        "additionalProperties": False,
-    }
-
-
-_ENVIRONNEMENT_POSE = _ferme(_ENVIRONNEMENT)
+_ENVIRONNEMENT_POSE = closed_block(_ENVIRONNEMENT)
 # Le déplacement porte les SIX champs : il y avait quelque chose avant, et c'est ce
 # « avant » qu'on viendra chercher. Les champs du précédent sont ABSENTS et non nuls dans
 # les deux autres faits — un rattachement qui porterait `previous_environment_id: null`
 # ferait chercher un déplacement qui n'a pas eu lieu, et le bloc fermé l'interdit.
-_ENVIRONNEMENT_DEPLACE = _ferme(
+_ENVIRONNEMENT_DEPLACE = closed_block(
     {
         **_ENVIRONNEMENT,
         **{f"previous_{nom}": forme for nom, forme in _ENVIRONNEMENT.items()},
@@ -100,7 +84,7 @@ EVENT_SHAPES = (
     EventShape(
         REQUEST_OPENED_EVENT,
         "Demande d'appariement ouverte",
-        _ferme(
+        closed_block(
             {
                 "public_key_fingerprint": _EMPREINTE,
                 "declared_name": {"type": "string", "minLength": 1},
@@ -110,12 +94,12 @@ EVENT_SHAPES = (
     ),
     # Refus et expiration ne portent rien : l'objet de l'event est l'origine de la
     # demande, et le fait est entier. Ce qu'elle déclarait se relit dans son ouverture.
-    EventShape(REQUEST_REJECTED_EVENT, "Demande d'appariement refusée", _ferme({})),
-    EventShape(REQUEST_EXPIRED_EVENT, "Demande d'appariement expirée", _ferme({})),
+    EventShape(REQUEST_REJECTED_EVENT, "Demande d'appariement refusée", closed_block({})),
+    EventShape(REQUEST_EXPIRED_EVENT, "Demande d'appariement expirée", closed_block({})),
     EventShape(
         PAIRING_CONFIRMED_EVENT,
         "Appariement conclu",
-        _ferme({"public_key_fingerprint": _EMPREINTE, "species": _ESPECE}),
+        closed_block({"public_key_fingerprint": _EMPREINTE, "species": _ESPECE}),
     ),
     EventShape(
         ENVIRONMENT_DESIGNATED_EVENT, "Environnement désigné par une demande", _ENVIRONNEMENT_POSE
@@ -125,7 +109,7 @@ EVENT_SHAPES = (
     EventShape(
         PAIRING_REVOKED_EVENT,
         "Appariement révoqué",
-        _ferme(
+        closed_block(
             {
                 "public_key_fingerprint": _EMPREINTE,
                 # NULS pour un appariement hérité, qui n'en portait aucun : les trois
@@ -146,12 +130,12 @@ EVENT_SHAPES = (
     EventShape(
         PEER_CONTACT_CHANGED_EVENT,
         "Adresse de contact du pair changée",
-        _ferme({"contact_url": {"type": "string", "minLength": 1}}),
+        closed_block({"contact_url": {"type": "string", "minLength": 1}}),
     ),
     EventShape(
         GIT_CONNECTIONS_CONFIDED_EVENT,
         "Connexions git confiées",
-        _ferme(
+        closed_block(
             {
                 "revision": {"type": "integer", "minimum": 0},
                 # Les IDENTIFIANTS, jamais les credentials — pas même tronqués. Le journal
@@ -165,7 +149,7 @@ EVENT_SHAPES = (
     EventShape(
         GIT_CREDENTIAL_RENEWED_EVENT,
         "Credential git renouvelé",
-        _ferme(
+        closed_block(
             {
                 "peer_base_url": {"type": "string", "minLength": 1},
                 "revision": {"type": "integer", "minimum": 0},

@@ -7,7 +7,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-from miles_socle.events.model import EventTypeCatalog
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.service import SecretsService
 
@@ -19,7 +18,7 @@ from miles.contracts.models_service import ContractModelsService
 from miles.contracts.remote import RemoteContracts
 from miles.contracts.service import ContractsService
 from miles.datamodels.service import DataModelsService
-from miles.event_types import code_event_types
+from miles.event_types import code_event_catalog
 from miles.git.holdspace import HOLDS_DIR, HoldSpaces
 from miles.git.workdirs import WorkDirs
 from miles.gitaccess.confide import GitConfidingService
@@ -63,10 +62,10 @@ def wire_git(portal: PortalStack, hosts: tuple[str, ...]) -> None:
     """Branche secrets, connexions, workspaces et modèles comme le fait app.py."""
     # LE catalogue du produit, et non une union assemblée ici. Mesuré le 29/10/2026 dans
     # le harnais de l'appariement : assemblé à la main, il contenait des types que
-    # `code_event_types()` avait OUBLIÉS — la suite était verte et la stack déployée rendait
+    # `code_event_catalog()` avait OUBLIÉS — la suite était verte et la stack déployée rendait
     # 500. Un harnais plus généreux que la production est complaisant exactement là où il
     # devait mordre, et c'est la leçon de `LESSONS.md`.
-    catalog = EventTypeCatalog(code_event_types())
+    catalog = code_event_catalog()
     cipher = SecretCipher(os.urandom(32))
     secrets = SecretsService(portal.pool, cipher, catalog, utc_now)
     resolver = AccessResolver(secrets)

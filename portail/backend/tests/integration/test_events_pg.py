@@ -9,18 +9,36 @@ import asyncpg
 import pytest
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.migrations import resolve_apply_migrations
+from miles_socle.events.catalog import EventCatalog, EventShape, introduced_by
+from miles_socle.events.categories import of_number
 from miles_socle.events.history import db_object_history
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.events.search import EventFilter
 from miles_socle.events.service import EventsService
 from miles_socle.events.store_search import FoundEvent
 
 from miles.config import DEFAULT_MIGRATIONS_DIR
 
+
+def _catalogue_de(*noms: str) -> EventCatalog:
+    """Un catalogue de test pour ces types, bloc OUVERT.
+
+    Ouvert parce que ces tests éprouvent le JOURNAL — écriture, partitions, séquences — et
+    non la validation du bloc, qui a son propre fichier. Un bloc fermé les ferait rougir
+    pour une raison sans rapport avec ce qu'ils vérifient.
+    """
+    return EventCatalog(
+        introduced_by(
+            of_number(0),
+            tuple(EventShape(nom, nom, {"type": "object"}) for nom in noms),
+        )
+    )
+
+
 pytestmark = pytest.mark.integration
 
-CATALOG = EventTypeCatalog(frozenset({"thing.created", "thing.updated"}))
+CATALOG = _catalogue_de("thing.created", "thing.updated")
 AUTHOR = EventAuthor("local", "admin")
 # Table d'essai : une « modification » quelconque, que l'event doit accompagner.
 THINGS = "CREATE TABLE things (id text PRIMARY KEY, label text NOT NULL)"
@@ -248,3 +266,60 @@ class TestLaRacineCommuneDesEvents:
 
         with pytest.raises(asyncpg.CheckViolationError, match="events_external_id_non_vide"):
             await db.execute("UPDATE events SET external_id = ''")
+
+
+@pytest.mark.integration
+class TestLaCategorieDesEvents:
+    """La colonne posée le 12/11/2026, sur une base réelle.
+
+    La doublure dit que le numéro part en paramètre ; seule une base dit qu'il atterrit
+    dans une colonne `NOT NULL`, qu'il se relit par le chemin de l'écran, et que la garde
+    de base refuse ce que le code refuse.
+    """
+
+    async def _page(self, pool: asyncpg.Pool) -> tuple[FoundEvent, ...]:
+        return (await EventsService(pool, _now).resolve_search(EventFilter(), 1, 50)).page.events
+
+    async def test_la_categorie_du_type_fait_l_aller_retour(self, db: asyncpg.Pool) -> None:
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(
+                conn,
+                NewEvent("thing.created", (ObjectRef("thing", "t1"),), AUTHOR, {}),
+                CATALOG,
+                _now,
+            )
+
+        relu = (await self._page(db))[0]
+
+        # Zéro parce que `CATALOG` déclare ses types sous `backoffice-configuration`, qui
+        # est la catégorie de ce produit — et c'est le catalogue qui l'a posée, pas l'event.
+        assert relu.category == 0
+
+    async def test_la_base_refuse_un_numero_negatif(self, db: asyncpg.Pool) -> None:
+        """La seule borne que la base tient : les numéros sont des rangs. La borne HAUTE
+        est au code, qui nomme la catégorie inconnue — l'énumération n'est pas close, et un
+        CHECK à sept valeurs aurait demandé une migration par catégorie ajoutée."""
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(
+                conn,
+                NewEvent("thing.created", (ObjectRef("thing", "t2"),), AUTHOR, {}),
+                CATALOG,
+                _now,
+            )
+        with pytest.raises(asyncpg.CheckViolationError):
+            await db.execute("UPDATE events SET category = -1")
+
+    async def test_la_colonne_n_admet_pas_le_nul(self, db: asyncpg.Pool) -> None:
+        """Ce qui distingue cette colonne des trois autres champs de la racine : elles sont
+        nullables parce qu'un geste de l'atelier n'en a aucun, alors qu'un event a TOUJOURS
+        une catégorie — son type la déclare. Un nul laisserait l'IHM de configuration sans
+        son verrou de lecture seule."""
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(
+                conn,
+                NewEvent("thing.created", (ObjectRef("thing", "t3"),), AUTHOR, {}),
+                CATALOG,
+                _now,
+            )
+        with pytest.raises(asyncpg.NotNullViolationError):
+            await db.execute("UPDATE events SET category = NULL")

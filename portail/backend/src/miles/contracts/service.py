@@ -6,8 +6,9 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.contracts.derived import derive_models
 from miles.contracts.layout import (
@@ -31,6 +32,7 @@ from miles.contracts.openapi import (
     parse_contract,
 )
 from miles.contracts.reading import Contract, contract_at
+from miles.event_shapes import COUNT, GESTURE, NAME
 from miles.git.workcopy import WorkCopy
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceInputError, checked_label, commit_author
@@ -40,7 +42,29 @@ log = structlog.get_logger(__name__)
 DECLARED_EVENT = "contract.declared"
 VERSION_EVENT = "contract.version_imported"
 DELETED_EVENT = "contract.deleted"
-EVENT_TYPES = frozenset({DECLARED_EVENT, VERSION_EVENT, DELETED_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        DECLARED_EVENT,
+        "Contrat déclaré",
+        # `sens` est le SENS du contrat tel que son en-tête le déclare — entrant ou
+        # sortant. Non énuméré ici : la liste vit dans la lecture de l'en-tête, et la
+        # recopier donnerait une seconde liste à tenir d'accord.
+        closed_block({"slug": NAME, "sens": NAME, **GESTURE}),
+    ),
+    EventShape(
+        VERSION_EVENT,
+        "Version de contrat intégrée",
+        closed_block({"slug": NAME, "version": COUNT, **GESTURE}),
+    ),
+    EventShape(
+        DELETED_EVENT,
+        "Contrat supprimé",
+        # Le NOMBRE de versions emportées, et non leur liste : c'est ce que la
+        # confirmation annonçait, et c'est ce qu'on relira.
+        closed_block({"slug": NAME, "versions": COUNT, **GESTURE}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class ContractNotFoundError(Exception):
@@ -66,7 +90,7 @@ class ContractsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     @staticmethod

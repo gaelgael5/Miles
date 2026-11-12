@@ -28,7 +28,7 @@ class ObjectHistory:
 async def db_object_history(db: EventDb, ref: ObjectRef) -> ObjectHistory:
     rows = await db.fetch(
         "SELECT e.id, e.type, e.functional_at, e.functional_at_source, e.written_at,"
-        " e.author_directory, e.author_subject, e.properties, o.sequence"
+        " e.author_directory, e.author_subject, e.properties, e.category, o.sequence"
         # Jointure sur les DEUX colonnes : `written_at` est la clé de partition des deux
         # tables, et sans elle le planificateur parcourt toutes les partitions des events.
         " FROM event_objects o JOIN events e ON e.id = o.event_id AND e.written_at = o.written_at"
@@ -53,4 +53,5 @@ def _row_to_event(row: Any, ref: ObjectRef) -> WrittenEvent:
         EventAuthor(row["author_directory"], row["author_subject"]),
         json.loads(properties) if isinstance(properties, str) else properties,
         {ref: row["sequence"]},
+        row["category"],
     )

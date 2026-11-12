@@ -59,6 +59,13 @@ def test_un_champ_que_le_moteur_se_mettrait_a_porter_ne_passe_pas_inapercu() -> 
 
 def test_chaque_champ_du_moteur_nomme_la_colonne_qui_le_porte() -> None:
     """Un champ de la racine sans colonne finirait dans le bloc de propriétés, redéclaré
-    par chaque type d'event — exactement ce que la racine commune évite. `Category` en est
-    l'exception assumée : son énumération n'est pas close."""
-    assert set(COLUMN_OF_FIELD) == set(BASE_EVENT_SCHEMA["properties"])
+    par chaque type d'event — exactement ce que la racine commune évite.
+
+    Les champs du MOTEUR sont inclus, et non égaux : depuis le 12/11/2026, `Category` a
+    aussi sa colonne, et c'est un ajout de Miles que le moteur ne connaît pas. Un champ
+    que le moteur ajouterait demain sans colonne chez nous ferait rougir ce test, ce qui
+    est son rôle — et c'est `test_events_root.py` au socle qui tient l'égalité avec la
+    racine de Miles, ajouts compris.
+    """
+    assert set(BASE_EVENT_SCHEMA["properties"]) <= set(COLUMN_OF_FIELD)
+    assert COLUMN_OF_FIELD["Category"] == "category"

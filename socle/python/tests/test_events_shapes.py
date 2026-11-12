@@ -9,11 +9,12 @@ from miles_socle.events.catalog import EventCatalog, introduced_by
 from miles_socle.events.categories import of_number
 from miles_socle.events.model import EventAuthor, EventError, NewEvent, ObjectRef
 from miles_socle.oidc import service as oidc
+from miles_socle.pairing import events as pairing
 from miles_socle.secrets import service as secrets
 from miles_socle.signing import identity_model as module_identity
 
 AUTEUR = EventAuthor("local", "admin")
-MODULES = (cultures, oidc, secrets, module_identity)
+MODULES = (cultures, oidc, secrets, module_identity, pairing)
 # Les modules du socle sont produits par les TROIS produits : la catégorie vient du
 # produit, et celle choisie ici n'a pas d'importance pour éprouver les formes.
 CATALOGUE = EventCatalog(introduced_by(of_number(0), *(module.EVENT_SHAPES for module in MODULES)))
@@ -35,10 +36,10 @@ class TestLesFormesDesModulesDuSocle:
         for module in MODULES:
             assert module.EVENT_TYPES == frozenset(f.name for f in module.EVENT_SHAPES), module
 
-    def test_le_catalogue_porte_les_onze_types_partages(self) -> None:
+    def test_le_catalogue_porte_les_quatorze_types_partages(self) -> None:
         # Discriminant : un module compté deux fois ou une forme perdue change ce nombre,
         # là où l'égalité d'ensembles avec `EVENT_TYPES` serait tautologique.
-        assert len(CATALOGUE.names()) == 11
+        assert len(CATALOGUE.names()) == 14
 
     @pytest.mark.parametrize(
         ("event_type", "bloc"),
@@ -54,11 +55,30 @@ class TestLesFormesDesModulesDuSocle:
             (secrets.RELABELED_EVENT, {"label": "Jeton de la forge"}),
             (secrets.DELETED_EVENT, {"secret_type": "GIT_TOKEN"}),
             (module_identity.IDENTITY_CREATED_EVENT, {"public_key_fingerprint": "ab:cd:ef"}),
+            (
+                pairing.PAIRING_REQUESTED_EVENT,
+                {
+                    "base_url": "https://enrolement.example",
+                    "declared_name": "env-de-recette",
+                    "species": "environnement",
+                    "public_key_fingerprint": "ab:cd",
+                },
+            ),
+            (
+                pairing.PEER_REGISTERED_EVENT,
+                {
+                    "base_url": "https://enrolement.example",
+                    "public_key_fingerprint": "ab:cd",
+                    "contact_url": "https://enrolement.example",
+                },
+            ),
+            (pairing.PAIRING_CANCELLED_EVENT, {}),
         ],
     )
     def test_ce_que_le_producteur_ecrit_passe(self, event_type: str, bloc: dict[str, Any]) -> None:
-        """Les onze blocs, pris sur leurs producteurs le 12/11/2026. Ce ne sont pas des
-        exemples : c'est ce que le code écrit, et un écart ferait refuser un geste réel."""
+        """Les quatorze blocs, pris sur leurs producteurs le 12/11/2026. Ce ne sont pas
+        des exemples : c'est ce que le code écrit, et un écart ferait refuser un geste
+        réel."""
         CATALOGUE.check_event(_event(event_type, bloc))
 
     def test_un_changement_oidc_dit_toujours_son_avant_et_son_apres(self) -> None:
@@ -88,3 +108,15 @@ class TestLesFormesDesModulesDuSocle:
         `count: 0` serait la trace d'un geste qui n'a rien fait."""
         with pytest.raises(EventError, match=r"\$\.count"):
             CATALOGUE.check_event(_event(cultures.ACTIVATED_EVENT, {"count": 0}))
+
+    def test_l_adresse_d_identite_et_celle_de_contact_sont_toutes_deux_exigees(self) -> None:
+        """Les confondre est l'erreur que le ticket ba44914b corrige : `base_url` est
+        l'identité du pair, `contact_url` l'adresse où on le joint. Un event qui n'en
+        porterait qu'une ferait chercher « où croyait-on l'appeler ? » sans réponse."""
+        with pytest.raises(EventError, match="contact_url"):
+            CATALOGUE.check_event(
+                _event(
+                    pairing.PEER_REGISTERED_EVENT,
+                    {"base_url": "https://e.example", "public_key_fingerprint": "ab:cd"},
+                )
+            )

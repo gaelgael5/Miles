@@ -8,12 +8,13 @@ from typing import Any
 
 import pytest
 
+from miles_socle.events.catalog import EventCatalog, EventShape, introduced_by
+from miles_socle.events.categories import of_number
 from miles_socle.events.history import db_object_history
 from miles_socle.events.journal import db_write_event, db_write_events
 from miles_socle.events.model import (
     EventAuthor,
     EventError,
-    EventTypeCatalog,
     NewEvent,
     ObjectRef,
 )
@@ -25,7 +26,18 @@ _PROPRIETES = 6
 _EXTERNAL_ID = 7
 _DEDUP_KEY = 8
 _CREATION_DATE = 9
-CATALOG = EventTypeCatalog(frozenset({"group.created", "device.assigned"}))
+_CATEGORY = 10
+# Deux types déclarés avec leur forme : le catalogue exige désormais le libellé, la
+# catégorie et le schéma du bloc de chacun. Bloc OUVERT ici — ces tests éprouvent le
+# journal, pas la validation du bloc, qui a son propre fichier.
+_OUVERT: dict[str, object] = {"type": "object"}
+CATALOG = EventCatalog(
+    introduced_by(
+        of_number(0),
+        (EventShape("group.created", "Groupe créé", _OUVERT),),
+        (EventShape("device.assigned", "Device affecté", _OUVERT),),
+    )
+)
 AUTHOR = EventAuthor("local", "admin")
 
 
@@ -98,7 +110,7 @@ async def test_write_event_unknown_type_is_refused_before_any_write() -> None:
 
 async def test_write_event_empty_catalog_refuses_everything() -> None:
     with pytest.raises(EventError, match="inconnu"):
-        await db_write_event(_FakeEventDb(), _event(), EventTypeCatalog(), lambda: NOW)
+        await db_write_event(_FakeEventDb(), _event(), EventCatalog(), lambda: NOW)
 
 
 async def test_write_event_without_functional_date_uses_write_time_and_says_so() -> None:
@@ -242,6 +254,9 @@ def _history_row(sequence: int) -> dict[str, Any]:
         "author_directory": "local",
         "author_subject": "admin",
         "properties": '{"k": 1}',
+        # La colonne est NOT NULL : une doublure qui ne la rendrait pas ferait passer une
+        # lecture que la base ne peut pas produire.
+        "category": 0,
         "sequence": sequence,
     }
 
@@ -324,3 +339,46 @@ class TestLaRacineCommuneDesEvents:
         assert db.executed[0][1][_EXTERNAL_ID] == ["msg-7", "msg-7"]
         # Et leurs numéros de séquence se suivent : deux faits distincts sur le même objet.
         assert [e.sequences[ObjectRef("group", "g1")] for e in ecrits] == [1, 2]
+
+
+class TestLaCategorieEcriteAuJournal:
+    """La catégorie vient du CATALOGUE, jamais de l'appelant.
+
+    C'est ce qui fait tenir la décision du 12/11/2026 : la catégorie dit qui introduit
+    l'event, donc elle est une propriété du TYPE. Si un producteur pouvait la poser, il
+    pourrait se déclarer d'une autre catégorie que la sienne — et le verrou de lecture
+    seule de l'IHM de configuration se déciderait sur une valeur que le producteur choisit.
+    """
+
+    async def test_elle_est_prise_sur_le_type_declare(self) -> None:
+        db = _FakeEventDb()
+        catalogue = EventCatalog(
+            introduced_by(
+                of_number(4),
+                (EventShape("group.created", "Groupe créé", {"type": "object"}),),
+            )
+        )
+
+        ecrit = await db_write_event(db, _event(), catalogue, lambda: NOW)
+
+        # Quatre, et non zéro : la catégorie suit la déclaration du type, pas un défaut.
+        assert ecrit.category == 4
+        assert db.executed[0][1][_CATEGORY] == [4]
+
+    async def test_deux_events_de_categories_differentes_dans_le_meme_lot(self) -> None:
+        """Discriminant : une catégorie posée une fois pour le lot entier passerait le test
+        ci-dessus et serait fausse dès qu'un lot mêle deux types."""
+        db = _FakeEventDb()
+        catalogue = EventCatalog(
+            introduced_by(of_number(0), (EventShape("group.created", "G", {"type": "object"}),))
+            + introduced_by(of_number(6), (EventShape("device.assigned", "D", {"type": "object"}),))
+        )
+        lot = (
+            _event(),
+            NewEvent("device.assigned", (ObjectRef("device", "d1"),), AUTHOR, {}),
+        )
+
+        ecrits = await db_write_events(db, lot, catalogue, lambda: NOW)
+
+        assert [e.category for e in ecrits] == [0, 6]
+        assert db.executed[0][1][_CATEGORY] == [0, 6]

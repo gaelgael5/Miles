@@ -9,7 +9,6 @@ from typing import Any
 import asyncpg
 import httpx
 from fastapi import FastAPI
-from miles_socle.events.model import EventTypeCatalog
 from miles_socle.testing.files import ADMIN_PASSWORD, ADMIN_USERNAME, BASE_ENV, admin_env, write_env
 from miles_socle.testing.stack import open_socle_stack, utc_now
 
@@ -17,7 +16,7 @@ from environnement.apikeys.self_key import SelfKeyService
 from environnement.apikeys.service import ApiKeysService
 from environnement.app import IMPORT_DETAIL_CAP, build_app
 from environnement.config import DEFAULT_MIGRATIONS_DIR, Settings
-from environnement.event_types import code_event_types
+from environnement.event_types import code_event_catalog
 from environnement.hosting.gitstore import HostedTree
 from environnement.hosting.service import HostingService
 from environnement.identity.service import IdentityService
@@ -124,7 +123,7 @@ async def open_stack(
         tmp_path=tmp_path,
         build_app=build_app,
         migrations_dir=DEFAULT_MIGRATIONS_DIR,
-        catalog=EventTypeCatalog(code_event_types()),
+        catalog=code_event_catalog(),
         base_url=BASE_URL,
         public_url=public_url,
         admin_email=admin_email,

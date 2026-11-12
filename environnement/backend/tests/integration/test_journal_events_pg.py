@@ -14,8 +14,10 @@ from typing import Any
 import asyncpg
 import pytest
 from miles_socle.events.api_events import EVENTS_PATH
+from miles_socle.events.catalog import EventCatalog, EventShape, introduced_by
+from miles_socle.events.categories import of_number
 from miles_socle.events.journal import JOURNAL_TABLES, db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.events.search import EventFilter
 from miles_socle.events.service import EventsService
 from miles_socle.journal.maintenance import JournalMaintenance
@@ -23,11 +25,27 @@ from miles_socle.journal.partitions import partition_name
 
 from .environnement_stack import open_stack
 
+
+def _catalogue_de(*noms: str) -> EventCatalog:
+    """Un catalogue de test pour ces types, bloc OUVERT.
+
+    Ouvert parce que ces tests éprouvent le JOURNAL — écriture, partitions, séquences — et
+    non la validation du bloc, qui a son propre fichier. Un bloc fermé les ferait rougir
+    pour une raison sans rapport avec ce qu'ils vérifient.
+    """
+    return EventCatalog(
+        introduced_by(
+            of_number(0),
+            tuple(EventShape(nom, nom, {"type": "object"}) for nom in noms),
+        )
+    )
+
+
 pytestmark = pytest.mark.integration
 
 PREMIER = "environment.identity_created"
 SECOND = "environment.storages_materialised"
-CATALOGUE = EventTypeCatalog(frozenset({PREMIER, SECOND}))
+CATALOGUE = _catalogue_de(PREMIER, SECOND)
 ADMIN = EventAuthor("local", "admin")
 CLE = EventAuthor("apikey", "k-123")
 STORAGE = ObjectRef("storage", "sites")

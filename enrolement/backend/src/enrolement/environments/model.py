@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from miles_socle.events.catalog import EventShape
+from miles_socle.events.catalog import EventShape, closed_block
 
 ENVIRONMENT_OBJECT_KIND = "environment"
 
@@ -24,17 +24,7 @@ _NOM: Mapping[str, Any] = {"type": "string", "minLength": 1}
 _WORKSPACE: Mapping[str, Any] = {"type": "string", "minLength": 1}
 
 
-def _ferme(proprietes: Mapping[str, Any]) -> dict[str, Any]:
-    """Un bloc fermé dont toutes les propriétés sont obligatoires (voir `pairing.events`)."""
-    return {
-        "type": "object",
-        "properties": dict(proprietes),
-        "required": sorted(proprietes),
-        "additionalProperties": False,
-    }
-
-
-_IDENTITE = _ferme({"slug": _NOM, "label": _NOM})
+_IDENTITE = closed_block({"slug": _NOM, "label": _NOM})
 EVENT_SHAPES = (
     EventShape(ENVIRONMENT_CREATED_EVENT, "Environnement déclaré", _IDENTITE),
     EventShape(
@@ -43,7 +33,7 @@ EVENT_SHAPES = (
         # Les valeurs précédentes sont dans l'event, et c'est tout l'intérêt : un journal
         # qui ne dit pas ce qu'il y avait avant ne permet pas de retrouver ce qu'une
         # procédure désignait la semaine dernière.
-        _ferme({"slug": _NOM, "label": _NOM, "previous_slug": _NOM, "previous_label": _NOM}),
+        closed_block({"slug": _NOM, "label": _NOM, "previous_slug": _NOM, "previous_label": _NOM}),
     ),
     # Les deux noms sont redits à la suppression : la ligne a disparu, et l'event reste la
     # seule trace de ce qu'elle portait.
@@ -55,12 +45,14 @@ EVENT_SHAPES = (
         # branche du producteur qui le garantit, et c'est ce qui rend les deux faits
         # discernables sans interpréter l'absence d'une propriété. Le précédent, lui, est
         # nul au premier placement.
-        _ferme({"workspace_id": _WORKSPACE, "previous_workspace_id": {"type": ["string", "null"]}}),
+        closed_block(
+            {"workspace_id": _WORKSPACE, "previous_workspace_id": {"type": ["string", "null"]}}
+        ),
     ),
     EventShape(
         ENVIRONMENT_WORKSPACE_CLEARED_EVENT,
         "Workspace retiré d'un environnement",
-        _ferme(
+        closed_block(
             {
                 "workspace_id": {"type": "null"},
                 "previous_workspace_id": {"type": ["string", "null"]},

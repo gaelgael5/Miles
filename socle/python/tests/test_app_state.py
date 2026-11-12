@@ -12,7 +12,7 @@ from pydantic import SecretStr
 
 from miles_socle.app_state import wire_socle_services
 from miles_socle.auth.admin_store import AdminAccountStore
-from miles_socle.events.model import EventTypeCatalog
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.testing import admin_env, write_env
 
@@ -58,7 +58,7 @@ def _cable(tmp_path: Path, runtime: _Runtime, *, email: str = "gael@example.org"
         pool=cast(Any, _Pool()),
         store=AdminAccountStore.file_load(env, backup),
         cipher=SecretCipher(bytes(range(32))),
-        catalog=EventTypeCatalog(frozenset()),
+        catalog=EventCatalog(),
         http=cast(Any, httpx.AsyncClient()),
         expected_schema_version=12,
         now=_now,
@@ -132,7 +132,7 @@ def test_l_adresse_de_l_administrateur_est_relue_et_non_capturee(tmp_path: Path)
         pool=cast(Any, _Pool()),
         store=store,
         cipher=SecretCipher(bytes(range(32))),
-        catalog=EventTypeCatalog(frozenset()),
+        catalog=EventCatalog(),
         http=cast(Any, httpx.AsyncClient()),
         expected_schema_version=12,
         now=_now,
@@ -148,7 +148,7 @@ def test_l_adresse_de_l_administrateur_est_relue_et_non_capturee(tmp_path: Path)
         pool=cast(Any, _Pool()),
         store=store,
         cipher=SecretCipher(bytes(range(32))),
-        catalog=EventTypeCatalog(frozenset()),
+        catalog=EventCatalog(),
         http=cast(Any, httpx.AsyncClient()),
         expected_schema_version=12,
         now=_now,

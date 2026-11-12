@@ -6,9 +6,11 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
+from miles.event_shapes import GESTURE, NAME
 from miles.workshop.domains import DOMAINS, checked_domain, domains_in
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceInputError
@@ -16,7 +18,14 @@ from miles.workspaces.model import WorkspaceInputError
 log = structlog.get_logger(__name__)
 
 CREATED_EVENT = "domain.created"
-EVENT_TYPES = frozenset({CREATED_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        CREATED_EVENT,
+        "Domaine créé",
+        closed_block({"domain": NAME, **GESTURE}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 # git ne garde pas un répertoire vide : un domaine sans élément tient par ce fichier.
 _PLACEHOLDER = ".gitkeep"
 
@@ -39,7 +48,7 @@ class DomainsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(

@@ -7,8 +7,9 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.datamodels.grammar import Problem
 from miles.datamodels.layout import SHARED, ModelEntry
@@ -16,6 +17,7 @@ from miles.datamodels.layout import entry_of as model_entry_of
 from miles.datamodels.meta import meta_path, meta_text, read_version
 from miles.datamodels.patch import patched
 from miles.datamodels.schema import ModelSchema
+from miles.event_shapes import GESTURE, NAME
 from miles.git.workcopy import WorkCopy
 from miles.workflowevents.layout import (
     EventEntry,
@@ -40,7 +42,16 @@ log = structlog.get_logger(__name__)
 CREATED_EVENT = "workflow_event.created"
 DELETED_EVENT = "workflow_event.deleted"
 REPLACED_EVENT = "workflow_event.replaced"
-EVENT_TYPES = frozenset({CREATED_EVENT, DELETED_EVENT, REPLACED_EVENT})
+# Les events de WORKFLOW déclarés dans le dépôt du workspace — à ne pas confondre avec
+# les events du journal, qui sont ce que ce bloc décrit. Les trois faits portent le même
+# bloc : le chemin du fichier, et le commit où il a bougé.
+_EVENEMENT: dict[str, object] = {"path": NAME, **GESTURE}
+EVENT_SHAPES = (
+    EventShape(CREATED_EVENT, "Événement de workflow créé", closed_block(_EVENEMENT)),
+    EventShape(DELETED_EVENT, "Événement de workflow supprimé", closed_block(_EVENEMENT)),
+    EventShape(REPLACED_EVENT, "Événement de workflow remplacé", closed_block(_EVENEMENT)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class EventNotFoundError(Exception):
@@ -63,7 +74,7 @@ class WorkflowEventsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(

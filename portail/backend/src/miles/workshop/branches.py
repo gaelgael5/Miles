@@ -6,10 +6,12 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.git.failures import classify
 
+from miles.event_shapes import BRANCH, COMMIT, NAME
 from miles.git.graph import CommitNode, read_graph
 from miles.git.workcopy import WorkCopy
 from miles.git.worktree import WORK_NAME_RE, work_branch_name
@@ -24,7 +26,18 @@ from miles.workspaces.model import (
 log = structlog.get_logger(__name__)
 
 CREATED_EVENT = "workspace.branch_created"
-EVENT_TYPES = frozenset({CREATED_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        CREATED_EVENT,
+        "Branche de workspace créée",
+        # `slug` est le nom court de la branche dans l'atelier, `branch` son nom réel chez
+        # la forge : les deux, parce que l'un sert à la retrouver dans l'écran et l'autre
+        # dans le dépôt. `base_commit` est ce d'où elle part, et c'est ce qu'on cherche
+        # quand une branche n'a pas le contenu attendu.
+        closed_block({"slug": NAME, "branch": BRANCH, "base_commit": COMMIT}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 @dataclass(frozen=True)
@@ -54,7 +67,7 @@ class BranchesService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(self, workspace_id: str) -> list[BranchEntry]:

@@ -3,18 +3,36 @@
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 # La mécanique de la clé vient du socle : fabrication, empreinte, préfixe affiché,
 # comparaison en temps constant. Elle n'est pas recopiée du portail — une divergence du
 # hachage ou de la comparaison serait un défaut de sécurité qu'aucun test ne signalerait.
 from miles_socle.apikeys.model import KEY_RE
+from miles_socle.events.catalog import EventShape, closed_block
 
 ISSUED_EVENT = "environment.api_key_issued"
 GRANTS_EVENT = "environment.api_key_grants_changed"
 REVOKED_EVENT = "environment.api_key_revoked"
-EVENT_TYPES = frozenset({ISSUED_EVENT, GRANTS_EVENT, REVOKED_EVENT})
+_CLE: Mapping[str, Any] = {"key_id": {"type": "string", "minLength": 1}}
+# Les octrois sont dans l'event des DEUX gestes qui les posent, et absents de la
+# révocation : elle n'en change aucun, et en porter une liste vide ferait lire « on les a
+# retirés ». Ni la clé ni son empreinte n'entrent jamais ici — le préfixe affiché suffit à
+# reconnaître la ligne, et le journal est lu bien plus largement que la table des clés.
+_AVEC_OCTROIS: Mapping[str, Any] = {
+    **_CLE,
+    "sources": {"type": "array", "items": {"type": "string", "minLength": 1}},
+}
+EVENT_SHAPES = (
+    EventShape(ISSUED_EVENT, "Clé d'API émise", closed_block(_AVEC_OCTROIS)),
+    EventShape(GRANTS_EVENT, "Octrois d'une clé d'API changés", closed_block(_AVEC_OCTROIS)),
+    EventShape(REVOKED_EVENT, "Clé d'API révoquée", closed_block(_CLE)),
+)
+# DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté.
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 API_KEY_OBJECT_KIND = "api_key"
 # Un libellé tient sur une ligne : il s'affiche dans la liste et dans le journal.
 MAX_LABEL = 120

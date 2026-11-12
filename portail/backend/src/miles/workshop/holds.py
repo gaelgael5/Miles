@@ -7,9 +7,11 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
+from miles.event_shapes import BRANCH, COMMIT, COUNT, NAME
 from miles.git.holdspace import HeldCopy
 from miles.git.workcopy import BranchMovedError
 from miles.git.worktree import work_branch_name
@@ -24,7 +26,24 @@ log = structlog.get_logger(__name__)
 TAKEN_EVENT = "branch_hold.taken"
 PUBLISHED_EVENT = "branch_hold.published"
 RELEASED_EVENT = "branch_hold.released"
-EVENT_TYPES = frozenset({TAKEN_EVENT, PUBLISHED_EVENT, RELEASED_EVENT})
+# Les trois faits de la prise de main portent la branche réelle et le slug de l'atelier :
+# `_new` les pose pour tous les trois, et chaque fait ajoute les siens.
+_MAIN: dict[str, object] = {"branch": BRANCH, "slug": NAME}
+EVENT_SHAPES = (
+    EventShape(TAKEN_EVENT, "Prise de main", closed_block({**_MAIN, "commit": COMMIT})),
+    EventShape(
+        PUBLISHED_EVENT,
+        "Publication",
+        # Le NOMBRE de commits publiés en plus du commit de tête : « combien de travail
+        # cette publication a-t-elle emporté ? » est la question qu'on pose après coup, et
+        # le commit seul n'y répond pas.
+        closed_block({**_MAIN, "commit": COMMIT, "commits": COUNT}),
+    ),
+    # Rien de plus : la main est rendue, et le commit publié est dans l'event qui précède —
+    # la libération suit toujours une publication, sous le même verrou.
+    EventShape(RELEASED_EVENT, "Main rendue", closed_block(_MAIN)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class BranchHeldError(WorkspaceConflictError):
@@ -61,7 +80,7 @@ class BranchHoldsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_holds(self, workspace_id: str) -> dict[str, Hold]:

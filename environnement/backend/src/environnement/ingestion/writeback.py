@@ -24,8 +24,9 @@ from datetime import datetime
 from typing import Any, Protocol
 
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import EventDb, db_write_events
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.parametrage.layout import MODEL_RE
 from miles_socle.parametrage.refs import ReadFile
 from miles_socle.transform.chain import Chain
@@ -50,7 +51,23 @@ from environnement.storages.model import StorageTable
 log = structlog.get_logger(__name__)
 
 OBJECT_WRITTEN_EVENT = "environment.storage_object_written"
-EVENT_TYPES = frozenset({OBJECT_WRITTEN_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        OBJECT_WRITTEN_EVENT,
+        "Objet écrit dans un storage",
+        closed_block(
+            {
+                "storage": {"type": "string", "minLength": 1},
+                # Créé ou mis à jour : un event par objet (Gael, 03/11/2026), et c'est ce
+                # booléen qui distingue les deux sans deux types d'event.
+                "created": {"type": "boolean"},
+                "ingestion": {"type": "string", "minLength": 1},
+                "model": {"type": "string", "minLength": 1},
+            }
+        ),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class ProcessingDb(MergeDb, EventDb, Protocol):
@@ -128,7 +145,7 @@ class Processing:
     """
 
     db: ProcessingDb
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     budget: int
     author: EventAuthor

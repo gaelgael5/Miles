@@ -4,6 +4,9 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
+from miles_socle.events.catalog import EventShape, closed_block
+
+from miles.event_shapes import COUNT, NAME
 from miles.git.rights import AccessReport
 
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
@@ -13,7 +16,24 @@ TOKEN_TYPE = "GIT_TOKEN"  # noqa: S105  # nom du type, pas une valeur
 CONNECTION_CREATED = "git_connection.created"
 CONNECTION_UPDATED = "git_connection.updated"
 CONNECTION_DELETED = "git_connection.deleted"
-EVENT_TYPES = frozenset({CONNECTION_CREATED, CONNECTION_UPDATED, CONNECTION_DELETED})
+# Le SLUG du secret, jamais sa valeur : c'est la seule forme sous laquelle un credential
+# de forge entre dans un journal, et la règle est tenue par le producteur comme par ce
+# bloc fermé.
+_CONNEXION: dict[str, object] = {"base_url": NAME, "token_secret_slug": NAME}
+EVENT_SHAPES = (
+    EventShape(CONNECTION_CREATED, "Connexion git déclarée", closed_block(_CONNEXION)),
+    EventShape(
+        CONNECTION_UPDATED,
+        "Connexion git modifiée",
+        # Le NOMBRE de workspaces revérifiés : la modification les touche tous, et c'est
+        # le compte qu'on relit pour savoir si une vérification a été oubliée.
+        closed_block({**_CONNEXION, "workspaces": COUNT}),
+    ),
+    # Rien : l'identifiant de la connexion est l'objet de l'event, et ce qu'elle portait
+    # se relit dans sa déclaration. Son secret, lui, ne doit pas réapparaître ici.
+    EventShape(CONNECTION_DELETED, "Connexion git supprimée", closed_block({})),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class GitAccessError(Exception):

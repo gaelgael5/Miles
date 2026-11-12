@@ -3,11 +3,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.transform.chain import StepSpec, compile_chain
 
 from miles.chains.layout import (
@@ -28,6 +30,7 @@ from miles.chains.store import (
     stored_chain,
     write_chain,
 )
+from miles.event_shapes import GESTURE, NAME
 from miles.sources.layout import names_in, read_source, source_path
 from miles.workshop.target import Gesture, WorkBranches, base_slug
 from miles.workspaces.model import checked_label
@@ -36,7 +39,12 @@ log = structlog.get_logger(__name__)
 
 SAVED_EVENT = "transformation_chain.saved"
 DELETED_EVENT = "transformation_chain.deleted"
-EVENT_TYPES = frozenset({SAVED_EVENT, DELETED_EVENT})
+_CHAINE: dict[str, Any] = {"slug": NAME, **GESTURE}
+EVENT_SHAPES = (
+    EventShape(SAVED_EVENT, "Chaîne de transformation enregistrée", closed_block(_CHAINE)),
+    EventShape(DELETED_EVENT, "Chaîne de transformation supprimée", closed_block(_CHAINE)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class ChainNotFoundError(Exception):
@@ -62,7 +70,7 @@ class ChainsService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(

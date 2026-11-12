@@ -15,7 +15,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from miles_socle.events.model import EventAuthor, EventTypeCatalog
+from miles_socle.events.catalog import EventCatalog, EventShape, introduced_by
+from miles_socle.events.categories import of_number
+from miles_socle.events.model import EventAuthor
 from miles_socle.parametrage.sources import Entry, EntryModes, SourceDoc
 
 from environnement.ingestion.cleanup import (
@@ -39,6 +41,22 @@ from environnement.ingestion.cleanup_rules import (
 )
 from environnement.ingestion.writeback import Processing
 from environnement.storages.model import ExpiryRule, Projection, StorageTable
+
+
+def _catalogue_de(*noms: str) -> EventCatalog:
+    """Un catalogue de test pour ces types, bloc OUVERT.
+
+    Ouvert parce que ces tests éprouvent le JOURNAL — écriture, partitions, séquences — et
+    non la validation du bloc, qui a son propre fichier. Un bloc fermé les ferait rougir
+    pour une raison sans rapport avec ce qu'ils vérifient.
+    """
+    return EventCatalog(
+        introduced_by(
+            of_number(0),
+            tuple(EventShape(nom, nom, {"type": "object"}) for nom in noms),
+        )
+    )
+
 
 MAINTENANT = datetime(2026, 11, 9, 8, tzinfo=UTC)
 FIN = ExpiryRule("$.FinActivite", "fin_activite", 10)
@@ -107,7 +125,7 @@ class _Rien:
 def _processing(db: _Db) -> Processing:
     return Processing(
         db=db,  # type: ignore[arg-type]
-        catalog=EventTypeCatalog(frozenset({OBJECT_REMOVED_EVENT})),
+        catalog=_catalogue_de(OBJECT_REMOVED_EVENT),
         now=lambda: MAINTENANT,
         budget=1000,
         author=EventAuthor("api_key", "k-1"),

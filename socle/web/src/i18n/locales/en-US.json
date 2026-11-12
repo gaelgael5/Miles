@@ -346,7 +346,8 @@
       "objects": "Objects",
       "externalId": "External id",
       "dedupKey": "Dedup key",
-      "creationDate": "Created on (at the producer)"
+      "creationDate": "Created on (at the producer)",
+      "category": "Category"
     },
     "detail": {
       "title": "Event details",
@@ -362,6 +363,16 @@
       "window": "The date bounds are inverted: the start date is after the end date.",
       "pair": "This filter comes in pairs: the directory with the account, the object kind with its id.",
       "unexpected": "The journal could not be read."
+    },
+    "categories": {
+      "0": "Configuration back office",
+      "1": "Enrolment back office",
+      "2": "Environment back office",
+      "3": "System front end",
+      "4": "Device platform",
+      "5": "Device functional",
+      "6": "Workflow engine",
+      "unknown": "Category {{number}}"
     }
   }
 }

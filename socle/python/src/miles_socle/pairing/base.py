@@ -9,7 +9,7 @@ import httpx
 import structlog
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from miles_socle.events.model import EventChecker
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.pairing.model import EnrolmentPeer, PeerMissingError
 from miles_socle.pairing.store import db_get_peer
 from miles_socle.secrets.crypto import SecretCipher
@@ -39,7 +39,7 @@ class RequesterBase:
     pool: asyncpg.Pool
     secrets: SecretsService
     cipher: SecretCipher
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     origin: str | None
     http: httpx.AsyncClient

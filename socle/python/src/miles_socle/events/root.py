@@ -134,6 +134,11 @@ COLUMN_OF_FIELD: Final[Mapping[str, str]] = {
     "ExternalId": "external_id",
     "CreationDate": "creation_date",
     "DedupKey": "dedup_key",
+    # Depuis le 12/11/2026, et c'est le dernier champ de la racine à en recevoir une : la
+    # colonne n'a pu être posée NOT NULL que le jour où les TROIS produits ont déclaré la
+    # catégorie de chacun de leurs types. Avant, rien ne savait poser une valeur juste, et
+    # une colonne nullable aurait laissé l'IHM de configuration sans son verrou.
+    "Category": "category",
 }
 
 ENGINE_ROOT_FIELDS: Final[frozenset[str]] = frozenset(ENGINE_ROOT_SCHEMA["properties"])

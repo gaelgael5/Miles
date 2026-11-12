@@ -5,6 +5,10 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 
+from miles_socle.events.catalog import EventShape, closed_block
+
+from miles.event_shapes import NAME
+
 # Ce qu'on confie au module d'enrôlement, et comment on sait si ce qu'il détient est à jour
 # (ticket edcf78bc). Les formes et l'empreinte sont ici ; les requêtes dans
 # `store_confide.py`, les gestes dans `confide.py`.
@@ -32,7 +36,38 @@ CREDENTIAL_RENEWED_EVENT = "git_connection.credential_renewed"
 # « depuis quand le module d'enrôlement ne reçoit-il plus ? » se relit par objet et par
 # date, ce que seul le journal d'events permet.
 TRANSMISSION_FAILED_EVENT = "git_connection.transmission_failed"
-EVENT_TYPES = frozenset({CONFIDED_EVENT, CREDENTIAL_RENEWED_EVENT, TRANSMISSION_FAILED_EVENT})
+_REVISION: dict[str, object] = {"type": "integer", "minimum": 0}
+# `trigger` dit CE QUI a déclenché la transmission — une saisie, un appariement, un
+# renouvellement. Non énuméré : la liste vit chez l'appelant, et la recopier ici en
+# donnerait une seconde à tenir d'accord.
+_DECLENCHEUR: dict[str, object] = {"type": "string", "minLength": 1}
+EVENT_SHAPES = (
+    EventShape(
+        CONFIDED_EVENT,
+        "Connexions git confiées",
+        # Les IDENTIFIANTS des connexions, jamais leurs credentials — pas même tronqués,
+        # pas même en cas d'erreur (interdit du ticket). Le journal est lu bien plus
+        # largement que la table des connexions.
+        closed_block(
+            {
+                "revision": _REVISION,
+                "connections": {"type": "array", "items": NAME},
+                "trigger": _DECLENCHEUR,
+            }
+        ),
+    ),
+    EventShape(
+        CREDENTIAL_RENEWED_EVENT,
+        "Credential git renouvelé",
+        closed_block({"revision": _REVISION, "peer_base_url": NAME}),
+    ),
+    EventShape(
+        TRANSMISSION_FAILED_EVENT,
+        "Transmission des connexions git échouée",
+        closed_block({"trigger": _DECLENCHEUR, "reason": NAME}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class ConfidingError(Exception):

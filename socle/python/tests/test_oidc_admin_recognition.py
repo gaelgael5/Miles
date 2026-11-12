@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from miles_socle.events.model import EventTypeCatalog
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.oidc.model import Connector
 from miles_socle.oidc.provider import Identity
 from miles_socle.oidc.service import OidcService
@@ -35,7 +35,7 @@ def _connector(recognize_admin: bool) -> Connector:
 def _service(admin_email: str | None) -> OidcService:
     unused: Any = None
     return OidcService(
-        unused, unused, unused, EventTypeCatalog(), lambda: NOW, None, False, lambda: admin_email
+        unused, unused, unused, EventCatalog(), lambda: NOW, None, False, lambda: admin_email
     )
 
 

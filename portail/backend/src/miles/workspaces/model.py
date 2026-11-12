@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
+from miles_socle.events.catalog import EventShape, closed_block
 from miles_socle.events.model import DelegatedAuthor, EventAuthor
 
 from miles.git.rights import AccessReport
@@ -17,16 +18,66 @@ WORK_BRANCH_EVENT = "workspace.work_branch_opened"
 REPOSITORY_EVENT = "workspace.repository_set"
 SECURITY_SERVICE_EVENT = "workspace.security_service_set"
 DELETED_EVENT = "workspace.deleted"
-EVENT_TYPES = frozenset(
-    {
+# --- Les formes, mesurées sur `workspaces/service.py` et `gitaccess/dependents.py` ----
+# `workspace.access_checked` a DEUX producteurs — la vérification d'un workspace et celle
+# que déclenche la modification d'une connexion git —, et tous deux passent par
+# `check_summary` ci-dessous. Une seule forme, donc, et c'est ce qui le garantit.
+_URL: dict[str, object] = {"type": "string", "minLength": 1}
+EVENT_SHAPES = (
+    EventShape(
         CREATED_EVENT,
+        "Workspace créé",
+        closed_block({"name": {"type": "string", "minLength": 1}, "default_culture": _URL}),
+    ),
+    EventShape(
         CHECKED_EVENT,
+        "Droits sur le dépôt vérifiés",
+        # Les cinq droits par leur nom, chacun avec « ok » ou la raison du refus : c'est
+        # ce qu'on relit quand un push échoue, et une liste de booléens n'y répondrait
+        # pas. Les résidus sont NULS quand l'essai a tout retiré — ce qu'il n'a pas pu
+        # retirer est à supprimer à la main, et n'est jamais oublié en silence.
+        closed_block(
+            {
+                "repo_url": _URL,
+                "branch": {"type": "string", "minLength": 1},
+                "all_passed": {"type": "boolean"},
+                "checks": {"type": "object", "additionalProperties": {"type": "string"}},
+                "residual_branch": {"type": ["string", "null"]},
+                "residual_tag": {"type": ["string", "null"]},
+            }
+        ),
+    ),
+    EventShape(
         WORK_BRANCH_EVENT,
+        "Branche de travail ouverte",
+        # `outcome` dit ce que l'ouverture a VRAIMENT fait — créée, déjà là, dépôt
+        # initialisé : un geste idempotent doit dire laquelle des trois issues il a prise.
+        closed_block({"branch": {"type": "string", "minLength": 1}, "outcome": _URL}),
+    ),
+    EventShape(
         REPOSITORY_EVENT,
+        "Dépôt du workspace enregistré",
+        closed_block({"repo_url": _URL, "git_connection_id": _URL}),
+    ),
+    EventShape(
         SECURITY_SERVICE_EVENT,
+        "Service de sécurité du workspace changé",
+        # NUL quand on le détache, et non absent : « depuis quand ce workspace n'a-t-il
+        # plus de service de sécurité ? » doit se lire sans interpréter une absence.
+        closed_block({"security_service_id": {"type": ["string", "null"]}}),
+    ),
+    EventShape(
         DELETED_EVENT,
-    }
+        "Workspace supprimé",
+        # Le dépôt est NUL pour un workspace qui n'en avait jamais reçu. Les deux champs
+        # sont la seule trace de ce que la ligne portait.
+        closed_block(
+            {"name": {"type": "string", "minLength": 1}, "repo_url": {"type": ["string", "null"]}}
+        ),
+    ),
 )
+# DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté.
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 NAME_MAX = 200
 SELECT = (
     "SELECT w.id, w.name, w.repo_url, w.git_connection_id, w.security_service_id,"

@@ -22,8 +22,9 @@ from typing import Any
 import asyncpg
 import structlog
 from miles_socle.apikeys.model import KEY_DIRECTORY
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.transform.jpath import SplitRefusal, read_stream_split
 
 from environnement.apikeys.model import KeyPrincipal
@@ -60,7 +61,7 @@ class FileDeposits:
     tree: HostedTree
     keys: ApiKeysService
     files: DepositedFiles
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_deposit(

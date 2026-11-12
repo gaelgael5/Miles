@@ -8,7 +8,7 @@ import asyncpg
 import httpx
 import structlog
 
-from miles_socle.events.model import EventChecker
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.pairing.flow import RequesterPairingFlow
 from miles_socle.pairing.model import EnrolmentPeer
 from miles_socle.pairing.status import RequesterPairingStatus
@@ -50,7 +50,7 @@ class PairingRequesterService(RequesterPairingFlow, RequesterPairingStatus):
     pool: asyncpg.Pool
     secrets: SecretsService
     cipher: SecretCipher
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     http: httpx.AsyncClient
     # Adresse publique du module, d'où l'origine qu'il déclare en signant. CONFIGURÉE

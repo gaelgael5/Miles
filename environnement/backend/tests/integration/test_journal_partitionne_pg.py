@@ -14,15 +14,33 @@ from pathlib import Path
 
 import asyncpg
 import pytest
+from miles_socle.events.catalog import EventCatalog, EventShape, introduced_by
+from miles_socle.events.categories import of_number
 from miles_socle.events.history import db_object_history
 from miles_socle.events.journal import JOURNAL_TABLES, db_write_event
-from miles_socle.events.model import EventAuthor, EventTypeCatalog, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.journal.api_journal import MAINTENANCE_PATH
 from miles_socle.journal.maintenance import JournalMaintenance
 from miles_socle.journal.partitions import partition_name
 from miles_socle.journal.store import db_partition_days, db_partitioned
 
 from .environnement_stack import open_stack
+
+
+def _catalogue_de(*noms: str) -> EventCatalog:
+    """Un catalogue de test pour ces types, bloc OUVERT.
+
+    Ouvert parce que ces tests éprouvent le JOURNAL — écriture, partitions, séquences — et
+    non la validation du bloc, qui a son propre fichier. Un bloc fermé les ferait rougir
+    pour une raison sans rapport avec ce qu'ils vérifient.
+    """
+    return EventCatalog(
+        introduced_by(
+            of_number(0),
+            tuple(EventShape(nom, nom, {"type": "object"}) for nom in noms),
+        )
+    )
+
 
 pytestmark = pytest.mark.integration
 
@@ -32,8 +50,8 @@ OBJET = ObjectRef("essai", "o1")
 TROIS_NOVEMBRE = datetime(2026, 11, 3, 10, 0, tzinfo=UTC)
 
 
-def _catalogue() -> EventTypeCatalog:
-    return EventTypeCatalog(frozenset({TYPE}))
+def _catalogue() -> EventCatalog:
+    return _catalogue_de(TYPE)
 
 
 async def _ecrire(pool: asyncpg.Pool, quand: datetime, objet: ObjectRef = OBJET) -> None:

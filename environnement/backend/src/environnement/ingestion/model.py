@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from miles_socle.events.catalog import EventShape, closed_block
 from miles_socle.parametrage.sources import Entry
 
 from environnement.ingestion.outcome import Report
@@ -26,7 +27,39 @@ MODES = (ELEMENT, BATCH, FILE)
 SERVED_MODES = (ELEMENT, BATCH, FILE)
 
 RECEIVED_EVENT = "environment.ingestion_received"
-EVENT_TYPES = frozenset({RECEIVED_EVENT})
+_COMMUNS: dict[str, object] = {
+    "source": {"type": "string", "minLength": 1},
+    # DÉRIVÉ de `MODES` : un mode ajouté là-bas entre ici tout seul.
+    "mode": {"type": "string", "enum": list(MODES)},
+    "entry_model": {"type": "string", "minLength": 1},
+    # Le LIBELLÉ de la clé, jamais la clé ni son empreinte : l'auteur de l'event est déjà
+    # son identifiant, et le libellé est ce qu'un humain reconnaît dans le journal.
+    "key_label": {"type": "string"},
+}
+_RECU = closed_block(
+    {
+        **_COMMUNS,
+        "storage": {"type": "string", "minLength": 1},
+        "size_bytes": {"type": "integer", "minimum": 0},
+        "object_count": {"type": "integer", "minimum": 0},
+    },
+    tuple(_COMMUNS),
+)
+# Deux producteurs pour un seul type, mesurés le 12/11/2026 : le dépôt de FICHIER porte
+# son storage et sa taille en octets, les modes élément et tableau portent leur nombre
+# d'objets — qui ne se connaît qu'après avoir tout lu. Le seul type de Miles dont le bloc
+# dépend d'une de ses propriétés, et donc le seul à porter un `if/then`. Les rendre tous
+# facultatifs laisserait passer un dépôt de fichier sans sa taille, qui est ce qu'on lit
+# en premier quand une ingestion est lente.
+_RECU["allOf"] = [
+    {
+        "if": {"properties": {"mode": {"const": FILE}}, "required": ["mode"]},
+        "then": {"required": ["size_bytes", "storage"]},
+        "else": {"required": ["object_count"]},
+    }
+]
+EVENT_SHAPES = (EventShape(RECEIVED_EVENT, "Dépôt d'ingestion reçu", _RECU),)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 INGESTION_OBJECT_KIND = "ingestion"
 STATE_RECEIVED = "recu"
 

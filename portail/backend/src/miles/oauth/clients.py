@@ -7,9 +7,11 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
+from miles.event_shapes import NAME
 from miles.oauth.model import CLIENT_ID_RE, checked_redirect_uri, new_client_id
 from miles.workspaces.model import WorkspaceInputError, checked_label
 
@@ -19,7 +21,30 @@ CREATED_EVENT = "oauth_client.created"
 DELETED_EVENT = "oauth_client.deleted"
 GRANTED_EVENT = "oauth_grant.created"
 REVOKED_EVENT = "oauth_grant.revoked"
-EVENT_TYPES = frozenset({CREATED_EVENT, DELETED_EVENT, GRANTED_EVENT, REVOKED_EVENT})
+# Les quatre types sont déclarés ici, et deux d'entre eux sont écrits ailleurs — le
+# parcours d'autorisation (`oauth/flow.py`) et la révocation (`oauth/access.py`). Les
+# formes restent avec les noms : c'est là qu'on vient lire ce que le journal OAuth porte.
+EVENT_SHAPES = (
+    EventShape(
+        CREATED_EVENT, "Client OAuth déclaré", closed_block({"client_id": NAME, "label": NAME})
+    ),
+    EventShape(DELETED_EVENT, "Client OAuth supprimé", closed_block({"client_id": NAME})),
+    EventShape(
+        GRANTED_EVENT,
+        "Autorisation OAuth accordée",
+        # Les octrois consentis, workspace → accès. Pas de `client_id` : il est l'OBJET de
+        # l'event, et les deux faits d'autorisation ne passent pas par le même producteur
+        # que les deux faits de client.
+        closed_block(
+            {
+                "grant_id": NAME,
+                "grants": {"type": "object", "additionalProperties": {"type": "string"}},
+            }
+        ),
+    ),
+    EventShape(REVOKED_EVENT, "Autorisation OAuth révoquée", closed_block({"grant_id": NAME})),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class ClientNotFoundError(Exception):
@@ -43,7 +68,7 @@ class OAuthClientsService:
     """
 
     pool: asyncpg.Pool
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(self) -> list[OAuthClient]:

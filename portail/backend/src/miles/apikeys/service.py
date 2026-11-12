@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, Any
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.apikeys.model import (
     KEY_ID_RE,
@@ -25,6 +26,7 @@ from miles.apikeys.model import (
     same_digest,
     shown_prefix,
 )
+from miles.event_shapes import NAME
 from miles.workspaces.model import checked_label
 
 log = structlog.get_logger(__name__)
@@ -38,7 +40,20 @@ if TYPE_CHECKING:
 ISSUED_EVENT = "api_key.issued"
 GRANTS_EVENT = "api_key.grants_changed"
 REVOKED_EVENT = "api_key.revoked"
-EVENT_TYPES = frozenset({ISSUED_EVENT, GRANTS_EVENT, REVOKED_EVENT})
+_CLE: dict[str, Any] = {"key_id": NAME}
+# Les octrois sont dans l'event des deux gestes qui les posent, et absents de la
+# révocation : elle n'en change aucun. Un objet workspace → accès, et jamais la clé ni son
+# empreinte : le préfixe affiché suffit à reconnaître la ligne.
+_AVEC_OCTROIS: dict[str, Any] = {
+    **_CLE,
+    "grants": {"type": "object", "additionalProperties": {"type": "string"}},
+}
+EVENT_SHAPES = (
+    EventShape(ISSUED_EVENT, "Clé d'API émise", closed_block(_AVEC_OCTROIS)),
+    EventShape(GRANTS_EVENT, "Octrois d'une clé d'API changés", closed_block(_AVEC_OCTROIS)),
+    EventShape(REVOKED_EVENT, "Clé d'API révoquée", closed_block(_CLE)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 _SELECT = (
     "SELECT k.id, k.label, k.prefix, k.created_at, k.created_by_directory,"
@@ -68,7 +83,7 @@ class ApiKeysService:
     """Clés d'API de service (story 0d4e4f75) : émission, droits, révocation, authentification."""
 
     pool: asyncpg.Pool
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_issue(

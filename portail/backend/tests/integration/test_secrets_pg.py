@@ -10,7 +10,8 @@ import asyncpg
 import httpx
 import pytest
 from fastapi import FastAPI
-from miles_socle.events.model import EventAuthor, EventError, EventTypeCatalog
+from miles_socle.events.catalog import EventCatalog
+from miles_socle.events.model import EventAuthor, EventError
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.model import (
     Consumer,
@@ -25,7 +26,7 @@ from miles_socle.secrets.service import (
 )
 from structlog.testing import capture_logs
 
-from miles.event_types import code_event_types
+from miles.event_types import code_event_catalog
 from tests.integration.portal_stack import open_portal_stack, utc_now
 
 pytestmark = pytest.mark.integration
@@ -52,7 +53,7 @@ class Stack:
 async def stack(blank_db: str, tmp_path: Path) -> AsyncIterator[Stack]:
     async with open_portal_stack(blank_db, tmp_path) as portal:
         service = SecretsService(
-            portal.pool, SecretCipher(os.urandom(32)), EventTypeCatalog(code_event_types()), _now
+            portal.pool, SecretCipher(os.urandom(32)), code_event_catalog(), _now
         )
         portal.app.state.secrets = service
         yield Stack(portal.pool, service, portal.client, portal.app)
@@ -182,9 +183,7 @@ async def test_ciphertext_copied_onto_another_secret_does_not_open(stack: Stack)
 
 async def test_reading_with_another_key_fails_explicitly(stack: Stack) -> None:
     await _create(stack)
-    other = SecretsService(
-        stack.pool, SecretCipher(os.urandom(32)), EventTypeCatalog(code_event_types()), _now
-    )
+    other = SecretsService(stack.pool, SecretCipher(os.urandom(32)), code_event_catalog(), _now)
 
     with pytest.raises(SecretUndecipherableError):
         await other.resolve_secret("git-token")
@@ -259,7 +258,7 @@ async def test_every_change_writes_an_event_that_never_carries_the_value(stack: 
 
 
 async def test_event_failure_fails_the_creation(stack: Stack) -> None:
-    refusing = SecretsService(stack.pool, stack.service.cipher, EventTypeCatalog(), _now)
+    refusing = SecretsService(stack.pool, stack.service.cipher, EventCatalog(), _now)
 
     with pytest.raises(EventError):
         await refusing.resolve_create(AUTHOR, "git-token", "Jeton", "GIT_TOKEN", VALUE)

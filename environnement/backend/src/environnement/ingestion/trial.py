@@ -33,12 +33,13 @@ import httpx
 import structlog
 from fastapi import FastAPI
 from miles_socle.apikeys.presentation import API_KEY_HEADER
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from environnement.apikeys.self_key import SelfKeyService
 from environnement.ingestion.api_ingest import INGEST_PATH
-from environnement.ingestion.model import CONTENT_TYPE, INGESTION_OBJECT_KIND
+from environnement.ingestion.model import CONTENT_TYPE, INGESTION_OBJECT_KIND, MODES
 
 log = structlog.get_logger(__name__)
 
@@ -46,7 +47,22 @@ log = structlog.get_logger(__name__)
 # personne — c'est voulu —, donc sans cet event un essai serait indiscernable du dépôt
 # d'un partenaire dans l'historique.
 TRIAL_EVENT = "environment.ingestion_trial"
-EVENT_TYPES = frozenset({TRIAL_EVENT})
+EVENT_SHAPES = (
+    EventShape(
+        TRIAL_EVENT,
+        "Essai d'ingestion",
+        closed_block(
+            {
+                "source": {"type": "string", "minLength": 1},
+                "mode": {"type": "string", "enum": list(MODES)},
+                # Le code HTTP rendu par l'essai, refus compris : c'est tout l'objet de
+                # l'essai, et un essai refusé est un résultat, pas une panne.
+                "status": {"type": "integer", "minimum": 100, "maximum": 599},
+            }
+        ),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 # L'hôte que porte l'appel interne. Il ne sert qu'à l'en-tête `Host` : le point d'entrée
 # ne le lit pas, et aucune résolution de nom n'a lieu — le transport est l'application.
@@ -69,7 +85,7 @@ class TrialOutcome:
 class IngestionTrial:
     pool: asyncpg.Pool
     self_keys: SelfKeyService
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_trial(

@@ -4,7 +4,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal, Protocol
+from typing import Any, Literal
 from uuid import UUID
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,99}$")
@@ -118,6 +118,10 @@ class WrittenEvent:
     author: EventAuthor
     properties: Mapping[str, Any]
     sequences: Mapping[ObjectRef, int]
+    # Sans défaut, et placée avant les champs facultatifs pour cela : la catégorie est
+    # toujours connue — elle vient du catalogue, qui l'exige de chaque type déclaré — et
+    # un défaut en ferait un repli silencieux le jour où un appelant l'oublierait.
+    category: int
     external_id: str | None = None
     dedup_key: str | None = None
     creation_date: datetime | None = None
@@ -126,36 +130,3 @@ class WrittenEvent:
     def functional_at_in_future(self) -> bool:
         # Accepté, mais signalé : une date métier postérieure à l'écriture est suspecte.
         return self.functional_at > self.written_at
-
-
-class EventChecker(Protocol):
-    """Ce que le journal exige d'un catalogue : refuser un event AVANT de l'écrire.
-
-    Un protocole et non une classe de base, parce qu'il y a deux catalogues le temps de
-    la bascule — celui qui ne connaît que des NOMS (ci-dessous) et celui qui déclare aussi
-    le bloc de chaque type (`events.catalog`). Le journal n'a pas à savoir lequel il tient,
-    et ce protocole disparaît avec le premier.
-    """
-
-    def check_event(self, event: NewEvent) -> None: ...
-
-
-class EventTypeCatalog:
-    """Types d'event admis, par leur seul NOM. Un type inconnu est rejeté (fail closed).
-
-    **C'est l'état d'avant le 12/11/2026**, conservé le temps que chaque produit bascule
-    sur `events.catalog.EventCatalog`, qui déclare en plus le libellé, la catégorie et le
-    schéma du bloc. Un produit qui n'a pas basculé garde donc exactement le comportement
-    documenté jusqu'ici — ce n'est pas un repli silencieux, c'est le statu quo —, mais il
-    ne valide pas le bloc de ses events. Story `07aeebcd`.
-    """
-
-    def __init__(self, known_types: frozenset[str] = frozenset()) -> None:
-        self._known = known_types
-
-    def check(self, event_type: str) -> None:
-        if event_type not in self._known:
-            raise EventError(f"type d'event inconnu du catalogue : {event_type!r}")
-
-    def check_event(self, event: NewEvent) -> None:
-        self.check(event.type)

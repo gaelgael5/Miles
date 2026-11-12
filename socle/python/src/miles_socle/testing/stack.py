@@ -36,7 +36,7 @@ from miles_socle.auth.sessions import (
 )
 from miles_socle.db.migration_files import file_load_migrations
 from miles_socle.db.migrations import resolve_apply_migrations
-from miles_socle.events.model import EventChecker
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.testing.files import ADMIN_USERNAME, BASE_ENV, admin_env, write_env
 
@@ -91,7 +91,7 @@ class SocleStack:
     env_file: Path
     http: httpx.AsyncClient
     cipher: SecretCipher
-    catalog: EventChecker
+    catalog: EventCatalog
     base_url: str
 
     def anonymous(self) -> httpx.AsyncClient:
@@ -108,7 +108,7 @@ async def open_socle_stack(
     tmp_path: Path,
     build_app: Callable[[], FastAPI],
     migrations_dir: Path,
-    catalog: EventChecker,
+    catalog: EventCatalog,
     base_url: str,
     public_url: str,
     admin_email: str | None,

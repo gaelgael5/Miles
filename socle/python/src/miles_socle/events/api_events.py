@@ -43,6 +43,10 @@ class EventOut(BaseModel):
     author_subject: str
     properties: dict[str, Any]
     objects: list[ObjectOut]
+    # Le NUMÉRO de la catégorie, pas son nom : c'est le numéro qui est la forme publiée
+    # (Gael, 12/11/2026), et c'est lui qui dit à l'IHM de configuration si le type est
+    # éditable. Les noms vivent dans le catalogue, et l'écran les y lira.
+    category: int
     # Les champs de la racine commune (12/11/2026). Rendus même nuls : l'écran doit pouvoir
     # dire « pas d'identifiant externe » plutôt que de laisser croire qu'il ne sait pas.
     external_id: str | None = None
@@ -126,6 +130,7 @@ def _out(resultat: SearchResult) -> EventsOut:
                 author_directory=event.author_directory,
                 author_subject=event.author_subject,
                 properties=event.properties,
+                category=event.category,
                 objects=[
                     ObjectOut(kind=o.kind, id=o.id, sequence=o.sequence) for o in event.objects
                 ],

@@ -6,9 +6,11 @@ from datetime import datetime
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
+from miles.event_shapes import GESTURE, NAME
 from miles.sources.layout import names_in as source_names_in
 from miles.sources.layout import read_source, source_path
 from miles.storages.checks import branch_problems
@@ -28,7 +30,12 @@ log = structlog.get_logger(__name__)
 
 SAVED_EVENT = "storage.saved"
 DELETED_EVENT = "storage.deleted"
-EVENT_TYPES = frozenset({SAVED_EVENT, DELETED_EVENT})
+_STORAGE: dict[str, object] = {"storage": NAME, **GESTURE}
+EVENT_SHAPES = (
+    EventShape(SAVED_EVENT, "Storage enregistré", closed_block(_STORAGE)),
+    EventShape(DELETED_EVENT, "Storage supprimé", closed_block(_STORAGE)),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
 class StorageInvalidError(Exception):
@@ -75,7 +82,7 @@ class StoragesService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(

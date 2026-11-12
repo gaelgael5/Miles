@@ -7,10 +7,12 @@ from typing import Any
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog, EventShape, closed_block
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.git.versions import SavedVersion
 
+from miles.event_shapes import BRANCH, COMMIT
 from miles.git.holdspace import HeldCopy
 from miles.git.versions import VersionTakenError, fetch_versions, restore_tree, same_tree, tag_head
 from miles.git.workcopy import WorkCopy
@@ -22,7 +24,26 @@ log = structlog.get_logger(__name__)
 
 SAVED_EVENT = "work_version.saved"
 RESTORED_EVENT = "work_version.restored"
-EVENT_TYPES = frozenset({SAVED_EVENT, RESTORED_EVENT})
+# Ce qu'une version enregistrée EST : son numéro, le commit qu'elle étiquette, le libellé
+# saisi, et la branche d'où elle a été prise. Le libellé peut être vide — c'est une saisie.
+_VERSION: dict[str, object] = {
+    "version": {"type": "integer", "minimum": 1},
+    "commit": COMMIT,
+    "label": {"type": "string"},
+    "branch": BRANCH,
+}
+EVENT_SHAPES = (
+    EventShape(SAVED_EVENT, "Version de travail enregistrée", closed_block(_VERSION)),
+    EventShape(
+        RESTORED_EVENT,
+        "Version de travail restaurée",
+        # DEUX commits, et c'est tout l'intérêt : celui de la version restaurée, et celui
+        # du commit de retour qui vient d'être écrit. Un seul des deux ne dirait pas ce
+        # qu'il faut annuler pour défaire la restauration.
+        closed_block({**_VERSION, "restored_commit": COMMIT}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 LABEL_MAX = 200
 
 
@@ -63,7 +84,7 @@ class WorkshopService:
 
     pool: asyncpg.Pool
     branches: WorkBranches
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_list(

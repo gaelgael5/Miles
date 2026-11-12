@@ -8,8 +8,9 @@ from uuid import UUID, uuid4
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from enrolement.environments.model import (
     ENVIRONMENT_CREATED_EVENT,
@@ -59,7 +60,7 @@ class EnvironmentService:
     """
 
     pool: asyncpg.Pool
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
 
     async def resolve_environments(self) -> list[Environment]:

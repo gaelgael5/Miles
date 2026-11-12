@@ -18,9 +18,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from miles_socle.events.model import EventAuthor, EventTypeCatalog
+from miles_socle.events.model import EventAuthor
 
-from environnement.event_types import code_event_types
+from environnement.event_types import code_event_catalog
 from environnement.ingestion.outcome import (
     REJECT_KEY_MISSING,
     REJECT_MANUAL,
@@ -188,7 +188,7 @@ class _Rien:
 def _processing(db: _Db) -> Processing:
     return Processing(
         db=db,
-        catalog=EventTypeCatalog(code_event_types()),
+        catalog=code_event_catalog(),
         now=lambda: datetime(2026, 11, 3, 12, tzinfo=UTC),
         budget=100_000,
         author=EventAuthor("apikey", "k-1"),

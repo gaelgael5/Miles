@@ -21,11 +21,10 @@ from miles_socle.auth.admin_account import AdminAccount
 from miles_socle.auth.admin_store import AdminAccountStore
 from miles_socle.auth.context import AuthContext
 from miles_socle.auth.throttle import LoginThrottle
-from miles_socle.events.model import EventTypeCatalog
 from miles_socle.health.probe import HealthReport
 
 from environnement.app import build_app
-from environnement.event_types import code_event_types
+from environnement.event_types import code_event_catalog
 from environnement.identity.service import IdentityService
 
 # Le `nginx.conf` DU PRODUIT : il reste au produit (décision du 28/10/2026), et c'est
@@ -67,7 +66,7 @@ def identity_service(db: NoSessionDb) -> IdentityService:
         pool=cast(Any, db),
         secrets=cast(Any, None),
         cipher=cast(Any, None),
-        catalog=EventTypeCatalog(code_event_types()),
+        catalog=code_event_catalog(),
         now=lambda: datetime.now(UTC),
         http=cast(Any, None),
         origin=None,

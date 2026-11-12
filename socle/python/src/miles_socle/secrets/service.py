@@ -8,9 +8,9 @@ from typing import Any
 import asyncpg
 import structlog
 
-from miles_socle.events.catalog import EventShape
+from miles_socle.events.catalog import EventCatalog, EventShape
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.model import (
     Consumer,
@@ -93,7 +93,7 @@ class SecretsService:
 
     pool: asyncpg.Pool
     cipher: SecretCipher
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     # Ce qui doit SAVOIR qu'une valeur vient d'être remplacée. Optionnel, nul par défaut,
     # et le socle ne sait pas ce qu'un produit en fait : il dit « la valeur de ce secret a

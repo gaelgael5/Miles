@@ -7,7 +7,8 @@ from datetime import datetime
 import asyncpg
 import httpx
 import structlog
-from miles_socle.events.model import EventAuthor, EventChecker
+from miles_socle.events.catalog import EventCatalog
+from miles_socle.events.model import EventAuthor
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.service import SecretsService
 from miles_socle.signing.identity import ModuleIdentityService
@@ -70,7 +71,7 @@ class PairingService(
     pool: asyncpg.Pool
     secrets: SecretsService
     cipher: SecretCipher
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     # Adresse publique de CE module, rendue à l'environnement pour qu'il sache quelle
     # origine attendre de nos appels. CONFIGURÉE (MILES_PUBLIC_URL), jamais lue d'un

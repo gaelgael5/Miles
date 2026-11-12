@@ -6,11 +6,10 @@ from pathlib import Path
 
 import httpx
 import pytest
-from miles_socle.events.model import EventTypeCatalog
 from miles_socle.secrets.crypto import SecretCipher
 from miles_socle.secrets.service import SecretsService
 
-from miles.event_types import code_event_types
+from miles.event_types import code_event_catalog
 from miles.security.service import SecurityServices
 from tests.integration.portal_stack import PortalStack, open_portal_stack, utc_now
 
@@ -30,7 +29,7 @@ def _env(name: str) -> str:
 
 @pytest.fixture
 async def stack(blank_db: str, tmp_path: Path) -> AsyncIterator[PortalStack]:
-    catalog = EventTypeCatalog(code_event_types())
+    catalog = code_event_catalog()
     async with open_portal_stack(blank_db, tmp_path) as portal, httpx.AsyncClient() as http:
         secrets = SecretsService(portal.pool, SecretCipher(os.urandom(32)), catalog, utc_now)
         portal.app.state.secrets = secrets

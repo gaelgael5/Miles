@@ -10,8 +10,9 @@ from urllib.parse import urlencode
 
 import asyncpg
 import structlog
+from miles_socle.events.catalog import EventCatalog
 from miles_socle.events.journal import db_write_event
-from miles_socle.events.model import EventAuthor, EventChecker, NewEvent, ObjectRef
+from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.apikeys.model import Access
 from miles.oauth.clients import GRANTED_EVENT, OAuthClient, OAuthClientsService
@@ -68,7 +69,7 @@ class OAuthFlow:
 
     pool: asyncpg.Pool
     clients: OAuthClientsService
-    catalog: EventChecker
+    catalog: EventCatalog
     now: Callable[[], datetime]
     # Adresse publique de la surface MCP ; None : MILES_PUBLIC_URL absente, OAuth fermé.
     resource: str | None

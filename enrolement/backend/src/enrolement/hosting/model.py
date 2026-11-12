@@ -11,12 +11,11 @@ comporte pas comme son paramétrage.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from miles_socle.events.catalog import EventShape
+from miles_socle.events.catalog import EventShape, closed_block
 
 VERSION_ORDERED_EVENT = "environment.version_ordered"
 VERSION_SERVED_EVENT = "environment.version_served"
@@ -43,21 +42,11 @@ _COMMIT: dict[str, Any] = {"type": "string", "pattern": COMMIT_RE.pattern}
 _REFUS: dict[str, Any] = {"type": "string", "pattern": REFUSAL_RE.pattern}
 
 
-def _ferme(proprietes: Mapping[str, Any]) -> dict[str, Any]:
-    """Un bloc fermé dont toutes les propriétés sont obligatoires (voir `pairing.events`)."""
-    return {
-        "type": "object",
-        "properties": dict(proprietes),
-        "required": sorted(proprietes),
-        "additionalProperties": False,
-    }
-
-
 EVENT_SHAPES = (
     EventShape(
         VERSION_ORDERED_EVENT,
         "Version ordonnée à un environnement",
-        _ferme(
+        closed_block(
             {
                 "workspace_id": _WORKSPACE,
                 "number": {"type": "integer", "minimum": 1},
@@ -75,12 +64,12 @@ EVENT_SHAPES = (
     EventShape(
         VERSION_SERVED_EVENT,
         "Version appliquée par l'environnement",
-        _ferme({"workspace_id": _WORKSPACE, "commit": _COMMIT, "refusal": {"type": "null"}}),
+        closed_block({"workspace_id": _WORKSPACE, "commit": _COMMIT, "refusal": {"type": "null"}}),
     ),
     EventShape(
         VERSION_REFUSED_EVENT,
         "Version non appliquée par l'environnement",
-        _ferme({"workspace_id": _WORKSPACE, "commit": {"type": "null"}, "refusal": _REFUS}),
+        closed_block({"workspace_id": _WORKSPACE, "commit": {"type": "null"}, "refusal": _REFUS}),
     ),
     EventShape(
         VERSION_RELEASED_EVENT,
@@ -89,7 +78,7 @@ EVENT_SHAPES = (
         # workspace placé — le choix se fait sur son dépôt —, et tout changement de
         # workspace retire la version dans la MÊME transaction. Pas de version sans
         # workspace, donc pas de retrait sans précédent.
-        _ferme({"previous_workspace_id": _WORKSPACE}),
+        closed_block({"previous_workspace_id": _WORKSPACE}),
     ),
 )
 # DÉRIVÉ des formes, jamais recopié : deux listes auraient divergé au premier type ajouté.

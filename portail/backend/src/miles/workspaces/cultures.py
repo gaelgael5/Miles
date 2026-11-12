@@ -4,6 +4,9 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from miles_socle.events.catalog import EventShape, closed_block
+
+from miles.event_shapes import NAME
 from miles.workspaces.model import WorkspaceConflictError, WorkspaceInputError
 
 # Même forme que la colonne `cultures.code` : un code BCP 47. La clé étrangère vers le
@@ -20,7 +23,21 @@ CULTURE_RE = re.compile(r"[a-z]{2,3}(-[A-Za-z0-9]{2,8})*")
 CULTURE_ADDED_EVENT = "workspace.culture_added"
 CULTURE_REMOVED_EVENT = "workspace.culture_removed"
 DEFAULT_CULTURE_EVENT = "workspace.default_culture_set"
-EVENT_TYPES = frozenset({CULTURE_ADDED_EVENT, CULTURE_REMOVED_EVENT, DEFAULT_CULTURE_EVENT})
+_CULTURE: dict[str, object] = {"culture": NAME}
+EVENT_SHAPES = (
+    EventShape(CULTURE_ADDED_EVENT, "Culture ajoutée au workspace", closed_block(_CULTURE)),
+    EventShape(CULTURE_REMOVED_EVENT, "Culture retirée du workspace", closed_block(_CULTURE)),
+    EventShape(
+        DEFAULT_CULTURE_EVENT,
+        "Culture par défaut du workspace changée",
+        # La PRÉCÉDENTE en plus de la nouvelle : la culture par défaut est le repli de
+        # tout libellé déclinable, et « sur quoi repliait-on la semaine dernière ? » est
+        # la question qu'on pose quand un libellé a changé sans qu'on y touche. Jamais
+        # nulle : un workspace en a toujours une.
+        closed_block({**_CULTURE, "previous": NAME}),
+    ),
+)
+EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 SELECT_CULTURES = (
     "SELECT culture, is_default FROM workspace_cultures WHERE workspace_id = $1"
