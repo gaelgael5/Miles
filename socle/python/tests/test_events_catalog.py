@@ -4,7 +4,13 @@ from typing import Any, ClassVar
 
 import pytest
 
-from miles_socle.events.catalog import CatalogError, DeclaredEvent, EventCatalog
+from miles_socle.events.catalog import (
+    CatalogError,
+    DeclaredEvent,
+    EventCatalog,
+    EventShape,
+    introduced_by,
+)
 from miles_socle.events.categories import of_number
 from miles_socle.events.model import EventAuthor, EventError, NewEvent, ObjectRef
 
@@ -131,3 +137,45 @@ class TestLaValidationDuBloc:
         assert self.CATALOGUE.names() == {"storage.declared"}
         declare = self.CATALOGUE.of("storage.declared")
         assert (declare.label, declare.category.number) == ("Storage déclaré", 0)
+
+
+class TestCeQueLeProduitEtLeJournalAjOUTENT:
+    """Deux mesures du 12/11/2026, chacune invalidante si elle avait été ratée."""
+
+    FERME: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {"slug": {"type": "string"}},
+        "additionalProperties": False,
+    }
+
+    def test_un_meme_module_prend_la_categorie_du_produit_qui_l_introduit(self) -> None:
+        """Les modules du socle sont produits par les trois produits. `culture.activated`
+        est `backoffice-configuration` au portail et `backoffice-enrolement` à
+        l'enrôlement — une seule déclaration, deux catégories."""
+        partage = (EventShape("culture.activated", "Culture activée", BLOC),)
+
+        au_portail = introduced_by(of_number(0), partage)
+        a_l_enrolement = introduced_by(of_number(1), partage)
+
+        assert au_portail[0].category.slug == "backoffice-configuration"
+        assert a_l_enrolement[0].category.slug == "backoffice-enrolement"
+        assert au_portail[0].label == a_l_enrolement[0].label
+
+    def test_un_bloc_ferme_accepte_quand_meme_la_cle_d_api_que_le_journal_ajoute(
+        self,
+    ) -> None:
+        """LE piège : le journal ajoute `via_api_key` au bloc quand l'auteur agit par une
+        clé d'API. Sans cette tolérance, un type qui ferme son bloc refuserait TOUS les
+        events écrits par la surface MCP — un défaut sans rapport avec ce qu'il déclare.
+        """
+        catalogue = EventCatalog([_declared(block=self.FERME)])
+
+        catalogue.check_event(_event({"slug": "pat-forge", "via_api_key": "k-1"}))
+
+    def test_un_bloc_ferme_refuse_toujours_une_propriete_inconnue(self) -> None:
+        """Discriminant : la tolérance porte sur les DEUX clefs du journal, pas sur
+        n'importe quoi — sinon fermer un bloc ne voudrait plus rien dire."""
+        catalogue = EventCatalog([_declared(block=self.FERME)])
+
+        with pytest.raises(EventError, match="coquille"):
+            catalogue.check_event(_event({"slug": "pat-forge", "coquille": "x"}))

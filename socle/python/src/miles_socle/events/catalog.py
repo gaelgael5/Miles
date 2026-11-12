@@ -35,6 +35,35 @@ class CatalogError(ValueError):
     """Catalogue invalide : refus au chargement, en nommant ce qui ne va pas."""
 
 
+# Ce que le JOURNAL ajoute lui-même au bloc, et qu'aucun producteur n'écrit : la clé par
+# laquelle une modification est passée, quand l'auteur agit par une clé d'API ou un octroi
+# OAuth (`events.journal._properties`). Mesuré le 12/11/2026, et c'est ce qui aurait
+# invalidé toutes les déclarations d'un coup : un bloc fermé par son auteur aurait refusé
+# TOUS les events écrits par la surface MCP, sans rapport avec ce que le type déclare.
+# Les déclarer ici une fois laisse chaque type libre de fermer son bloc.
+JOURNAL_ADDED: Mapping[str, Any] = {
+    "via_api_key": {"type": "string"},
+    "via_oauth_grant": {"type": "string"},
+}
+
+
+@dataclass(frozen=True)
+class EventShape:
+    """Un type d'event tel que le MODULE qui le produit le déclare : sans sa catégorie.
+
+    Pourquoi la catégorie n'est pas ici, mesuré le 12/11/2026 : les modules du socle —
+    cultures, OIDC, secrets, identité de module — sont produits par **les trois produits**,
+    et la catégorie dit lequel les introduit. `culture.activated` est donc
+    `backoffice-configuration` au portail et `backoffice-enrolement` à l'enrôlement, pour
+    une seule déclaration. La fixer dans le module aurait obligé à trois déclarations du
+    même type, qui auraient divergé au premier changement de libellé.
+    """
+
+    name: str
+    label: str
+    block: Mapping[str, Any]
+
+
 @dataclass(frozen=True)
 class DeclaredEvent:
     """Un type d'event déclaré par le code qui le produit.
@@ -48,6 +77,22 @@ class DeclaredEvent:
     label: str
     category: EventCategory
     block: Mapping[str, Any]
+
+
+def introduced_by(
+    category: EventCategory, *groups: Iterable[EventShape]
+) -> tuple[DeclaredEvent, ...]:
+    """Les types de ces modules, introduits par ce produit-ci.
+
+    C'est le produit qui pose la catégorie, parce que c'est lui qui introduit l'event —
+    voir `EventShape`. Un même module du socle passe donc par ici dans les trois produits,
+    avec trois catégories et une seule déclaration.
+    """
+    return tuple(
+        DeclaredEvent(shape.name, shape.label, category, shape.block)
+        for group in groups
+        for shape in group
+    )
 
 
 def _checked(declared: DeclaredEvent) -> None:
@@ -74,6 +119,17 @@ def _checked(declared: DeclaredEvent) -> None:
         ) from erreur
 
 
+def _validated(block: Mapping[str, Any]) -> dict[str, Any]:
+    """Le schéma contre lequel un bloc est validé : celui du type, plus ce que le journal
+    ajoute. Les propriétés du type l'emportent, pour qu'un type qui aurait son avis sur
+    `via_api_key` garde le sien."""
+    schema = dict(block)
+    declarees = block.get("properties")
+    if declarees is not None:
+        schema["properties"] = {**JOURNAL_ADDED, **declarees}
+    return schema
+
+
 class EventCatalog:
     """Les types admis, avec de quoi valider le bloc de chacun. Un inconnu est rejeté."""
 
@@ -85,7 +141,7 @@ class EventCatalog:
             if item.name in self._types:
                 raise CatalogError(f"type d'event déclaré deux fois : {item.name!r}")
             self._types[item.name] = item
-            self._validators[item.name] = Draft202012Validator(dict(item.block))
+            self._validators[item.name] = Draft202012Validator(_validated(item.block))
 
     def names(self) -> frozenset[str]:
         return frozenset(self._types)
