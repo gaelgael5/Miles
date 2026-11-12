@@ -38,6 +38,10 @@ class FoundEvent:
     author_subject: str
     properties: dict[str, Any]
     objects: tuple[FoundObject, ...]
+    # Le curseur du journal. Rendu par le magasin mais PAS par la route HTTP : c'est un
+    # repère de progression pour un consommateur de CETTE base, pas une donnée d'écran, et
+    # le publier avant qu'un consommateur existe en ferait un contrat à tenir pour rien.
+    cursor_seq: int
     # Qui a introduit ce type d'event. Sans défaut : la colonne est NOT NULL, les events
     # écrits avant la migration ayant été remplis avec la catégorie de leur produit — tous
     # les types déclarés à ce jour sont introduits par le back-office qui les écrit.
@@ -74,7 +78,7 @@ async def db_count_events(db: SearchDb, filtre: EventFilter, window: Window) -> 
 # même ligne, PostgreSQL n'étant tenu à aucun ordre entre lignes égales.
 _PAGE = """
 SELECT e.id, e.type, e.functional_at, e.functional_at_source, e.written_at,
-       e.author_directory, e.author_subject, e.properties, e.category,
+       e.author_directory, e.author_subject, e.properties, e.cursor_seq, e.category,
        e.external_id, e.dedup_key, e.creation_date
 FROM events e
 WHERE {ou}
@@ -141,6 +145,7 @@ def _event(row: Any, objets: tuple[FoundObject, ...]) -> FoundEvent:
         row["author_subject"],
         json.loads(brut) if isinstance(brut, str) else brut,
         objets,
+        row["cursor_seq"],
         row["category"],
         row["external_id"],
         row["dedup_key"],

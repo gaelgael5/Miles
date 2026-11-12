@@ -152,6 +152,11 @@ ROOT_FIELDS: Final[frozenset[str]] = frozenset(ROOT_SCHEMA["properties"])
 OUTSIDE_ROOT: Final[tuple[str, ...]] = (
     "author_directory",
     "author_subject",
+    # Le CURSEUR du journal (12/11/2026). Hors racine délibérément : il n'identifie pas
+    # l'event — `Uuid` le fait — et il n'a pas de sens hors de LA base qui l'a attribué.
+    # Deux journaux de deux produits ont chacun leur séquence, et les mélanger n'aurait
+    # aucun sens. Un consommateur le garde comme repère de progression, rien de plus.
+    "cursor_seq",
     "functional_at_source",
     "object_kind",
     "object_id",

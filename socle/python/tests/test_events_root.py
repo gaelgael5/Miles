@@ -6,6 +6,7 @@ from miles_socle.events.root import (
     ENGINE_ROOT_FIELDS,
     ENGINE_ROOT_SCHEMA,
     MILES_FIELDS,
+    OUTSIDE_ROOT,
     ROOT_FIELDS,
     ROOT_SCHEMA,
 )
@@ -71,3 +72,13 @@ class TestLaRacineDeMilesSurchargeCelleDuMoteur:
         assert COLUMN_OF_FIELD["Category"] == "category"
         # Discriminant : les sept du moteur sont toujours là, la surcharge n'en a perdu aucun.
         assert ENGINE_ROOT_FIELDS <= set(COLUMN_OF_FIELD)
+
+    def test_le_curseur_du_journal_n_est_pas_un_champ_de_la_racine(self) -> None:
+        """Hors racine délibérément (12/11/2026) : le curseur n'identifie pas l'event —
+        `Uuid` le fait — et il n'a aucun sens hors de LA base qui l'a attribué. Le mettre
+        dans la racine l'aurait fait voyager entre produits, où deux séquences
+        indépendantes auraient produit des numéros qui se croisent."""
+        assert "cursor_seq" in OUTSIDE_ROOT
+        assert "cursor_seq" not in COLUMN_OF_FIELD.values()
+        # Discriminant : aucun champ de la racine ne se nomme ainsi, dans aucun sens.
+        assert not any(champ.lower() == "cursorseq" for champ in ROOT_FIELDS)

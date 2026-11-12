@@ -12,7 +12,7 @@ from miles_socle.db.migrations import resolve_apply_migrations
 from miles_socle.events.catalog import EventCatalog, EventShape, introduced_by
 from miles_socle.events.categories import of_number
 from miles_socle.events.history import db_object_history
-from miles_socle.events.journal import db_write_event
+from miles_socle.events.journal import db_write_event, db_write_events
 from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.events.search import EventFilter
 from miles_socle.events.service import EventsService
@@ -323,3 +323,78 @@ class TestLaCategorieDesEvents:
             )
         with pytest.raises(asyncpg.NotNullViolationError):
             await db.execute("UPDATE events SET category = NULL")
+
+
+@pytest.mark.integration
+class TestLeCurseurDuJournal:
+    """Le curseur posé le 12/11/2026, sur une base réelle.
+
+    Rien de ceci ne se mesure sur une doublure : la valeur est attribuée par la BASE, par
+    une séquence partagée entre toutes les partitions. C'est aussi pourquoi le trou décrit
+    plus bas est éprouvé ici et pas ailleurs.
+    """
+
+    async def _curseurs(self, pool: asyncpg.Pool) -> list[int]:
+        page = (await EventsService(pool, _now).resolve_search(EventFilter(), 1, 50)).page
+        return [e.cursor_seq for e in page.events]
+
+    def _event(self, objet: str) -> NewEvent:
+        return NewEvent("thing.created", (ObjectRef("thing", objet),), AUTHOR, {})
+
+    async def test_un_lot_recoit_des_numeros_contigus_dans_son_ordre(
+        self, db: asyncpg.Pool
+    ) -> None:
+        """Contigus ET dans l'ordre du lot : les events d'une même transaction sont
+        observables au même instant, et c'est le curseur qui les ordonne entre eux."""
+        lot = (self._event("a"), self._event("b"), self._event("c"))
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_events(conn, lot, CATALOG, _now)
+
+        curseurs = sorted(await self._curseurs(db))
+
+        assert curseurs == list(range(curseurs[0], curseurs[0] + 3))
+
+    async def test_il_avance_d_une_transaction_a_la_suivante(self, db: asyncpg.Pool) -> None:
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(conn, self._event("premier"), CATALOG, _now)
+        premier = (await self._curseurs(db))[0]
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(conn, self._event("second"), CATALOG, _now)
+
+        assert sorted(await self._curseurs(db)) == [premier, premier + 1]
+
+    async def test_une_transaction_annulee_consomme_son_numero(self, db: asyncpg.Pool) -> None:
+        """LE piège, éprouvé plutôt que décrit : le numéro est pris à l'INSERT, pas au
+        COMMIT. Une transaction annulée laisse donc un TROU définitif dans la suite, et un
+        consommateur qui attendrait la contiguïté s'arrêterait là pour toujours. C'est ce
+        test qui dit pourquoi les automates ne peuvent pas se contenter de « curseur + 1 ».
+        """
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(conn, self._event("avant"), CATALOG, _now)
+        avant = (await self._curseurs(db))[0]
+        try:
+            async with db.acquire() as conn, conn.transaction():
+                await db_write_event(conn, self._event("perdu"), CATALOG, _now)
+                raise RuntimeError("l'écriture est annulée avec sa modification")
+        except RuntimeError:
+            pass
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(conn, self._event("apres"), CATALOG, _now)
+
+        # `avant + 2`, et non `avant + 1` : le numéro de l'event annulé est consommé.
+        assert sorted(await self._curseurs(db)) == [avant, avant + 2]
+
+    async def test_la_purge_d_une_partition_ne_fait_pas_reculer_le_curseur(
+        self, db: asyncpg.Pool
+    ) -> None:
+        """La rétention efface des events par construction. Le curseur doit survivre à
+        cela : un numéro réutilisé ferait relire un consommateur à jour."""
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(conn, self._event("ancien"), CATALOG, _now)
+        ancien = (await self._curseurs(db))[0]
+        await db.execute("DELETE FROM events")
+
+        async with db.acquire() as conn, conn.transaction():
+            await db_write_event(conn, self._event("neuf"), CATALOG, _now)
+
+        assert (await self._curseurs(db))[0] > ancien
