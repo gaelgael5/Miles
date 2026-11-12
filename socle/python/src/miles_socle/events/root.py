@@ -54,6 +54,14 @@ ROOT_SCHEMA: Final[dict[str, Any]] = {
 # et `ExternalId` répond exactement à une décision de l'epic qui n'avait pas de support :
 # « quand la modification vient d'un message reçu, l'event consigne l'identifiant de ce
 # message, stable à travers les ré-émissions ».
+#
+# `DedupKey` a sa colonne mais AUCUN producteur, et c'est délibéré : « on gérera la clef de
+# dédoublonnage plus tard » (Gael, 12/11/2026). Elle existe parce qu'elle est dans la
+# racine, pas parce qu'on s'en sert — une colonne que personne n'écrit ressemble sinon à un
+# oubli, et le prochain lecteur la câblerait sur ce qu'il a sous la main. Le candidat le
+# plus proche serait justement le pire : le nonce de l'enveloppe d'appel est NEUF à chaque
+# envoi, donc deux émissions du même message auraient deux clés et se dédoubleraient toutes
+# les deux. Quand le sujet sera repris, c'est le producteur qui dira sur quoi elle porte.
 COLUMN_OF_FIELD: Final[Mapping[str, str]] = {
     "Name": "type",
     "Uuid": "id",
