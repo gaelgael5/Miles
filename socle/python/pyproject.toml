@@ -4,14 +4,20 @@ version = "0.1.0"
 description = "Socle technique partagé des produits Miles : amorçage, OIDC, sessions, cultures, secrets, journal d'events, accès PostgreSQL"
 requires-python = ">=3.12"
 # Strictement ce que le socle importe. Les dépendances propres à un produit — mcp,
-# aiomqtt, jsonschema, urban-json… — restent chez lui : un socle qui les tirerait
-# imposerait au module d'enrôlement des paquets dont il n'a aucun usage.
+# aiomqtt, urban-json… — restent chez lui : un socle qui les tirerait imposerait au
+# module d'enrôlement des paquets dont il n'a aucun usage.
 dependencies = [
     "argon2-cffi>=23.1",
     "asyncpg>=0.30",
     "cryptography>=44",
     "fastapi>=0.115",
     "httpx>=0.27",
+    # Le catalogue des types d'event valide le BLOC DE PROPRIÉTÉS de chaque event contre
+    # le schéma que son type déclare, et les TROIS produits écrivent des events : la
+    # dépendance a donc changé de camp le 12/11/2026 (elle était citée juste au-dessus
+    # comme exemple de ce qui reste au produit). Pure Python, aucun moteur derrière —
+    # c'est ce qui la distingue d'`urban-workflow`, qui tirerait ANTLR et urban-json.
+    "jsonschema>=4.18",
     "pydantic>=2.9",
     # La configuration est devenue affaire du socle : il porte la classe de base que les
     # trois produits étendent, avec le préfixe d'environnement, extra="forbid" et les
@@ -75,6 +81,7 @@ transform = [
 [dependency-groups]
 dev = [
     "asyncpg-stubs>=0.30",
+    "types-jsonschema>=4.26.0.20261006",
     "types-pyyaml>=6.0",
     "mypy>=1.13",
     "pytest>=8.3",

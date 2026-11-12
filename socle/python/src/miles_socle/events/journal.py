@@ -29,8 +29,8 @@ import structlog
 
 from miles_socle.events.model import (
     DelegatedAuthor,
+    EventChecker,
     EventError,
-    EventTypeCatalog,
     FunctionalAtSource,
     NewEvent,
     ObjectRef,
@@ -135,7 +135,7 @@ def _properties(event: NewEvent) -> dict[str, Any]:
 async def db_write_event(
     db: EventDb,
     event: NewEvent,
-    catalog: EventTypeCatalog,
+    catalog: EventChecker,
     now: Callable[[], datetime],
 ) -> WrittenEvent:
     """Écrit l'event dans la transaction ouverte par la modification qu'il trace.
@@ -149,7 +149,7 @@ async def db_write_event(
 async def db_write_events(
     db: EventDb,
     events: Sequence[NewEvent],
-    catalog: EventTypeCatalog,
+    catalog: EventChecker,
     now: Callable[[], datetime],
 ) -> list[WrittenEvent]:
     """Écrit le lot d'events en trois instructions, dans la transaction de l'appelant.
@@ -167,7 +167,9 @@ async def db_write_events(
     if not db.is_in_transaction():
         raise EventError("db_write_events exige la transaction de la modification")
     for event in events:
-        catalog.check(event.type)
+        # Le catalogue refuse le type ET, depuis le 12/11/2026, le bloc de propriétés —
+        # avant toute écriture, pour que la modification tombe avec son event.
+        catalog.check_event(event)
     written_at = now()
     scelles = [_scelle(event, written_at) for event in events]
     sequences = await _reserved(db, scelles)
