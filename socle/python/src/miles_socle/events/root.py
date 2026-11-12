@@ -55,13 +55,18 @@ ROOT_SCHEMA: Final[dict[str, Any]] = {
 # « quand la modification vient d'un message reçu, l'event consigne l'identifiant de ce
 # message, stable à travers les ré-émissions ».
 #
-# `DedupKey` a sa colonne mais AUCUN producteur, et c'est délibéré : « on gérera la clef de
-# dédoublonnage plus tard » (Gael, 12/11/2026). Elle existe parce qu'elle est dans la
-# racine, pas parce qu'on s'en sert — une colonne que personne n'écrit ressemble sinon à un
-# oubli, et le prochain lecteur la câblerait sur ce qu'il a sous la main. Le candidat le
-# plus proche serait justement le pire : le nonce de l'enveloppe d'appel est NEUF à chaque
-# envoi, donc deux émissions du même message auraient deux clés et se dédoubleraient toutes
-# les deux. Quand le sujet sera repris, c'est le producteur qui dira sur quoi elle porte.
+# `DedupKey` a sa colonne mais AUCUN producteur, et c'est délibéré. Une colonne que
+# personne n'écrit ressemble sinon à un oubli, et le prochain lecteur la câblerait sur ce
+# qu'il a sous la main : le candidat le plus proche serait justement le pire — le nonce de
+# l'enveloppe d'appel est NEUF à chaque envoi, donc deux émissions du même message auraient
+# deux clés et se dédoubleraient toutes les deux.
+#
+# D'OÙ ELLE VIENDRA, mesuré le 12/11/2026 sur urban-workflow 0.2.1 : du paramétrage du
+# workflow, et de nulle part ailleurs. `DEFINE EVENT X 'l' AS @schema UNIQUE (A, B);`
+# déclare les propriétés qui font le doublon, et `urban_workflow.schemas.compute_dedup_hash`
+# en fait un SHA-256 — **sensible à l'ordre** des clefs déclarées, et rendant le hash de la
+# chaîne vide quand la liste est vide. C'est donc l'ÉVALUATION, au module d'environnement,
+# qui la posera (Gael, 12/11/2026), et jamais un producteur du back-office.
 COLUMN_OF_FIELD: Final[Mapping[str, str]] = {
     "Name": "type",
     "Uuid": "id",
