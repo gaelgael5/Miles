@@ -40,6 +40,15 @@ A_JOUR = "a_jour"
 ANCIENNE = "ancienne"
 MELANGEE = "melangee"
 
+# Le marqueur que git exige pour garder un dossier vide visible. **Il ne compte pas comme
+# un contenu**, et c'est décisif ici : le squelette d'une branche crée `shared/models/
+# .gitkeep`, donc un dépôt ancien dont le squelette a été rafraîchi porterait les deux
+# dossiers. Le compter aurait rendu ce dépôt « mélangé », donc refusé — et refusé SANS
+# issue, puisque la conversion elle-même refuse un dépôt mélangé. Mesuré le 13/11/2026
+# en montant le test d'intégration : la version précédente de ce module tombait dedans.
+# `domains.py` porte la même règle, et pour la même raison : « jamais un élément ».
+_MARQUEURS = frozenset({".gitkeep"})
+
 
 @dataclass(frozen=True)
 class Layout:
@@ -68,12 +77,18 @@ def layout_of(paths: list[str]) -> Layout:
     deux côtés avec deux contenus n'a pas de bonne réponse automatique.
     """
     anciens = [p for p in paths if _dossier_de(p) == ANCIEN]
-    nouveaux = [p for p in paths if _dossier_de(p) == NOUVEAU]
-    if anciens and nouveaux:
-        return Layout(MELANGEE)
-    if not anciens:
+    # Les marqueurs sont écartés de la DÉCISION mais gardés dans les déplacements : c'est
+    # ce qui fait disparaître l'ancien dossier au lieu d'y laisser un `.gitkeep` orphelin,
+    # qui rendrait le dépôt éternellement « ancien ».
+    if not _porte_du_contenu(anciens):
         return Layout(A_JOUR)
+    if _porte_du_contenu([p for p in paths if _dossier_de(p) == NOUVEAU]):
+        return Layout(MELANGEE)
     return Layout(ANCIENNE, tuple(sorted((p, _deplace(p)) for p in anciens)))
+
+
+def _porte_du_contenu(chemins: list[str]) -> bool:
+    return any(p.rsplit("/", 1)[-1] not in _MARQUEURS for p in chemins)
 
 
 def _dossier_de(path: str) -> str | None:

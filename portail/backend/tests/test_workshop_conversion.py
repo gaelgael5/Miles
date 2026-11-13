@@ -82,3 +82,28 @@ def test_un_depot_a_moitie_converti_est_refuse_sans_deviner() -> None:
 def test_un_dossier_de_meme_nom_ailleurs_dans_l_arbre_ne_declenche_rien() -> None:
     """L'ancien nom ne désigne un dossier de modèles que sous `shared/` ou `domains/<d>/`."""
     assert layout_of([f"transformations/{_VIEUX}/etape.yaml"]).kind == A_JOUR
+
+
+def test_un_squelette_rafraichi_sur_un_depot_ancien_reste_convertible() -> None:
+    """Le squelette d'une branche crée `shared/models/.gitkeep`. Compter ce marqueur
+    comme un contenu rendrait le dépôt « mélangé », donc refusé — et refusé SANS issue,
+    puisque la conversion refuse elle aussi un dépôt mélangé. Mesuré le 13/11/2026 en
+    montant le test d'intégration : c'est exactement ce qui arrivait."""
+    layout = layout_of(
+        [*ANCIEN_DEPOT, "shared/models/.gitkeep", "domains/livraison/models/.gitkeep"]
+    )
+    assert layout.kind == ANCIENNE
+    assert layout.refusal == "disposition_ancienne"
+
+
+def test_le_marqueur_de_l_ancien_dossier_est_deplace_lui_aussi() -> None:
+    """Sinon l'ancien dossier survit à sa conversion, et le dépôt reste « ancien » pour
+    toujours : le `.gitkeep` seul suffirait à le faire refuser au prochain passage."""
+    moves = dict(layout_of([f"shared/{_VIEUX}/colis.yaml", f"shared/{_VIEUX}/.gitkeep"]).moves)
+    assert moves[f"shared/{_VIEUX}/.gitkeep"] == "shared/models/.gitkeep"
+
+
+def test_un_ancien_dossier_qui_n_a_plus_que_son_marqueur_est_a_jour() -> None:
+    """Rien à convertir : un dossier vide n'est pas une ancienne disposition, et refuser
+    là ne mènerait à rien — la conversion ne déplacerait aucun modèle."""
+    assert layout_of([f"shared/{_VIEUX}/.gitkeep", "shared/models/colis.yaml"]).kind == A_JOUR
