@@ -280,8 +280,8 @@ def fabrique_nettoyage(
     (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
     (depot / "storages").mkdir()
     (depot / "sources").mkdir()
-    (depot / "domains/pudo/messages/magasin.yaml").write_text(MAGASIN_DATE_MODELE, encoding="utf-8")
-    (depot / "domains/pudo/messages/magasin-import.yaml").write_text(
+    (depot / "domains/pudo/models/magasin.yaml").write_text(MAGASIN_DATE_MODELE, encoding="utf-8")
+    (depot / "domains/pudo/models/magasin-import.yaml").write_text(
         MAGASIN_DATE_ENTREE, encoding="utf-8"
     )
     (depot / "storages/magasins.yaml").write_text(
@@ -339,8 +339,8 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
     (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
     (depot / "storages").mkdir()
     (depot / "sources").mkdir()
-    (depot / "domains/pudo/messages/accounts.yaml").write_text(ACCOUNTS_MODELE, encoding="utf-8")
-    (depot / "domains/pudo/messages/site.yaml").write_text(SITE_MODELE, encoding="utf-8")
+    (depot / "domains/pudo/models/accounts.yaml").write_text(ACCOUNTS_MODELE, encoding="utf-8")
+    (depot / "domains/pudo/models/site.yaml").write_text(SITE_MODELE, encoding="utf-8")
     # Les chaînes que les sources nomment. SANS ÉTAPE, et c'est le cas réel de ces deux
     # sources : leur modèle d'entrée EST celui de leur storage, donc il n'y a rien à
     # transformer. Exiger un template identité pour ne rien faire serait du bruit — et
@@ -479,8 +479,8 @@ def fabrique_import(tmp_path: Path) -> dict[int, VersionFabriquee]:
     (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
     (depot / "storages").mkdir()
     (depot / "sources").mkdir()
-    (depot / "domains/pudo/messages/magasin.yaml").write_text(MAGASIN_MODELE, encoding="utf-8")
-    (depot / "domains/pudo/messages/magasin-import.yaml").write_text(
+    (depot / "domains/pudo/models/magasin.yaml").write_text(MAGASIN_MODELE, encoding="utf-8")
+    (depot / "domains/pudo/models/magasin-import.yaml").write_text(
         MAGASIN_ENTREE, encoding="utf-8"
     )
     (depot / "storages/magasins.yaml").write_text(
@@ -524,8 +524,8 @@ def fabrique_import_fichier(
     (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
     (depot / "storages").mkdir()
     (depot / "sources").mkdir()
-    (depot / "domains/pudo/messages/magasin.yaml").write_text(MAGASIN_MODELE, encoding="utf-8")
-    (depot / "domains/pudo/messages/magasin-import.yaml").write_text(
+    (depot / "domains/pudo/models/magasin.yaml").write_text(MAGASIN_MODELE, encoding="utf-8")
+    (depot / "domains/pudo/models/magasin-import.yaml").write_text(
         MAGASIN_ENTREE, encoding="utf-8"
     )
     (depot / "storages/magasins.yaml").write_text(

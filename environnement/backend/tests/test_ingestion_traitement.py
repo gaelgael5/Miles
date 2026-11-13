@@ -73,7 +73,7 @@ CHAIN = """
 
 def _arbre(**fichiers: str) -> dict[str, str]:
     return {
-        "domains/pudo/messages/site.yaml": MODELE,
+        "domains/pudo/models/site.yaml": MODELE,
         "storages/sites.yaml": STORAGE,
         "transformations/vers-site/chain.json": CHAIN,
         "transformations/vers-site/convertir.jslt": TEMPLATE,
@@ -223,7 +223,7 @@ class TestPreparation:
             # Le modèle absent fait refuser le STORAGE, parce que c'est lui qui donne le
             # type des colonnes : le refus nomme donc le storage ET le motif. Vérifié
             # plutôt que supposé — le motif est ce qui envoie corriger au bon endroit.
-            ("domains/pudo/messages/site.yaml", "storage:sites:modele_absent"),
+            ("domains/pudo/models/site.yaml", "storage:sites:modele_absent"),
             ("transformations/vers-site/chain.json", "chaine:"),
             ("transformations/vers-site/convertir.jslt", "chaine:"),
         ],
@@ -318,7 +318,7 @@ class TestTraitement:
         nullable = MODELE.replace("Code: {type: string}", 'Code: {type: [string, "null"]}')
         fichiers = _arbre(
             **{
-                "domains/pudo/messages/site.yaml": nullable.replace(
+                "domains/pudo/models/site.yaml": nullable.replace(
                     "required: [Code, ", "required: ["
                 )
             }

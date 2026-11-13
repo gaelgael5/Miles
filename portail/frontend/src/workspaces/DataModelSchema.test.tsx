@@ -10,11 +10,11 @@ const ROUTE = "/api/workspaces/retrait/data-models";
 const MODEL = {
   scope: "shared",
   name: "personne",
-  path: "shared/messages/personne.yaml",
+  path: "shared/models/personne.yaml",
   label: "Personne",
   version: 3,
 };
-const ADRESSE = { ...MODEL, name: "adresse", path: "shared/messages/adresse.yaml", label: "Adresse", version: 1 };
+const ADRESSE = { ...MODEL, name: "adresse", path: "shared/models/adresse.yaml", label: "Adresse", version: 1 };
 const YAML =
   "$schema: https://json-schema.org/draft/2020-12/schema\n$id: miles:/shared/personne\n" +
   "title: Personne\ntype: object\nproperties:\n  nom:\n    type: string\n";

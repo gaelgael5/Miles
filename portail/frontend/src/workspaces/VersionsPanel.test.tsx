@@ -84,7 +84,7 @@ describe("VersionsPanel", () => {
             reports: [
               { path: "", problems: [{ path: "prod", code: "dossier_d_environnement", detail: null }] },
               {
-                path: "shared/messages/colis.yaml",
+                path: "shared/models/colis.yaml",
                 problems: [{ path: "proprietes.p.modele", code: "modele_inconnu", detail: "personne" }],
               },
             ],
@@ -101,7 +101,7 @@ describe("VersionsPanel", () => {
     expect(alert).toHaveTextContent("The configuration does not pass the rules: nothing was frozen.");
     expect(alert).toHaveTextContent("Repository layout");
     expect(alert).toHaveTextContent("folder named after an environment");
-    expect(alert).toHaveTextContent("shared/messages/colis.yaml");
+    expect(alert).toHaveTextContent("shared/models/colis.yaml");
     expect(alert).toHaveTextContent("proprietes.p.modele — model “personne” does not exist");
   });
 

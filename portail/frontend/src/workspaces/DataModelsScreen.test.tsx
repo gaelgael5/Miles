@@ -11,10 +11,10 @@ const NO_VERSION = { "GET /api/workspaces/retrait/versions?branch=edition": { st
 const PERSONNE = {
   scope: "shared",
   name: "personne",
-  path: "shared/messages/personne.yaml",
+  path: "shared/models/personne.yaml",
   label: "Personne livrée",
 };
-const COLIS = { scope: "suivi", name: "colis", path: "domains/suivi/messages/colis.yaml", label: null };
+const COLIS = { scope: "suivi", name: "colis", path: "domains/suivi/models/colis.yaml", label: null };
 const DRAFT = "nom: personne\nversion: 1\nproprietes: {}\n";
 const YAML = "nom: personne\nversion: 1\nproprietes:\n  nom:\n    type: chaine\n";
 const BLANK = "$schema: https://json-schema.org/draft/2020-12/schema\n$id: miles:/shared/personne\ntitle: Personne livrée\ntype: object\nproperties: {}\n";
@@ -155,7 +155,7 @@ describe("DataModelsScreen", () => {
     });
     await openModels();
 
-    expect(await screen.findByText("domains/suivi/messages/colis.yaml")).toBeInTheDocument();
+    expect(await screen.findByText("domains/suivi/models/colis.yaml")).toBeInTheDocument();
     // Sans label (créé par son YAML), le modèle se nomme par son nom.
     expect(screen.getByText("colis")).toBeInTheDocument();
     const row = screen.getByText("Personne livrée").closest("li") as HTMLElement;

@@ -16,6 +16,7 @@ from miles.event_shapes import BRANCH, COMMIT
 from miles.git.holdspace import HeldCopy
 from miles.git.versions import VersionTakenError, fetch_versions, restore_tree, same_tree, tag_head
 from miles.git.workcopy import WorkCopy
+from miles.workshop.conversion import A_JOUR, MELANGEE, layout_of
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workshop.validation import FileReport, validate_branch
 from miles.workspaces.model import WorkspaceConflictError, WorkspaceInputError, commit_author
@@ -24,6 +25,7 @@ log = structlog.get_logger(__name__)
 
 SAVED_EVENT = "work_version.saved"
 RESTORED_EVENT = "work_version.restored"
+CONVERTED_EVENT = "work_layout.converted"
 # Ce qu'une version enregistrée EST : son numéro, le commit qu'elle étiquette, le libellé
 # saisi, et la branche d'où elle a été prise. Le libellé peut être vide — c'est une saisie.
 _VERSION: dict[str, object] = {
@@ -41,6 +43,17 @@ EVENT_SHAPES = (
         # du commit de retour qui vient d'être écrit. Un seul des deux ne dirait pas ce
         # qu'il faut annuler pour défaire la restauration.
         closed_block({**_VERSION, "restored_commit": COMMIT}),
+    ),
+    EventShape(
+        CONVERTED_EVENT,
+        "Disposition du dépôt convertie",
+        # Le NOMBRE de fichiers déplacés, pas leur liste : une conversion en déplace
+        # autant qu'il y a de modèles, et le commit porte déjà le détail. Ce que cet
+        # event sert à retrouver, c'est QUAND une branche est passée à la nouvelle
+        # disposition, et par quel commit on l'annule.
+        closed_block(
+            {"branch": BRANCH, "commit": COMMIT, "moved": {"type": "integer", "minimum": 1}}
+        ),
     ),
 )
 EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
@@ -200,6 +213,52 @@ class WorkshopService:
         # Une étiquette sans branche date d'avant les branches filles : elle est à la base.
         mine = [v for v in every if (v.branch or base) == copy.branch]
         return mine, every[0].number if every else 0
+
+    async def resolve_convert_layout(
+        self, author: EventAuthor, workspace_id: str, *, branch: str | None = None
+    ) -> int:
+        """Déplace les modèles de l'ancien dossier vers `models/`, en UN commit relisible.
+
+        Le seul geste qui passe la garde de disposition — voir `miles.workshop.conversion`
+        pour la raison de ne rien convertir tout seul. Rejoué sur une branche déjà à jour :
+        sans effet et sans commit vide, parce qu'un commit sans changement se lirait comme
+        une seconde conversion.
+        """
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.MIGRATE
+        ) as copy:
+            layout = layout_of(await copy.paths())
+            if layout.kind == MELANGEE:
+                # On ne devine pas lequel des deux dossiers fait foi : le dire, et laisser
+                # un humain trancher dans la forge.
+                raise WorkspaceConflictError("disposition_melangee")
+            if layout.kind == A_JOUR:
+                return 0
+            for ancien, nouveau in layout.moves:
+                contenu = await copy.read(ancien)
+                if contenu is None:
+                    # Un chemin listé par git et illisible : on s'arrête AVANT d'écrire la
+                    # moitié de la conversion. Passer outre laisserait un dépôt mélangé,
+                    # c'est-à-dire précisément l'état qu'on refuse d'ouvrir ensuite.
+                    raise WorkspaceConflictError("fichier_illisible")
+                await copy.write(nouveau, contenu)
+                await copy.remove(ancien)
+            commit = await self.branches.commit(
+                copy, f"Disposition : {len(layout.moves)} fichiers vers models/", author
+            )
+        await self._event(
+            workspace_id,
+            CONVERTED_EVENT,
+            author,
+            {"branch": copy.branch, "commit": commit, "moved": len(layout.moves)},
+        )
+        log.info(
+            "disposition_convertie",
+            workspace=workspace_id,
+            branch=copy.branch,
+            moved=len(layout.moves),
+        )
+        return len(layout.moves)
 
     async def _event(
         self, workspace_id: str, event_type: str, author: EventAuthor, properties: dict[str, Any]

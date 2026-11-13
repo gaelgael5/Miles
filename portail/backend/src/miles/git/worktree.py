@@ -40,9 +40,9 @@ INITIAL_MANIFEST: dict[str, Any] = {
 # ligne, la validation de la branche rapporterait chaque événement écrit comme un
 # « emplacement inattendu » et aucune version ne pourrait plus être enregistrée : c'est
 # exactement la panne qu'avait produite l'oubli de `comptes/` le 31/10/2026.
-_SHARED = {"messages", "events", "components", "referentials", "theme"}
+_SHARED = {"models", "events", "components", "referentials", "theme"}
 _DOMAIN = {
-    "messages",
+    "models",
     "events",
     "mappings",
     "referentials",

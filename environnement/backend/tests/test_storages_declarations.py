@@ -62,7 +62,7 @@ index:
 
 def _arbre(**fichiers: str) -> dict[str, str]:
     return {
-        "domains/pudo/messages/accounts.yaml": ACCOUNTS,
+        "domains/pudo/models/accounts.yaml": ACCOUNTS,
         "storages/accounts.yaml": DECLARATION,
         **fichiers,
     }
@@ -209,7 +209,7 @@ async def test_deux_chemins_qui_se_reduisent_au_meme_nom_de_colonne_sont_refuses
     tables, refus = await _declare(
         _arbre(
             **{
-                "domains/pudo/messages/accounts.yaml": modele,
+                "domains/pudo/models/accounts.yaml": modele,
                 "storages/accounts.yaml": declaration,
             }
         )
@@ -229,7 +229,7 @@ async def test_un_storage_fautif_n_empeche_pas_les_autres_d_etre_materialises() 
             **{
                 "storages/accounts.yaml": DECLARATION.replace('"$.Contact.Phone"', '"$.Disparu"'),
                 "storages/sites.yaml": sites,
-                "domains/pudo/messages/site.yaml": modele,
+                "domains/pudo/models/site.yaml": modele,
             }
         )
     )
@@ -249,8 +249,8 @@ async def test_un_renvoi_vers_un_autre_modele_est_resolu_comme_le_portail_le_res
     tables, refus = await _declare(
         _arbre(
             **{
-                "domains/pudo/messages/accounts.yaml": modele,
-                "domains/pudo/messages/contact.yaml": contact,
+                "domains/pudo/models/accounts.yaml": modele,
+                "domains/pudo/models/contact.yaml": contact,
             }
         )
     )
@@ -277,7 +277,7 @@ async def test_le_modele_decide_des_colonnes_du_tableau_et_de_leur_ordre() -> No
     # redéclarées sur le storage : c'est ce que « le modèle décide, le storage suit »
     # veut dire, et sans cette lecture la case cochée ne change rien nulle part.
     tables, refus = await _declare(
-        _arbre(**{"domains/pudo/messages/accounts.yaml": ACCOUNTS + UTILITE})
+        _arbre(**{"domains/pudo/models/accounts.yaml": ACCOUNTS + UTILITE})
     )
 
     assert refus == []
@@ -292,7 +292,7 @@ async def test_le_modele_decide_des_colonnes_du_tableau_et_de_leur_ordre() -> No
 @pytest.mark.asyncio
 async def test_la_cle_du_modele_l_emporte_sur_celle_du_storage() -> None:
     modele = ACCOUNTS + UTILITE.replace('"$.AccountId"\n  columns', '"$.Postes"\n  columns')
-    tables, _ = await _declare(_arbre(**{"domains/pudo/messages/accounts.yaml": modele}))
+    tables, _ = await _declare(_arbre(**{"domains/pudo/models/accounts.yaml": modele}))
 
     assert tables[0].keys == ("$.Postes",)
 
@@ -311,7 +311,7 @@ async def test_une_colonne_du_modele_que_le_modele_n_offre_pas_fait_refuser_le_s
     # Même règle que pour un index : rien n'est deviné, et une colonne muette serait
     # pire qu'un refus nommé. Le cas arrive quand le YAML est retouché à la main.
     modele = ACCOUNTS + UTILITE.replace('"$.Postes"', '"$.Disparu"')
-    _, refus = await _declare(_arbre(**{"domains/pudo/messages/accounts.yaml": modele}))
+    _, refus = await _declare(_arbre(**{"domains/pudo/models/accounts.yaml": modele}))
 
     assert [(r.storage, r.code, r.detail) for r in refus] == [
         ("accounts", REFUSAL_UNKNOWN_PROPERTY, "$.Disparu")
@@ -321,7 +321,7 @@ async def test_une_colonne_du_modele_que_le_modele_n_offre_pas_fait_refuser_le_s
 @pytest.mark.asyncio
 async def test_une_colonne_declaree_des_deux_cotes_n_est_posee_qu_une_fois() -> None:
     modele = ACCOUNTS + UTILITE.replace('"$.Postes"', '"$.Contact.Phone"')
-    tables, refus = await _declare(_arbre(**{"domains/pudo/messages/accounts.yaml": modele}))
+    tables, refus = await _declare(_arbre(**{"domains/pudo/models/accounts.yaml": modele}))
 
     assert refus == []
     assert [p.column for p in tables[0].projections] == [
@@ -343,7 +343,7 @@ async def test_une_propriete_du_nom_d_une_colonne_fixe_est_prefixee_et_non_refus
     tables, refus = await _declare(
         _arbre(
             **{
-                "domains/pudo/messages/accounts.yaml": modele,
+                "domains/pudo/models/accounts.yaml": modele,
                 "storages/accounts.yaml": declaration,
             }
         )

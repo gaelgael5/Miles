@@ -87,7 +87,7 @@ async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
 ) -> None:
     # Écrit hors de Miles, directement sur la forge : un modèle qui désigne un absent.
     written = await forge.api.post(
-        f"/api/v1/repos/miles/{forge.name}/contents/shared/messages/colis.yaml",
+        f"/api/v1/repos/miles/{forge.name}/contents/shared/models/colis.yaml",
         json={
             "branch": "back/retrait/edition",
             "content": base64.b64encode(COLIS.encode()).decode(),
@@ -111,7 +111,7 @@ async def test_invalid_configuration_is_not_frozen_and_the_report_says_why(
         "code": "parametrage_invalide",
         "reports": [
             {
-                "path": "shared/messages/colis.yaml",
+                "path": "shared/models/colis.yaml",
                 "problems": [
                     {
                         "path": "properties.p.$ref",
@@ -140,8 +140,8 @@ async def test_returning_to_a_version_adds_a_new_state(forge: Forge) -> None:
 
     assert restored.status_code == 200, restored.text
     assert await forge.commits() == before + 1
-    assert await forge.file("domains/suivi/messages/colis.yaml") is None
-    assert await forge.file("shared/messages/personne.yaml") == PERSONNE
+    assert await forge.file("domains/suivi/models/colis.yaml") is None
+    assert await forge.file("shared/models/personne.yaml") == PERSONNE
     assert await _tags(forge) == ["version/1", "version/2"]
     assert (again.status_code, again.json()["detail"]) == (409, "deja_a_cette_version")
     assert (unknown.status_code, unknown.json()["detail"]) == (404, "version_inconnue")

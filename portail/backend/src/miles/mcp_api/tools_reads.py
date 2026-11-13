@@ -140,11 +140,11 @@ def register(server: MCPServer) -> None:
 
     @server.tool(
         description=(
-            "Rend les messages pivot transverses (shared/messages), chemin et contenu. Même"
+            "Rend les modèles transverses (shared/models), chemin et contenu. Même"
             " borne que get_domain : si `truncated`, reprendre avec after = next_after."
         )
     )
-    async def get_shared_messages(
+    async def get_shared_models(
         workspace_id: Workspace,
         ctx: Context[Any, Request],
         branch: ReadBranch = None,
@@ -154,14 +154,17 @@ def register(server: MCPServer) -> None:
         caller = caller_of(ctx)
         await caller.readable(workspace_id)
         try:
-            at, page = await _reads(caller).resolve_shared_messages(
+            at, page = await _reads(caller).resolve_shared_models(
                 caller.viewer, workspace_id, branch, commit, after
             )
         except Exception as exc:
             raise _refused(exc) from None
         return {
             "commit": at,
-            "messages": _elements(page.elements),
+            # `messages` jusqu'au 13/11/2026 : renommé avec le dossier, et c'est une
+            # RUPTURE de contrat MCP, annoncée dans l'article « Surface MCP de Miles ».
+            # Garder l'ancienne clef aurait fait durer un nom qui ne désigne plus rien.
+            "models": _elements(page.elements),
             "truncated": page.truncated,
             "next_after": page.next_after,
         }

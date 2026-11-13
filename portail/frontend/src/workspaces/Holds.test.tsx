@@ -162,7 +162,7 @@ describe("unlocking and resuming (story fd1eb7da)", () => {
       [`GET ${WS}/shelves`]: { status: 200, body: [{ ...SHELF, mine: true }] },
       [`POST ${HOLD}`]: {
         status: 409,
-        body: { detail: { code: "conflit_de_reprise", files: ["shared/messages/personne.yaml"] } },
+        body: { detail: { code: "conflit_de_reprise", files: ["shared/models/personne.yaml"] } },
       },
     });
 
@@ -170,7 +170,7 @@ describe("unlocking and resuming (story fd1eb7da)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Take over again" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "conflicts with the up-to-date branch (shared/messages/personne.yaml)",
+      "conflicts with the up-to-date branch (shared/models/personne.yaml)",
     );
   });
 });
@@ -182,7 +182,7 @@ describe("a child branch someone else holds", () => {
       [`GET ${WS}/holds`]: { status: 200, body: [BOBS] },
       [`GET ${WS}/data-models?branch=edition`]: {
         status: 200,
-        body: [{ scope: "shared", name: "personne", path: "shared/messages/personne.yaml" }],
+        body: [{ scope: "shared", name: "personne", path: "shared/models/personne.yaml" }],
       },
       [`GET ${WS}/versions?branch=edition`]: { status: 200, body: [] },
     });

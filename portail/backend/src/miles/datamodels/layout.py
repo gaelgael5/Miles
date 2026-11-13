@@ -13,8 +13,8 @@ from miles.workspaces.model import WorkspaceInputError
 # Le nom suit la règle d'un nom de modèle : un fichier de métadonnées (`.meta.yaml`)
 # n'est jamais pris pour un modèle.
 _PATH_RE = re.compile(
-    r"^(?:shared/messages/(?P<shared>[a-z0-9][a-z0-9_-]*)"
-    r"|domains/(?P<domain>[^/]+)/messages/(?P<name>[a-z0-9][a-z0-9_-]*))\.yaml$"
+    r"^(?:shared/models/(?P<shared>[a-z0-9][a-z0-9_-]*)"
+    r"|domains/(?P<domain>[^/]+)/models/(?P<name>[a-z0-9][a-z0-9_-]*))\.yaml$"
 )
 
 

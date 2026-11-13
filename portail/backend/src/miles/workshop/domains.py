@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 # Rubriques d'un domaine, retenues au cadrage (« Back-office — capacités attendues ») ;
 # les mappings se rangent par sens. Même découpage que le squelette d'un dépôt.
 SECTIONS = (
-    "messages",
+    "models",
     # Les événements de workflow du domaine (Gael, 11/11/2026) : une rubrique, parce
     # qu'ils ont leur propre liste dans l'écran et ne se mélangent pas aux messages.
     "events",
@@ -17,7 +17,7 @@ SECTIONS = (
     "screens",
     "scenarios",
 )
-SHARED_MESSAGES = "shared/messages/"
+SHARED_MODELS = "shared/models/"
 DOMAINS = "domains/"
 # Fichiers de place que git exige pour un répertoire vide : jamais un élément. Les
 # métadonnées d'un modèle (`<nom>.meta.yaml`, sa version) sont au système, pas au domaine.
@@ -87,12 +87,12 @@ def domain_files(paths: list[str], name: str) -> list[str]:
     )
 
 
-def shared_messages(paths: list[str]) -> list[str]:
+def shared_models(paths: list[str]) -> list[str]:
     return sorted(
         p
         for p in paths
-        if p.startswith(SHARED_MESSAGES)
-        and "/" not in p[len(SHARED_MESSAGES) :]
+        if p.startswith(SHARED_MODELS)
+        and "/" not in p[len(SHARED_MODELS) :]
         and p.rsplit("/", 1)[-1] not in _PLACEHOLDERS
         and not p.endswith(_META_SUFFIX)
     )

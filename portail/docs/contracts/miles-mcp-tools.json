@@ -1029,8 +1029,8 @@
       }
     },
     {
-      "name": "get_shared_messages",
-      "description": "Rend les messages pivot transverses (shared/messages), chemin et contenu. Même borne que get_domain : si `truncated`, reprendre avec after = next_after.",
+      "name": "get_shared_models",
+      "description": "Rend les modèles transverses (shared/models), chemin et contenu. Même borne que get_domain : si `truncated`, reprendre avec after = next_after.",
       "inputSchema": {
         "properties": {
           "workspace_id": {
@@ -1081,7 +1081,7 @@
         "required": [
           "workspace_id"
         ],
-        "title": "get_shared_messagesArguments",
+        "title": "get_shared_modelsArguments",
         "type": "object"
       }
     },

@@ -27,7 +27,7 @@ const PICKERS = {
   },
   [`GET /api/workspaces/retrait/data-models${Q}`]: {
     status: 200,
-    body: [{ scope: "pudo", name: "import-crm", path: "domains/pudo/messages/import-crm.yaml" }],
+    body: [{ scope: "pudo", name: "import-crm", path: "domains/pudo/models/import-crm.yaml" }],
   },
   [`GET /api/workspaces/retrait/transformations${Q}`]: {
     status: 200,

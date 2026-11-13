@@ -118,11 +118,11 @@ async def test_number_taken_meanwhile_is_refused_without_moving_the_other(
 async def test_restoring_brings_back_the_old_tree_without_rewriting_history(
     tmp_path: Path,
 ) -> None:
-    repo = _repo(tmp_path, {"shared/messages/personne.yaml": PERSONNE})
+    repo = _repo(tmp_path, {"shared/models/personne.yaml": PERSONNE})
     async with checkout(repo, TOKEN, BRANCH) as copy:
         await tag_head(copy, 1, "un", AUTHOR)
-        await copy.write("shared/messages/colis.yaml", "nom: colis")
-        await copy.remove("shared/messages/personne.yaml")
+        await copy.write("shared/models/colis.yaml", "nom: colis")
+        await copy.remove("shared/models/personne.yaml")
         await copy.commit_push("Changement", AUTHOR)
 
     async with checkout(repo, TOKEN, BRANCH) as copy:
@@ -136,14 +136,14 @@ async def test_restoring_brings_back_the_old_tree_without_rewriting_history(
         paths = await copy.paths()
 
     assert restored
-    assert paths == ["manifest.json", "shared/messages/personne.yaml"]
+    assert paths == ["manifest.json", "shared/models/personne.yaml"]
     bare = repo.url.removeprefix("file://")
     assert _git("--git-dir", bare, "rev-list", "--count", BRANCH).strip() == "3"
 
 
 async def test_valid_configuration_has_no_report(tmp_path: Path) -> None:
     async with checkout(
-        _repo(tmp_path, {"shared/messages/personne.yaml": PERSONNE}), TOKEN, BRANCH
+        _repo(tmp_path, {"shared/models/personne.yaml": PERSONNE}), TOKEN, BRANCH
     ) as copy:
         assert await validate_branch(copy) == []
 
@@ -151,10 +151,10 @@ async def test_valid_configuration_has_no_report(tmp_path: Path) -> None:
 async def test_every_faulty_file_is_reported(tmp_path: Path) -> None:
     files = {
         "prod/x.json": "{}",
-        "shared/messages/colis.yaml": "$id: miles:/shared/colis\ntype: object\nproperties:\n"
+        "shared/models/colis.yaml": "$id: miles:/shared/colis\ntype: object\nproperties:\n"
         "  d:\n    $ref: miles:/shared/absent\n",
-        "domains/suivi/messages/lot.yaml": PERSONNE,
-        "shared/messages/casse.yaml": "type: [\n",
+        "domains/suivi/models/lot.yaml": PERSONNE,
+        "shared/models/casse.yaml": "type: [\n",
     }
     async with checkout(_repo(tmp_path, files), TOKEN, BRANCH) as copy:
         reports = await validate_branch(copy)
@@ -162,14 +162,14 @@ async def test_every_faulty_file_is_reported(tmp_path: Path) -> None:
     assert reports == [
         FileReport("", (Problem("prod", "dossier_d_environnement"),)),
         FileReport(
-            "domains/suivi/messages/lot.yaml",
+            "domains/suivi/models/lot.yaml",
             (Problem("$id", "id_different_du_fichier", "miles:/domains/suivi/lot"),),
         ),
         FileReport(
-            "shared/messages/casse.yaml", (Problem("", "yaml_invalide", "ligne 2, colonne 1"),)
+            "shared/models/casse.yaml", (Problem("", "yaml_invalide", "ligne 2, colonne 1"),)
         ),
         FileReport(
-            "shared/messages/colis.yaml",
+            "shared/models/colis.yaml",
             (Problem("properties.d.$ref", "modele_inconnu", "shared/absent"),),
         ),
     ]

@@ -10,7 +10,7 @@ const ROUTE = "/api/workspaces/retrait/data-models";
 const MODEL = {
   scope: "shared",
   name: "personne",
-  path: "shared/messages/personne.yaml",
+  path: "shared/models/personne.yaml",
   label: "Personne",
   version: 3,
 };

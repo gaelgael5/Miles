@@ -27,7 +27,7 @@ pytestmark = pytest.mark.integration
 WS = "/api/workspaces/retrait"
 HOLD = f"{WS}/branches/edition/hold"
 MODELS = f"{WS}/data-models"
-MODEL_PATH = "shared/messages/personne.yaml"
+MODEL_PATH = "shared/models/personne.yaml"
 BOB = EventAuthor("annuaire-x", "bob")
 
 

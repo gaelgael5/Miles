@@ -24,7 +24,7 @@ PATHS = [
     "trads/accueil/ar-MA.yaml",
     "trads/erreurs/fr-FR.yaml",
     "trads/vide/.gitkeep",
-    "domains/retrait/messages/demande.yaml",
+    "domains/retrait/models/demande.yaml",
 ]
 FILES = {
     "trads/accueil/fr-FR.yaml": "titre: Bonjour\nadieu: Au revoir\n",
@@ -42,7 +42,7 @@ def test_contexts_in_lists_directories_of_trads_including_the_empty_one() -> Non
 
 
 def test_contexts_in_ignores_the_rest_of_the_tree() -> None:
-    assert contexts_in(["domains/retrait/messages/x.yaml", "trads/.gitkeep"]) == []
+    assert contexts_in(["domains/retrait/models/x.yaml", "trads/.gitkeep"]) == []
 
 
 def test_cultures_in_lists_the_culture_files_of_one_context() -> None:

@@ -29,10 +29,19 @@ _ID_RE = re.compile(
 def model_path(scope: str, name: str) -> str:
     """Emplacements retenus au cadrage : un modèle transverse sous `shared/`, un modèle
     de domaine sous `domains/<domaine>/`. Aucun dossier d'environnement : l'environnement
-    est une branche."""
+    est une branche.
+
+    Le dossier s'appelait `messages/` jusqu'au 13/11/2026, du vocabulaire du « message
+    pivot ». Il porte `models/` depuis, parce qu'il ne contient plus seulement des
+    messages : les schémas des types d'event y entrent aussi (décision de Gael), et un
+    dossier dont le nom ne dit plus ce qu'il contient se fait mal ranger.
+
+    **Un dépôt à l'ancienne disposition se convertit, il ne se lit pas à moitié** : voir
+    `miles.workshop.conversion` au portail, qui est seul à écrire l'arbre.
+    """
     if scope == SHARED:
-        return f"shared/messages/{name}.yaml"
-    return f"domains/{scope}/messages/{name}.yaml"
+        return f"shared/models/{name}.yaml"
+    return f"domains/{scope}/models/{name}.yaml"
 
 
 def model_id(scope: str, name: str) -> str:

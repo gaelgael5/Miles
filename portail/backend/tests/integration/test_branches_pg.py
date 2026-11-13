@@ -17,7 +17,7 @@ pytestmark = pytest.mark.integration
 ROUTE = "/api/workspaces/retrait/branches"
 MODELS = "/api/workspaces/retrait/data-models"
 VERSIONS = "/api/workspaces/retrait/versions"
-MODEL_PATH = "shared/messages/personne.yaml"
+MODEL_PATH = "shared/models/personne.yaml"
 
 
 @pytest.fixture

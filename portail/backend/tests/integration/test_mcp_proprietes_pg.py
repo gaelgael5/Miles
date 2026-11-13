@@ -65,7 +65,7 @@ async def _colis(m: McpForge) -> None:
     )
 
 
-async def _ecrit(m: McpForge, path: str = "shared/messages/colis.yaml") -> dict:
+async def _ecrit(m: McpForge, path: str = "shared/models/colis.yaml") -> dict:
     """Le fichier tel que la forge le montre, une fois publié."""
     text = await m.forge.file(path)
     assert text is not None, path
@@ -145,7 +145,7 @@ async def test_la_version_monte_a_chaque_propriete_posee(m: McpForge) -> None:
         | {"scope": "shared", "name": "colis", "path": ["b"], "schema": "type: string"},
     )
 
-    assert await m.forge.file("shared/messages/colis.meta.yaml") == "version: 3\n"
+    assert await m.forge.file("shared/models/colis.meta.yaml") == "version: 3\n"
 
 
 async def test_poser_deux_fois_la_meme_propriete_n_ecrit_rien_la_seconde(m: McpForge) -> None:

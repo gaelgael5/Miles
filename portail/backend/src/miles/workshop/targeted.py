@@ -16,7 +16,7 @@ from miles.workshop.domains import (
     domain_files,
     domains_in,
     section_of,
-    shared_messages,
+    shared_models,
 )
 from miles.workshop.reading import Read, branch_source
 from miles.workshop.target import WorkBranches
@@ -101,7 +101,7 @@ class TargetedReads:
             target.append(element)
         return source.commit, content
 
-    async def resolve_shared_messages(
+    async def resolve_shared_models(
         self,
         viewer: EventAuthor,
         workspace_id: str,
@@ -110,7 +110,7 @@ class TargetedReads:
         after: str | None,
     ) -> tuple[str, Page]:
         async with branch_source(self.branches, viewer, workspace_id, branch, commit) as source:
-            page = await read_page(source.read, shared_messages(await source.paths()), after)
+            page = await read_page(source.read, shared_models(await source.paths()), after)
             return source.commit, page
 
     async def resolve_contracts(

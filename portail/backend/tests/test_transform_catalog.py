@@ -58,8 +58,8 @@ def test_miles_catalogue_lists_the_strict_cast_and_core_functions() -> None:
 
 async def test_models_come_from_the_branch_with_their_properties() -> None:
     files = {
-        "shared/messages/personne.yaml": PERSONNE,
-        "domains/retrait/messages/casse.yaml": "type: texte\n",
+        "shared/models/personne.yaml": PERSONNE,
+        "domains/retrait/models/casse.yaml": "type: texte\n",
         "manifest.json": '{"format_version": 1, "min_app_version": "2.4.0", "capabilities": []}',
         # Dérivés d'un contrat (47f55d8b) : une énumération n'est pas un objet, et reste listée.
         "contracts/materiel/models/v2/point.yaml": "type: object\nproperties:\n"

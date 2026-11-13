@@ -261,7 +261,7 @@ async def test_un_storage_fautif_est_refuse_nomme_et_n_empeche_pas_les_autres(
         await _apparie(stack)
         await _ordonne(stack, double, versions[1])
         # Le modèle perd la propriété que l'index déclare, comme le 01/11/2026.
-        chemin = stack.tree.root / "domains/pudo/messages/accounts.yaml"
+        chemin = stack.tree.root / "domains/pudo/models/accounts.yaml"
         chemin.write_text(
             chemin.read_text(encoding="utf-8").replace("Phone: {type: string}", "Tel: {}"),
             encoding="utf-8",

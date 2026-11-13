@@ -44,7 +44,7 @@ class TestLesChemins:
 
     def test_un_modele_n_est_pas_un_evenement_et_reciproquement(self) -> None:
         """La frontière, dans les deux sens : c'est tout l'objet de la liste séparée."""
-        assert entry_of("shared/messages/commande.yaml") is None
+        assert entry_of("shared/models/commande.yaml") is None
         assert model_entry_of("shared/events/demande_soumise.yaml") is None
 
 

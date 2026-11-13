@@ -17,6 +17,7 @@ from miles.git.worktree import RepositoryAccessError, work_branch_prefix
 from miles.gitaccess.model import GitAccessError
 from miles.gitaccess.resolver import AccessResolver
 from miles.identities.service import GitIdentitiesService
+from miles.workshop.conversion import layout_of
 from miles.workshop.holds_db import Hold, db_hold, db_set_published
 from miles.workspaces.model import (
     BranchNotFoundError,
@@ -46,6 +47,26 @@ class Gesture(Enum):
     # Figer une version : permis sur la racine (Gael, 22/10/2026) ; sur une branche fille,
     # par qui a la main et sans commit local non publié (critère 11).
     FREEZE = "freeze"
+    # Convertir la disposition du dépôt (13/11/2026). Écrit, donc soumis aux mêmes règles
+    # que `EDIT` — et c'est le SEUL geste que la garde de disposition laisse passer, sans
+    # quoi la conversion se refuserait elle-même.
+    MIGRATE = "migrate"
+
+
+async def _refuse_ancienne_disposition(copy: WorkCopy, gesture: Gesture) -> None:
+    """Refuse d'ouvrir une branche dont le dossier des modèles n'a pas été converti.
+
+    Posé au seul point d'ouverture, comme la prise de main. Sans ce refus, une branche à
+    l'ancienne disposition se lirait sans erreur et ses modèles seraient INVISIBLES —
+    `model_path` les cherche sous `models/` et n'y trouve rien. Ça ressemble à une
+    suppression et n'en est pas : c'est exactement le genre de panne qu'on découvre chez
+    un client, loin de sa cause. Un refus qui nomme le geste à faire vaut mieux.
+    """
+    if gesture is Gesture.MIGRATE:
+        return
+    refusal = layout_of(await copy.paths()).refusal
+    if refusal is not None:
+        raise WorkspaceConflictError(refusal)
 
 
 @dataclass(frozen=True)
@@ -89,8 +110,13 @@ class WorkBranches:
             if gesture is Gesture.EDIT:
                 # La racine est en lecture seule (Gael, 22/10/2026, story dca0eb0e) : on
                 # modifie dans une branche enfant. Refusé avant tout clone, côté serveur.
+                #
+                # `MIGRATE` n'est VOLONTAIREMENT pas refusé ici : la racine porte elle
+                # aussi l'ancienne disposition, et si elle ne pouvait jamais être
+                # convertie, toute lecture de la racine resterait refusée pour toujours.
                 raise WorkspaceConflictError("branche_racine_lecture_seule")
             async with self._shared(workspace, name) as copy:
+                await _refuse_ancienne_disposition(copy, gesture)
                 yield copy
             return
         slug = name.removeprefix(work_branch_prefix(workspace.id))
@@ -104,6 +130,7 @@ class WorkBranches:
             # Les autres lisent ce qui est publié : un commit local n'est visible que de
             # qui l'a fait, jusqu'à sa publication (voulu, ticket 9def0adc).
             async with self._shared(workspace, name) as copy:
+                await _refuse_ancienne_disposition(copy, gesture)
                 yield copy
             return
         async with self.held(workspace, hold) as held:
@@ -111,6 +138,7 @@ class WorkBranches:
                 # Une version fige la tête publiée, celle que tout le monde voit dans la
                 # forge (Gael, 22/10/2026) : un commit local n'y entrerait pas.
                 raise WorkspaceConflictError("publication_requise")
+            await _refuse_ancienne_disposition(held, gesture)
             yield held
 
     @asynccontextmanager

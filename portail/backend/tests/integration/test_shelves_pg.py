@@ -18,7 +18,7 @@ pytestmark = pytest.mark.integration
 
 WS = "/api/workspaces/retrait"
 UNLOCK = f"{WS}/branches/edition/hold/unlock"
-MODEL_PATH = "shared/messages/personne.yaml"
+MODEL_PATH = "shared/models/personne.yaml"
 BOB = EventAuthor("annuaire-x", "bob")
 
 

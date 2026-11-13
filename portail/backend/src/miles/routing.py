@@ -58,6 +58,7 @@ from miles.workshop.api_holds import me_router as my_shelves_router
 from miles.workshop.api_holds import router as holds_router
 from miles.workshop.api_trads import router as trads_router
 from miles.workshop.api_trads_keys import router as trads_keys_router
+from miles.workshop.api_workshop import layout_router
 from miles.workshop.api_workshop import router as workshop_router
 from miles.workspaces.api_workspace_cultures import router as workspace_cultures_router
 from miles.workspaces.api_workspaces import router as workspaces_router
@@ -94,6 +95,7 @@ def include_api_routers(app: FastAPI) -> None:
     app.include_router(workflow_events_router)
     app.include_router(domains_router)
     app.include_router(workshop_router)
+    app.include_router(layout_router)
     app.include_router(contracts_router)
     app.include_router(contract_models_router)
     app.include_router(branches_router)

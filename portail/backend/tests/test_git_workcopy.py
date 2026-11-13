@@ -43,14 +43,14 @@ async def test_written_file_is_pushed_byte_for_byte_and_read_back(tmp_path: Path
     content = "nom: colis\r\nversion: 1\n# é\n"
 
     async with checkout(repo, TOKEN, BRANCH) as copy:
-        await copy.write("shared/messages/colis.yaml", content)
+        await copy.write("shared/models/colis.yaml", content)
         commit = await copy.commit_push("Modèle", AUTHOR)
     async with checkout(repo, TOKEN, BRANCH) as copy:
-        read = await copy.read("shared/messages/colis.yaml")
+        read = await copy.read("shared/models/colis.yaml")
         paths = await copy.paths()
 
     assert read == content
-    assert paths == ["manifest.json", "shared/messages/colis.yaml"]
+    assert paths == ["manifest.json", "shared/models/colis.yaml"]
     assert _git("--git-dir", _bare(repo), "rev-parse", BRANCH).strip() == commit
     assert _git("--git-dir", _bare(repo), "log", "-1", "--format=%an", BRANCH).strip() == (
         "admin via Miles"
@@ -61,7 +61,7 @@ async def test_written_file_is_pushed_byte_for_byte_and_read_back(tmp_path: Path
 
 async def test_missing_file_reads_as_none(tmp_path: Path) -> None:
     async with checkout(_repo(tmp_path), TOKEN, BRANCH) as copy:
-        assert await copy.read("shared/messages/absent.yaml") is None
+        assert await copy.read("shared/models/absent.yaml") is None
 
 
 async def test_missing_branch_is_refused_and_never_created(tmp_path: Path) -> None:

@@ -11,7 +11,7 @@ const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const WS = "/api/workspaces/retrait";
 const Q = "?branch=atelier";
 const NOTICE = /This is the workspace root branch: it is read-only/;
-const MODEL = { scope: "shared", name: "personne", path: "shared/messages/personne.yaml" };
+const MODEL = { scope: "shared", name: "personne", path: "shared/models/personne.yaml" };
 const CHAIN = {
   slug: "import",
   label: "Import",

@@ -211,3 +211,32 @@ async def restore_version(
     except _REFUSALS as exc:
         return _refusal(exc)
     return RestoreOut(commit=commit)
+
+
+# Routeur à part, parce que la conversion n'est pas un geste de VERSION : elle porte sur
+# la disposition de la branche. Le préfixe `versions` l'aurait mal nommée pour toujours.
+layout_router = APIRouter(prefix="/api/workspaces/{workspace_id}/layout")
+
+
+class ConvertedOut(BaseModel):
+    # Le nombre de fichiers déplacés. Zéro veut dire « déjà à jour » : un rejeu est sans
+    # effet, et la réponse le dit plutôt que de laisser croire à une conversion.
+    moved: int
+
+
+@layout_router.post("/convert", response_model=ConvertedOut)
+async def convert_layout(
+    workspace_id: str, request: Request, service: Service, branch: str | None = None
+) -> object:
+    """Convertit la disposition du dépôt de la branche (modèles vers `models/`).
+
+    Le seul geste qui passe la garde de disposition : toutes les autres ouvertures d'une
+    branche ancienne sont refusées, en nommant ce geste.
+    """
+    try:
+        moved = await service.resolve_convert_layout(
+            request_author(request), workspace_id, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return ConvertedOut(moved=moved)

@@ -46,12 +46,12 @@ async def test_a_model_is_created_read_replaced_and_deleted_on_a_child_branch(m:
     listed = await m.ok("list_schemas", KIND | EDIT)
     deleted = await m.ok("delete_schema", KIND | EDIT | {"scope": "shared", "name": "personne"})
 
-    assert created["path"] == "shared/messages/personne.yaml" and created["commit"]
+    assert created["path"] == "shared/models/personne.yaml" and created["commit"]
     assert (replay["unchanged"], replay["commit"]) == (True, None)
     assert replaced["commit"] and read["content"] == changed
-    assert [e["path"] for e in listed] == ["shared/messages/personne.yaml"]
-    assert deleted["commit"] and await m.forge.file("shared/messages/personne.yaml") is None
-    assert await m.forge.file("shared/messages/personne.yaml", "back/retrait/atelier") is None
+    assert [e["path"] for e in listed] == ["shared/models/personne.yaml"]
+    assert deleted["commit"] and await m.forge.file("shared/models/personne.yaml") is None
+    assert await m.forge.file("shared/models/personne.yaml", "back/retrait/atelier") is None
 
 
 async def _forge_identity(m: McpForge) -> tuple[str, str]:
@@ -71,9 +71,9 @@ async def test_a_key_alone_cannot_change_anything(m: McpForge) -> None:
 
 
 async def test_a_change_for_the_holder_is_local_until_published_then_theirs(m: McpForge) -> None:
-    before = await m.forge.remote_file("shared/messages/personne.yaml")
+    before = await m.forge.remote_file("shared/models/personne.yaml")
     created = await m.ok("create_schema", KIND | EDIT | body_of(PERSONNE))
-    unpublished = await m.forge.remote_file("shared/messages/personne.yaml")
+    unpublished = await m.forge.remote_file("shared/models/personne.yaml")
     published = await m.ok("publish_branch", EDIT)
     again = await m.ok("publish_branch", EDIT)
 
@@ -196,12 +196,12 @@ async def test_unknown_or_used_models_name_what_exists_and_who_uses_them(m: McpF
         # `kind` est AJOUTÉ par l'unification du 11/11/2026 ; `path` reste le chemin du
         # fichier, et c'est ce test qui a empêché de changer sa sémantique en douce.
         "kind": "model",
-        "path": "shared/messages/absent.yaml",
-        "existants": ["domains/suivi/messages/colis.yaml", "shared/messages/personne.yaml"],
+        "path": "shared/models/absent.yaml",
+        "existants": ["domains/suivi/models/colis.yaml", "shared/models/personne.yaml"],
     }
     assert external["code"] == "modele_non_conforme"
     assert {p["code"] for p in external["problems"]} == {"reference_externe"}
-    assert used == {"code": "modele_utilise", "par": ["domains/suivi/messages/colis.yaml"]}
+    assert used == {"code": "modele_utilise", "par": ["domains/suivi/models/colis.yaml"]}
 
 
 async def test_a_change_made_through_oauth_is_signed_by_the_person_via_the_client(

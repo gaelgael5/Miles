@@ -79,7 +79,7 @@ async def test_blank_repository_gets_the_skeleton_and_a_valid_manifest(tmp_path:
     assert (opened.branch, opened.outcome) == ("back/retrait/atelier", "initialisee")
     tree = _tree(repo, "back/retrait/atelier")
     assert "manifest.json" in tree and "README.md" in tree
-    assert {"contracts/.gitkeep", "domains/.gitkeep", "shared/messages/.gitkeep"} <= set(tree)
+    assert {"contracts/.gitkeep", "domains/.gitkeep", "shared/models/.gitkeep"} <= set(tree)
     assert not any(p.startswith(("prod", "recette")) for p in tree)
     bare = repo.url.removeprefix("file://")
     manifest = json.loads(_git("--git-dir", bare, "show", "back/retrait/atelier:manifest.json"))

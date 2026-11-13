@@ -15,7 +15,7 @@ from tests.integration.work_stack import Forge, open_work_forge
 pytestmark = pytest.mark.integration
 
 ROUTE = "/api/workspaces/retrait/data-models"
-MODEL_META = "shared/messages/personne.meta.yaml"
+MODEL_META = "shared/models/personne.meta.yaml"
 # Des JSON Schema 2020-12 en YAML (story 0f7cda10), tels que Miles les enregistre :
 # `$schema` et `$id` en tête, posés par le système.
 PERSONNE = normalized(
@@ -76,11 +76,11 @@ async def test_model_is_written_to_the_work_branch_then_read_back_and_listed(
     assert created.json() == {
         "scope": "suivi",
         "name": "colis",
-        "path": "domains/suivi/messages/colis.yaml",
+        "path": "domains/suivi/models/colis.yaml",
         "label": "Colis",
         "version": 1,
     }
-    assert await forge.file("domains/suivi/messages/colis.yaml") == COLIS
+    assert await forge.file("domains/suivi/models/colis.yaml") == COLIS
     assert read.json()["content"] == COLIS
     assert [(m["scope"], m["name"]) for m in listed.json()] == [
         ("suivi", "colis"),
@@ -91,8 +91,8 @@ async def test_model_is_written_to_the_work_branch_then_read_back_and_listed(
         " ORDER BY written_at"
     )
     assert [e["path"] for e in events] == [
-        "shared/messages/personne.yaml",
-        "domains/suivi/messages/colis.yaml",
+        "shared/models/personne.yaml",
+        "domains/suivi/models/colis.yaml",
     ]
 
 
@@ -162,10 +162,10 @@ async def test_referenced_model_cannot_be_deleted_until_its_user_is(forge: Forge
 
     assert refused.json()["detail"] == {
         "code": "utilise",
-        "by": ["domains/suivi/messages/colis.yaml"],
+        "by": ["domains/suivi/models/colis.yaml"],
     }
     assert (user_deleted.status_code, deleted.status_code) == (204, 204)
-    assert await forge.file("shared/messages/personne.yaml") is None
+    assert await forge.file("shared/models/personne.yaml") is None
     assert await forge.file(MODEL_META) is None
     assert (again.status_code, again.json()["detail"]) == (404, "modele_inconnu")
 
@@ -284,7 +284,7 @@ async def test_a_model_is_declared_by_label_and_slug_then_written_as_a_schema(
     assert declared.json() == {
         "scope": "shared",
         "name": "personne",
-        "path": "shared/messages/personne.yaml",
+        "path": "shared/models/personne.yaml",
         "label": "Personne livrée",
         "version": 1,
     }
@@ -300,7 +300,7 @@ async def test_a_model_is_declared_by_label_and_slug_then_written_as_a_schema(
     assert (replaced.json()["label"], replaced.json()["version"]) == ("Personne", 2)
     assert same.headers["x-miles-already-exists"] == "true"
     assert await forge.file(MODEL_META) == "version: 2\n"
-    assert await forge.file("shared/messages/personne.yaml") == PERSONNE
+    assert await forge.file("shared/models/personne.yaml") == PERSONNE
 
 
 async def test_the_version_is_the_systems_and_moves_only_when_the_schema_changes(
@@ -338,7 +338,7 @@ async def test_an_empty_model_is_kept_as_a_draft_but_blocks_a_version(forge: For
     assert blocked.status_code == 422, blocked.text
     assert blocked.json()["detail"]["reports"] == [
         {
-            "path": "shared/messages/personne.yaml",
+            "path": "shared/models/personne.yaml",
             "problems": [{"path": "properties", "code": "proprietes_vides", "detail": None}],
         }
     ]
@@ -354,10 +354,10 @@ async def test_deleting_a_declared_model_removes_its_metadata_too(forge: Forge) 
 
     assert (unknown.status_code, unknown.json()["detail"]) == (409, "domaine_inconnu")
     assert deleted.status_code == 204, deleted.text
-    assert await forge.file("domains/suivi/messages/personne.meta.yaml") is None
+    assert await forge.file("domains/suivi/models/personne.meta.yaml") is None
     # Le domaine survit à son dernier modèle : il a été déclaré, il ne se retire pas seul.
     assert await forge.file("domains/suivi/.gitkeep") == ""
-    assert await forge.file("domains/suivi/messages/personne.yaml") is None
+    assert await forge.file("domains/suivi/models/personne.yaml") is None
 
 
 EXEMPLE_COMPTE = """$schema: https://json-schema.org/draft/2020-12/schema

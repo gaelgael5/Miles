@@ -3,23 +3,23 @@ from __future__ import annotations
 import pytest
 
 from miles.workshop import domains
-from miles.workshop.domains import domain_files, domains_in, section_of, shared_messages
+from miles.workshop.domains import domain_files, domains_in, section_of, shared_models
 from miles.workshop.targeted import read_page
 
 PATHS = [
     "domains/.gitkeep",
-    "domains/suivi/messages/colis.yaml",
+    "domains/suivi/models/colis.yaml",
     "domains/suivi/mappings/inbound/depot.jslt",
     "domains/suivi/mappings/outbound/etat.jslt",
     "domains/suivi/mappings/lateral/egare.jslt",
     "domains/suivi/screens/accueil.json",
     "domains/suivi/notes.txt",
     "domains/vide/.gitkeep",
-    "shared/messages/personne.yaml",
-    "shared/messages/personne.meta.yaml",
-    "domains/suivi/messages/colis.meta.yaml",
-    "shared/messages/.gitkeep",
-    "shared/messages/archive/vieux.yaml",
+    "shared/models/personne.yaml",
+    "shared/models/personne.meta.yaml",
+    "domains/suivi/models/colis.meta.yaml",
+    "shared/models/.gitkeep",
+    "shared/models/archive/vieux.yaml",
 ]
 
 
@@ -31,11 +31,11 @@ def test_domains_are_the_directories_under_domains_empty_ones_included() -> None
 @pytest.mark.parametrize(
     ("relative", "section"),
     [
-        ("messages/colis.yaml", "messages"),
+        ("models/colis.yaml", "models"),
         ("mappings/inbound/depot.jslt", "mappings/inbound"),
         ("mappings/outbound/etat.jslt", "mappings/outbound"),
         ("mappings/lateral/egare.jslt", None),
-        ("messages/sous/dossier.yaml", None),
+        ("models/sous/dossier.yaml", None),
         ("notes.txt", None),
         ("screens/accueil.json", "screens"),
     ],
@@ -46,7 +46,7 @@ def test_each_file_falls_in_its_section_or_none(relative: str, section: str | No
 
 def test_placeholders_are_never_elements() -> None:
     assert domain_files(PATHS, "vide") == []
-    assert shared_messages(PATHS) == ["shared/messages/personne.yaml"]
+    assert shared_models(PATHS) == ["shared/models/personne.yaml"]
 
 
 async def _read(path: str) -> str:
