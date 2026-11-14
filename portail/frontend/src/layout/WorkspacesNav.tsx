@@ -48,8 +48,6 @@ export type WorkspaceSelection = {
   swagger?: string;
   // Un modèle de données ouvert (« portée/nom »), avec la vue « dataModels ».
   model?: string;
-  // Un événement de workflow ouvert (« portée/nom »), avec la vue « events ».
-  event?: string;
   // Le sens des contrats dont on liste les modèles, avec la vue « contractModels ».
   sens?: Direction;
   // Un modèle dérivé ouvert (« contrat/version/nom »), avec la vue « contractModels ».

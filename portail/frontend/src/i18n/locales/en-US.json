@@ -113,7 +113,7 @@
       "sources": "Data sources",
       "trads": "Translations",
       "tradsCoverage": "Coverage",
-      "events": "Events"
+      "events": "Event types"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -334,12 +334,18 @@
         "prise_de_main_requise": "Take over this branch in “All workspaces” to change it.",
         "nom_fige": "The model name (nom:) does not change: it is frozen at creation.",
         "domaine_inconnu": "This domain does not exist on the branch: add it first.",
-        "evenement_inconnu": "This event does not exist on this branch."
+        "evenement_inconnu": "This event type is not declared on this branch.",
+        "nom_pris_ailleurs": "An event type with this name is already declared in another perimeter: a workflow script including both artefacts would not load at all.",
+        "portee_du_modele": "This model is not visible from this perimeter: a shared perimeter may only designate a shared model, otherwise it stops being shared."
       },
       "unexpected": "The operation failed. See the back-office logs."
     },
     "problems": {
       "_sans_message": "problem “{{code}}” reported here{{detail}} — this refusal has no message yet: please report it",
+      "artefact_illisible": "the event-type declaration artefact cannot be parsed ({{detail}}): the engine would refuse to load the whole directory",
+      "cle_d_unicite_inconnue": "uniqueness key “{{detail}}” names no property of the model nor of the common base: its deduplication would be computed on nothing",
+      "cle_non_ecrivable": "“{{detail}}” cannot be a uniqueness key: the engine's DSL only writes letters, digits and underscores, and none of its reserved words",
+      "nom_declare_deux_fois": "event type “{{detail}}” is declared by two perimeters: a script including both artefacts does not load at all",
       "aucun_mode": "no reception mode ticked: this entry exposes no method, it will receive nothing",
       "booleen_attendu": "true or false expected",
       "borne_exclusive_sans_borne": "exclusive bound declared without the bound it qualifies",
@@ -499,48 +505,51 @@
   },
   "workflowEvents": {
     "back": "← Workspaces",
-    "title": "Events — {{name}}",
-    "intro": "The events a workflow accepts, versioned in",
-    "add": "Declare an event",
-    "empty": "No event in the work branch.",
+    "title": "Event types — {{name}}",
+    "intro": "The event types a workflow accepts, declared in",
+    "add": "Declare an event type",
+    "empty": "No event type declared in the work branch.",
     "fields": {
       "label": "Label",
       "slug": "DSL name",
-      "domain": "Domain"
+      "domain": "Perimeter",
+      "model": "Payload model",
+      "unique": "Uniqueness keys"
     },
     "form": {
-      "title": "New event",
-      "slugHelp": "Proposed from the label; it is the name written in a DEFINE EVENT, and the name of the file. Lowercase letters, digits and underscores — the engine's DSL rejects hyphens.",
-      "domainHelp": "Shared: shared/events, visible from every domain. A domain missing from the list is added with “Add a domain”.",
-      "submit": "Declare the event"
+      "title": "New event type",
+      "slugHelp": "Proposed from the label; it is the name written in a DEFINE EVENT. Lowercase letters, digits and underscores — the engine's DSL rejects hyphens.",
+      "domainHelp": "Shared: declared in shared/shared.wf, visible from every domain. A domain missing from the list is added with “Add a domain”. A domain whose name carries a hyphen cannot hold an event type: the DSL cannot write it.",
+      "modelNone": "— pick a model —",
+      "modelHelp": "The model describing the BUSINESS data of the payload. It is an ordinary data model: a storage or a source may designate it too. The engine also validates the common base, whose properties must not be redeclared.",
+      "uniqueHelp": "Optional, comma-separated, IN ORDER — the engine derives the deduplication hash by concatenation, so the order changes the deduplication. A key names a property of the model or of the common base ({{base}}).",
+      "submit": "Declare the event type"
+    },
+    "edit": {
+      "title": "Edit {{name}}",
+      "nameHelp": "The name does not change: it is what a workflow script writes, and renaming it would break every ON EVENT naming it. Renaming means declaring the other name then deleting this one.",
+      "submit": "Save the declaration"
     },
     "deleteConfirm": {
-      "title": "Delete this event?",
-      "body": "{{path}} will be removed from the work branch. A workflow script declaring it will no longer load."
-    },
-    "socle": {
-      "title": "Base fields",
-      "help": "Common base of every event, set by the engine — not editable. Every event derives from it: these fields are already in each payload, and the business schema below only describes what is added to them.",
-      "clash": "{{list}}: base field(s), already present on every event — remove them from the business schema, saving rejects them."
-    },
-    "editor": {
-      "back": "← Events",
-      "help": "The schema describes the BUSINESS data of the event. A “miles:/…” reference points at a data model visible from this scope."
-    },
-    "import": {
-      "socleDropped": "Base properties dropped from the inference: {{list}}. The engine already describes them — redeclaring them would be rejected."
-    },
-    "errors": {
-      "grammar": "The event does not follow the grammar:",
-      "invalid": {
-        "name": "Invalid event name: lowercase letters, digits and underscores, starting with a letter or a digit. The engine's DSL rejects hyphens."
-      }
-    },
-    "business": {
-      "title": "Business fields"
+      "title": "Delete this event type?",
+      "body": "{{name}} will be removed from its perimeter's artefact. A workflow script naming it will no longer load. Its payload model stays."
     },
     "list": {
-      "baseOnly": "base only"
+      "model": "Payload",
+      "unique": "Uniqueness",
+      "noDedup": "none",
+      "modelMissing": "model missing",
+      "edit": "Edit"
+    },
+    "errors": {
+      "grammar": "The designated model cannot carry an event type:",
+      "artefact": "This perimeter's declaration artefact cannot be parsed — the engine would refuse to load the whole directory:",
+      "at": "line {{line}}, column {{column}}",
+      "invalid": {
+        "name": "Invalid event type name: lowercase letters, digits and underscores, starting with a letter or a digit. The engine's DSL rejects hyphens.",
+        "scope": "The engine's DSL cannot write this domain name (hyphens are rejected): this perimeter cannot hold an event type without being renamed.",
+        "model": "The engine's DSL cannot write this model name (hyphens are rejected): it stays usable by a storage or a source, but not as an event type payload."
+      }
     }
   },
   "versions": {

@@ -14,7 +14,6 @@ import { ContractScreen } from "./ContractScreen";
 import { ContractsScreen } from "./ContractsScreen";
 import { DataModelScreen } from "./DataModelScreen";
 import { DataModelsScreen } from "./DataModelsScreen";
-import { EventScreen } from "./EventScreen";
 import { EventsScreen } from "./EventsScreen";
 import { DerivedModelScreen } from "./DerivedModelScreen";
 import { SourceScreen } from "./SourceScreen";
@@ -261,18 +260,6 @@ function viewScreen(
       />
     );
   }
-  if (selection.view === "events" && selection.event !== undefined) {
-    const [scope = "", name = ""] = selection.event.split("/");
-    return (
-      <EventScreen
-        key={key}
-        target={target}
-        scope={scope}
-        name={name}
-        onBack={() => onSelect({ id: workspace.id, view: "events", branch })}
-      />
-    );
-  }
   if (selection.view === "events") {
     return (
       <EventsScreen
@@ -280,8 +267,15 @@ function viewScreen(
         workspace={workspace}
         target={target}
         onBack={back}
-        onOpen={(e) =>
-          onSelect({ id: workspace.id, view: "events", branch, event: `${e.scope}/${e.name}` })
+        // Le payload d'un type d'event est un modèle ORDINAIRE : il s'édite par l'écran
+        // des modèles, et non par un éditeur propre aux events qui n'existe plus.
+        onOpenModel={(d) =>
+          onSelect({
+            id: workspace.id,
+            view: "dataModels",
+            branch,
+            model: `${d.model_scope}/${d.model_name}`,
+          })
         }
       />
     );

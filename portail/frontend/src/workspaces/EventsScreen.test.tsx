@@ -11,20 +11,25 @@ const DOMAINS = "/api/workspaces/retrait/domains";
 const NO_VERSION = {
   "GET /api/workspaces/retrait/versions?branch=edition": { status: 200, body: [] },
 };
+// Un type d'event tel que le portail le sert : une DÉCLARATION, pas un document.
 const DEMANDE = {
   scope: "shared",
   name: "demande_soumise",
-  path: "shared/events/demande_soumise.yaml",
   label: "Demande soumise",
-  version: 1,
-  // Discriminant : le badge « socle seul » ne doit PAS s'afficher sur un événement qui
-  // porte des champs métier.
-  base_only: false,
+  model: "shared/models/demande.yaml",
+  model_scope: "shared",
+  model_name: "demande",
+  // L'ordre est DISCRIMINANT : un tri à l'affichage changerait le dédoublonnage.
+  unique: ["Tracking", "ExternalId"],
+  model_missing: false,
 };
-const NU = { ...DEMANDE, name: "ping", path: "shared/events/ping.yaml", label: "Ping", base_only: true };
-const BLANK =
-  "$schema: https://json-schema.org/draft/2020-12/schema\n" +
-  "$id: miles:/events/shared/demande_soumise\ntitle: Demande soumise\ntype: object\nproperties: {}\n";
+const DEMANDE_MODEL = {
+  scope: "shared",
+  name: "demande",
+  path: "shared/models/demande.yaml",
+  label: "Demande",
+  version: 1,
+};
 // Tel que le portail le sert : le JSON Schema du moteur, pas une liste de noms.
 const SOCLE = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -34,7 +39,6 @@ const SOCLE = {
   properties: {
     Name: { type: "string", minLength: 1 },
     ExternalId: { type: "string" },
-    IntegrationDate: { type: "string", format: "date-time", readOnly: true },
   },
 };
 
@@ -44,6 +48,8 @@ function routes(extra: Record<string, unknown> = {}) {
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     ...NO_VERSION,
     [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [DEMANDE] },
+    [`GET ${ROUTE}/socle?branch=edition`]: { status: 200, body: SOCLE },
+    [`GET ${MODELS}?branch=edition`]: { status: 200, body: [DEMANDE_MODEL] },
     [`GET ${DOMAINS}?branch=edition`]: { status: 200, body: [{ name: "achats" }] },
     ...extra,
   } as never;
@@ -52,49 +58,76 @@ function routes(extra: Record<string, unknown> = {}) {
 async function openEvents(extra: Record<string, unknown> = {}) {
   const calls = mockApi(routes(extra));
   renderWorkspaces({ id: "retrait", view: "events", branch: "edition" });
-  await screen.findByRole("heading", { name: "Events — Retrait de colis" });
+  await screen.findByRole("heading", { name: "Event types — Retrait de colis" });
   return calls;
 }
 
-describe("the event referential", () => {
-  it("lists the declared events with the name a DEFINE EVENT would use", async () => {
+/**
+ * Attend que la liste des modèles soit arrivée avant de choisir le payload.
+ *
+ * Sans cette attente, le `<select>` existe déjà mais sans ses options : la valeur posée
+ * ne correspond à aucune, le navigateur la laisse vide, et le champ étant obligatoire la
+ * soumission ne part pas — un échec qui n'accuse pas sa cause. Mesuré en écrivant ce
+ * fichier le 14/11/2026.
+ */
+async function pickModel(value = "shared/demande") {
+  await screen.findByRole("option", { name: /shared\/models\/demande\.yaml/ });
+  fireEvent.change(screen.getByLabelText("Payload model"), { target: { value } });
+}
+
+describe("the event type referential", () => {
+  it("lists each declaration with the DSL name, its payload and its keys IN ORDER", async () => {
     await openEvents();
 
     const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
-    // Le NOM du DSL, et non le chemin : c'est la seule chose qu'un script connaisse.
+    // Le NOM du DSL : la seule chose qu'un script de workflow connaisse de cet écran.
     expect(within(row).getByText("demande_soumise")).toBeInTheDocument();
-    expect(within(row).getByText("Shared")).toBeInTheDocument();
+    expect(within(row).getByText("shared/models/demande.yaml")).toBeInTheDocument();
+    // L'ordre tel qu'il a été saisi, et pas trié : le moteur en dérive le hash
+    // d'anti-doublon par concaténation.
+    expect(within(row).getByText("Tracking, ExternalId")).toBeInTheDocument();
   });
 
   it("proposes an underscored name, because the engine's DSL rejects hyphens", async () => {
     // La règle est MESURÉE (urban-workflow 0.2.1, 11/11/2026) : sans ce remplacement,
     // « Demande soumise » proposerait « demande-soumise », refusé par le serveur.
     await openEvents();
-    fireEvent.click(await screen.findByText("Declare an event"));
+    fireEvent.click(await screen.findByText("Declare an event type"));
 
     fill("Label", "Demande soumise");
 
     expect(screen.getByLabelText("DSL name")).toHaveValue("demande_soumise");
   });
 
-  it("declares the event and opens it, scope included", async () => {
+  it("declares the type with its payload model and its ordered keys", async () => {
     const calls = await openEvents({
       [`POST ${ROUTE}/declarations?branch=edition`]: { status: 201, body: DEMANDE },
-      [`GET ${ROUTE}/shared/demande_soumise?branch=edition`]: {
-        status: 200,
-        body: { ...DEMANDE, content: BLANK },
-      },
-      [`GET ${ROUTE}/socle?branch=edition`]: { status: 200, body: SOCLE },
-      [`GET ${MODELS}?branch=edition`]: { status: 200, body: [] },
     });
-    fireEvent.click(await screen.findByText("Declare an event"));
+    fireEvent.click(await screen.findByText("Declare an event type"));
     fill("Label", "Demande soumise");
-    fireEvent.click(screen.getByRole("button", { name: "Declare the event" }));
+    await pickModel();
+    fill("Uniqueness keys", " Tracking , ExternalId ");
+    fireEvent.click(screen.getByRole("button", { name: "Declare the event type" }));
 
-    await screen.findByRole("heading", { name: "Demande soumise" });
-    expect(calls.find((c) => c.key === `POST ${ROUTE}/declarations?branch=edition`)?.body).toEqual(
-      { scope: "shared", label: "Demande soumise", slug: "demande_soumise" },
-    );
+    await screen.findByText("Declare an event type");
+    expect(calls.find((c) => c.key === `POST ${ROUTE}/declarations?branch=edition`)?.body).toEqual({
+      scope: "shared",
+      label: "Demande soumise",
+      slug: "demande_soumise",
+      model_scope: "shared",
+      model_name: "demande",
+      // Les espaces de saisie retirés, l'ORDRE conservé.
+      unique: ["Tracking", "ExternalId"],
+    });
+  });
+
+  it("names the base properties a uniqueness key may use without being in the model", async () => {
+    // `ExternalId` est la clé d'anti-doublon la plus courante et ne vient pas du modèle :
+    // sans cette aide, la personne essaie, se fait refuser, et ne sait pas quoi écrire.
+    await openEvents();
+    fireEvent.click(await screen.findByText("Declare an event type"));
+
+    expect(await screen.findByText(/ExternalId, Name/)).toBeInTheDocument();
   });
 
   it("says why a name the DSL would reject is refused", async () => {
@@ -104,101 +137,115 @@ describe("the event referential", () => {
         body: { detail: { field: "name" } },
       },
     });
-    fireEvent.click(await screen.findByText("Declare an event"));
+    fireEvent.click(await screen.findByText("Declare an event type"));
     fill("Label", "Demande");
     fill("DSL name", "demande-soumise");
-    fireEvent.click(screen.getByRole("button", { name: "Declare the event" }));
+    await pickModel();
+    fireEvent.click(screen.getByRole("button", { name: "Declare the event type" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/rejects hyphens/);
   });
 
-  it("shows the base fields ABOVE the business ones, so the derivation is visible", async () => {
-    // La demande de Gael du 11/11/2026 : « on ne voit pas que les events dérivent d'un
-    // type de base ». Le socle est donc monté dans le MÊME éditeur visuel, verrouillé, et
-    // AVANT les champs métier — comme la vue « Événements » du playground d'urban-workflow.
+  it("names the rule the designated model breaks, rather than « not conforming »", async () => {
     await openEvents({
-      [`GET ${ROUTE}/shared/demande_soumise?branch=edition`]: {
-        status: 200,
-        body: { ...DEMANDE, content: BLANK },
-      },
-      [`GET ${ROUTE}/socle?branch=edition`]: { status: 200, body: SOCLE },
-      [`GET ${MODELS}?branch=edition`]: { status: 200, body: [] },
-    });
-    const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
-    fireEvent.click(within(row).getByRole("button", { name: "Demande soumise" }));
-
-    const base = await screen.findByRole("group", { name: "Base fields" });
-    // Premier chargement différé de JSONJoy dans ce fichier : plus lent que les suivants.
-    expect(await within(base).findByText("ExternalId", {}, { timeout: 10_000 })).toBeInTheDocument();
-    expect(within(base).getByText("IntegrationDate")).toBeInTheDocument();
-    // Et l'ordre : le socle précède les champs métier dans le document.
-    const business = screen.getByRole("group", { name: "Business fields" });
-    expect(base.compareDocumentPosition(business)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    // Non modifiable, et l'écran le dit en une phrase qui nomme la dérivation.
-    expect(within(base).getByText(/Every event derives from it/)).toBeInTheDocument();
-  });
-
-  it("marks in the list an event that carries only the base", async () => {
-    await openEvents({ [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [DEMANDE, NU] } });
-
-    const nu = (await screen.findByText("Ping")).closest("li") as HTMLElement;
-    const porteuse = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
-    expect(within(nu).getByText("base only")).toBeInTheDocument();
-    expect(within(porteuse).queryByText("base only")).not.toBeInTheDocument();
-  });
-
-  it("warns about a business field that collides with the base, before saving", async () => {
-    // Le serveur le refuse (propriete_du_socle), mais un refus au moment d'enregistrer
-    // arrive après le travail.
-    const COLLISION =
-      `${BLANK.replace("properties: {}", "properties:")}  ExternalId:\n    type: integer\n`;
-    await openEvents({
-      [`GET ${ROUTE}/shared/demande_soumise?branch=edition`]: {
-        status: 200,
-        body: { ...DEMANDE, content: COLLISION },
-      },
-      [`GET ${ROUTE}/socle?branch=edition`]: { status: 200, body: SOCLE },
-      [`GET ${MODELS}?branch=edition`]: { status: 200, body: [] },
-    });
-    const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
-    fireEvent.click(within(row).getByRole("button", { name: "Demande soumise" }));
-
-    const alerte = await screen.findByRole("alert", {}, { timeout: 10_000 });
-    expect(alerte).toHaveTextContent(/ExternalId/);
-    expect(alerte).toHaveTextContent(/saving rejects them/);
-  });
-
-  it("refuses to show a non-conforming schema without saying which rule broke", async () => {
-    await openEvents({
-      [`GET ${ROUTE}/shared/demande_soumise?branch=edition`]: {
-        status: 200,
-        body: { ...DEMANDE, content: BLANK },
-      },
-      [`GET ${ROUTE}/socle?branch=edition`]: { status: 200, body: SOCLE },
-      [`GET ${MODELS}?branch=edition`]: { status: 200, body: [] },
-      [`PUT ${ROUTE}/shared/demande_soumise?branch=edition`]: {
+      [`POST ${ROUTE}/declarations?branch=edition`]: {
         status: 422,
         body: {
           detail: {
-            code: "evenement_non_conforme",
-            problems: [
-              { path: "additionalProperties", code: "schema_ferme", detail: null },
-            ],
+            code: "declaration_non_conforme",
+            problems: [{ path: "additionalProperties", code: "schema_ferme", detail: null }],
           },
         },
       },
     });
-    const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
-    fireEvent.click(within(row).getByRole("button", { name: "Demande soumise" }));
-    const yaml = await screen.findByLabelText("YAML", {}, { timeout: 10_000 });
-    fireEvent.change(yaml, {
-      target: { value: `${BLANK}additionalProperties: false\n` },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(await screen.findByText("Declare an event type"));
+    fill("Label", "Demande");
+    await pickModel();
+    fireEvent.click(screen.getByRole("button", { name: "Declare the event type" }));
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(/The event does not follow the grammar/);
+    expect(alert).toHaveTextContent(/cannot carry an event type/);
     expect(alert).toHaveTextContent(/no real payload would pass/);
+  });
+
+  it("flags a declaration whose payload model has disappeared", async () => {
+    // C'est ce qui bloque l'enregistrement d'une version : le dire ICI, c'est le dire là
+    // où on peut la corriger.
+    await openEvents({
+      [`GET ${ROUTE}?branch=edition`]: {
+        status: 200,
+        body: [{ ...DEMANDE, model_missing: true }],
+      },
+    });
+
+    const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
+    expect(within(row).getByText("model missing")).toBeInTheDocument();
+  });
+
+  it("does not flag a declaration whose model is there", async () => {
+    // Discriminant : sans ce contrôle, un badge affiché toujours passerait le test ci-dessus.
+    await openEvents();
+
+    const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
+    expect(within(row).queryByText("model missing")).not.toBeInTheDocument();
+  });
+
+  it("opens the payload in the MODEL screen, since it is an ordinary model", async () => {
+    await openEvents({
+      [`GET ${MODELS}/shared/demande?branch=edition`]: {
+        status: 200,
+        body: { ...DEMANDE_MODEL, content: "title: Demande\ntype: object\nproperties: {}\n" },
+      },
+    });
+    const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
+
+    fireEvent.click(within(row).getByText("shared/models/demande.yaml"));
+
+    // L'éditeur de schéma d'event n'existe plus : c'est l'écran des modèles qui édite.
+    expect(await screen.findByRole("heading", { name: "Demande" })).toBeInTheDocument();
+  });
+
+  it("changes the label, the model and the keys WITHOUT sending the name", async () => {
+    const calls = await openEvents({
+      [`PUT ${ROUTE}/shared/demande_soumise?branch=edition`]: { status: 200, body: DEMANDE },
+    });
+    const row = (await screen.findByText("Demande soumise")).closest("li") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    await pickModel();
+
+    fill("Label", "Demande reçue");
+    fill("Uniqueness keys", "ExternalId");
+    fireEvent.click(screen.getByRole("button", { name: "Save the declaration" }));
+
+    await screen.findByRole("button", { name: "Edit" });
+    const sent = calls.find((c) => c.key === `PUT ${ROUTE}/shared/demande_soumise?branch=edition`);
+    expect(sent?.body).toEqual({
+      label: "Demande reçue",
+      model_scope: "shared",
+      model_name: "demande",
+      unique: ["ExternalId"],
+    });
+  });
+
+  it("reports an unreadable artefact at the engine's own position", async () => {
+    // Retouché hors de Miles, ou produit par un autre outil : le moteur refuserait de
+    // charger tout le répertoire. Un « fichier invalide » sans position ne se corrige pas.
+    await openEvents({
+      [`GET ${ROUTE}?branch=edition`]: {
+        status: 422,
+        body: {
+          detail: {
+            code: "artefact_illisible",
+            problems: [{ line: 2, column: 13, message: "mismatched input ';'" }],
+          },
+        },
+      },
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/would refuse to load the whole directory/);
+    expect(alert).toHaveTextContent(/line 2, column 13/);
+    expect(alert).toHaveTextContent(/mismatched input/);
   });
 });

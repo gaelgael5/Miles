@@ -14,6 +14,9 @@ type Detail = {
   by?: string[];
 };
 
+/** Un manquement de l'artefact de déclaration : positionné, comme le moteur le positionne. */
+type DslProblem = { line: number; column: number; message: string };
+
 function detailOf(error: unknown): Detail | null {
   if (error instanceof ApiError && typeof error.detail === "object" && error.detail !== null) {
     return error.detail as Detail;
@@ -28,12 +31,16 @@ function errorKey(error: unknown, fields: Record<string, string>): [string, Reco
     const at = { line: String(detail.line ?? "?"), column: String(detail.column ?? "?") };
     return ["dataModels.errors.syntax", { ...at, message: detail.message ?? "" }];
   }
+  if (detail?.code === "artefact_illisible") {
+    return ["workflowEvents.errors.artefact", {}];
+  }
   if (detail?.code === "modele_non_conforme") {
     return ["dataModels.errors.grammar", {}];
   }
-  // Le même écran, deux familles de documents : le message de tête dit LAQUELLE est
-  // refusée, et les manquements s'affichent dessous par le même chemin.
-  if (detail?.code === "evenement_non_conforme") {
+  // Le modèle DÉSIGNÉ par une déclaration ne peut pas porter un event : le message de
+  // tête dit laquelle des deux familles est refusée, et les manquements s'affichent
+  // dessous par le même chemin.
+  if (detail?.code === "declaration_non_conforme") {
     return ["workflowEvents.errors.grammar", {}];
   }
   if (detail?.code === "utilise") {
@@ -64,12 +71,26 @@ export function ModelRefusal({
   fields?: Record<string, string>;
 }) {
   const { t } = useTranslation();
+  const detail = detailOf(error);
   const [key, values] = errorKey(error, fields);
-  const problems = detailOf(error)?.problems ?? [];
+  const problems = detail?.problems ?? [];
+  // L'artefact de déclaration n'est pas un YAML : ses manquements portent une position du
+  // moteur, pas un chemin de propriété. Les faire passer par la liste ci-dessous
+  // afficherait « undefined — » pour chacun.
+  const dsl = detail?.code === "artefact_illisible" ? (problems as unknown as DslProblem[]) : [];
   return (
     <div className="alert" role="alert">
       <p>{t(key, values)}</p>
-      {problems.length > 0 && (
+      {dsl.length > 0 && (
+        <ul>
+          {dsl.map((p) => (
+            <li key={`${p.line}-${p.column}-${p.message}`}>
+              {t("workflowEvents.errors.at", { line: p.line, column: p.column })} — {p.message}
+            </li>
+          ))}
+        </ul>
+      )}
+      {dsl.length === 0 && problems.length > 0 && (
         <ul>
           {problems.map((p) => (
             <li key={`${p.path}-${p.code}`}>

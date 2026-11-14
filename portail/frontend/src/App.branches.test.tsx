@@ -92,11 +92,11 @@ describe("App, selon la branche vue", () => {
     expect(
       await screen.findByRole("heading", { name: "Storages — Retrait de colis" }),
     ).toBeInTheDocument();
-    // Même garde pour « Events » (11/11/2026) : le référentiel d'événements a sa propre
-    // entrée, et un écran qu'aucune entrée n'ouvre n'existe pas.
-    fireEvent.click(within(nav).getByRole("button", { name: "Events" }));
+    // Même garde pour « Event types » (11/11/2026) : le référentiel des types d'event a
+    // sa propre entrée, et un écran qu'aucune entrée n'ouvre n'existe pas.
+    fireEvent.click(within(nav).getByRole("button", { name: "Event types" }));
     expect(
-      await screen.findByRole("heading", { name: "Events — Retrait de colis" }),
+      await screen.findByRole("heading", { name: "Event types — Retrait de colis" }),
     ).toBeInTheDocument();
     // « Data models » PORTE des entrées : depuis le 30/10/2026 son bouton replie le
     // groupe, et l'écran s'ouvre par l'entrée dédiée — un clic ne fait qu'une chose.

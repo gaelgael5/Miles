@@ -113,7 +113,7 @@
       "sources": "Sources de données",
       "trads": "Traductions",
       "tradsCoverage": "Couverture",
-      "events": "Événements"
+      "events": "Types d'event"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -334,12 +334,18 @@
         "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier.",
         "nom_fige": "Le nom du modèle (nom:) ne change pas : il est figé à la création.",
         "domaine_inconnu": "Ce domaine n'existe pas dans la branche : ajoutez-le d'abord.",
-        "evenement_inconnu": "Cet événement n'existe pas sur cette branche."
+        "evenement_inconnu": "Ce type d'event n'est pas déclaré sur cette branche.",
+        "nom_pris_ailleurs": "Un type d'event de ce nom est déjà déclaré dans un autre périmètre : un script de workflow qui inclut les deux artefacts ne se chargerait pas du tout.",
+        "portee_du_modele": "Ce modèle n'est pas visible depuis ce périmètre : un périmètre transverse ne peut désigner qu'un modèle transverse, sinon il cesse d'être transverse."
       },
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     },
     "problems": {
       "_sans_message": "problème « {{code}} » signalé ici{{detail}} — ce refus n'a pas encore de message : signalez-le",
+      "artefact_illisible": "l'artefact de déclaration des types d'event ne se relit pas ({{detail}}) : le moteur refuserait de charger tout le répertoire",
+      "cle_d_unicite_inconnue": "la clé d'unicité « {{detail}} » ne désigne aucune propriété du modèle ni du socle commun : son anti-doublon se calculerait sur du vide",
+      "cle_non_ecrivable": "« {{detail}} » ne peut pas servir de clé d'unicité : le DSL du moteur n'écrit que des lettres, des chiffres et des soulignés, et aucun de ses mots réservés",
+      "nom_declare_deux_fois": "le type d'event « {{detail}} » est déclaré par deux périmètres : un script qui inclut les deux artefacts ne se charge pas du tout",
       "aucun_mode": "aucun mode de réception coché : cette entrée n'expose aucune méthode, elle ne recevra rien",
       "booleen_attendu": "true ou false attendu",
       "borne_exclusive_sans_borne": "borne exclusive déclarée sans la borne qu'elle qualifie",
@@ -499,48 +505,51 @@
   },
   "workflowEvents": {
     "back": "← Workspaces",
-    "title": "Événements — {{name}}",
-    "intro": "Les événements qu'un workflow accepte, versionnés dans",
-    "add": "Déclarer un événement",
-    "empty": "Aucun événement dans la branche de travail.",
+    "title": "Types d'event — {{name}}",
+    "intro": "Les types d'event qu'un workflow accepte, déclarés dans",
+    "add": "Déclarer un type d'event",
+    "empty": "Aucun type d'event déclaré dans la branche de travail.",
     "fields": {
       "label": "Libellé",
       "slug": "Nom dans le DSL",
-      "domain": "Domaine"
+      "domain": "Périmètre",
+      "model": "Modèle du payload",
+      "unique": "Clés d'unicité"
     },
     "form": {
-      "title": "Nouvel événement",
-      "slugHelp": "Proposé d'après le libellé ; c'est le nom écrit dans un DEFINE EVENT, et celui du fichier. Lettres minuscules, chiffres et soulignés — le tiret est refusé par le DSL du moteur.",
-      "domainHelp": "Transverse : shared/events, visible de tous les domaines. Un domaine absent de la liste s'ajoute avec « Ajouter un domaine ».",
-      "submit": "Déclarer l'événement"
+      "title": "Nouveau type d'event",
+      "slugHelp": "Proposé d'après le libellé ; c'est le nom écrit dans un DEFINE EVENT. Lettres minuscules, chiffres et soulignés — le tiret est refusé par le DSL du moteur.",
+      "domainHelp": "Transverse : déclaré dans shared/shared.wf, visible de tous les domaines. Un domaine absent de la liste s'ajoute avec « Ajouter un domaine ». Un domaine dont le nom porte un tiret ne peut pas porter de type d'event : le DSL ne sait pas l'écrire.",
+      "modelNone": "— choisir un modèle —",
+      "modelHelp": "Le modèle qui décrit les données MÉTIER du payload. C'est un modèle de données ordinaire : un storage ou une source peut le désigner aussi. Le moteur valide en plus le socle commun, dont les propriétés ne se redéclarent pas.",
+      "uniqueHelp": "Facultatif, séparées par des virgules, DANS L'ORDRE — le moteur dérive le hash d'anti-doublon par concaténation, donc l'ordre change le dédoublonnage. Une clé nomme une propriété du modèle ou du socle commun ({{base}}).",
+      "submit": "Déclarer le type d'event"
+    },
+    "edit": {
+      "title": "Modifier {{name}}",
+      "nameHelp": "Le nom ne change pas : c'est lui qu'un script de workflow écrit, et le renommer casserait tout ON EVENT qui le nomme. Renommer, c'est déclarer l'autre nom puis supprimer celui-ci.",
+      "submit": "Enregistrer la déclaration"
     },
     "deleteConfirm": {
-      "title": "Supprimer cet événement ?",
-      "body": "{{path}} sera retiré de la branche de travail. Un script de workflow qui le déclare ne se chargera plus."
-    },
-    "socle": {
-      "title": "Champs de base",
-      "help": "Socle commun à tout événement, posé par le moteur — non modifiables. Tout événement en dérive : ces champs sont déjà dans chaque payload, et le schéma métier ci-dessous ne décrit que ce qui s'y ajoute.",
-      "clash": "{{list}} : champ(s) du socle, déjà présent(s) sur tout événement — à retirer du schéma métier, l'enregistrement les refuse."
-    },
-    "editor": {
-      "back": "← Événements",
-      "help": "Le schéma décrit les données MÉTIER de l'événement. Un renvoi « miles:/… » désigne un modèle de données visible depuis cette portée."
-    },
-    "import": {
-      "socleDropped": "Propriétés du socle retirées de la déduction : {{list}}. Le moteur les décrit déjà — les redéclarer serait refusé."
-    },
-    "errors": {
-      "grammar": "L'événement ne suit pas la grammaire :",
-      "invalid": {
-        "name": "Nom d'événement invalide : lettres minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le tiret est refusé par le DSL du moteur."
-      }
-    },
-    "business": {
-      "title": "Champs métier"
+      "title": "Supprimer ce type d'event ?",
+      "body": "{{name}} sera retiré de l'artefact de son périmètre. Un script de workflow qui le nomme ne se chargera plus. Le modèle de son payload, lui, reste."
     },
     "list": {
-      "baseOnly": "socle seul"
+      "model": "Payload",
+      "unique": "Unicité",
+      "noDedup": "aucune",
+      "modelMissing": "modèle absent",
+      "edit": "Modifier"
+    },
+    "errors": {
+      "grammar": "Le modèle désigné ne peut pas porter un type d'event :",
+      "artefact": "L'artefact de déclaration de ce périmètre ne se relit pas — le moteur refuserait de charger tout le répertoire :",
+      "at": "ligne {{line}}, colonne {{column}}",
+      "invalid": {
+        "name": "Nom de type d'event invalide : lettres minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le tiret est refusé par le DSL du moteur.",
+        "scope": "Le DSL du moteur ne sait pas écrire ce nom de domaine (le tiret y est refusé) : ce périmètre ne peut pas porter de type d'event sans être renommé.",
+        "model": "Le DSL du moteur ne sait pas écrire ce nom de modèle (le tiret y est refusé) : il reste utilisable par un storage ou une source, mais pas comme payload d'un type d'event."
+      }
     }
   },
   "versions": {

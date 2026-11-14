@@ -132,8 +132,7 @@ export function WorkspaceViews({
                 here && selection?.view === view && selection.contract === undefined &&
                 selection.chain === undefined &&
                 selection.source === undefined &&
-                selection.model === undefined &&
-                selection.event === undefined
+                selection.model === undefined
                   ? "page"
                   : undefined
               }

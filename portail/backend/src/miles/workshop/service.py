@@ -12,11 +12,15 @@ from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles_socle.git.versions import SavedVersion
 
+from miles.datamodels.layout import SHARED, model_path
+from miles.datamodels.schema import normalized, parse_schema
 from miles.event_shapes import BRANCH, COMMIT
 from miles.git.holdspace import HeldCopy
 from miles.git.versions import VersionTakenError, fetch_versions, restore_tree, same_tree, tag_head
 from miles.git.workcopy import WorkCopy
-from miles.workshop.conversion import A_JOUR, MELANGEE, layout_of
+from miles.workflowevents.dsl import EventType, fragment_path, render, writable
+from miles.workflowevents.dsl import parse as parse_fragment
+from miles.workshop.conversion import A_JOUR, MELANGEE, Layout, layout_of
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workshop.validation import FileReport, validate_branch
 from miles.workspaces.model import WorkspaceConflictError, WorkspaceInputError, commit_author
@@ -217,12 +221,17 @@ class WorkshopService:
     async def resolve_convert_layout(
         self, author: EventAuthor, workspace_id: str, *, branch: str | None = None
     ) -> int:
-        """Déplace les modèles de l'ancien dossier vers `models/`, en UN commit relisible.
+        """Déplace les modèles des anciens dossiers vers `models/`, en UN commit relisible.
 
         Le seul geste qui passe la garde de disposition — voir `miles.workshop.conversion`
         pour la raison de ne rien convertir tout seul. Rejoué sur une branche déjà à jour :
         sans effet et sans commit vide, parce qu'un commit sans changement se lirait comme
         une seconde conversion.
+
+        Un ex-event ne fait pas que changer de dossier : son `$id` est réécrit — il portait
+        `miles:/events/…`, qu'aucun storage ne résout — et il est DÉCLARÉ dans l'artefact
+        de son périmètre. Sans cette déclaration, la conversion perdrait l'information qui
+        distinguait un event d'un modèle, et personne ne saurait la retrouver.
         """
         async with self.branches.checkout(
             workspace_id, branch, by=author, gesture=Gesture.MIGRATE
@@ -234,15 +243,29 @@ class WorkshopService:
                 raise WorkspaceConflictError("disposition_melangee")
             if layout.kind == A_JOUR:
                 return 0
-            for ancien, nouveau in layout.moves:
-                contenu = await copy.read(ancien)
+            if layout.conflicts:
+                # Un ex-event dont le nom est déjà pris par un modèle du même périmètre :
+                # on n'écrase pas, on le dit. Les deux documents sont dans la forge, et
+                # c'est là qu'un humain choisit lequel garder.
+                raise WorkspaceConflictError("noms_en_conflit")
+            illisible = [m.event[0] for m in layout.moves if m.event and not _ecrivable(m.event[0])]
+            if illisible:
+                # Le DSL ne sait écrire ni `FRAGMENT NAME mon-domaine` ni
+                # `AS @domains.mon-domaine.x` : convertir produirait un artefact qu'aucun
+                # moteur ne charge. Le domaine se renomme dans la forge, et rien n'est perdu.
+                raise WorkspaceConflictError("perimetre_non_ecrivable")
+            for move in layout.moves:
+                contenu = await copy.read(move.source)
                 if contenu is None:
                     # Un chemin listé par git et illisible : on s'arrête AVANT d'écrire la
                     # moitié de la conversion. Passer outre laisserait un dépôt mélangé,
                     # c'est-à-dire précisément l'état qu'on refuse d'ouvrir ensuite.
                     raise WorkspaceConflictError("fichier_illisible")
-                await copy.write(nouveau, contenu)
-                await copy.remove(ancien)
+                if move.event is not None:
+                    contenu = normalized(contenu, *move.event)
+                await copy.write(move.target, contenu)
+                await copy.remove(move.source)
+            await self._declare_converted(copy, layout)
             commit = await self.branches.commit(
                 copy, f"Disposition : {len(layout.moves)} fichiers vers models/", author
             )
@@ -260,12 +283,52 @@ class WorkshopService:
         )
         return len(layout.moves)
 
+    async def _declare_converted(self, copy: WorkCopy, layout: Layout) -> None:
+        """Déclare chaque ex-event dans l'artefact de son périmètre, à la suite de ce qui
+        s'y trouve déjà.
+
+        À la SUITE et non à la place : une branche peut porter des deux, si quelqu'un a
+        déjà déclaré un type d'event à la main avant de convertir. Aucune clé d'unicité
+        n'est posée, et c'est fidèle : `UNIQUE (…)` n'existait pas avant la déclaration, et
+        en inventer une changerait l'anti-doublon d'un référentiel en service.
+        """
+        par_perimetre: dict[str, list[EventType]] = {}
+        for scope, name in layout.event_types:
+            titre = await _title(copy, scope, name)
+            par_perimetre.setdefault(scope, []).append(EventType(name, titre, (scope, name)))
+        for scope, ajoutes in par_perimetre.items():
+            path = fragment_path(scope)
+            texte = await copy.read(path)
+            present = parse_fragment(texte) if texte else []
+            deja = {declared.name for declared in present}
+            nouveaux = [a for a in ajoutes if a.name not in deja]
+            await copy.write(path, render(scope, [*present, *nouveaux]))
+
     async def _event(
         self, workspace_id: str, event_type: str, author: EventAuthor, properties: dict[str, Any]
     ) -> None:
         event = NewEvent(event_type, (ObjectRef("workspace", workspace_id),), author, properties)
         async with self.pool.acquire() as conn, conn.transaction():
             await db_write_event(conn, event, self.catalog, self.now)
+
+
+def _ecrivable(scope: str) -> bool:
+    return scope == SHARED or writable(scope)
+
+
+async def _title(copy: WorkCopy, scope: str, name: str) -> str:
+    """Le libellé d'un ex-event : le `title` de son schéma, son nom à défaut.
+
+    Son nom à défaut, et non une chaîne vide : un libellé vide n'est pas écrivable dans le
+    DSL (erreur de lexer, mesurée le 14/11/2026), donc un type d'event en a toujours un.
+    """
+    try:
+        titre = parse_schema(await copy.read(model_path(scope, name)) or "").title
+    except ValueError:
+        # Retouché hors de Miles : on convertit quand même, sous le nom. Refuser ici
+        # laisserait le dépôt entier inouvrable pour un seul fichier abîmé.
+        titre = None
+    return titre or name
 
 
 def _summary(version: SavedVersion, branch: str) -> dict[str, Any]:
