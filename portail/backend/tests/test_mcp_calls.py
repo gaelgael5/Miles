@@ -145,23 +145,23 @@ async def test_an_unexpected_failure_is_not_disguised_as_a_refusal() -> None:
     assert tool_refusal(RuntimeError("défaut")) is None
 
 
-def test_un_evenement_non_conforme_porte_le_MEME_nom_de_refus_que_par_la_route() -> None:
+def test_une_declaration_non_conforme_porte_le_MEME_nom_de_refus_que_par_la_route() -> None:
     """Deux canaux, un seul nom — et ce test est né d'un défaut que j'avais écrit.
 
-    `EventGrammarError` est une sous-classe de `ModelGrammarError` : sans le test
-    d'`isinstance` placé AVANT le cas général dans `tool_refusal`, un événement refusé
-    s'appelait `modele_non_conforme` par MCP et `evenement_non_conforme` par la route de
-    l'écran. Un agent qui apprend un code sur un canal le réutilise sur l'autre.
+    `EventModelError` est une sous-classe de `ModelGrammarError` : sans le test
+    d'`isinstance` placé AVANT le cas général dans `tool_refusal`, une déclaration
+    refusée s'appelait `modele_non_conforme` par MCP et `declaration_non_conforme` par la
+    route de l'écran. Un agent qui apprend un code sur un canal le réutilise sur l'autre.
     """
     from miles.datamodels.grammar import ModelGrammarError, Problem
-    from miles.workflowevents.schema import EventGrammarError
+    from miles.workflowevents.schema import EventModelError
 
-    evenement = tool_refusal(EventGrammarError([Problem("additionalProperties", "schema_ferme")]))
+    declaration = tool_refusal(EventModelError([Problem("additionalProperties", "schema_ferme")]))
     modele = tool_refusal(ModelGrammarError([Problem("type", "objet_attendu")]))
 
-    assert evenement is not None and modele is not None
-    rendu = json.loads(str(evenement))
-    assert rendu["code"] == "evenement_non_conforme"
+    assert declaration is not None and modele is not None
+    rendu = json.loads(str(declaration))
+    assert rendu["code"] == "declaration_non_conforme"
     assert rendu["problems"] == [
         {"path": "additionalProperties", "code": "schema_ferme", "detail": None}
     ]

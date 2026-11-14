@@ -21,8 +21,6 @@ pytestmark = pytest.mark.integration
 
 WS = {"workspace_id": "retrait"}
 EDIT = WS | {"branch": "edition"}
-MODELE = {"kind": "model"}
-EVENEMENT = {"kind": "event"}
 
 # Un modèle qui porte ce qu'un remplacement entier écrit à la main perdrait : un `$defs`,
 # un mot-clef d'extension, et une propriété qu'on ne nomme pas dans l'appel.
@@ -50,7 +48,6 @@ $defs:
 PERSONNE = normalized(
     "title: Personne\ntype: object\nproperties:\n  nom:\n    type: string\n", "shared", "personne"
 )
-EVENT = "title: Demande\ntype: object\nproperties:\n  Montant:\n    type: number\n"
 
 
 @pytest.fixture
@@ -60,9 +57,7 @@ async def m(blank_db: str, tmp_path: Path) -> AsyncIterator[McpForge]:
 
 
 async def _colis(m: McpForge) -> None:
-    await m.ok(
-        "create_schema", MODELE | EDIT | {"scope": "shared", "name": "colis", "content": COLIS}
-    )
+    await m.ok("create_schema", EDIT | {"scope": "shared", "name": "colis", "content": COLIS})
 
 
 async def _ecrit(m: McpForge, path: str = "shared/models/colis.yaml") -> dict:
@@ -79,9 +74,7 @@ async def test_une_propriete_s_ajoute_sans_rien_perdre_du_reste(m: McpForge) -> 
 
     pose = await m.ok(
         "set_schema_property",
-        MODELE
-        | EDIT
-        | {"scope": "shared", "name": "colis", "path": ["etat"], "schema": "type: string"},
+        EDIT | {"scope": "shared", "name": "colis", "path": ["etat"], "schema": "type: string"},
     )
 
     assert pose["commit"] and pose["unchanged"] is False
@@ -100,8 +93,7 @@ async def test_la_propriete_posee_peut_naitre_obligatoire(m: McpForge) -> None:
 
     await m.ok(
         "set_schema_property",
-        MODELE
-        | EDIT
+        EDIT
         | {
             "scope": "shared",
             "name": "colis",
@@ -119,7 +111,7 @@ async def test_une_propriete_retiree_perd_son_obligation_avec_elle(m: McpForge) 
 
     await m.ok(
         "remove_schema_property",
-        MODELE | EDIT | {"scope": "shared", "name": "colis", "path": ["reference"]},
+        EDIT | {"scope": "shared", "name": "colis", "path": ["reference"]},
     )
 
     ecrit = await _ecrit(m)
@@ -134,15 +126,11 @@ async def test_la_version_monte_a_chaque_propriete_posee(m: McpForge) -> None:
 
     await m.ok(
         "set_schema_property",
-        MODELE
-        | EDIT
-        | {"scope": "shared", "name": "colis", "path": ["a"], "schema": "type: string"},
+        EDIT | {"scope": "shared", "name": "colis", "path": ["a"], "schema": "type: string"},
     )
     await m.ok(
         "set_schema_property",
-        MODELE
-        | EDIT
-        | {"scope": "shared", "name": "colis", "path": ["b"], "schema": "type: string"},
+        EDIT | {"scope": "shared", "name": "colis", "path": ["b"], "schema": "type: string"},
     )
 
     assert await m.forge.file("shared/models/colis.meta.yaml") == "version: 3\n"
@@ -150,16 +138,12 @@ async def test_la_version_monte_a_chaque_propriete_posee(m: McpForge) -> None:
 
 async def test_poser_deux_fois_la_meme_propriete_n_ecrit_rien_la_seconde(m: McpForge) -> None:
     await _colis(m)
-    args = (
-        MODELE
-        | EDIT
-        | {
-            "scope": "shared",
-            "name": "colis",
-            "path": ["etat"],
-            "schema": "type: string",
-        }
-    )
+    args = EDIT | {
+        "scope": "shared",
+        "name": "colis",
+        "path": ["etat"],
+        "schema": "type: string",
+    }
 
     await m.ok("set_schema_property", args)
     rejeu = await m.ok("set_schema_property", args)
@@ -171,14 +155,13 @@ async def test_un_renvoi_s_ajoute_par_la_MEME_primitive(m: McpForge) -> None:
     """Pas de primitive à part pour les renvois : c'est une propriété comme une autre."""
     await m.ok(
         "create_schema",
-        MODELE | EDIT | {"scope": "shared", "name": "personne", "content": PERSONNE},
+        EDIT | {"scope": "shared", "name": "personne", "content": PERSONNE},
     )
     await _colis(m)
 
     await m.ok(
         "set_schema_property",
-        MODELE
-        | EDIT
+        EDIT
         | {
             "scope": "shared",
             "name": "colis",
@@ -197,8 +180,7 @@ async def test_un_renvoi_vers_un_modele_absent_est_refuse_comme_ailleurs(m: McpF
 
     refuse = await m.refused(
         "set_schema_property",
-        MODELE
-        | EDIT
+        EDIT
         | {
             "scope": "shared",
             "name": "colis",
@@ -216,57 +198,11 @@ async def test_un_chemin_fautif_est_refuse_en_NOMMANT_ce_qui_existe(m: McpForge)
 
     refuse = await m.refused(
         "remove_schema_property",
-        MODELE | EDIT | {"scope": "shared", "name": "colis", "path": ["absente"]},
+        EDIT | {"scope": "shared", "name": "colis", "path": ["absente"]},
     )
 
     assert "propriete_inconnue" in str(refuse)
     assert "reference" in str(refuse) and "poids" in str(refuse)
-
-
-async def test_la_meme_primitive_modifie_un_EVENEMENT(m: McpForge) -> None:
-    await m.ok(
-        "create_schema",
-        EVENEMENT | EDIT | {"scope": "shared", "name": "demande_soumise", "content": EVENT},
-    )
-
-    await m.ok(
-        "set_schema_property",
-        EVENEMENT
-        | EDIT
-        | {
-            "scope": "shared",
-            "name": "demande_soumise",
-            "path": ["Dossier"],
-            "schema": "type: string",
-        },
-    )
-
-    ecrit = await _ecrit(m, "shared/events/demande_soumise.yaml")
-    assert set(ecrit["properties"]) == {"Montant", "Dossier"}
-    assert ecrit["$id"] == "miles:/events/shared/demande_soumise"
-
-
-async def test_le_socle_reste_refuse_meme_par_une_seule_propriete(m: McpForge) -> None:
-    """Le chemin court ne contourne pas la règle du moteur."""
-    await m.ok(
-        "create_schema",
-        EVENEMENT | EDIT | {"scope": "shared", "name": "demande_soumise", "content": EVENT},
-    )
-
-    refuse = await m.refused(
-        "set_schema_property",
-        EVENEMENT
-        | EDIT
-        | {
-            "scope": "shared",
-            "name": "demande_soumise",
-            "path": ["ExternalId"],
-            "schema": "type: integer",
-        },
-    )
-
-    assert "evenement_non_conforme" in str(refuse)
-    assert "propriete_du_socle" in str(refuse)
 
 
 async def test_une_cle_seule_ne_modifie_aucune_propriete(m: McpForge) -> None:
@@ -275,9 +211,7 @@ async def test_une_cle_seule_ne_modifie_aucune_propriete(m: McpForge) -> None:
 
     refuse = await m.refused(
         "set_schema_property",
-        MODELE
-        | EDIT
-        | {"scope": "shared", "name": "colis", "path": ["etat"], "schema": "type: string"},
+        EDIT | {"scope": "shared", "name": "colis", "path": ["etat"], "schema": "type: string"},
         headers=cle_seule,
     )
 

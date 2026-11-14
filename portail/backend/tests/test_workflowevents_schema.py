@@ -1,25 +1,26 @@
-"""Le schéma d'un événement : ce que le portail refuse, et pourquoi le moteur l'aurait refusé.
+"""Ce que le moteur exige d'un modèle désigné par un `DEFINE EVENT`, et pourquoi.
 
-Les deux règles propres aux événements ne viennent pas d'un goût de rigueur : elles
-viennent du MOTEUR, qui valide le socle commun EN PLUS du schéma métier. Chaque refus est
-donc éprouvé deux fois ici — une fois sur le portail, une fois sur le moteur lui-même —
-parce qu'une garde dont on ne prouve pas qu'elle recouvre un vrai refus dérive en silence.
+Les deux règles ne viennent pas d'un goût de rigueur : elles viennent du MOTEUR, qui
+valide le socle commun EN PLUS du schéma métier. Chaque refus est donc éprouvé deux fois
+ici — une fois sur le portail, une fois sur le moteur lui-même — parce qu'une garde dont
+on ne prouve pas qu'elle recouvre un vrai refus dérive en silence.
+
+Depuis le 14/11/2026 ces règles portent sur la DÉCLARATION et non sur le fichier : un
+modèle n'a aucune raison de les respecter tant qu'aucun type d'event ne le désigne, et
+c'est pour cela qu'elles ne sont pas passées dans `datamodels.schema`.
 """
 
 from __future__ import annotations
 
 import pytest
-import yaml
 from urban_workflow.exceptions import EventSchemaError
 from urban_workflow.schemas import SchemaRegistry
 
-from miles.datamodels.grammar import ModelGrammarError
-from miles.datamodels.schema import DIALECT
+from miles.datamodels.schema import parse_schema
 from miles.workflowevents.schema import (
     SOCLE_NAMES,
-    draft,
-    normalized,
-    parse_event_schema,
+    dedup_problems,
+    payload_problems,
     socle_schema,
 )
 
@@ -36,9 +37,11 @@ PAYLOAD = {"Name": "demande_soumise", "ExternalId": "DA-42", "Montant": 120}
 
 
 def _codes(text: str) -> list[tuple[str, str]]:
-    with pytest.raises(ModelGrammarError) as refused:
-        parse_event_schema(text)
-    return [(p.path, p.code) for p in refused.value.problems]
+    return [(p.path, p.code) for p in payload_problems(text, parse_schema(text))]
+
+
+def _dedup_codes(text: str, keys: tuple[str, ...]) -> list[tuple[str, str]]:
+    return [(p.path, p.code) for p in dedup_problems(keys, parse_schema(text))]
 
 
 def _engine_refuses(text: str, payload: dict[str, object]) -> str | None:
@@ -75,13 +78,13 @@ class TestLeSocle:
 
     def test_le_socle_rendu_est_une_COPIE_du_dictionnaire_du_moteur(self) -> None:
         """Le moteur porte un singleton de module : le modifier changerait ce que
-        validera l'événement suivant. Discriminant — sans la copie, ce test rougit."""
+        validera la déclaration suivante. Discriminant — sans la copie, ce test rougit."""
         socle_schema()["properties"].pop("Name")
 
         assert "Name" in socle_schema()["properties"]
 
 
-class TestLesRefusPropresAuxEvenements:
+class TestLesRefusPropresAuPayload:
     FERME = """title: Demande
 type: object
 additionalProperties: false
@@ -106,26 +109,50 @@ properties:
     def test_et_le_moteur_rendrait_le_payload_insatisfiable(self) -> None:
         # `ExternalId` en integer dans le métier, en string dans le socle : les DEUX
         # schémas s'appliquent, donc aucune valeur ne convient. Ni l'un ni l'autre des
-        # documents ne paraît faux — c'est exactement ce qu'on refuse d'écrire.
+        # documents ne paraît faux — c'est exactement ce qu'on refuse de déclarer.
         text = "title: D\ntype: object\nproperties:\n  ExternalId: {type: integer}\n"
         assert _engine_refuses(text, PAYLOAD) is not None
         assert _engine_refuses(text, {**PAYLOAD, "ExternalId": 42}) is not None
 
 
+class TestLesClesDUnicite:
+    def test_une_cle_du_modele_ou_du_socle_est_admise(self) -> None:
+        """Le socle compte, et c'est le cas le plus courant : `UNIQUE (ExternalId)` ne
+        nomme rien du modèle métier et reste la clé d'anti-doublon naturelle."""
+        assert _dedup_codes(DEMANDE, ("Montant", "ExternalId")) == []
+
+    def test_une_cle_qui_ne_designe_rien_est_refusee(self) -> None:
+        """`compute_dedup_hash` compte une propriété absente comme vide : la clé donnerait
+        le même hash pour TOUS les events, qui se dédoublonneraient les uns les autres."""
+        assert _dedup_codes(DEMANDE, ("Inconnu",)) == [("unique.0", "cle_d_unicite_inconnue")]
+
+    def test_une_cle_que_le_dsl_ne_sait_pas_ecrire_est_refusee_avant_la_propriete(self) -> None:
+        """Mesuré : `UNIQUE (Mon-Champ)` rend « mismatched input '-' expecting {')', ','} ».
+        Un artefact illisible fait échouer le chargement de tout le répertoire du moteur,
+        donc ce refus tombe avant celui qui parle du modèle."""
+        text = "title: D\ntype: object\nproperties:\n  Mon-Champ: {type: string}\n"
+        assert _dedup_codes(text, ("Mon-Champ",)) == [("unique.0", "cle_non_ecrivable")]
+
+    def test_la_position_de_la_cle_fautive_est_rendue(self) -> None:
+        # L'ordre est une donnée : le refus doit dire LAQUELLE des clés, pas seulement
+        # qu'il y en a une de mauvaise.
+        assert _dedup_codes(DEMANDE, ("Montant", "Inconnu")) == [
+            ("unique.1", "cle_d_unicite_inconnue")
+        ]
+
+
 class TestCeQuiEstAdmis:
-    def test_un_evenement_sans_propriete_metier_est_admis(self) -> None:
-        """Et ce n'est PAS un brouillon, à la différence d'un modèle.
+    def test_un_modele_sans_propriete_metier_peut_porter_un_type_d_event(self) -> None:
+        """Un `DEFINE EVENT` peut n'apporter que le socle — un nom, un `ExternalId`, une
+        date — et déclencher une transition sur ce seul fait."""
+        text = "title: Ping\ntype: object\nproperties: {}\n"
 
-        Un `DEFINE EVENT` peut n'apporter que le socle — un nom, un `ExternalId`, une
-        date — et déclencher une transition sur ce seul fait.
-        """
-        schema = parse_event_schema("title: Ping\ntype: object\nproperties: {}\n")
-        assert schema.properties == {}
-        assert schema.empty is True
+        assert payload_problems(text, parse_schema(text)) == []
 
-    def test_un_evenement_decrit_son_payload_avec_un_modele(self) -> None:
-        schema = parse_event_schema(DEMANDE)
-        assert schema.title == "Demande soumise"
+    def test_un_payload_decrit_avec_un_renvoi_vers_un_modele_est_admis(self) -> None:
+        schema = parse_schema(DEMANDE)
+
+        assert payload_problems(DEMANDE, schema) == []
         assert schema.references == (("properties.Dossier.$ref", ("shared", "dossier")),)
 
     def test_le_moteur_accepte_le_payload_d_un_schema_ouvert(self) -> None:
@@ -135,18 +162,11 @@ class TestCeQuiEstAdmis:
         assert _engine_refuses(ouvert, PAYLOAD) is None
 
 
-class TestLEnregistrement:
-    def test_le_systeme_pose_le_dialecte_et_l_id_de_l_evenement(self) -> None:
-        written = yaml.safe_load(normalized(DEMANDE, "shared", "demande_soumise"))
+@pytest.mark.parametrize("nom", sorted(SOCLE_NAMES))
+def test_aucune_propriete_du_socle_n_est_inecrivable_en_cle_d_unicite(nom: str) -> None:
+    """Toutes se nomment dans un `UNIQUE (…)`, et c'est MESURÉ sur le lexer installé : si
+    une montée du moteur en ajoutait une que le DSL ne sait pas écrire, le portail la
+    proposerait comme clé et l'artefact deviendrait illisible."""
+    text = "title: D\ntype: object\nproperties: {}\n"
 
-        assert written["$schema"] == DIALECT
-        assert written["$id"] == "miles:/events/shared/demande_soumise"
-        assert written["title"] == "Demande soumise"
-        assert list(written)[:2] == ["$schema", "$id"]
-
-    def test_un_evenement_declare_est_un_objet_sans_propriete(self) -> None:
-        written = yaml.safe_load(draft("achats", "validation", "Validation accordée"))
-
-        assert written["$id"] == "miles:/events/domains/achats/validation"
-        assert written["title"] == "Validation accordée"
-        assert written["properties"] == {}
+    assert _dedup_codes(text, (nom,)) == []

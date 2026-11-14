@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 import asyncpg
 import structlog
@@ -12,27 +11,19 @@ from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.datamodels.grammar import Problem
-from miles.datamodels.layout import SHARED, ModelEntry
+from miles.datamodels.layout import SHARED, ModelEntry, model_path
 from miles.datamodels.layout import entry_of as model_entry_of
-from miles.datamodels.meta import meta_path, meta_text, read_version
-from miles.datamodels.patch import patched
-from miles.datamodels.schema import ModelSchema
+from miles.datamodels.schema import parse_schema
 from miles.event_shapes import GESTURE, NAME
 from miles.git.workcopy import WorkCopy
+from miles.workflowevents.dsl import EventType, fragment_path, parse, render, scope_of
 from miles.workflowevents.layout import (
-    EventEntry,
+    checked_model,
     checked_name,
     checked_scope,
-    entry_of,
-    event_path,
     visible,
 )
-from miles.workflowevents.schema import (
-    EventGrammarError,
-    draft,
-    normalized,
-    parse_event_schema,
-)
+from miles.workflowevents.schema import EventModelError, dedup_problems, payload_problems
 from miles.workshop.domains import domains_in
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceConflictError, checked_label
@@ -42,34 +33,62 @@ log = structlog.get_logger(__name__)
 CREATED_EVENT = "workflow_event.created"
 DELETED_EVENT = "workflow_event.deleted"
 REPLACED_EVENT = "workflow_event.replaced"
-# Les events de WORKFLOW déclarés dans le dépôt du workspace — à ne pas confondre avec
-# les events du journal, qui sont ce que ce bloc décrit. Les trois faits portent le même
-# bloc : le chemin du fichier, et le commit où il a bougé.
-_EVENEMENT: dict[str, object] = {"path": NAME, **GESTURE}
+# Les types d'event de WORKFLOW déclarés dans le dépôt du workspace — à ne pas confondre
+# avec les events du journal, qui sont ce que ce bloc décrit.
+#
+# `path` était le fichier du schéma jusqu'au 13/11/2026 ; c'est maintenant l'ARTEFACT du
+# périmètre, qui porte toutes ses déclarations. D'où `event` à côté : sans lui, trois
+# gestes sur trois types du même périmètre auraient tous le même bloc, et le journal ne
+# dirait plus lequel a bougé.
+_DECLARATION: dict[str, object] = {"path": NAME, "event": NAME, **GESTURE}
 EVENT_SHAPES = (
-    EventShape(CREATED_EVENT, "Événement de workflow créé", closed_block(_EVENEMENT)),
-    EventShape(DELETED_EVENT, "Événement de workflow supprimé", closed_block(_EVENEMENT)),
-    EventShape(REPLACED_EVENT, "Événement de workflow remplacé", closed_block(_EVENEMENT)),
+    EventShape(CREATED_EVENT, "Type d'event de workflow déclaré", closed_block(_DECLARATION)),
+    EventShape(DELETED_EVENT, "Type d'event de workflow supprimé", closed_block(_DECLARATION)),
+    EventShape(REPLACED_EVENT, "Type d'event de workflow modifié", closed_block(_DECLARATION)),
 )
 EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 
-class EventNotFoundError(Exception):
+class EventTypeNotFoundError(Exception):
     pass
 
 
 @dataclass(frozen=True)
+class DeclaredType:
+    """Un type d'event tel que l'artefact de son périmètre le déclare."""
+
+    scope: str  # « shared », ou le nom du domaine
+    name: str
+    label: str
+    # (portée, nom) du modèle qui décrit le payload, et son chemin : l'écran et la surface
+    # MCP désignent un modèle par son chemin de dépôt, comme partout ailleurs.
+    model: tuple[str, str]
+    model_path: str
+    unique: tuple[str, ...] = field(default=())
+    # Le modèle désigné manque sur la branche. RENDU plutôt que refusé : une liste doit
+    # montrer une déclaration orpheline — c'est ce qui bloque l'enregistrement d'une
+    # version —, jamais la cacher.
+    model_missing: bool = field(default=False, compare=False)
+
+
+@dataclass(frozen=True)
 class WorkflowEventsService:
-    """Événements de workflow du workspace, écrits dans SA branche de travail.
+    """Types d'event de workflow du workspace, déclarés dans SA branche de travail.
 
-    Des JSON Schema 2020-12 en YAML, comme les modèles de données, mais dans leur propre
-    liste (Gael, 11/11/2026). Jamais en base, même en cache : le référentiel doit refléter
-    exactement la version git — le moteur, lui, chargera ces fichiers tels quels.
+    Depuis le 13/11/2026, un type d'event n'est plus un fichier : c'est un `DEFINE EVENT`
+    de l'artefact de son périmètre (`shared/shared.wf`, `domains/<d>/<d>.wf`), et le
+    payload qu'il décrit est un modèle de données ordinaire. Jamais en base, même en
+    cache : le référentiel doit refléter exactement la version git — le moteur, lui,
+    chargera ces fichiers tels quels.
 
-    Il n'y a PAS de garde « utilisé par » à la suppression, et ce n'est pas un oubli :
-    rien, dans le paramétrage que le portail écrit aujourd'hui, ne désigne un événement.
-    Ce qui le désignera est le `DEFINE EVENT … AS @nom` d'un document de workflow, qui
-    n'existe pas encore ; la garde naîtra avec lui, au même endroit que celle des modèles.
+    Conséquence assumée du renversement : un storage ou une source peut désormais désigner
+    le modèle d'un type d'event. La liste séparée l'interdisait ; rien ne le justifiait une
+    fois que la déclaration, et non le rangement, dit ce qu'est un type d'event.
+
+    Il n'y a PAS de garde « utilisé par » à la suppression d'un type, et ce n'est pas un
+    oubli : rien, dans le paramétrage que le portail écrit aujourd'hui, ne désigne un type
+    d'event. Ce qui le désignera est le `ON EVENT` d'un document de workflow, qui n'existe
+    pas encore ; la garde naîtra avec lui.
     """
 
     pool: asyncpg.Pool
@@ -79,11 +98,11 @@ class WorkflowEventsService:
 
     async def resolve_list(
         self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
-    ) -> list[EventEntry]:
+    ) -> list[DeclaredType]:
         async with self.branches.checkout(
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
-            return [await _described(copy, e) for e in await _entries(copy)]
+            return await _declared(copy)
 
     async def resolve_get(
         self,
@@ -93,16 +112,15 @@ class WorkflowEventsService:
         name: str,
         *,
         branch: str | None = None,
-    ) -> tuple[EventEntry, str]:
+    ) -> DeclaredType:
         scope, name = checked_scope(scope), checked_name(name)
-        entry = EventEntry(scope, name, event_path(scope, name))
         async with self.branches.checkout(
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
-            content = await copy.read(entry.path)
-            if content is None:
-                raise EventNotFoundError(entry.path)
-            return await _described(copy, entry), content
+            found = [d for d in await _declared(copy) if (d.scope, d.name) == (scope, name)]
+        if not found:
+            raise EventTypeNotFoundError(name)
+        return found[0]
 
     async def resolve_declare(
         self,
@@ -111,41 +129,32 @@ class WorkflowEventsService:
         scope: str,
         label: str,
         slug: str,
+        model: tuple[str, str],
+        unique: Sequence[str] = (),
         *,
         branch: str | None = None,
-    ) -> tuple[EventEntry, str | None]:
-        """Déclare un événement par son libellé et son nom ; le schéma s'écrit à l'édition.
+    ) -> tuple[DeclaredType, str | None]:
+        """Déclare un type d'event dans l'artefact de son périmètre.
 
-        Deux temps comme pour un modèle : ici l'identité, là la forme. Rejeu à
-        l'identique : sans effet, None.
+        Rejeu à l'identique : sans effet, et le commit rendu est None.
         """
-        scope, name, label = checked_scope(scope), checked_name(slug), checked_label(label)
-        return await self._create(
-            author, workspace_id, scope, name, draft(scope, name, label), branch
-        )
-
-    async def resolve_create(
-        self,
-        author: EventAuthor,
-        workspace_id: str,
-        scope: str,
-        name: str,
-        content: str,
-        *,
-        branch: str | None = None,
-    ) -> tuple[EventEntry, str | None]:
-        """Écrit un événement depuis son schéma complet ; rejeu du même schéma : None.
-
-        Sert la surface MCP, pas l'écran : un agent décrit l'événement en UN appel, là où
-        la personne déclare puis complète. Aucune route HTTP ne l'expose, et c'est
-        volontaire — une route que rien ne consomme est de la surface pour rien.
-        """
-        scope, name = checked_scope(scope), checked_name(name)
-        # Vérifié avant tout accès au dépôt : un document refusé ne coûte aucun clone.
-        parse_event_schema(content)
-        return await self._create(
-            author, workspace_id, scope, name, normalized(content, scope, name), branch
-        )
+        declared = await self._checked(scope, label, slug, model, unique)
+        async with self.branches.checkout(
+            workspace_id, branch, by=author, gesture=Gesture.EDIT
+        ) as copy:
+            await self._check_against_branch(copy, declared)
+            existing = await _declared(copy)
+            same = [d for d in existing if (d.scope, d.name) == (declared.scope, declared.name)]
+            if same:
+                if same[0] == declared:
+                    return same[0], None
+                raise WorkspaceConflictError("nom_pris")
+            commit = await self._rewrite(
+                copy, author, declared.scope, [*_own(existing, declared.scope), declared]
+            )
+        await self._event(workspace_id, CREATED_EVENT, author, declared, commit, copy.branch)
+        log.info("type_d_event_declare", workspace=workspace_id, event=declared.name)
+        return declared, commit
 
     async def resolve_replace(
         self,
@@ -153,107 +162,37 @@ class WorkflowEventsService:
         workspace_id: str,
         scope: str,
         name: str,
-        content: str,
+        label: str,
+        model: tuple[str, str],
+        unique: Sequence[str] = (),
         *,
         branch: str | None = None,
-    ) -> tuple[EventEntry, str | None]:
-        """Remplace le schéma d'un événement ; même schéma : sans effet, None.
+    ) -> tuple[DeclaredType, str | None]:
+        """Change le libellé, le modèle ou les clés d'unicité d'un type déjà déclaré.
 
-        Le nom ne change pas : c'est le fichier et l'`$id`, que le système réécrit. La
-        version monte de 1, tenue par le système — comme pour un modèle.
+        Le nom ne change pas : c'est lui qu'un script de workflow écrit, et le renommer
+        casserait tout `ON EVENT` qui le nomme sans qu'aucun des deux documents paraisse
+        faux. Un renommage se fait en déclarant l'autre nom et en supprimant celui-ci.
         """
-        scope, name = checked_scope(scope), checked_name(name)
+        declared = await self._checked(scope, label, name, model, unique)
         async with self.branches.checkout(
             workspace_id, branch, by=author, gesture=Gesture.EDIT
         ) as copy:
-            entry, commit = await self._rewrite(copy, author, scope, name, content)
-        if commit is None:
-            return entry, None
-        await self._event(workspace_id, REPLACED_EVENT, author, entry, commit, copy.branch)
-        log.info("evenement_de_workflow_remplace", workspace=workspace_id, path=entry.path)
-        return entry, commit
-
-    async def resolve_patch(
-        self,
-        author: EventAuthor,
-        workspace_id: str,
-        scope: str,
-        name: str,
-        apply: Callable[[dict[str, Any]], dict[str, Any]],
-        *,
-        branch: str | None = None,
-    ) -> tuple[EventEntry, str | None]:
-        """Modifie le schéma par une mutation locale (une propriété), en UN seul passage.
-
-        Même geste que pour un modèle, et pour la même raison : un agent qui ajoute un
-        champ n'a pas à renvoyer tout le document. Un seul `checkout`.
-        """
-        scope, name = checked_scope(scope), checked_name(name)
-        entry = EventEntry(scope, name, event_path(scope, name))
-        async with self.branches.checkout(
-            workspace_id, branch, by=author, gesture=Gesture.EDIT
-        ) as copy:
-            text = await copy.read(entry.path)
-            if text is None:
-                raise EventNotFoundError(entry.path)
-            entry, commit = await self._rewrite(copy, author, scope, name, patched(text, apply))
-        if commit is None:
-            return entry, None
-        await self._event(workspace_id, REPLACED_EVENT, author, entry, commit, copy.branch)
-        log.info("evenement_de_workflow_remplace", workspace=workspace_id, path=entry.path)
-        return entry, commit
-
-    async def _rewrite(
-        self, copy: WorkCopy, author: EventAuthor, scope: str, name: str, content: str
-    ) -> tuple[EventEntry, str | None]:
-        """Le coeur d'un remplacement, dans une copie déjà ouverte ; None : rien à écrire."""
-        schema = parse_event_schema(content)
-        content = normalized(content, scope, name)
-        entry = EventEntry(scope, name, event_path(scope, name))
-        existing = await copy.read(entry.path)
-        if existing is None:
-            raise EventNotFoundError(entry.path)
-        if existing == content:
-            return await _described(copy, entry), None
-        await _check_references(copy, entry, schema)
-        version = read_version(await copy.read(meta_path(entry.path))) + 1
-        await copy.write(entry.path, content)
-        await copy.write(meta_path(entry.path), meta_text(version))
-        commit = await self.branches.commit(copy, f"Événement {entry.path}", author)
-        return await _described(copy, entry), commit
-
-    async def _create(
-        self,
-        author: EventAuthor,
-        workspace_id: str,
-        scope: str,
-        name: str,
-        content: str,
-        branch: str | None,
-    ) -> tuple[EventEntry, str | None]:
-        schema = parse_event_schema(content)
-        entry = EventEntry(scope, name, event_path(scope, name))
-        async with self.branches.checkout(
-            workspace_id, branch, by=author, gesture=Gesture.EDIT
-        ) as copy:
-            # Le domaine se déclare à part, comme pour un modèle : le créer ici au passage
-            # ferait d'une faute de frappe un domaine de plus, sans que personne ne le voie.
-            if scope != SHARED and scope not in domains_in(await copy.paths()):
-                raise WorkspaceConflictError("domaine_inconnu")
-            existing = await copy.read(entry.path)
-            if existing is not None:
-                if existing == content:
-                    return await _described(copy, entry), None
-                raise WorkspaceConflictError("nom_pris")
-            await _check_references(copy, entry, schema)
-            await copy.write(entry.path, content)
-            # Un événement naît en version 1 : la version est au système, jamais au client.
-            await copy.write(meta_path(entry.path), meta_text(1))
-            commit = await self.branches.commit(copy, f"Événement {entry.path}", author)
-            entry = await _described(copy, entry)
-        await self._event(workspace_id, CREATED_EVENT, author, entry, commit, copy.branch)
-        log.info("evenement_de_workflow_cree", workspace=workspace_id, path=entry.path)
-        return entry, commit
+            # L'existence AVANT les règles du modèle : sur un type qu'on n'a pas, un refus
+            # qui parle du modèle désigné envoie corriger le mauvais document.
+            existing = await _declared(copy)
+            if not any((d.scope, d.name) == (declared.scope, declared.name) for d in existing):
+                raise EventTypeNotFoundError(name)
+            await self._check_against_branch(copy, declared)
+            kept = [
+                declared if d.name == declared.name else d for d in _own(existing, declared.scope)
+            ]
+            if kept == _own(existing, declared.scope):
+                return declared, None
+            commit = await self._rewrite(copy, author, declared.scope, kept)
+        await self._event(workspace_id, REPLACED_EVENT, author, declared, commit, copy.branch)
+        log.info("type_d_event_modifie", workspace=workspace_id, event=declared.name)
+        return declared, commit
 
     async def resolve_delete(
         self,
@@ -265,80 +204,145 @@ class WorkflowEventsService:
         branch: str | None = None,
     ) -> str:
         scope, name = checked_scope(scope), checked_name(name)
-        entry = EventEntry(scope, name, event_path(scope, name))
         async with self.branches.checkout(
             workspace_id, branch, by=author, gesture=Gesture.EDIT
         ) as copy:
-            if entry not in await _entries(copy):
-                raise EventNotFoundError(entry.path)
-            await copy.remove(entry.path)
-            if await copy.read(meta_path(entry.path)) is not None:
-                await copy.remove(meta_path(entry.path))
-            commit = await self.branches.commit(
-                copy, f"Suppression de l'événement {entry.path}", author
-            )
-        await self._event(workspace_id, DELETED_EVENT, author, entry, commit, copy.branch)
-        log.info("evenement_de_workflow_supprime", workspace=workspace_id, path=entry.path)
+            existing = await _declared(copy)
+            gone = [d for d in existing if (d.scope, d.name) == (scope, name)]
+            if not gone:
+                raise EventTypeNotFoundError(name)
+            kept = [d for d in _own(existing, scope) if d.name != name]
+            commit = await self._rewrite(copy, author, scope, kept)
+        await self._event(workspace_id, DELETED_EVENT, author, gone[0], commit, copy.branch)
+        log.info("type_d_event_supprime", workspace=workspace_id, event=name)
         return commit
+
+    async def _checked(
+        self,
+        scope: str,
+        label: str,
+        slug: str,
+        model: tuple[str, str],
+        unique: Sequence[str],
+    ) -> DeclaredType:
+        """La saisie, vérifiée AVANT tout accès au dépôt : un refus ne coûte aucun clone."""
+        scope, name, label = checked_scope(scope), checked_name(slug), checked_label(label)
+        model_scope, model_name = checked_model(*model)
+        if not visible(scope, (model_scope, model_name)):
+            # Un périmètre transverse qui désignerait un modèle de domaine cesserait
+            # d'être transverse, et le moteur chargerait un schéma qu'un autre domaine ne
+            # voit pas. Même règle que les modèles entre eux.
+            raise WorkspaceConflictError("portee_du_modele")
+        return DeclaredType(
+            scope,
+            name,
+            label,
+            (model_scope, model_name),
+            model_path(model_scope, model_name),
+            tuple(unique),
+        )
+
+    async def _check_against_branch(self, copy: WorkCopy, declared: DeclaredType) -> None:
+        """Ce qui ne se vérifie qu'avec la branche sous les yeux : domaine, modèle, clés."""
+        if declared.scope != SHARED and declared.scope not in domains_in(await copy.paths()):
+            # Le domaine se déclare à part, comme pour un modèle : le créer ici au passage
+            # ferait d'une faute de frappe un domaine de plus, sans que personne ne le voie.
+            raise WorkspaceConflictError("domaine_inconnu")
+        text = await copy.read(declared.model_path)
+        if text is None:
+            raise EventModelError([Problem("model", "modele_inconnu", declared.model_path)])
+        schema = parse_schema(text)
+        problems = payload_problems(text, schema) + dedup_problems(declared.unique, schema)
+        if problems:
+            raise EventModelError(problems)
+        # Un nom unique dans TOUT le workspace, et non dans le seul périmètre : un script
+        # qui `INCLUDE` deux artefacts déclarant le même nom ne charge pas du tout — le
+        # moteur lève « event 'a' is already declared » pendant la visite (mesuré le
+        # 14/11/2026). Refuser ici, c'est refuser au geste plutôt qu'au chargement.
+        ailleurs = [
+            d
+            for d in await _declared(copy)
+            if d.name == declared.name and d.scope != declared.scope
+        ]
+        if ailleurs:
+            raise WorkspaceConflictError("nom_pris_ailleurs")
+
+    async def _rewrite(
+        self, copy: WorkCopy, author: EventAuthor, scope: str, types: list[DeclaredType]
+    ) -> str:
+        """Réécrit l'artefact d'un périmètre, ou le supprime quand il ne reste rien.
+
+        Un artefact sans déclaration est une erreur de syntaxe pour le moteur : le laisser
+        derrière, vide, ferait échouer le chargement de tout le répertoire. On retire donc
+        le fichier plutôt que de l'écrire vide.
+        """
+        path = fragment_path(scope)
+        text = render(scope, [EventType(d.name, d.label, d.model, d.unique) for d in types])
+        if text:
+            await copy.write(path, text)
+        elif await copy.read(path) is not None:
+            await copy.remove(path)
+        return await self.branches.commit(copy, f"Types d'event {path}", author)
 
     async def _event(
         self,
         workspace_id: str,
         event_type: str,
         author: EventAuthor,
-        entry: EventEntry,
+        declared: DeclaredType,
         commit: str,
         branch: str,
     ) -> None:
-        # Après le push : le journal dit ce qui est dans git. Le contenu n'y va pas, le
-        # chemin et le commit suffisent à le retrouver.
+        # Après le push : le journal dit ce qui est dans git. Le contenu n'y va pas,
+        # l'artefact, le nom déclaré et le commit suffisent à le retrouver.
         event = NewEvent(
             event_type,
             (ObjectRef("workspace", workspace_id),),
             author,
-            {"path": entry.path, "commit": commit, "branch": branch},
+            {
+                "path": fragment_path(declared.scope),
+                "event": declared.name,
+                "commit": commit,
+                "branch": branch,
+            },
         )
         async with self.pool.acquire() as conn, conn.transaction():
             await db_write_event(conn, event, self.catalog, self.now)
 
 
-async def _check_references(copy: WorkCopy, entry: EventEntry, schema: ModelSchema) -> None:
-    """Les `$ref` d'un événement désignent des MODÈLES de données, et ils doivent exister.
+def _own(declared: list[DeclaredType], scope: str) -> list[DeclaredType]:
+    return [d for d in declared if d.scope == scope]
 
-    Un événement décrit son payload métier, et rien n'interdit de le décrire avec un
-    modèle déjà écrit — c'est même l'intérêt d'avoir le même dialecte. La règle de portée
-    est celle des modèles entre eux : un transverse ne descend pas dans un domaine.
+
+async def _declared(copy: WorkCopy) -> list[DeclaredType]:
+    """Tous les types déclarés sur la branche, périmètre par périmètre.
+
+    Un artefact illisible fait lever `FragmentError` : on ne rend PAS une liste partielle.
+    Masquer un périmètre entier parce que son fichier a été retouché hors de Miles ferait
+    croire que ses types ont disparu, et un geste de déclaration écrirait alors par-dessus
+    ce qu'on n'a pas su relire.
     """
-    known = {(e.scope, e.name) for e in await _models(copy)}
-    missing = [
-        Problem(where, "modele_inconnu", f"{scope}/{name}")
-        for where, (scope, name) in schema.references
-        if (scope, name) not in known or not visible(entry, (scope, name))
-    ]
-    if missing:
-        raise EventGrammarError(missing)
+    paths = await copy.paths()
+    known = {(e.scope, e.name) for e in _models(paths)}
+    found: list[DeclaredType] = []
+    for path in sorted(paths):
+        scope = scope_of(path)
+        if scope is None:
+            continue
+        for declared in parse(await copy.read(path) or ""):
+            found.append(
+                DeclaredType(
+                    scope,
+                    declared.name,
+                    declared.label,
+                    declared.model,
+                    model_path(*declared.model),
+                    declared.unique,
+                    declared.model not in known,
+                )
+            )
+    return found
 
 
-async def _entries(copy: WorkCopy) -> list[EventEntry]:
-    return [e for e in map(entry_of, await copy.paths()) if e is not None]
-
-
-async def _models(copy: WorkCopy) -> list[ModelEntry]:
-    return [e for e in map(model_entry_of, await copy.paths()) if e is not None]
-
-
-async def _described(copy: WorkCopy, entry: EventEntry) -> EventEntry:
-    """L'événement avec son libellé (le `title` du schéma) et sa version (ses métadonnées)."""
-    text = await copy.read(entry.path)
-    base_only = False
-    try:
-        schema = parse_event_schema(text or "")
-        label, base_only = schema.title, schema.empty
-    except ValueError:
-        # Illisible ou non conforme (retouché hors de Miles) : listé quand même, sans
-        # libellé ; la validation de la branche dira pourquoi. Même repli que les modèles,
-        # et c'en est un : ne pas lister reviendrait à cacher le fichier qui bloque la
-        # version.
-        label = None
-    version = read_version(await copy.read(meta_path(entry.path)))
-    return EventEntry(entry.scope, entry.name, entry.path, label, version or None, base_only)
+def _models(paths: list[str]) -> list[ModelEntry]:
+    return [e for e in map(model_entry_of, paths) if e is not None]

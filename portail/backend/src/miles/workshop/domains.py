@@ -3,13 +3,23 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+# Nom de la rubrique du seul artefact de déclaration du domaine, et suffixe de son
+# fichier : voir `miles.workflowevents.dsl`, dont `fragment_path` est seul à composer le
+# chemin. Recopié ici pour la même raison que dans la couche git — ce module ne connaît
+# pas les types d'event —, et `test_tree_layout.py` refuse que les deux divergent.
+EVENT_TYPES = "event-types"
+FRAGMENT_SUFFIX = ".wf"
+
 # Rubriques d'un domaine, retenues au cadrage (« Back-office — capacités attendues ») ;
 # les mappings se rangent par sens. Même découpage que le squelette d'un dépôt.
 SECTIONS = (
     "models",
-    # Les événements de workflow du domaine (Gael, 11/11/2026) : une rubrique, parce
-    # qu'ils ont leur propre liste dans l'écran et ne se mélangent pas aux messages.
-    "events",
+    # Les types d'event du domaine. UNE rubrique à un seul fichier, et non un dossier :
+    # depuis le 14/11/2026, un type d'event n'est plus un fichier mais une déclaration de
+    # l'artefact du périmètre (`domains/<d>/<d>.wf`). Rendu sous un nom qui dit ce qu'il
+    # est, plutôt que rangé dans `misplaced` — ce que `section_of` en ferait sinon, et un
+    # agent conclurait que le dépôt porte un fichier égaré.
+    EVENT_TYPES,
     "mappings/inbound",
     "mappings/outbound",
     "referentials",
@@ -68,8 +78,14 @@ def checked_domain(name: str) -> str:
     return name
 
 
-def section_of(relative: str) -> str | None:
-    """La rubrique d'un fichier, d'après son chemin dans le domaine ; None : hors rubrique."""
+def section_of(relative: str, domain: str) -> str | None:
+    """La rubrique d'un fichier, d'après son chemin dans le domaine ; None : hors rubrique.
+
+    Le domaine est demandé parce que son artefact de déclaration porte SON nom : c'est la
+    seule rubrique dont le nom de fichier dépend du domaine.
+    """
+    if relative == f"{domain}{FRAGMENT_SUFFIX}":
+        return EVENT_TYPES
     for section in SECTIONS:
         if relative.startswith(section + "/") and "/" not in relative[len(section) + 1 :]:
             return section

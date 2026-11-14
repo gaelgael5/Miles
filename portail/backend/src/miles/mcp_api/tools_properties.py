@@ -6,8 +6,6 @@ ajoutait un champ devait reproduire tout le schéma ; plus le modèle est riche,
 l'artefact est gros, et plus il y a d'occasions de perdre en route ce qu'il ne voulait pas
 toucher. Ici, ce que l'appel ne nomme pas ne peut pas disparaître.
 
-Les deux familles, par le même premier argument que le reste de la surface.
-
 **Pas de primitive séparée pour les renvois**, et c'est la consigne du même jour (« pas la
 peine d'avoir des méthodes qui font la même chose en double ») : un renvoi EST une
 propriété dont le schéma vaut `$ref: miles:/…`. `set_schema_property` l'ajoute et le
@@ -25,15 +23,14 @@ from starlette.requests import Request
 
 from miles.datamodels.grammar import load_yaml
 from miles.datamodels.patch import PropertyPathError, remove_property, set_property
+from miles.datamodels.service import ModelNotFoundError
 from miles.mcp_api.calls import caller_of
 from miles.mcp_api.errors import refusal
-from miles.mcp_api.families import (
-    Kind,
+from miles.mcp_api.tool_args import (
     Name,
     Scope,
     Workspace,
     WriteBranch,
-    family_of,
     unknown,
     written_out,
 )
@@ -90,7 +87,6 @@ def register(server: MCPServer) -> None:
         )
     )
     async def set_schema_property(
-        kind: Kind,
         workspace_id: Workspace,
         scope: Scope,
         name: Name,
@@ -101,7 +97,6 @@ def register(server: MCPServer) -> None:
         branch: WriteBranch = None,
     ) -> dict[str, Any]:
         caller = caller_of(ctx)
-        chosen = family_of(caller, kind)
         # Lu AVANT tout accès au dépôt : un fragment illisible ne coûte aucun clone.
         fragment = load_yaml(schema)
 
@@ -110,16 +105,16 @@ def register(server: MCPServer) -> None:
                 return set_property(document, path, fragment, required=required)
 
             try:
-                entry, commit = await chosen.service.resolve_patch(
+                entry, commit = await caller.services.data_models.resolve_patch(
                     author, workspace_id, scope, name, apply, branch=branch
                 )
-            except chosen.not_found:
-                raise await unknown(caller, kind, workspace_id, branch, scope, name) from None
+            except ModelNotFoundError:
+                raise await unknown(caller, workspace_id, branch, scope, name) from None
             except PropertyPathError as exc:
                 raise _path_refusal(exc) from None
             return written_out(entry, commit)
 
-        element = f"{kind}:{scope}/{name}#{'.'.join(path)}"
+        element = f"{scope}/{name}#{'.'.join(path)}"
         return await caller.write("set_schema_property", workspace_id, branch, element, run)
 
     @server.tool(
@@ -130,7 +125,6 @@ def register(server: MCPServer) -> None:
         )
     )
     async def remove_schema_property(
-        kind: Kind,
         workspace_id: Workspace,
         scope: Scope,
         name: Name,
@@ -139,21 +133,20 @@ def register(server: MCPServer) -> None:
         branch: WriteBranch = None,
     ) -> dict[str, Any]:
         caller = caller_of(ctx)
-        chosen = family_of(caller, kind)
 
         async def run(author: Any) -> dict[str, Any]:
             def apply(document: dict[str, Any]) -> dict[str, Any]:
                 return remove_property(document, path)
 
             try:
-                entry, commit = await chosen.service.resolve_patch(
+                entry, commit = await caller.services.data_models.resolve_patch(
                     author, workspace_id, scope, name, apply, branch=branch
                 )
-            except chosen.not_found:
-                raise await unknown(caller, kind, workspace_id, branch, scope, name) from None
+            except ModelNotFoundError:
+                raise await unknown(caller, workspace_id, branch, scope, name) from None
             except PropertyPathError as exc:
                 raise _path_refusal(exc) from None
             return written_out(entry, commit)
 
-        element = f"{kind}:{scope}/{name}#{'.'.join(path)}"
+        element = f"{scope}/{name}#{'.'.join(path)}"
         return await caller.write("remove_schema_property", workspace_id, branch, element, run)

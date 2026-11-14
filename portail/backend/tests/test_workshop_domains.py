@@ -38,10 +38,17 @@ def test_domains_are_the_directories_under_domains_empty_ones_included() -> None
         ("models/sous/dossier.yaml", None),
         ("notes.txt", None),
         ("screens/accueil.json", "screens"),
+        # L'artefact de déclaration des types d'event : UN fichier à la racine du domaine,
+        # nommé d'après lui. Sans sa rubrique, il tomberait dans `misplaced` et un agent
+        # conclurait que le dépôt porte un fichier égaré.
+        ("suivi.wf", "event-types"),
+        # Un `.wf` qui ne porte pas le nom du domaine n'est pas son artefact : le nom de
+        # fichier est la clef d'`INCLUDE` du moteur, et deux homonymes s'éclipseraient.
+        ("autre.wf", None),
     ],
 )
 def test_each_file_falls_in_its_section_or_none(relative: str, section: str | None) -> None:
-    assert section_of(relative) == section
+    assert section_of(relative, "suivi") == section
 
 
 def test_placeholders_are_never_elements() -> None:

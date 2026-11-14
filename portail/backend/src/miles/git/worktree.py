@@ -35,21 +35,43 @@ INITIAL_MANIFEST: dict[str, Any] = {
 
 # Arborescence retenue au cadrage (« Back-office — capacités attendues »). Elle porte
 # le métier par domaine et le transverse à la racine — et aucun dossier d'environnement.
-# `events` ajouté le 11/11/2026 (Gael) : les événements de workflow ont leur propre
-# liste, donc leur propre rubrique — à côté des messages et non parmi eux. Sans cette
-# ligne, la validation de la branche rapporterait chaque événement écrit comme un
-# « emplacement inattendu » et aucune version ne pourrait plus être enregistrée : c'est
-# exactement la panne qu'avait produite l'oubli de `comptes/` le 31/10/2026.
-_SHARED = {"models", "events", "components", "referentials", "theme"}
+#
+# `events/` a existé du 11/11/2026 au 14/11/2026, le temps qu'un type d'event soit un
+# fichier. Il n'en est plus un : son payload est un modèle ordinaire sous `models/`, et
+# ce qui en fait un type d'event est la déclaration de l'ARTEFACT du périmètre. Un dépôt
+# à l'ancienne disposition se convertit (`miles.workshop.conversion`) ; laisser la
+# rubrique ici « au cas où » aurait fait cohabiter deux rangements pour la même chose.
+_SHARED = {"models", "components", "referentials", "theme"}
 _DOMAIN = {
     "models",
-    "events",
     "mappings",
     "referentials",
     "components",
     "screens",
     "scenarios",
 }
+# L'artefact qui déclare les types d'event d'un périmètre : UN fichier à la racine du
+# périmètre, nommé d'après lui (`shared/shared.wf`, `domains/<d>/<d>.wf`). Admis à part
+# des rubriques ci-dessus parce que c'en est un fichier et non un dossier — et sans cette
+# ligne, la validation rapporterait chaque artefact écrit comme un « emplacement
+# inattendu », bloquant l'enregistrement de toute version : exactement la panne produite
+# par l'oubli de `comptes/` le 31/10/2026.
+#
+# Le suffixe est RECOPIÉ de `miles.workflowevents.dsl` et non importé : la couche git ne
+# dépend d'aucun module métier. C'est `test_tree_layout.py` qui refuse que les deux
+# divergent.
+FRAGMENT_SUFFIX = ".wf"
+
+# Rubriques qui ONT existé et n'existent plus : `messages/` jusqu'au 13/11/2026,
+# `events/` jusqu'au 14/11/2026. Seul leur MARQUEUR de dossier vide y est toléré, et
+# c'est un défaut mesuré en relisant le diagnostic le 14/11/2026 : le squelette d'une
+# branche créait `shared/events/.gitkeep`, la conversion ne déplace que ce qui porte du
+# contenu, donc ce marqueur SURVIT à la conversion — et sans cette tolérance il devenait
+# un « emplacement inattendu » qui rendait non figeable toute branche ouverte avant le
+# renommage, sans aucun geste pour la réparer. Un marqueur ne porte aucun paramétrage :
+# le tolérer ne cache rien. Tout FICHIER sous ces rubriques reste rapporté, et c'est ce
+# qui envoie convertir.
+_OBSOLETE = {"messages", "events"}
 _MAPPINGS = {"inbound", "outbound"}
 SKELETON = (
     "contracts",
@@ -212,15 +234,27 @@ def _allowed(parts: list[str]) -> bool:
         # dépend d'aucun module métier, et c'est un test qui tient les deux d'accord.
         return len(parts) == 2 and parts[1] in (ACCOUNTS_FILE, ".gitkeep")
     if top == "shared":
-        return parts[1] in _SHARED or parts[1] == ".gitkeep"
+        if parts[1] in _OBSOLETE:
+            return _marker_only(parts[2:])
+        return parts[1] in _SHARED or parts[1] in (".gitkeep", _fragment("shared"))
     if top == "domains":
-        return _allowed_in_domain(parts[2:]) if len(parts) > 2 else True
+        return _allowed_in_domain(parts[1], parts[2:]) if len(parts) > 2 else True
     return False
 
 
-def _allowed_in_domain(rest: list[str]) -> bool:
+def _fragment(scope: str) -> str:
+    return f"{scope}{FRAGMENT_SUFFIX}"
+
+
+def _marker_only(rest: list[str]) -> bool:
+    return rest == [".gitkeep"]
+
+
+def _allowed_in_domain(domain: str, rest: list[str]) -> bool:
     if len(rest) <= 1:
-        return not rest or rest[0] == ".gitkeep"
+        return not rest or rest[0] in (".gitkeep", _fragment(domain))
+    if rest[0] in _OBSOLETE:
+        return _marker_only(rest[1:])
     if rest[0] not in _DOMAIN:
         return False
     if rest[0] == "mappings" and len(rest) > 2:

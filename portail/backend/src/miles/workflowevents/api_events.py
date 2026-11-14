@@ -5,12 +5,16 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
-from miles.datamodels.grammar import MAX_TEXT_BYTES, ModelGrammarError, ModelSyntaxError
-from miles.workflowevents.layout import EventEntry
+from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError
+from miles.workflowevents.dsl import FragmentError
 from miles.workflowevents.schema import socle_schema
-from miles.workflowevents.service import EventNotFoundError, WorkflowEventsService
+from miles.workflowevents.service import (
+    DeclaredType,
+    EventTypeNotFoundError,
+    WorkflowEventsService,
+)
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,
@@ -36,47 +40,54 @@ def workflow_events_service(request: Request) -> WorkflowEventsService:
 Service = Annotated[WorkflowEventsService, Depends(workflow_events_service)]
 
 
-class EventOut(BaseModel):
+class EventTypeOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    # « shared » pour un événement transverse, sinon le nom du domaine.
+    # « shared » pour un périmètre transverse, sinon le nom du domaine.
     scope: str
     name: str
-    path: str
-    # Le `title` du schéma ; absent s'il n'en porte pas.
-    label: str | None
-    # Tenue par le système : 1 à la création, +1 à chaque enregistrement qui le change.
-    version: int | None
-    # Aucune propriété métier : l'événement ne porte que le socle commun.
-    base_only: bool
+    label: str
+    # Le modèle qui décrit le payload, désigné comme partout ailleurs : par son chemin.
+    model: str
+    model_scope: str
+    model_name: str
+    # Clés de l'anti-doublon, DANS L'ORDRE : le moteur en dérive un hash par
+    # concaténation, donc deux ordres donnent deux anti-doublons.
+    unique: list[str]
+    # Le modèle désigné manque sur la branche : rendu, parce que c'est ce qui bloque
+    # l'enregistrement d'une version, et le cacher ferait chercher ailleurs.
+    model_missing: bool
 
 
-class EventContentOut(EventOut):
-    # Le YAML tel qu'il est dans le dépôt, octet pour octet.
-    content: str
-
-
-class EventDeclare(BaseModel):
-    """Déclaration par libellé et nom : le YAML s'écrit ensuite à l'édition."""
+class Declaration(BaseModel):
+    """Déclaration d'un type d'event : son identité, le modèle de son payload, ses clés."""
 
     model_config = ConfigDict(extra="forbid")
     scope: str
     label: str
     slug: str
+    model_scope: str
+    model_name: str
+    unique: list[str] = []
 
 
-class EventReplace(BaseModel):
+class Redeclaration(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    content: str
+    label: str
+    model_scope: str
+    model_name: str
+    unique: list[str] = []
 
 
-def _out(entry: EventEntry) -> EventOut:
-    return EventOut(
-        scope=entry.scope,
-        name=entry.name,
-        path=entry.path,
-        label=entry.label,
-        version=entry.version,
-        base_only=entry.base_only,
+def _out(declared: DeclaredType) -> EventTypeOut:
+    return EventTypeOut(
+        scope=declared.scope,
+        name=declared.name,
+        label=declared.label,
+        model=declared.model_path,
+        model_scope=declared.model[0],
+        model_name=declared.model[1],
+        unique=list(declared.unique),
+        model_missing=declared.model_missing,
     )
 
 
@@ -85,9 +96,10 @@ def _error(code: int, detail: object) -> JSONResponse:
 
 
 _REFUSALS = (
+    FragmentError,
     ModelSyntaxError,
     ModelGrammarError,
-    EventNotFoundError,
+    EventTypeNotFoundError,
     RepositoryUnavailableError,
     WorkspaceConflictError,
     WorkspaceInputError,
@@ -97,15 +109,23 @@ _REFUSALS = (
 
 def _refusal(exc: Exception) -> JSONResponse:
     unprocessable = status.HTTP_422_UNPROCESSABLE_CONTENT
+    if isinstance(exc, FragmentError):
+        # L'artefact du périmètre ne se relit pas — retouché hors de Miles, ou produit par
+        # un autre outil. Les positions sont celles du moteur, pour que l'écran renvoie à
+        # la ligne fautive plutôt qu'à « le fichier est invalide ».
+        problems = [
+            {"line": p.line, "column": p.column, "message": p.message} for p in exc.problems
+        ]
+        return _error(unprocessable, {"code": "artefact_illisible", "problems": problems})
     if isinstance(exc, ModelSyntaxError):
         detail = {"code": "yaml_invalide", "message": exc.message}
         return _error(unprocessable, detail | {"line": exc.line, "column": exc.column})
     if isinstance(exc, ModelGrammarError):
-        # Tout manquement qui arrive ici vient d'un événement (`EventGrammarError`, qui en
+        # Tout manquement qui arrive ici vient du modèle DÉSIGNÉ (`EventModelError`, qui
         # est une sous-classe) : c'est le même nom que rend la surface MCP, et c'est voulu.
         problems = [{"path": p.path, "code": p.code, "detail": p.detail} for p in exc.problems]
-        return _error(unprocessable, {"code": "evenement_non_conforme", "problems": problems})
-    if isinstance(exc, EventNotFoundError):
+        return _error(unprocessable, {"code": "declaration_non_conforme", "problems": problems})
+    if isinstance(exc, EventTypeNotFoundError):
         return _error(status.HTTP_404_NOT_FOUND, "evenement_inconnu")
     if isinstance(exc, RepositoryUnavailableError):
         return _error(unprocessable, {"code": "acces_depot", "reason": exc.reason})
@@ -120,14 +140,14 @@ def _refusal(exc: Exception) -> JSONResponse:
     raise exc
 
 
-@router.get("", response_model=list[EventOut])
-async def list_events(
+@router.get("", response_model=list[EventTypeOut])
+async def list_event_types(
     workspace_id: str, request: Request, service: Service, branch: str | None = None
 ) -> object:
     try:
         return [
-            _out(e)
-            for e in await service.resolve_list(
+            _out(d)
+            for d in await service.resolve_list(
                 request_author(request), workspace_id, branch=branch
             )
         ]
@@ -137,18 +157,19 @@ async def list_events(
 
 @router.get("/socle", response_model=None)
 async def socle(workspace_id: str) -> dict[str, Any]:
-    """Le socle commun que le moteur valide EN PLUS du schéma métier, en JSON Schema.
+    """Le socle commun que le moteur valide EN PLUS du modèle désigné, en JSON Schema.
 
     Servi par le portail plutôt qu'écrit dans le front : il est lu du moteur installé, et
     une recopie aurait divergé à la première montée de version. Rendu TEL QUEL plutôt
     qu'aplati, pour que l'écran le monte dans le même éditeur visuel que les champs
-    métier — c'est ce qui fait voir qu'un événement dérive de ce type.
+    métier — c'est ce qui fait voir qu'un event dérive de ce type. C'est aussi lui qui dit
+    quelles propriétés une clé d'unicité peut nommer sans être dans le modèle.
     """
     return socle_schema()
 
 
-@router.get("/{scope}/{name}", response_model=EventContentOut)
-async def get_event(
+@router.get("/{scope}/{name}", response_model=EventTypeOut)
+async def get_event_type(
     workspace_id: str,
     request: Request,
     scope: str,
@@ -157,30 +178,33 @@ async def get_event(
     branch: str | None = None,
 ) -> object:
     try:
-        entry, content = await service.resolve_get(
-            request_author(request), workspace_id, scope, name, branch=branch
+        return _out(
+            await service.resolve_get(
+                request_author(request), workspace_id, scope, name, branch=branch
+            )
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    return EventContentOut(**_out(entry).model_dump(), content=content)
 
 
-@router.post("/declarations", status_code=status.HTTP_201_CREATED, response_model=EventOut)
-async def declare_event(
+@router.post("/declarations", status_code=status.HTTP_201_CREATED, response_model=EventTypeOut)
+async def declare_event_type(
     workspace_id: str,
     request: Request,
-    body: EventDeclare,
+    body: Declaration,
     service: Service,
     response: Response,
     branch: str | None = None,
 ) -> object:
     try:
-        entry, commit = await service.resolve_declare(
+        declared, commit = await service.resolve_declare(
             request_author(request),
             workspace_id,
             body.scope,
             body.label,
             body.slug,
+            (body.model_scope, body.model_name),
+            body.unique,
             branch=branch,
         )
     except _REFUSALS as exc:
@@ -188,34 +212,37 @@ async def declare_event(
     # Rejeu à l'identique : rien n'a été écrit, donc 200 et non 201.
     if commit is None:
         response.status_code = status.HTTP_200_OK
-    return _out(entry)
+    return _out(declared)
 
 
-@router.put("/{scope}/{name}", response_model=EventOut)
-async def replace_event(
+@router.put("/{scope}/{name}", response_model=EventTypeOut)
+async def replace_event_type(
     workspace_id: str,
     request: Request,
     scope: str,
     name: str,
-    body: Annotated[EventReplace, Field()],
+    body: Redeclaration,
     service: Service,
     branch: str | None = None,
 ) -> object:
-    if len(body.content.encode("utf-8")) > MAX_TEXT_BYTES:
-        return _error(
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, {"code": "trop_grand", "max": MAX_TEXT_BYTES}
-        )
     try:
-        entry, _ = await service.resolve_replace(
-            request_author(request), workspace_id, scope, name, body.content, branch=branch
+        declared, _ = await service.resolve_replace(
+            request_author(request),
+            workspace_id,
+            scope,
+            name,
+            body.label,
+            (body.model_scope, body.model_name),
+            body.unique,
+            branch=branch,
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    return _out(entry)
+    return _out(declared)
 
 
 @router.delete("/{scope}/{name}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_event(
+async def delete_event_type(
     workspace_id: str,
     request: Request,
     scope: str,

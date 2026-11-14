@@ -23,6 +23,7 @@ from miles.chains.layout import ROOT as CHAINS_ROOT
 from miles.git.worktree import INITIAL_MANIFEST, MANIFEST, diagnose
 from miles.sources.layout import ROOT as SOURCES_ROOT
 from miles.storages.layout import ROOT as STORAGES_ROOT
+from miles.workflowevents.dsl import fragment_path
 
 MANIFEST_TEXT = json.dumps(INITIAL_MANIFEST)
 
@@ -65,3 +66,51 @@ def test_un_second_fichier_sous_comptes_est_refuse() -> None:
     fichiers que rien ne lit, et que rien ne signalerait.
     """
     assert _unexpected("comptes/autre.yaml") == ["comptes/autre.yaml"]
+
+
+@pytest.mark.parametrize("scope", ["shared", "livraison"])
+def test_l_artefact_de_declaration_d_un_perimetre_est_admis(scope: str) -> None:
+    """Le défaut du 31/10/2026, dans sa forme du 14/11/2026.
+
+    L'artefact des types d'event est un FICHIER à la racine d'un périmètre, là où le
+    diagnostic n'attendait que des dossiers de rubriques. Sans son admission, chaque
+    déclaration écrite rendait la branche non figeable — et le message aurait accusé
+    l'arborescence, pas la déclaration. Le chemin est IMPORTÉ du module qui l'écrit :
+    recopié, il resterait vrai ici pendant que le produit en emploierait un autre.
+    """
+    assert _unexpected(fragment_path(scope)) == []
+
+
+def test_un_wf_qui_ne_porte_pas_le_nom_de_son_perimetre_reste_rapporte() -> None:
+    """Le nom du FICHIER est la clef d'`INCLUDE` du moteur (`load_directory` indexe les
+    fragments par chemin complet ET par nom de fichier seul) : deux périmètres portant le
+    même nom de fichier s'éclipseraient dans cet index, le dernier chargé gagnant, en
+    silence. D'où un seul nom admis par périmètre, et pas « tout `.wf` ».
+    """
+    assert _unexpected("shared/referentiel.wf") == ["shared/referentiel.wf"]
+    assert _unexpected("domains/livraison/referentiel.wf") == ["domains/livraison/referentiel.wf"]
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["shared/messages/.gitkeep", "shared/events/.gitkeep", "domains/livraison/events/.gitkeep"],
+)
+def test_le_marqueur_d_une_rubrique_disparue_ne_bloque_pas_une_version(path: str) -> None:
+    """Défaut mesuré le 14/11/2026 en relisant le diagnostic, et jamais livré.
+
+    Le squelette d'une branche créait `shared/events/.gitkeep` ; la conversion ne déplace
+    que ce qui porte du CONTENU, donc ce marqueur survit à la conversion. Sans cette
+    tolérance il devenait un « emplacement inattendu » : toute branche ouverte avant le
+    renommage cessait d'être figeable, et aucun geste ne la réparait — la conversion,
+    elle, répondait « rien à faire ». Un marqueur ne porte aucun paramétrage.
+    """
+    assert _unexpected(path) == []
+
+
+@pytest.mark.parametrize(
+    "path", ["shared/events/colis_recu.yaml", "domains/livraison/messages/colis.yaml"]
+)
+def test_un_FICHIER_sous_une_rubrique_disparue_reste_rapporte(path: str) -> None:
+    # Discriminant : c'est ce rapport qui envoie convertir. Tolérer la rubrique entière
+    # aurait fait cohabiter deux rangements, dont un que plus rien ne lit.
+    assert _unexpected(path) == [path]

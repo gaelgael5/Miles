@@ -35,7 +35,8 @@ from miles.datamodels.schema import (
 )
 from miles.event_shapes import GESTURE, NAME
 from miles.git.workcopy import WorkCopy
-from miles.workflowevents.layout import entry_of as event_entry_of
+from miles.workflowevents.dsl import FragmentError, scope_of
+from miles.workflowevents.dsl import parse as parse_fragment
 from miles.workshop.domains import domains_in
 from miles.workshop.target import Gesture, WorkBranches
 from miles.workspaces.model import WorkspaceConflictError, checked_label
@@ -386,9 +387,10 @@ async def _described(copy: WorkCopy, entry: ModelEntry) -> ModelEntry:
 async def _users(copy: WorkCopy, target: ModelEntry) -> list[str]:
     """Documents qui désignent `target` : sa suppression les casserait.
 
-    Les ÉVÉNEMENTS de workflow en font partie depuis le 11/11/2026, et c'est la condition
-    pour les autoriser à décrire leur payload avec un modèle : sans cette ligne, supprimer
-    un modèle laisserait un événement avec un `$ref` qui ne résout plus — la version de la
+    Deux genres de désignation, et pas un seul : un autre MODÈLE par un `$ref`, et
+    l'ARTEFACT d'un périmètre par le `AS @…` d'un `DEFINE EVENT`. Depuis le 14/11/2026,
+    c'est le second qui fait d'un modèle un type d'event — sans cette lecture, supprimer
+    un modèle laisserait une déclaration qui ne désigne plus rien : la version de la
     branche le refuserait, mais trop tard, après la suppression et depuis un autre écran.
     """
     users = []
@@ -396,13 +398,25 @@ async def _users(copy: WorkCopy, target: ModelEntry) -> list[str]:
         model = entry_of(path)
         if model == target:
             continue
-        # Les seuls documents qui peuvent désigner un modèle : un autre modèle, ou un
-        # événement. Les autres fichiers du dépôt ne sont pas relus pour rien.
-        if model is None and event_entry_of(path) is None:
-            continue
-        if (target.scope, target.name) in references_in(await copy.read(path) or ""):
+        if model is not None:
+            if (target.scope, target.name) in references_in(await copy.read(path) or ""):
+                users.append(path)
+        elif scope_of(path) is not None and await _declared_in(copy, path, target):
             users.append(path)
     return users
+
+
+async def _declared_in(copy: WorkCopy, path: str, target: ModelEntry) -> bool:
+    """L'artefact d'un périmètre déclare-t-il un type d'event sur `target` ?"""
+    try:
+        declared = parse_fragment(await copy.read(path) or "")
+    except FragmentError:
+        # Illisible (retouché hors de Miles) : on ne sait pas ce qu'il désigne, donc on ne
+        # bloque pas la suppression sur une supposition. Rien ne se perd pour autant — la
+        # validation de la branche refuse de figer une version tant que cet artefact ne se
+        # relit pas, et c'est là que le défaut se nomme.
+        return False
+    return any(d.model == (target.scope, target.name) for d in declared)
 
 
 async def inlined_schema(copy: WorkCopy, schema: Any, origin: tuple[str, str]) -> Any:

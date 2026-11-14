@@ -13,7 +13,6 @@ pytestmark = pytest.mark.integration
 
 # Une seule série de primitives pour les deux familles : le premier argument dit laquelle
 # (décision de Gael, 11/11/2026).
-KIND = {"kind": "model"}
 
 WS = {"workspace_id": "retrait"}
 EDIT = WS | {"branch": "edition"}
@@ -36,15 +35,15 @@ async def _commit(m: McpForge, sha: str) -> dict[str, str]:
 
 
 async def test_a_model_is_created_read_replaced_and_deleted_on_a_child_branch(m: McpForge) -> None:
-    created = await m.ok("create_schema", KIND | EDIT | body_of(PERSONNE))
-    replay = await m.ok("create_schema", KIND | EDIT | body_of(PERSONNE))
+    created = await m.ok("create_schema", EDIT | body_of(PERSONNE))
+    replay = await m.ok("create_schema", EDIT | body_of(PERSONNE))
     changed = PERSONNE + "  prenom:\n    type: string\n"
     replaced = await m.ok(
-        "replace_schema", KIND | EDIT | {"scope": "shared", "name": "personne", "content": changed}
+        "replace_schema", EDIT | {"scope": "shared", "name": "personne", "content": changed}
     )
-    read = await m.ok("get_schema", KIND | EDIT | {"scope": "shared", "name": "personne"})
-    listed = await m.ok("list_schemas", KIND | EDIT)
-    deleted = await m.ok("delete_schema", KIND | EDIT | {"scope": "shared", "name": "personne"})
+    read = await m.ok("get_schema", EDIT | {"scope": "shared", "name": "personne"})
+    listed = await m.ok("list_schemas", EDIT)
+    deleted = await m.ok("delete_schema", EDIT | {"scope": "shared", "name": "personne"})
 
     assert created["path"] == "shared/models/personne.yaml" and created["commit"]
     assert (replay["unchanged"], replay["commit"]) == (True, None)
@@ -63,8 +62,8 @@ async def _forge_identity(m: McpForge) -> tuple[str, str]:
 async def test_a_key_alone_cannot_change_anything(m: McpForge) -> None:
     key_only = {"Authorization": f"Bearer {m.secret}"}
 
-    refused = await m.refused("create_schema", KIND | EDIT | body_of(PERSONNE), headers=key_only)
-    read = await m.ok("list_schemas", KIND | WS, headers=key_only)
+    refused = await m.refused("create_schema", EDIT | body_of(PERSONNE), headers=key_only)
+    read = await m.ok("list_schemas", WS, headers=key_only)
 
     assert refused == {"code": "personne_requise"}
     assert read == []
@@ -72,7 +71,7 @@ async def test_a_key_alone_cannot_change_anything(m: McpForge) -> None:
 
 async def test_a_change_for_the_holder_is_local_until_published_then_theirs(m: McpForge) -> None:
     before = await m.forge.remote_file("shared/models/personne.yaml")
-    created = await m.ok("create_schema", KIND | EDIT | body_of(PERSONNE))
+    created = await m.ok("create_schema", EDIT | body_of(PERSONNE))
     unpublished = await m.forge.remote_file("shared/models/personne.yaml")
     published = await m.ok("publish_branch", EDIT)
     again = await m.ok("publish_branch", EDIT)
@@ -97,7 +96,7 @@ async def test_a_change_for_the_holder_is_local_until_published_then_theirs(m: M
 async def test_a_person_without_the_hold_is_refused_and_told_who_holds_it(m: McpForge) -> None:
     released = await m.forge.client.delete("/api/workspaces/retrait/branches/edition/hold")
 
-    free = await m.refused("create_schema", KIND | EDIT | body_of(PERSONNE))
+    free = await m.refused("create_schema", EDIT | body_of(PERSONNE))
     publish = await m.refused("publish_branch", EDIT)
 
     assert released.json() == {"released": True}
@@ -109,10 +108,10 @@ async def test_a_change_needs_a_named_child_branch(m: McpForge) -> None:
     before = await m.forge.commits("back/retrait/atelier")
     body = body_of(PERSONNE)
 
-    missing = await m.refused("create_schema", KIND | WS | body)
-    root = await m.refused("create_schema", KIND | WS | body | {"branch": "atelier"})
-    unknown = await m.refused("create_schema", KIND | WS | body | {"branch": "nulle"})
-    read_root = await m.ok("list_schemas", KIND | WS)
+    missing = await m.refused("create_schema", WS | body)
+    root = await m.refused("create_schema", WS | body | {"branch": "atelier"})
+    unknown = await m.refused("create_schema", WS | body | {"branch": "nulle"})
+    read_root = await m.ok("list_schemas", WS)
     branches = await m.ok("list_branches", WS)
 
     assert missing == {"code": "branche_requise", "branches": ["edition"]}
@@ -139,8 +138,8 @@ async def test_rights_refusals_are_named_and_distinct_from_validation(m: McpForg
     body = EDIT | body_of(PERSONNE)
     as_reader = {"Authorization": f"Bearer {reader['secret']}"}
 
-    denied = await m.refused("create_schema", KIND | body, headers=as_reader)
-    elsewhere = await m.refused("list_schemas", KIND | {"workspace_id": "caisse"})
+    denied = await m.refused("create_schema", body, headers=as_reader)
+    elsewhere = await m.refused("list_schemas", {"workspace_id": "caisse"})
 
     assert denied == {"code": "droit_insuffisant", "workspace": "retrait", "droit": "lecture"}
     assert elsewhere == {
@@ -155,12 +154,12 @@ async def test_invalid_content_gets_every_problem_the_screen_gets(m: McpForge) -
     body = {"scope": "shared", "name": "colis", "content": broken}
     by_screen = await m.forge.client.post("/api/workspaces/retrait/data-models", json=body)
 
-    by_mcp = await m.refused("create_schema", KIND | EDIT | body)
-    yaml = await m.refused("create_schema", KIND | EDIT | body | {"content": "a: [b"})
+    by_mcp = await m.refused("create_schema", EDIT | body)
+    yaml = await m.refused("create_schema", EDIT | body | {"content": "a: [b"})
     # Le domaine se déclare d'abord (story 7fa00f56) ; ensuite seulement, la référence.
-    no_domain = await m.refused("create_schema", KIND | EDIT | body_of(COLIS))
+    no_domain = await m.refused("create_schema", EDIT | body_of(COLIS))
     await m.ok("create_domain", EDIT | {"name": "suivi"})
-    dangling = await m.refused("create_schema", KIND | EDIT | body_of(COLIS))
+    dangling = await m.refused("create_schema", EDIT | body_of(COLIS))
 
     assert by_mcp == {
         "code": "modele_non_conforme",
@@ -174,22 +173,21 @@ async def test_invalid_content_gets_every_problem_the_screen_gets(m: McpForge) -
 
 
 async def test_unknown_or_used_models_name_what_exists_and_who_uses_them(m: McpForge) -> None:
-    await m.ok("create_schema", KIND | EDIT | body_of(PERSONNE))
+    await m.ok("create_schema", EDIT | body_of(PERSONNE))
     await m.ok("create_domain", EDIT | {"name": "suivi"})
-    await m.ok("create_schema", KIND | EDIT | body_of(COLIS))
+    await m.ok("create_schema", EDIT | body_of(COLIS))
 
-    unknown = await m.refused("get_schema", KIND | EDIT | {"scope": "shared", "name": "absent"})
+    unknown = await m.refused("get_schema", EDIT | {"scope": "shared", "name": "absent"})
     external = await m.refused(
         "replace_schema",
-        KIND
-        | EDIT
+        EDIT
         | {
             "scope": "shared",
             "name": "personne",
             "content": PERSONNE + "  x:\n    $ref: https://ailleurs/x.json\n",
         },
     )
-    used = await m.refused("delete_schema", KIND | EDIT | {"scope": "shared", "name": "personne"})
+    used = await m.refused("delete_schema", EDIT | {"scope": "shared", "name": "personne"})
 
     assert unknown == {
         "code": "modele_inconnu",
@@ -211,7 +209,7 @@ async def test_a_change_made_through_oauth_is_signed_by_the_person_via_the_clien
     _, tokens = await obtain_tokens(m.forge.client, m.mcp, {"retrait": "ecriture"})
     as_person = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-    created = await m.ok("create_schema", KIND | EDIT | body_of(PERSONNE), headers=as_person)
+    created = await m.ok("create_schema", EDIT | body_of(PERSONNE), headers=as_person)
 
     await m.forge.publish()
     commit = await _commit(m, created["commit"])

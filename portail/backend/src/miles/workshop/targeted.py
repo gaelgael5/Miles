@@ -96,7 +96,7 @@ class TargetedReads:
         content = DomainContent(name, truncated=page.truncated, next_after=page.next_after)
         prefix = f"domains/{name}/"
         for element in page.elements:
-            section = section_of(element.path.removeprefix(prefix))
+            section = section_of(element.path.removeprefix(prefix), name)
             target = content.misplaced if section is None else content.sections[section]
             target.append(element)
         return source.commit, content
