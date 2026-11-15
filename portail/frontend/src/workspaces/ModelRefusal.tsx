@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { ApiError } from "@miles/socle-web";
 import type { ModelProblem } from "../api/dataModels";
+import { refusalMessage } from "./refusalMessage";
 
 type Detail = {
   code?: string;
@@ -80,7 +81,7 @@ export function ModelRefusal({
   const dsl = detail?.code === "artefact_illisible" ? (problems as unknown as DslProblem[]) : [];
   return (
     <div className="alert" role="alert">
-      <p>{t(key, values)}</p>
+      <p>{refusalMessage(t, key, values)}</p>
       {dsl.length > 0 && (
         <ul>
           {dsl.map((p) => (

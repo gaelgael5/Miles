@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@miles/socle-web";
+import { refusalMessage } from "./refusalMessage";
 
 
 type Detail = {
@@ -50,7 +51,7 @@ export function ContractRefusal({ error }: { error: unknown }) {
   } else if (error instanceof ApiError && error.detail === "contrat_inconnu") {
     message = t("contracts.errors.notFound");
   } else if (error instanceof ApiError && typeof error.detail === "string") {
-    message = t(`dataModels.errors.conflict.${error.detail}`);
+    message = refusalMessage(t, `dataModels.errors.conflict.${error.detail}`);
   }
   return (
     <div className="alert" role="alert">

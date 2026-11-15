@@ -336,8 +336,25 @@
         "domaine_inconnu": "This domain does not exist on the branch: add it first.",
         "evenement_inconnu": "This event type is not declared on this branch.",
         "nom_pris_ailleurs": "An event type with this name is already declared in another perimeter: a workflow script including both artefacts would not load at all.",
-        "portee_du_modele": "This model is not visible from this perimeter: a shared perimeter may only designate a shared model, otherwise it stops being shared."
+        "portee_du_modele": "This model is not visible from this perimeter: a shared perimeter may only designate a shared model, otherwise it stops being shared.",
+        "branche_d_environnement": "This is not a work branch: the workshop never writes to an environment branch.",
+        "branche_libre": "Nobody holds this branch: there is nothing to shelve.",
+        "branche_racine_lecture_seule": "The root branch is read-only: create a child branch to change it.",
+        "contexte_inconnu": "This translation context does not exist on this branch.",
+        "culture_defaut_absente": "This workspace has no default culture: its state is inconsistent, warn an administrator.",
+        "culture_du_workspace": "This culture is still declared on the workspace: remove it from the workspace before deleting its translations.",
+        "culture_sans_fichier": "This context has no file for that culture.",
+        "disposition_ancienne": "This branch still uses the old layout: its models sit under “messages/”. Convert it before opening it.",
+        "disposition_melangee": "This branch carries both layouts at once: nothing opens until the forge settles which one stands.",
+        "fichier_illisible": "A file on the branch cannot be read: nothing was written.",
+        "identite_git_requise": "Your git identity is unknown: declare it before taking hold of a branch.",
+        "jeton_personnel_refuse": "The forge refused your personal token: the branch stays held, nothing was shelved.",
+        "noms_en_conflit": "Conversion stopped: a former event has the same name as a model already present in the same perimeter. Choose in the forge which one to keep.",
+        "perimetre_non_ecrivable": "A perimeter has a name the workflow DSL refuses (hyphen, accent, leading digit): rename it in the forge before converting.",
+        "prise_concurrente": "The hold changed in the meantime: try again.",
+        "rangement_existant": "A shelf already exists for this branch: read it before creating another."
       },
+      "_sans_libelle": "refusal “{{code}}” — this refusal has no message yet: please report it",
       "unexpected": "The operation failed. See the back-office logs."
     },
     "problems": {

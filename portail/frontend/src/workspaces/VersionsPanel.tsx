@@ -15,6 +15,7 @@ import {
   useSaveVersion,
   useVersions,
 } from "../api/dataModels";
+import { refusalMessage } from "./refusalMessage";
 
 type Detail = {
   code?: string;
@@ -36,7 +37,7 @@ function VersionRefusal({ error }: { error: unknown }) {
     message = t("versions.errors.label");
   } else if (error instanceof ApiError && typeof error.detail === "string") {
     message = t(`versions.errors.conflict.${error.detail}`, {
-      defaultValue: t(`dataModels.errors.conflict.${error.detail}`),
+      defaultValue: refusalMessage(t, `dataModels.errors.conflict.${error.detail}`),
     });
   }
   return (
@@ -179,7 +180,7 @@ export function VersionsPanel({ target }: { target: WorkTarget }) {
           offert ICI — renvoyer vers un autre écran pour un clic est un détour que rien
           ne justifie (Gael, 01/11/2026). */}
       {!saving && target.canFreeze && freezable.data?.reason != null && (
-        <p className="muted">{t(`versions.errors.conflict.${freezable.data.reason}`)}</p>
+        <p className="muted">{refusalMessage(t, `versions.errors.conflict.${freezable.data.reason}`)}</p>
       )}
       {/* **Ce qui ne passe pas les règles, DÈS L'OUVERTURE** (Gael, 01/11/2026 : « il
           faudrait que le message d'erreur arrive avant que j'aie envie de commiter »).

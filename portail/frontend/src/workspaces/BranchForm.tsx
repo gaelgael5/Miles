@@ -5,6 +5,7 @@ import { ApiError, invalidField } from "@miles/socle-web";
 import { useCreateBranch, useSetBranchView } from "../api/branches";
 import { proposeSlug } from "../api/contracts";
 import type { Workspace } from "../api/workspaces";
+import { refusalMessage } from "./refusalMessage";
 
 function refusalKey(error: unknown): string {
   const field = invalidField(error);
@@ -74,7 +75,7 @@ export function BranchForm({
       <p className="help">{t("branches.form.slugHelp", { slug: shownSlug || "…", workspace: workspace.id })}</p>
       {create.isError && (
         <p className="alert" role="alert">
-          {t(refusalKey(create.error), { by })}
+          {refusalMessage(t, refusalKey(create.error), { by })}
         </p>
       )}
       <div className="actions">

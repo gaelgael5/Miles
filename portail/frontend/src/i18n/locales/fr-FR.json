@@ -336,8 +336,25 @@
         "domaine_inconnu": "Ce domaine n'existe pas dans la branche : ajoutez-le d'abord.",
         "evenement_inconnu": "Ce type d'event n'est pas déclaré sur cette branche.",
         "nom_pris_ailleurs": "Un type d'event de ce nom est déjà déclaré dans un autre périmètre : un script de workflow qui inclut les deux artefacts ne se chargerait pas du tout.",
-        "portee_du_modele": "Ce modèle n'est pas visible depuis ce périmètre : un périmètre transverse ne peut désigner qu'un modèle transverse, sinon il cesse d'être transverse."
+        "portee_du_modele": "Ce modèle n'est pas visible depuis ce périmètre : un périmètre transverse ne peut désigner qu'un modèle transverse, sinon il cesse d'être transverse.",
+        "branche_d_environnement": "Cette branche n'est pas une branche de travail : l'atelier n'écrit jamais sur une branche d'environnement.",
+        "branche_libre": "Cette branche n'est tenue par personne : il n'y a rien à ranger.",
+        "branche_racine_lecture_seule": "La branche racine est en lecture seule : créez une branche enfant pour la modifier.",
+        "contexte_inconnu": "Ce contexte de traduction n'existe pas sur cette branche.",
+        "culture_defaut_absente": "Ce workspace n'a pas de culture par défaut : son état est incohérent, prévenez un administrateur.",
+        "culture_du_workspace": "Cette culture est encore déclarée sur le workspace : retirez-la du workspace avant de supprimer ses traductions.",
+        "culture_sans_fichier": "Ce contexte n'a pas de fichier pour cette culture.",
+        "disposition_ancienne": "Cette branche est encore à l'ancienne disposition : ses modèles sont rangés sous « messages/ ». Convertissez-la pour l'ouvrir.",
+        "disposition_melangee": "Cette branche porte les deux dispositions à la fois : rien ne s'ouvre tant qu'on n'a pas tranché, dans la forge, laquelle fait foi.",
+        "fichier_illisible": "Un fichier de la branche est illisible : rien n'a été écrit.",
+        "identite_git_requise": "Votre identité git n'est pas connue : déclarez-la avant de prendre la main sur une branche.",
+        "jeton_personnel_refuse": "La forge a refusé votre jeton personnel : la branche reste tenue, rien n'a été rangé.",
+        "noms_en_conflit": "La conversion s'arrête : un ancien event porte le nom d'un modèle déjà présent dans le même périmètre. Choisissez dans la forge lequel garder.",
+        "perimetre_non_ecrivable": "Un périmètre porte un nom que le DSL de workflow n'accepte pas (tiret, accent, chiffre en tête) : renommez-le dans la forge avant de convertir.",
+        "prise_concurrente": "La prise de main a changé entre-temps : réessayez.",
+        "rangement_existant": "Un rangement existe déjà pour cette branche : relisez-le avant d'en créer un autre."
       },
+      "_sans_libelle": "refus « {{code}} » — ce refus n'a pas encore de message : signalez-le",
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
     },
     "problems": {
