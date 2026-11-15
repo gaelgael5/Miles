@@ -539,7 +539,7 @@
       "domainHelp": "Shared: declared in shared/shared.wf, visible from every domain. A domain missing from the list is added with “Add a domain”. A domain whose name carries a hyphen cannot hold an event type: the DSL cannot write it.",
       "modelNone": "— pick a model —",
       "modelHelp": "The model describing the BUSINESS data of the payload. It is an ordinary data model: a storage or a source may designate it too. The engine also validates the common base, whose properties must not be redeclared.",
-      "uniqueHelp": "Optional, comma-separated, IN ORDER — the engine derives the deduplication hash by concatenation, so the order changes the deduplication. A key names a property of the model or of the common base ({{base}}).",
+      "uniqueHelp": "Optional, comma-separated, IN ORDER — the engine derives the deduplication hash by concatenation, so the order changes the deduplication. A key names a property of the model or of the common base ({{base}}). Without keys the engine still deduplicates, on the base: the sender's Uuid if it provides one, otherwise Name + EventDate (+ ExternalId).",
       "submit": "Declare the event type"
     },
     "edit": {
@@ -554,7 +554,7 @@
     "list": {
       "model": "Payload",
       "unique": "Uniqueness",
-      "noDedup": "none",
+      "noDedup": "engine fallback on the base",
       "modelMissing": "model missing",
       "edit": "Edit"
     },

@@ -70,7 +70,16 @@ dependencies = [
     # n'existent pas sur `main`). La source qui fait foi est le tag `v0.2.1`, identique
     # octet pour octet à la roue publiée. Son `urban-json>=0.2.1` est satisfait par le
     # `==0.3.0` déjà épinglé, et le runtime ANTLR arrive déjà par lui : zéro paquet neuf.
-    "urban-workflow[schemas]==0.2.1",
+    #
+    # Montée 0.2.1 → 0.4.0 le 15/11/2026, delta mesuré sur les roues publiées. Grammaire
+    # INCHANGÉE (mêmes règles, mêmes 48 mots réservés, lexer identique octet pour
+    # octet) : `FRAGMENT`, `DEFINE EVENT … AS @… UNIQUE (…)` et tout ce que
+    # `workflowevents/dsl.py` en a mesuré tiennent. Le seul changement qui regarde le
+    # portail est de COMPORTEMENT : sans `UNIQUE`, le moteur ne renonce plus à
+    # l'anti-doublon, il se replie sur le socle (`Uuid` de l'émetteur, sinon `Name` +
+    # `EventDate` + `ExternalId`). L'écran disait « aucune » : il dit désormais ce repli.
+    # Toujours `urban-json>=0.2.1`, satisfait par le `==0.6.0` épinglé : zéro paquet neuf.
+    "urban-workflow[schemas]==0.4.0",
     "uvicorn[standard]>=0.32",
 ]
 

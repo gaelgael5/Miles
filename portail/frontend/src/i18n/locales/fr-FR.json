@@ -539,7 +539,7 @@
       "domainHelp": "Transverse : déclaré dans shared/shared.wf, visible de tous les domaines. Un domaine absent de la liste s'ajoute avec « Ajouter un domaine ». Un domaine dont le nom porte un tiret ne peut pas porter de type d'event : le DSL ne sait pas l'écrire.",
       "modelNone": "— choisir un modèle —",
       "modelHelp": "Le modèle qui décrit les données MÉTIER du payload. C'est un modèle de données ordinaire : un storage ou une source peut le désigner aussi. Le moteur valide en plus le socle commun, dont les propriétés ne se redéclarent pas.",
-      "uniqueHelp": "Facultatif, séparées par des virgules, DANS L'ORDRE — le moteur dérive le hash d'anti-doublon par concaténation, donc l'ordre change le dédoublonnage. Une clé nomme une propriété du modèle ou du socle commun ({{base}}).",
+      "uniqueHelp": "Facultatif, séparées par des virgules, DANS L'ORDRE — le moteur dérive le hash d'anti-doublon par concaténation, donc l'ordre change le dédoublonnage. Une clé nomme une propriété du modèle ou du socle commun ({{base}}). Sans clé, le moteur dédoublonne quand même, sur le socle : l'Uuid de l'émetteur s'il en fournit un, sinon Name + EventDate (+ ExternalId).",
       "submit": "Déclarer le type d'event"
     },
     "edit": {
@@ -554,7 +554,7 @@
     "list": {
       "model": "Payload",
       "unique": "Unicité",
-      "noDedup": "aucune",
+      "noDedup": "repli du moteur sur le socle",
       "modelMissing": "modèle absent",
       "edit": "Modifier"
     },

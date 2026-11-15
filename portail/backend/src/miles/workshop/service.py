@@ -307,7 +307,10 @@ class WorkshopService:
         À la SUITE et non à la place : une branche peut porter des deux, si quelqu'un a
         déjà déclaré un type d'event à la main avant de convertir. Aucune clé d'unicité
         n'est posée, et c'est fidèle : `UNIQUE (…)` n'existait pas avant la déclaration, et
-        en inventer une changerait l'anti-doublon d'un référentiel en service.
+        en inventer une changerait l'anti-doublon d'un référentiel en service. Sans elle,
+        le moteur (>= 0.4.0) dédoublonne sur le socle — `Uuid` de l'émetteur, sinon
+        `Name` + `EventDate` (+ `ExternalId`) : c'est le comportement du moteur, pas un
+        choix de la conversion.
         """
         par_perimetre: dict[str, list[EventType]] = {}
         for scope, name in layout.event_types:

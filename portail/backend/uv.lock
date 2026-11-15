@@ -1056,7 +1056,7 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.4" },
     { name = "urban-json", specifier = "==0.6.0" },
     { name = "urban-json-editor", specifier = "==0.4.0" },
-    { name = "urban-workflow", extras = ["schemas"], specifier = "==0.2.1" },
+    { name = "urban-workflow", extras = ["schemas"], specifier = "==0.4.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
@@ -1856,14 +1856,14 @@ wheels = [
 
 [[package]]
 name = "urban-workflow"
-version = "0.2.1"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "urban-json" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/67/a227b61f520845ee0fd9483d1309dfbd6e241ff28f891d991ca7b25460d6/urban_workflow-0.2.1.tar.gz", hash = "sha256:8ab6209736817f8ec1223e2569d4e51f8731d2d328a3f85735903532dffe116d", size = 143838, upload-time = "2026-11-08T14:47:01.404Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/da/f6/ec7ed0f0f305641ca66fc3ccf4dd967e118146efe177f87d94ff6767f70e/urban_workflow-0.4.0.tar.gz", hash = "sha256:add05c11bf6968ab5e8ddf42e5895a33693b2d76556aed39d956d9e576eaab36", size = 154930, upload-time = "2026-11-15T09:07:13.613Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/3c/683d7a5688f9ebdbd69c19db34780eb3d524012523ee04fc4c64742c5bc6/urban_workflow-0.2.1-py3-none-any.whl", hash = "sha256:a32e0083bf169eaafcef3ee035d5bf840f825e16bbb7446e5e9b2cba13dd8022", size = 112415, upload-time = "2026-11-08T14:47:00.061Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/98/5ab94707d43ba44f11bb38ad3089a4a67a80643780862f0f6fea45f91904/urban_workflow-0.4.0-py3-none-any.whl", hash = "sha256:b553171468995c47eb5e32efa5ca8a66eda04b6b729b276c6ae19e87e54577bc", size = 120141, upload-time = "2026-11-15T09:07:12.394Z" },
 ]
 
 [package.optional-dependencies]
