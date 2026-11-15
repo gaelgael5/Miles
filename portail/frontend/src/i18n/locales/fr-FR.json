@@ -1565,5 +1565,16 @@
       "branche_racine_lecture_seule": "La branche racine est en lecture seule : travaillez dans une branche enfant.",
       "unexpected": "L'opération n'a pas pu être effectuée."
     }
+  },
+  "layout": {
+    "notice": {
+      "effect": "La conversion déplacera {{moves}} fichier(s) vers « models/ » et déclarera {{types}} type(s) d'event, en un seul commit relisible.",
+      "conflicts": "Elle s'arrêterait : un ancien event porte le nom d'un modèle déjà présent ({{list}}). Choisissez dans la forge lequel garder.",
+      "convert": "Convertir la disposition",
+      "confirmTitle": "Convertir la disposition de la branche ?",
+      "confirmMessage": "{{moves}} fichier(s) seront déplacés sur la branche {{branch}}, en un commit. Rien n'est perdu : la forge garde l'historique.",
+      "holdRequired": "Prenez la main sur cette branche pour la convertir.",
+      "failed": "La conversion a échoué : rien n'a été écrit."
+    }
   }
 }

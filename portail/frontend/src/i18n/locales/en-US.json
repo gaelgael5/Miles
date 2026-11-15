@@ -1565,5 +1565,16 @@
       "branche_racine_lecture_seule": "The root branch is read-only: work in a child branch.",
       "unexpected": "The operation could not be completed."
     }
+  },
+  "layout": {
+    "notice": {
+      "effect": "Converting will move {{moves}} file(s) to “models/” and declare {{types}} event type(s), in a single reviewable commit.",
+      "conflicts": "It would stop: a former event has the same name as an existing model ({{list}}). Choose in the forge which one to keep.",
+      "convert": "Convert the layout",
+      "confirmTitle": "Convert the branch layout?",
+      "confirmMessage": "{{moves}} file(s) will be moved on branch {{branch}}, in one commit. Nothing is lost: the forge keeps the history.",
+      "holdRequired": "Take hold of this branch to convert it.",
+      "failed": "Conversion failed: nothing was written."
+    }
   }
 }

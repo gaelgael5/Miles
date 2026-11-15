@@ -17,6 +17,12 @@ export interface WorkTarget {
    * a la main — le serveur exige en plus que tout soit publié.
    */
   canFreeze: boolean;
+  /**
+   * Convertir la disposition du dépôt : permis sur la RACINE — sinon une racine à
+   * l'ancienne disposition resterait refusée pour toujours, sans geste pour la réparer —
+   * et sur une branche enfant par qui en a la main, comme toute écriture.
+   */
+  canMigrate: boolean;
 }
 
 /** Adresse d'une ressource de l'atelier sur la branche visée. */

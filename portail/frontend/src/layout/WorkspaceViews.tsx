@@ -117,7 +117,7 @@ export function WorkspaceViews({
               ) : (
                 <ContractLinks
                   // Des liens qui ne font que lire : aucun geste d'écriture ne part du menu.
-                  target={{ workspaceId, branch, readOnly: true, canFreeze: false }}
+                  target={{ workspaceId, branch, readOnly: true, canFreeze: false, canMigrate: false }}
                   open={open}
                   current={here ? selection?.contract : undefined}
                   onSelect={(contract) => onSelect({ id: workspaceId, view, branch, contract })}

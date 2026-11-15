@@ -37,6 +37,7 @@ pytestmark = pytest.mark.integration
 
 MODELS = "/api/workspaces/retrait/data-models"
 CONVERT = "/api/workspaces/retrait/layout/convert"
+LAYOUT = "/api/workspaces/retrait/layout"
 
 # L'ancien nom du dossier, composé pour qu'un renommage automatique du dépôt ne le
 # réécrive pas ici : c'est l'ancienne disposition qu'on éprouve.
@@ -208,3 +209,53 @@ async def test_un_ex_event_dont_le_nom_est_deja_pris_arrete_la_conversion(
     assert refused.json()["detail"] == "noms_en_conflit"
     assert await forge.remote_file("shared/models/personne.yaml") == PERSONNE
     assert await forge.remote_file("shared/shared.wf") is None
+
+
+async def test_la_disposition_se_lit_meme_quand_la_branche_est_refusee(forge: Forge) -> None:
+    """Le cul-de-sac du 15/11/2026 : le refus nommait la conversion, et aucun écran ne
+    pouvait l'offrir — toute ouverture de la branche étant refusée, y compris celle qui
+    aurait servi à dire pourquoi. La lecture de la disposition franchit donc la garde,
+    comme la conversion elle-même, et rend ce que la conversion ferait."""
+    await forge.seed(AVEC_EVENTS)
+
+    read = await forge.client.get(LAYOUT, timeout=120)
+
+    assert read.status_code == 200, read.text
+    assert read.json() == {
+        "kind": "ancienne",
+        "refusal": "disposition_ancienne",
+        # Le schéma et ses métadonnées ; `personne` est déjà sous `models/` et ne bouge pas.
+        "moves": 2,
+        "event_types": 1,
+        "conflicts": [],
+    }
+
+
+async def test_la_disposition_d_une_branche_a_jour_n_annonce_aucun_refus(forge: Forge) -> None:
+    # Discriminant : sans ce cas, une lecture qui dirait « ancienne » pour tout passerait
+    # le test précédent, et le bandeau s'afficherait sur toutes les branches.
+    await forge.seed({"shared/models/personne.yaml": PERSONNE})
+
+    read = await forge.client.get(LAYOUT, timeout=120)
+
+    assert read.status_code == 200, read.text
+    assert read.json()["kind"] == "a_jour"
+    assert read.json()["refusal"] is None
+    assert read.json()["moves"] == 0
+
+
+async def test_la_disposition_nomme_les_ex_events_dont_le_nom_est_pris(forge: Forge) -> None:
+    """Ce que le bandeau doit dire AVANT le clic : la conversion s'arrêtera, et sur quoi.
+
+    Sans ce rendu, la personne cliquerait pour apprendre le conflit par un refus."""
+    await forge.seed(
+        {
+            "shared/events/personne.yaml": COLIS_RECU.replace("colis_recu", "personne"),
+            "shared/models/personne.yaml": PERSONNE,
+        }
+    )
+
+    read = await forge.client.get(LAYOUT, timeout=120)
+
+    assert read.status_code == 200, read.text
+    assert read.json()["conflicts"] == ["shared/models/personne.yaml"]

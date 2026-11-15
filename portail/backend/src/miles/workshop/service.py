@@ -218,6 +218,23 @@ class WorkshopService:
         mine = [v for v in every if (v.branch or base) == copy.branch]
         return mine, every[0].number if every else 0
 
+    async def resolve_layout(
+        self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
+    ) -> Layout:
+        """La disposition de la branche, telle que l'écran l'annonce AVANT de convertir.
+
+        Lecture seule, portée par le seul autre geste qui franchit la garde de
+        disposition. Sans elle, l'écran reçoit un refus qui nomme la conversion et n'a
+        aucun moyen de l'offrir : un cul-de-sac, relevé par Gael le 15/11/2026 sur une
+        branche à l'ancienne disposition. Elle rend aussi ce que la conversion ferait —
+        combien de fichiers, combien de types d'event — parce qu'un bouton qui écrit un
+        commit se propose avec ce qu'il va écrire.
+        """
+        async with self.branches.checkout(
+            workspace_id, branch, by=viewer, gesture=Gesture.LAYOUT
+        ) as copy:
+            return layout_of(await copy.paths())
+
     async def resolve_convert_layout(
         self, author: EventAuthor, workspace_id: str, *, branch: str | None = None
     ) -> int:

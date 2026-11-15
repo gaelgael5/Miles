@@ -48,9 +48,15 @@ class Gesture(Enum):
     # par qui a la main et sans commit local non publié (critère 11).
     FREEZE = "freeze"
     # Convertir la disposition du dépôt (13/11/2026). Écrit, donc soumis aux mêmes règles
-    # que `EDIT` — et c'est le SEUL geste que la garde de disposition laisse passer, sans
-    # quoi la conversion se refuserait elle-même.
+    # que `EDIT` — et la garde de disposition le laisse passer, sans quoi la conversion se
+    # refuserait elle-même.
     MIGRATE = "migrate"
+    # LIRE la disposition, pour la dire à l'écran (15/11/2026). Règles de `READ`, et la
+    # garde de disposition le laisse passer lui aussi : c'est le geste qui sert à annoncer
+    # « cette branche est à l'ancienne disposition », et le refuser rendrait le refus
+    # muet — personne ne saurait quoi faire du cul-de-sac. Il ne doit JAMAIS écrire : tout
+    # ce qu'il franchit, il le franchit sans la main sur la branche.
+    LAYOUT = "layout"
 
 
 async def _refuse_ancienne_disposition(copy: WorkCopy, gesture: Gesture) -> None:
@@ -62,7 +68,7 @@ async def _refuse_ancienne_disposition(copy: WorkCopy, gesture: Gesture) -> None
     suppression et n'en est pas : c'est exactement le genre de panne qu'on découvre chez
     un client, loin de sa cause. Un refus qui nomme le geste à faire vaut mieux.
     """
-    if gesture is Gesture.MIGRATE:
+    if gesture in (Gesture.MIGRATE, Gesture.LAYOUT):
         return
     refusal = layout_of(await copy.paths()).refusal
     if refusal is not None:
@@ -122,7 +128,7 @@ class WorkBranches:
         slug = name.removeprefix(work_branch_prefix(workspace.id))
         hold = await db_hold(self.pool, workspace.id, slug)
         mine = hold is not None and hold.held_by(by)
-        if gesture is not Gesture.READ and not mine:
+        if gesture not in (Gesture.READ, Gesture.LAYOUT) and not mine:
             # Sans la main, rien ne se modifie (Gael, 22/10/2026) : vaut pour l'écran comme
             # pour MCP, et c'est ici, au seul point d'ouverture, que ça se garantit.
             raise HoldRequiredError(None if hold is None else hold.holder_label)

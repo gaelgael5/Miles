@@ -224,6 +224,41 @@ class ConvertedOut(BaseModel):
     moved: int
 
 
+class LayoutOut(BaseModel):
+    """Ce que l'écran dit de la branche avant de proposer la conversion."""
+
+    # `a_jour`, `ancienne` ou `melangee`.
+    kind: str
+    # Le motif de refus d'ouverture, ou None quand la branche s'ouvre.
+    refusal: str | None
+    # Ce que la conversion ferait : des nombres, pas des chemins. Un bouton qui écrit un
+    # commit s'annonce par son effet ; la liste des fichiers est dans la forge.
+    moves: int
+    event_types: int
+    # Les ex-events dont le nom est déjà pris par un modèle du même périmètre : la
+    # conversion s'y refuse, et c'est la seule chose qu'on NOMME, parce qu'elle se répare
+    # à la main.
+    conflicts: list[str]
+
+
+@layout_router.get("", response_model=LayoutOut)
+async def read_layout(
+    workspace_id: str, request: Request, service: Service, branch: str | None = None
+) -> object:
+    """La disposition de la branche : lecture, admise même quand l'ouverture est refusée."""
+    try:
+        layout = await service.resolve_layout(request_author(request), workspace_id, branch=branch)
+    except _REFUSALS as exc:
+        return _refusal(exc)
+    return LayoutOut(
+        kind=layout.kind,
+        refusal=layout.refusal,
+        moves=len(layout.moves),
+        event_types=len(layout.event_types),
+        conflicts=list(layout.conflicts),
+    )
+
+
 @layout_router.post("/convert", response_model=ConvertedOut)
 async def convert_layout(
     workspace_id: str, request: Request, service: Service, branch: str | None = None

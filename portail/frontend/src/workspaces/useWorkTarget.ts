@@ -12,5 +12,11 @@ export function useWorkTarget(workspace: Workspace, branch: string): WorkTarget 
   const root = branch === baseBranchOf(workspace);
   const holds = useHolds(workspace.id, !root);
   const mine = holds.data?.some((h) => h.slug === branch && h.mine) ?? false;
-  return { workspaceId: workspace.id, branch, readOnly: root || !mine, canFreeze: root || mine };
+  return {
+    workspaceId: workspace.id,
+    branch,
+    readOnly: root || !mine,
+    canFreeze: root || mine,
+    canMigrate: root || mine,
+  };
 }

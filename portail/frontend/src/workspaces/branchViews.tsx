@@ -1,6 +1,7 @@
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
 import { HoldNotice } from "./HoldNotice";
+import { LayoutNotice } from "./LayoutNotice";
 import { RootReadOnlyNotice } from "./RootReadOnlyNotice";
 import { useWorkTarget } from "./useWorkTarget";
 import { type WorkspaceSelection, baseBranchOf } from "../layout/WorkspacesNav";
@@ -45,6 +46,7 @@ export function BranchViewScreen({
   const root = branch === baseBranchOf(workspace);
   return (
     <>
+      <LayoutNotice target={target} />
       {root && <RootReadOnlyNotice />}
       {!root && target.readOnly && <HoldNotice workspaceId={workspace.id} branch={branch} />}
       {viewScreen(workspace, selection, target, onSelect)}
