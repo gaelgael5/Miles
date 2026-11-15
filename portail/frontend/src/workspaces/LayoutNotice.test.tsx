@@ -20,7 +20,7 @@ const ANCIENNE = {
   conflicts: [],
 };
 
-function routes(layout: unknown, extra: Record<string, unknown> = {}) {
+function routes(layout: unknown, extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     ...HELD,
     "GET /api/workspaces": { status: 200, body: [WORKING] },
@@ -28,11 +28,11 @@ function routes(layout: unknown, extra: Record<string, unknown> = {}) {
     "GET /api/workspaces/retrait/data-models?branch=edition": { status: 409, body: null },
     [LAYOUT]: { status: 200, body: layout },
     ...extra,
-  } as never;
+  };
 }
 
 function openModels(layout: unknown, extra: Record<string, unknown> = {}) {
-  const calls = mockApi(routes(layout, extra));
+  const calls = mockApi(routes(layout, extra) as never);
   renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition" });
   return calls;
 }
