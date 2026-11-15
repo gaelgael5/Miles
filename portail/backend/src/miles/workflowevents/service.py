@@ -153,7 +153,9 @@ class WorkflowEventsService:
                 copy, author, declared.scope, [*_own(existing, declared.scope), declared]
             )
         await self._event(workspace_id, CREATED_EVENT, author, declared, commit, copy.branch)
-        log.info("type_d_event_declare", workspace=workspace_id, event=declared.name)
+        log.info(
+            "type_d_event_declare", workspace=workspace_id, scope=declared.scope, name=declared.name
+        )
         return declared, commit
 
     async def resolve_replace(
@@ -191,7 +193,9 @@ class WorkflowEventsService:
                 return declared, None
             commit = await self._rewrite(copy, author, declared.scope, kept)
         await self._event(workspace_id, REPLACED_EVENT, author, declared, commit, copy.branch)
-        log.info("type_d_event_modifie", workspace=workspace_id, event=declared.name)
+        log.info(
+            "type_d_event_modifie", workspace=workspace_id, scope=declared.scope, name=declared.name
+        )
         return declared, commit
 
     async def resolve_delete(
@@ -214,7 +218,7 @@ class WorkflowEventsService:
             kept = [d for d in _own(existing, scope) if d.name != name]
             commit = await self._rewrite(copy, author, scope, kept)
         await self._event(workspace_id, DELETED_EVENT, author, gone[0], commit, copy.branch)
-        log.info("type_d_event_supprime", workspace=workspace_id, event=name)
+        log.info("type_d_event_supprime", workspace=workspace_id, scope=scope, name=name)
         return commit
 
     async def _checked(

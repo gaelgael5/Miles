@@ -70,7 +70,10 @@ async def test_une_declaration_est_ecrite_dans_un_artefact_que_le_moteur_relit(
 ) -> None:
     await _model(forge, "demande", DEMANDE)
 
-    declared = await _declare(forge, unique=["Tracking", "ExternalId"])
+    # Une clé du modèle puis une du socle : `Tracking`, écrit ici jusqu'au 15/11/2026,
+    # n'était ni l'un ni l'autre, et la déclaration était refusée à bon droit
+    # (`cle_d_unicite_inconnue`) — le test datait d'avant cette règle.
+    declared = await _declare(forge, unique=["Montant", "ExternalId"])
     assert declared.status_code == 201, declared.text
     assert declared.json() == {
         "scope": "shared",
@@ -79,7 +82,7 @@ async def test_une_declaration_est_ecrite_dans_un_artefact_que_le_moteur_relit(
         "model": "shared/models/demande.yaml",
         "model_scope": "shared",
         "model_name": "demande",
-        "unique": ["Tracking", "ExternalId"],
+        "unique": ["Montant", "ExternalId"],
         "model_missing": False,
     }
 
@@ -98,12 +101,16 @@ async def test_l_ordre_des_cles_d_unicite_est_conserve_a_la_relecture(forge: For
     l'écriture ou à la relecture changerait le dédoublonnage d'un référentiel en service.
     """
     await _model(forge, "demande", DEMANDE)
-    await _declare(forge, unique=["Tracking", "ExternalId", "Montant"])
+    # Ni l'ordre alphabétique ni son inverse : un tri dans un sens ou dans l'autre rougit.
+    declared = await _declare(forge, unique=["Montant", "Name", "ExternalId"])
+    # Sans cette ligne, une déclaration REFUSÉE se lisait plus bas en « 404 inconnu », un
+    # échec qui n'accusait pas sa cause — mesuré sur la campagne du 15/11/2026.
+    assert declared.status_code == 201, declared.text
 
     relu = await forge.client.get(f"{ROUTE}/shared/demande_soumise", timeout=120)
 
     assert relu.status_code == 200, relu.text
-    assert relu.json()["unique"] == ["Tracking", "ExternalId", "Montant"]
+    assert relu.json()["unique"] == ["Montant", "Name", "ExternalId"]
 
 
 async def test_un_type_de_domaine_vit_dans_l_artefact_de_son_domaine(forge: Forge) -> None:
