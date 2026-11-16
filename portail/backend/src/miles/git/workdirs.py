@@ -13,7 +13,15 @@ from miles_socle.git.failures import classify
 from miles_socle.git.forge import Repository
 from miles_socle.git.runner import run_git
 
-from miles.git.workcopy import BranchMissingError, WorkCopy, remote_head, tracked_sha
+from miles.git.workcopy import (
+    BranchMissingError,
+    TreeCopy,
+    WorkCopy,
+    published_head,
+    remote_head,
+    tracked_sha,
+    tree_of,
+)
 from miles.git.worktree import WORK_BRANCH_ROOT, RepositoryAccessError
 
 # Segments de chemin : un identifiant de workspace et un nom de branche déjà validés par
@@ -33,9 +41,14 @@ class WorkDirs:
     """
 
     root: Path
-    # Un geste à la fois par répertoire : deux requêtes sur la même branche se
+    # Une ÉCRITURE à la fois par répertoire : deux écritures sur la même branche se
     # piétineraient l'arbre de travail. Le back-office tourne en un seul processus.
     _locks: dict[Path, asyncio.Lock] = field(default_factory=dict)
+    # Les TRANSFERTS vers ce dépôt, séparément de l'arbre. Deux `fetch` concurrents se
+    # disputent le verrou de référence de git et l'un échoue sur « cannot lock ref » ;
+    # mais une lecture qui doit récupérer ne doit pas pour autant attendre l'écriture
+    # ENTIÈRE qui tient l'arbre — elle n'attend que le transfert lui-même.
+    _transfers: dict[Path, asyncio.Lock] = field(default_factory=dict)
 
     def directory(self, workspace_id: str, branch: str) -> Path:
         if not SEGMENT_RE.match(workspace_id):
@@ -69,15 +82,33 @@ class WorkDirs:
     async def checkout(
         self, repo: Repository, access: GitAccess, workspace_id: str, branch: str
     ) -> AsyncIterator[WorkCopy]:
+        """Pour ÉCRIRE : l'arbre est posé, et le verrou tient le geste entier."""
         directory = self.directory(workspace_id, branch)
-        lock = self._locks.setdefault(directory, asyncio.Lock())
-        async with lock:
+        async with self._locks.setdefault(directory, asyncio.Lock()):
             copy = WorkCopy(repo, access, branch, directory)
-            await _align(copy)
+            await _align(copy, self._transfers.setdefault(directory, asyncio.Lock()))
+            yield copy
+
+    @asynccontextmanager
+    async def read_tree(
+        self, repo: Repository, access: GitAccess, workspace_id: str, branch: str
+    ) -> AsyncIterator[WorkCopy]:
+        """Pour LIRE la tête publiée : aucun arbre posé ici, donc aucune attente.
+
+        Le verrou du répertoire n'est PAS pris : il protège l'arbre de travail, et une
+        lecture n'y touche plus. Deux lectures de la même branche se recouvrent, et une
+        lecture lancée pendant une écriture rend l'état cohérent d'avant celle-ci — c'est
+        l'arbitrage de Gael du 15/11/2026, et c'est ce qui fait qu'une page coûte le temps
+        d'UN geste au lieu de la somme de neuf.
+        """
+        directory = self.directory(workspace_id, branch)
+        transfers = self._transfers.setdefault(directory, asyncio.Lock())
+        view = TreeCopy(repo, access, branch, directory, repo_dir=directory, fetch_lock=transfers)
+        async with tree_of(view, await published_head(view, transfers)) as copy:
             yield copy
 
 
-async def _align(copy: WorkCopy) -> None:
+async def _align(copy: WorkCopy, transfers: asyncio.Lock) -> None:
     """Amène la copie exactement sur la tête distante de sa branche."""
     ref = f"refs/heads/{copy.branch}"
     await asyncio.to_thread(copy.root.mkdir, parents=True, exist_ok=True)
@@ -112,7 +143,11 @@ async def _align(copy: WorkCopy) -> None:
     # fraîcheur, ni délai, ni état gardé. On n'économise que le transfert d'objets déjà
     # présents, ce que le SHA prouve.
     if remote_head(listed.stdout, ref) != await tracked_sha(copy, tracking):
-        await _ok(copy, "fetch", "-q", "--depth", "1", _REMOTE, f"+{ref}:{tracking}")
+        # Sous le verrou des transferts, et non sous celui de l'arbre : une lecture qui
+        # récupère en même temps viserait la même référence de suivi, et git en aurait
+        # refusé une des deux.
+        async with transfers:
+            await _ok(copy, "fetch", "-q", "--depth", "1", _REMOTE, f"+{ref}:{tracking}")
     # Forcé puis nettoyé : un geste interrompu a pu laisser un commit non poussé, des
     # modifications ou des fichiers non suivis ; aucun ne doit atteindre le geste suivant.
     await _ok(copy, "checkout", "-q", "-f", "-B", copy.branch, tracking)

@@ -112,6 +112,12 @@ class WorkBranches:
         """
         workspace = await self._with_base(workspace_id)
         name = await self._branch_name(workspace, branch)
+        # Un geste qui ne modifie rien se lit SANS poser d'arbre de travail, donc sans
+        # prendre le verrou de la copie : c'est ce qui fait qu'une page coûte le temps d'un
+        # geste au lieu de la somme des neuf qu'elle lance (enabler 7fb3577c), et c'est
+        # l'arbitrage de Gael du 15/11/2026 — aucune lecture n'attend, et une lecture
+        # concurrente d'une écriture rend l'état cohérent d'avant.
+        lecture = gesture in (Gesture.READ, Gesture.LAYOUT)
         if name == workspace.work_branch:
             if gesture is Gesture.EDIT:
                 # La racine est en lecture seule (Gael, 22/10/2026, story dca0eb0e) : on
@@ -121,7 +127,7 @@ class WorkBranches:
                 # aussi l'ancienne disposition, et si elle ne pouvait jamais être
                 # convertie, toute lecture de la racine resterait refusée pour toujours.
                 raise WorkspaceConflictError("branche_racine_lecture_seule")
-            async with self._shared(workspace, name) as copy:
+            async with self._shared(workspace, name, lecture) as copy:
                 await _refuse_ancienne_disposition(copy, gesture)
                 yield copy
             return
@@ -135,11 +141,11 @@ class WorkBranches:
         if hold is None or not mine:
             # Les autres lisent ce qui est publié : un commit local n'est visible que de
             # qui l'a fait, jusqu'à sa publication (voulu, ticket 9def0adc).
-            async with self._shared(workspace, name) as copy:
+            async with self._shared(workspace, name, lecture) as copy:
                 await _refuse_ancienne_disposition(copy, gesture)
                 yield copy
             return
-        async with self.held(workspace, hold) as held:
+        async with self.held(workspace, hold, read_only=lecture) as held:
             if gesture is Gesture.FREEZE and await held.unpublished():
                 # Une version fige la tête publiée, celle que tout le monde voit dans la
                 # forge (Gael, 22/10/2026) : un commit local n'y entrerait pas.
@@ -148,7 +154,9 @@ class WorkBranches:
             yield held
 
     @asynccontextmanager
-    async def held(self, workspace: Workspace, hold: Hold) -> AsyncIterator[HeldCopy]:
+    async def held(
+        self, workspace: Workspace, hold: Hold, *, read_only: bool = False
+    ) -> AsyncIterator[HeldCopy]:
         """L'espace de la personne qui a la main, ouvert avec SON jeton, jamais celui du service.
 
         Interdit par le ticket : écrire sur une branche tenue avec le PAT du workspace.
@@ -160,8 +168,13 @@ class WorkBranches:
             # Inatteignable tant que le retrait du PAT est refusé pendant la prise
             # (critère 12) : fermé quand même, sans repli sur le jeton du service.
             raise WorkspaceConflictError("identite_git_requise")
+        # Une LECTURE ne prend pas le verrou de l'espace et n'y mute rien : elle n'a donc
+        # pas de prise à relire sous verrou — personne ne lui laisse écrire quoi que ce
+        # soit. Et elle ne recale pas l'espace, donc la tête publiée en base ne bouge pas :
+        # c'est le prochain geste d'écriture qui s'en charge, comme avant.
+        ouverture = self.holds.read_tree if read_only else self.holds.open
         try:
-            async with self.holds.open(
+            async with ouverture(
                 repo,
                 GitAccess(token),
                 workspace.id,
@@ -169,15 +182,16 @@ class WorkBranches:
                 published=hold.published_commit,
                 signature=git_signature(*signature),
             ) as copy:
-                # Relue sous le verrou de l'espace : une prise rendue ou déverrouillée
-                # pendant qu'un geste attendait ne lui laisse rien écrire.
-                current = await db_hold(self.pool, workspace.id, hold.slug)
-                if current is None or current.taken_at != hold.taken_at:
-                    raise HoldRequiredError(None if current is None else current.holder_label)
-                if copy.published != hold.published_commit:
-                    # L'espace s'est recalé sur la forge : c'est la nouvelle tête publiée,
-                    # le bail de la prochaine publication.
-                    await db_set_published(self.pool, hold, copy.published)
+                if not read_only:
+                    # Relue sous le verrou de l'espace : une prise rendue ou déverrouillée
+                    # pendant qu'un geste attendait ne lui laisse rien écrire.
+                    current = await db_hold(self.pool, workspace.id, hold.slug)
+                    if current is None or current.taken_at != hold.taken_at:
+                        raise HoldRequiredError(None if current is None else current.holder_label)
+                    if copy.published != hold.published_commit:
+                        # L'espace s'est recalé sur la forge : c'est la nouvelle tête
+                        # publiée, le bail de la prochaine publication.
+                        await db_set_published(self.pool, hold, copy.published)
                 yield copy
         except RepositoryAccessError as exc:
             raise RepositoryUnavailableError(exc.reason.value) from None
@@ -185,10 +199,13 @@ class WorkBranches:
             raise WorkspaceConflictError("branche_de_travail_introuvable") from None
 
     @asynccontextmanager
-    async def _shared(self, workspace: Workspace, name: str) -> AsyncIterator[WorkCopy]:
+    async def _shared(
+        self, workspace: Workspace, name: str, read_only: bool = False
+    ) -> AsyncIterator[WorkCopy]:
         repo, access = await self.repository(workspace)
+        ouverture = self.workdirs.read_tree if read_only else self.workdirs.checkout
         try:
-            async with self.workdirs.checkout(repo, access, workspace.id, name) as copy:
+            async with ouverture(repo, access, workspace.id, name) as copy:
                 yield copy
         except RepositoryAccessError as exc:
             # Dépôt devenu inaccessible : on désigne l'accès, la branche reste intacte.

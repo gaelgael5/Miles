@@ -45,7 +45,13 @@ async def fetch_versions(copy: WorkCopy) -> list[SavedVersion]:
 
 
 async def same_tree(copy: WorkCopy, commit: str) -> bool:
-    here = await copy.git("rev-parse", "HEAD^{tree}")
+    """Compare l'arbre du commit SERVI à celui d'un autre commit.
+
+    `copy.head` et non `HEAD` : une lecture est servie depuis un commit désigné, sans
+    arbre de travail ni HEAD posé (enabler 7fb3577c). Les deux coïncident sur le chemin
+    d'écriture, où la copie est alignée sur sa tête.
+    """
+    here = await copy.git("rev-parse", f"{copy.head}^{{tree}}")
     there = await copy.git("rev-parse", f"{commit}^{{tree}}")
     return here.ok and there.ok and here.stdout.strip() == there.stdout.strip()
 
