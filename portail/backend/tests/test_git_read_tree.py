@@ -145,10 +145,15 @@ async def test_a_read_keeps_its_complete_tree_while_a_write_mutates_the_shared_c
     repo, _, _ = _remote(tmp_path)
     dirs = WorkDirs(tmp_path / "volume")
 
-    async with dirs.read_tree(repo, TOKEN, "retrait", BRANCH) as lecture:
+    async def ecrire() -> None:
         async with dirs.checkout(repo, TOKEN, "retrait", BRANCH) as ecriture:
             await ecriture.write("a.yaml", "écrit pendant la lecture\n")
             await ecriture.write("orphelin.yaml", "x\n")
+
+    async with dirs.read_tree(repo, TOKEN, "retrait", BRANCH) as lecture:
+        # Bornée : si la lecture et l'écriture partageaient le verrou, l'écriture
+        # n'entrerait jamais et ce test rougirait au lieu de se bloquer.
+        await asyncio.wait_for(ecrire(), DELAI)
         ecriture_terminee = True
         chemins = await lecture.paths()
         contenus = [await lecture.read(p) for p in chemins]
