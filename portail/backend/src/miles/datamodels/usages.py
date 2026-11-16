@@ -38,14 +38,14 @@ from miles.datamodels.schema import references_in
 from miles.workflowevents.dsl import FragmentError, scope_of
 from miles.workflowevents.dsl import parse as parse_fragment
 
-# Les natures de désignation. Des constantes et non une énumération : elles voyagent
-# telles quelles jusqu'à l'écran, qui en dérive un libellé et un lien — une énumération
-# aurait ajouté une traduction sans rien garantir de plus.
 # Lire UN fichier de la branche. Le même contrat que `miles_socle.parametrage.refs` et
 # que `kind_at` : ce module ne fait rien d'autre de la copie, et ne pas la prendre en
 # entier le rend éprouvable sans dépôt ni forge.
 Reader = Callable[[str], Awaitable[str | None]]
 
+# Les natures de désignation. Des constantes et non une énumération : elles voyagent
+# telles quelles jusqu'à l'écran, qui en dérive un libellé et un lien — une énumération
+# aurait ajouté une traduction sans rien garantir de plus.
 EVENT_TYPE = "event_type"
 STORAGE = "storage"
 SOURCE = "source"
