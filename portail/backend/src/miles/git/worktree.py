@@ -89,6 +89,11 @@ SKELETON = (
     # racine pour la même raison. Le répertoire `trads/` naît avec la branche ; ses
     # SOUS-répertoires naissent avec chaque contexte.
     "trads",
+    # Scripts de workflow (story 69036d69) : un fichier par workflow, à la racine parce
+    # qu'un workflow INCLUT plusieurs périmètres — le ranger sous l'un d'eux
+    # prétendrait qu'il n'en nomme qu'un. La raison complète est dans
+    # `miles.workflows.layout`, et `test_tree_layout.py` tient les deux d'accord.
+    "workflows",
 )
 # Fichiers que poussent les forges ou les outils à la création d'un dépôt : un dépôt qui
 # n'a qu'eux est vierge, pas « non conforme ».
@@ -217,10 +222,12 @@ def _allowed(parts: list[str]) -> bool:
         return top == MANIFEST or top in _TOLERATED_ROOT
     if top == ".github":
         return True
-    if top in ("contracts", "transformations", "sources", "storages", "trads"):
+    if top in ("contracts", "transformations", "sources", "storages", "trads", "workflows"):
         # Le contenu d'une chaîne se vérifie avec la chaîne (validation de la branche).
         # Idem pour `trads/` : sans cette ligne, chaque fichier de traduction serait
         # rapporté comme un « emplacement inattendu » par la validation de branche.
+        # Idem pour `workflows/` (story 69036d69) : un script s'y vérifie en le RELISANT
+        # avec le parseur du moteur, ce que la couche git ne sait pas faire.
         return True
     if top == ACCOUNTS_ROOT:
         # UN seul fichier, et c'est la règle de la référence de compte : une branche en a

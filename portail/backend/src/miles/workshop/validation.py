@@ -20,6 +20,7 @@ from miles.workflowevents.dsl import FragmentError, scope_of
 from miles.workflowevents.dsl import parse as parse_fragment
 from miles.workflowevents.layout import visible as event_visible
 from miles.workflowevents.schema import dedup_problems, payload_problems
+from miles.workflows.validation import workflow_reports
 from miles.workshop.chain_validation import chain_reports, source_reports, storage_reports
 
 _CONTRACT_FILE_RE = re.compile(r"^contracts/(?P<slug>[^/]+)/(?P<file>[^/]+)$")
@@ -38,7 +39,7 @@ async def validate_branch(copy: WorkCopy) -> list[FileReport]:
     """Toutes les règles connues du paramétrage, sur l'état de la copie ; vide : valide.
 
     Ne couvre que ce qui est instruit à ce jour — arborescence, modèles, types d'event,
-    contrats. Chaque
+    contrats, scripts de workflow. Chaque
     nouvel objet du paramétrage (mappings, écrans…) ajoute ici sa vérification : une
     version ne fige qu'un état qui passe toutes les règles (story 94b06105, critère 3).
     """
@@ -66,6 +67,7 @@ async def validate_branch(copy: WorkCopy) -> list[FileReport]:
     reports += [FileReport(path, problems) for path, problems in await chain_reports(copy, paths)]
     reports += [FileReport(path, problems) for path, problems in await source_reports(copy, paths)]
     reports += [FileReport(path, problems) for path, problems in await storage_reports(copy, paths)]
+    reports += [FileReport(p, pb) for p, pb in await workflow_reports(copy, paths)]
     return sorted(reports, key=lambda r: r.path)
 
 

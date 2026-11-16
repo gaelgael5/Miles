@@ -23,6 +23,7 @@ from miles.security import service as security_events
 from miles.sources import service as sources_events
 from miles.storages import service as storages_events
 from miles.workflowevents import service as workflow_events_events
+from miles.workflows import service as workflows_events
 from miles.workshop import branches as branches_events
 from miles.workshop import domains_service as domains_events
 from miles.workshop import holds as holds_events
@@ -75,6 +76,7 @@ def code_event_catalog() -> EventCatalog:
             sources_events.EVENT_SHAPES,
             storages_events.EVENT_SHAPES,
             workflow_events_events.EVENT_SHAPES,
+            workflows_events.EVENT_SHAPES,
             branches_events.EVENT_SHAPES,
             domains_events.EVENT_SHAPES,
             holds_events.EVENT_SHAPES,

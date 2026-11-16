@@ -2,7 +2,7 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog } from "@miles/socle-web";
-import { proposeSlug } from "../api/contracts";
+import { proposeDslName } from "../api/contracts";
 import { SHARED_SCOPE, useDataModels } from "../api/dataModels";
 import { useDomains } from "../api/domains";
 import type { WorkTarget } from "../api/workTarget";
@@ -19,14 +19,6 @@ import type { Workspace } from "../api/workspaces";
 import { DomainForm } from "./DomainForm";
 import { socleNames } from "./EventSocle";
 import { ModelRefusal } from "./ModelRefusal";
-
-// Le nom d'un type d'event est plus étroit que celui d'un modèle : le DSL du moteur refuse
-// le tiret (mesuré le 11/11/2026). La proposition faite d'après le libellé doit donc le
-// remplacer, sinon « Demande soumise » proposerait « demande-soumise », aussitôt refusé
-// par le serveur — un aller-retour pour une règle que l'écran connaît déjà.
-function proposeEventName(label: string): string {
-  return proposeSlug(label).replaceAll("-", "_");
-}
 
 const REFUSED_FIELDS = {
   name: "workflowEvents.errors.invalid.name",
@@ -117,7 +109,7 @@ function DeclareForm({
   const [model, setModel] = useState("");
   const [unique, setUnique] = useState("");
   const domains = useDomains(target);
-  const shownSlug = slugTouched ? slug : proposeEventName(label);
+  const shownSlug = slugTouched ? slug : proposeDslName(label);
 
   function submit(event: FormEvent) {
     event.preventDefault();

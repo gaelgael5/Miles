@@ -14,6 +14,7 @@ export type WorkspaceView =
   | "contractModels"
   | "contracts"
   | "transformations"
+  | "workflows"
   | "storages"
   | "accountReference"
   | "sources"

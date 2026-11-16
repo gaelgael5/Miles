@@ -51,6 +51,7 @@ from miles.transform.api_editor import router as jslt_editor_router
 from miles.transform.api_transform import chains_router
 from miles.transform.api_transform import router as transform_router
 from miles.workflowevents.api_events import router as workflow_events_router
+from miles.workflows.api_workflows import router as workflows_router
 from miles.workshop.api_branches import router as branches_router
 from miles.workshop.api_branches import views_router as branch_views_router
 from miles.workshop.api_domains import router as domains_router
@@ -110,6 +111,7 @@ def include_api_routers(app: FastAPI) -> None:
     app.include_router(chains_api_router)
     app.include_router(sources_router)
     app.include_router(storages_router)
+    app.include_router(workflows_router)
     app.include_router(accounts_router)
     app.include_router(api_keys_router)
     app.include_router(identity_router)

@@ -19,6 +19,12 @@ const VIEWS: WorkspaceView[] = [
   "events",
   "contracts",
   "transformations",
+  // Les workflows après les transformations et avant les storages : un workflow réagit
+  // aux types d'event déclarés plus haut, et son comportement se lit avant de savoir où
+  // les objets sont rangés. Il INCLUT des périmètres, donc il ne peut pas vivre sous
+  // l'un d'eux — c'est aussi pourquoi son fichier est à la racine de la branche
+  // (`miles.workflows.layout`).
+  "workflows",
   // « storages » avant « sources » : on déclare ce qui est stocké avant de dire
   // comment on le remplit (Gael, 24/10/2026 — deux notions distinctes).
   "storages",

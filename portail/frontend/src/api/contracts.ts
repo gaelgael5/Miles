@@ -91,6 +91,20 @@ export function proposeSlug(label: string): string {
   return slug.slice(0, 63).replace(/-+$/, "");
 }
 
+/**
+ * Nom proposé pour ce que le DSL du moteur de workflow devra écrire : des soulignés, pas
+ * des tirets.
+ *
+ * Le DSL d'`urban-workflow` REFUSE le tiret dans un identifiant (`mismatched input '-'`,
+ * mesuré le 11/11/2026). Sans cette variante, « Demande soumise » proposerait
+ * « demande-soumise », aussitôt refusé par le serveur — un aller-retour pour une règle
+ * que l'écran connaît déjà. Ici plutôt que recopiée dans chaque écran concerné : les
+ * types d'event et les workflows la partagent, et deux copies auraient divergé.
+ */
+export function proposeDslName(label: string): string {
+  return proposeSlug(label).replaceAll("-", "_");
+}
+
 function key(target: WorkTarget) {
   return branchKey("contracts", target);
 }

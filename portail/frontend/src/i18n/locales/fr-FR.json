@@ -113,7 +113,8 @@
       "sources": "Sources de données",
       "trads": "Traductions",
       "tradsCoverage": "Couverture",
-      "events": "Types d'event"
+      "events": "Types d'event",
+      "workflows": "Workflows"
     },
     "rights": {
       "lire": "Lire et récupérer",
@@ -396,6 +397,7 @@
       "hors_profil": "le template sort du profil d'écriture admis : {{detail}}",
       "id_different_du_fichier": "l'$id ne correspond pas au fichier (attendu : {{detail}})",
       "imbrication_trop_profonde": "listes imbriquées sur plus de {{detail}} niveaux",
+      "include_introuvable": "aucun artefact de périmètre ne porte le nom de fichier « {{detail}} » : le moteur ne chargerait pas ce script",
       "index_sans_colonne": "l'index « {{detail}} » n'a aucune colonne : il n'indexe rien",
       "jpath_illisible": "chemin « {{detail}} » illisible",
       "libelle_vide": "libellé vide",
@@ -434,6 +436,7 @@
       "schema_ferme": "schéma fermé (additionalProperties: false) : le moteur ajoute le socle commun de tout événement, dont les propriétés seraient alors refusées — aucun payload réel ne passerait",
       "schema_invalide": "non conforme à JSON Schema 2020-12 : {{detail}}",
       "schema_trop_profond": "schéma imbriqué sur plus de {{detail}} niveaux",
+      "script_invalide": "le script ne se relit pas ({{detail}})",
       "slug_different_du_dossier": "le slug diffère de son dossier ({{detail}})",
       "storage_absent": "aucune donnée cible : une source écrit dans un storage, et il faut le nommer",
       "storage_illisible": "la déclaration du storage « {{detail}} » ne se lit pas",
@@ -567,6 +570,34 @@
         "scope": "Le DSL du moteur ne sait pas écrire ce nom de domaine (le tiret y est refusé) : ce périmètre ne peut pas porter de type d'event sans être renommé.",
         "model": "Le DSL du moteur ne sait pas écrire ce nom de modèle (le tiret y est refusé) : il reste utilisable par un storage ou une source, mais pas comme payload d'un type d'event."
       }
+    }
+  },
+  "workflows": {
+    "title": "Workflows — {{name}}",
+    "intro": "Les scripts de workflow de la branche",
+    "add": "Nouveau workflow",
+    "empty": "Aucun workflow sur cette branche.",
+    "fields": {
+      "label": "Libellé",
+      "name": "Nom",
+      "nameHelp": "Minuscules, chiffres et soulignés. Le DSL du moteur refuse le tiret, et ce nom est celui du fichier comme du script."
+    },
+    "form": {
+      "title": "Nouveau workflow",
+      "submit": "Créer"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer ce workflow ?",
+      "body": "Le fichier workflows/{{name}}.wf sera retiré de la branche. Un autre script qui l'inclurait ne se chargerait plus."
+    },
+    "list": {
+      "states": "États",
+      "version": "Version",
+      "noVersion": "aucune",
+      "includes": "Périmètres inclus",
+      "noIncludes": "aucun",
+      "problems": "Manquements du script",
+      "unreadable": "Script illisible : une version ne pourra pas être enregistrée tant qu'il n'est pas réparé."
     }
   },
   "versions": {

@@ -113,7 +113,8 @@
       "sources": "Data sources",
       "trads": "Translations",
       "tradsCoverage": "Coverage",
-      "events": "Event types"
+      "events": "Event types",
+      "workflows": "Workflows"
     },
     "rights": {
       "lire": "Read and fetch",
@@ -396,6 +397,7 @@
       "hors_profil": "the template falls outside the accepted writing profile: {{detail}}",
       "id_different_du_fichier": "the $id does not match the file (expected: {{detail}})",
       "imbrication_trop_profonde": "lists nested deeper than {{detail}} levels",
+      "include_introuvable": "no perimeter artefact bears the file name “{{detail}}”: the engine would not load this script",
       "index_sans_colonne": "index “{{detail}}” has no column: it indexes nothing",
       "jpath_illisible": "path “{{detail}}” cannot be read",
       "libelle_vide": "empty label",
@@ -434,6 +436,7 @@
       "schema_ferme": "closed schema (additionalProperties: false): the engine adds the common event base, whose properties would then be rejected — no real payload would pass",
       "schema_invalide": "not valid JSON Schema 2020-12: {{detail}}",
       "schema_trop_profond": "schema nested more than {{detail}} levels deep",
+      "script_invalide": "the script cannot be parsed ({{detail}})",
       "slug_different_du_dossier": "the slug differs from its folder ({{detail}})",
       "storage_absent": "no target data: a source writes into a storage, and it must be named",
       "storage_illisible": "the declaration of storage “{{detail}}” cannot be read",
@@ -567,6 +570,34 @@
         "scope": "The engine's DSL cannot write this domain name (hyphens are rejected): this perimeter cannot hold an event type without being renamed.",
         "model": "The engine's DSL cannot write this model name (hyphens are rejected): it stays usable by a storage or a source, but not as an event type payload."
       }
+    }
+  },
+  "workflows": {
+    "title": "Workflows — {{name}}",
+    "intro": "The workflow scripts of branch",
+    "add": "New workflow",
+    "empty": "No workflow on this branch.",
+    "fields": {
+      "label": "Label",
+      "name": "Name",
+      "nameHelp": "Lowercase letters, digits and underscores. The engine DSL rejects the dash, and this name is both the file name and the script name."
+    },
+    "form": {
+      "title": "New workflow",
+      "submit": "Create"
+    },
+    "deleteConfirm": {
+      "title": "Delete this workflow?",
+      "body": "The file workflows/{{name}}.wf will be removed from the branch. Another script including it would no longer load."
+    },
+    "list": {
+      "states": "States",
+      "version": "Version",
+      "noVersion": "none",
+      "includes": "Included perimeters",
+      "noIncludes": "none",
+      "problems": "Script problems",
+      "unreadable": "Unreadable script: no version can be saved until it is fixed."
     }
   },
   "versions": {

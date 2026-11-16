@@ -21,6 +21,7 @@ import { SourceScreen } from "./SourceScreen";
 import { SourcesScreen } from "./SourcesScreen";
 import { StorageScreen } from "./StorageScreen";
 import { StoragesScreen } from "./StoragesScreen";
+import { WorkflowsScreen } from "./WorkflowsScreen";
 import { tradsViewScreen } from "./tradsViews";
 
 /** Une vue de branche s'affiche-t-elle ? Non pour le paramétrage, ni sans branche de base. */
@@ -189,6 +190,9 @@ function viewScreen(
         onOpen={(storage) => onSelect({ id: workspace.id, view: "storages", branch, storage })}
       />
     );
+  }
+  if (selection.view === "workflows") {
+    return <WorkflowsScreen key={key} workspace={workspace} target={target} onBack={back} />;
   }
   if (selection.view === "accountReference") {
     return (

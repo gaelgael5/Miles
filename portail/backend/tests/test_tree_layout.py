@@ -24,6 +24,7 @@ from miles.git.worktree import INITIAL_MANIFEST, MANIFEST, diagnose
 from miles.sources.layout import ROOT as SOURCES_ROOT
 from miles.storages.layout import ROOT as STORAGES_ROOT
 from miles.workflowevents.dsl import fragment_path
+from miles.workflows.layout import ROOT as WORKFLOWS_ROOT
 
 MANIFEST_TEXT = json.dumps(INITIAL_MANIFEST)
 
@@ -41,7 +42,7 @@ def test_la_reference_de_compte_est_a_un_emplacement_admis() -> None:
     assert _unexpected(ACCOUNTS_PATH) == []
 
 
-@pytest.mark.parametrize("root", [CHAINS_ROOT, SOURCES_ROOT, STORAGES_ROOT])
+@pytest.mark.parametrize("root", [CHAINS_ROOT, SOURCES_ROOT, STORAGES_ROOT, WORKFLOWS_ROOT])
 def test_chaque_racine_declaree_par_un_module_est_admise(root: str) -> None:
     """Toute la famille, et pas le seul cas qui a mordu.
 

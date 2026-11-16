@@ -57,6 +57,7 @@ from miles.sources.service import SourcesService
 from miles.storages.service import StoragesService
 from miles.transform.api_catalog import CatalogService
 from miles.workflowevents.service import WorkflowEventsService
+from miles.workflows.service import WorkflowsService
 from miles.workshop.branches import BranchesService
 from miles.workshop.domains_service import DomainsService
 from miles.workshop.holds import BranchHoldsService
@@ -199,6 +200,7 @@ def create_app() -> FastAPI:
         app.state.chains = ChainsService(pool, branches, catalog, utc_now)
         app.state.sources = SourcesService(pool, branches, catalog, utc_now)
         app.state.storages = StoragesService(pool, branches, catalog, utc_now)
+        app.state.workflows = WorkflowsService(pool, branches, catalog, utc_now)
         app.state.accounts = AccountsService(pool, branches, catalog, utc_now)
         app.state.workspace_cultures = WorkspaceCulturesService(pool, branches, catalog, utc_now)
         app.state.trads = TradsService(
