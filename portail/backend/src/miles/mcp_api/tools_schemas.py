@@ -24,6 +24,7 @@ from miles.mcp_api.tool_args import (
     Workspace,
     WriteBranch,
     entry_out,
+    listed_out,
     unknown,
     written_out,
 )
@@ -66,10 +67,10 @@ def register(server: MCPServer) -> None:
         await caller.readable(workspace_id)
         service = caller.services.data_models
         try:
-            entries = await service.resolve_list(caller.viewer, workspace_id, branch=branch)
+            listing = await service.resolve_list(caller.viewer, workspace_id, branch=branch)
         except Exception as exc:
             raise tool_refusal(exc) or exc from None
-        return [entry_out(e) for e in entries]
+        return listed_out(listing)
 
     @server.tool(description="Lit un schéma : son emplacement et son YAML tel quel.")
     async def get_schema(

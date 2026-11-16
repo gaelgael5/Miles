@@ -21,7 +21,8 @@ from typing import Annotated, Any
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
-from miles.datamodels.layout import model_path
+from miles.datamodels.layout import ModelEntry, model_path
+from miles.datamodels.usages import Listing
 from miles.mcp_api.calls import Caller
 from miles.mcp_api.errors import refusal
 
@@ -62,8 +63,25 @@ Name = Annotated[
 ]
 
 
-def entry_out(entry: Any) -> dict[str, str]:
+def entry_out(entry: ModelEntry) -> dict[str, str]:
     return {"scope": entry.scope, "name": entry.name, "path": entry.path}
+
+
+def listed_out(listing: Listing) -> list[dict[str, str]]:
+    """La liste des modèles pour l'agent : l'emplacement de chacun, et rien de plus.
+
+    UN SEUL endroit TYPÉ traverse la forme que `resolve_list` rend, et c'est exprès :
+    `Caller.services` est `Any` — il porte l'`app.state`, dont les attributs ne sont pas
+    déclarés —, donc mypy ne voit rien de ce qu'un outil MCP fait d'un service. Le 16/11/2026,
+    `resolve_list` est passé d'une liste à un objet et `list_schemas` a continué de l'itérer :
+    style, types et 936 tests unitaires sont restés verts, et c'est la campagne
+    d'intégration qui l'a dit, 65 minutes plus tard. Ici, le corps est vérifié.
+
+    Les usages ne sont PAS rendus : un agent qui lit un modèle pour l'écrire n'en a que
+    faire, et `read_usages` les fait payer à l'écran qui les montre. Ils entreront le jour
+    où une primitive les demandera.
+    """
+    return [entry_out(listed.entry) for listed in listing.models]
 
 
 def written_out(entry: Any, commit: str | None) -> dict[str, Any]:
@@ -95,6 +113,6 @@ async def unknown(
         refusal(
             "modele_inconnu",
             path=model_path(scope, name) if scope and name else "",
-            existants=[listed.entry.path for listed in existing.models],
+            existants=[entry["path"] for entry in listed_out(existing)],
         )
     )
