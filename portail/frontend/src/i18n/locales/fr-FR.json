@@ -458,7 +458,39 @@
     "tabs": {
       "title": "Vues du modèle",
       "editor": "Éditeur",
-      "usage": "Utilité des champs"
+      "usage": "Utilité des champs",
+      "role": "Désigné par ({{count}})"
+    },
+    "role": {
+      "caption": "Rôle",
+      "none": "Rien ne le désigne",
+      "title": "Ce qui désigne ce modèle",
+      "intro": "Le rôle d'un modèle se lit des déclarations qui le nomment, et de rien d'autre : ni de son nom, ni de son dossier. C'est ce qu'on lit avant de le changer.",
+      "empty": "Aucune déclaration ne désigne ce modèle. Ce n'est pas une anomalie : un modèle peut être écrit avant ce qui s'en servira.",
+      "kinds": {
+        "event_type": "Type d'event",
+        "storage": "Storage",
+        "source": "Source",
+        "chain_step": "Étape de chaîne",
+        "model": "Modèle"
+      },
+      "counts": {
+        "event_type_one": "{{count}} type d'event",
+        "event_type_other": "{{count}} types d'event",
+        "storage_one": "{{count}} storage",
+        "storage_other": "{{count}} storages",
+        "source_one": "{{count}} source",
+        "source_other": "{{count}} sources",
+        "chain_step_one": "{{count}} étape de chaîne",
+        "chain_step_other": "{{count}} étapes de chaîne",
+        "model_one": "{{count}} modèle",
+        "model_other": "{{count}} modèles"
+      },
+      "broken": {
+        "title": "Des déclarations désignent un modèle que cette branche n'a pas :",
+        "intro": "Elles bloqueront l'enregistrement d'une version. Dites ici pour qu'on les voie avant d'y arriver.",
+        "line": "{{what}} « {{name}} » désigne {{target}}, dans {{path}}"
+      }
     },
     "usage": {
       "table": "Utilité des champs",

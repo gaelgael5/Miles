@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { ADMIN, BRANCHES, openMenu, renderApp } from "./appTestHarness";
 import { mockApi } from "@miles/socle-web/testing";
-import { BARE, CONFIGURED } from "./workspaces/workspaceFixtures";
+import { BARE, CONFIGURED, modelListing } from "./workspaces/workspaceFixtures";
 
 /**
  * La BRANCHE VUE : ce qu'elle nomme dans le menu, et ce qu'elle ouvre.
@@ -28,7 +28,10 @@ describe("App, selon la branche vue", () => {
       },
       "GET /api/branch-views": { status: 200, body: { retrait: "essai" } },
       "GET /api/workspaces/retrait/branches": { status: 200, body: BRANCHES },
-      "GET /api/workspaces/retrait/data-models?branch=essai": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/data-models?branch=essai": {
+        status: 200,
+        body: modelListing(),
+      },
       "GET /api/workspaces/retrait/contracts?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/storages?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/workflow-events?branch=essai": { status: 200, body: [] },

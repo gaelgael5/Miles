@@ -82,7 +82,7 @@ async def test_model_is_written_to_the_work_branch_then_read_back_and_listed(
     }
     assert await forge.file("domains/suivi/models/colis.yaml") == COLIS
     assert read.json()["content"] == COLIS
-    assert [(m["scope"], m["name"]) for m in listed.json()] == [
+    assert [(m["scope"], m["name"]) for m in listed.json()["models"]] == [
         ("suivi", "colis"),
         ("shared", "personne"),
     ]
@@ -291,7 +291,9 @@ async def test_a_model_is_declared_by_label_and_slug_then_written_as_a_schema(
     assert (replay.status_code, replay.headers["x-miles-already-exists"]) == (200, "true")
     assert (other.status_code, other.json()["detail"]) == (409, "nom_pris")
     # Le fichier de métadonnées n'est jamais pris pour un modèle.
-    assert [(m["name"], m["label"]) for m in listed.json()] == [("personne", "Personne livrée")]
+    assert [(m["name"], m["label"]) for m in listed.json()["models"]] == [
+        ("personne", "Personne livrée")
+    ]
     assert draft.json()["content"] == normalized(
         "title: Personne livrée\ntype: object\nproperties: {}\n", "shared", "personne"
     )
@@ -319,7 +321,7 @@ async def test_the_version_is_the_systems_and_moves_only_when_the_schema_changes
 
     assert same.headers["x-miles-already-exists"] == "true"
     assert (first.json()["version"], second.json()["version"]) == (2, 3)
-    assert [m["version"] for m in listed.json()] == [3]
+    assert [m["version"] for m in listed.json()["models"]] == [3]
 
 
 async def test_an_empty_model_is_kept_as_a_draft_but_blocks_a_version(forge: Forge) -> None:

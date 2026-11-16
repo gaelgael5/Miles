@@ -178,8 +178,8 @@ async def test_a_change_is_local_and_only_its_author_sees_it_until_published(
     ).json()["commit"]
     me = (await forge.api.get("/api/v1/user")).json()
     assert created.status_code == 201, created.text
-    assert [m["path"] for m in mine.json()] == [MODEL_PATH]
-    assert others == []
+    assert [m["path"] for m in mine.json()["models"]] == [MODEL_PATH]
+    assert others.models == ()
     assert status.json()["unpublished"] == 1
     assert remote_before is None
     assert (published.json(), again.json()) == ({"published": 1}, {"published": 0})

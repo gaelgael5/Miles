@@ -458,7 +458,39 @@
     "tabs": {
       "title": "Model views",
       "editor": "Editor",
-      "usage": "Field usage"
+      "usage": "Field usage",
+      "role": "Used by ({{count}})"
+    },
+    "role": {
+      "caption": "Role",
+      "none": "Nothing designates it",
+      "title": "What designates this model",
+      "intro": "A model's role is read from the declarations that name it, and from nothing else: not from its name, not from its folder. This is what you read before changing it.",
+      "empty": "No declaration designates this model. That is not a fault: a model may be written before whatever will use it.",
+      "kinds": {
+        "event_type": "Event type",
+        "storage": "Storage",
+        "source": "Source",
+        "chain_step": "Chain step",
+        "model": "Model"
+      },
+      "counts": {
+        "event_type_one": "{{count}} event type",
+        "event_type_other": "{{count}} event types",
+        "storage_one": "{{count}} storage",
+        "storage_other": "{{count}} storages",
+        "source_one": "{{count}} source",
+        "source_other": "{{count}} sources",
+        "chain_step_one": "{{count}} chain step",
+        "chain_step_other": "{{count}} chain steps",
+        "model_one": "{{count}} model",
+        "model_other": "{{count}} models"
+      },
+      "broken": {
+        "title": "Some declarations designate a model this branch does not have:",
+        "intro": "They will block saving a version. Said here so they are seen before you get there.",
+        "line": "{{what}} “{{name}}” designates {{target}}, in {{path}}"
+      }
     },
     "usage": {
       "table": "Field usage",

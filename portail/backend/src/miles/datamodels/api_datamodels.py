@@ -11,6 +11,7 @@ from miles.datamodels.grammar import MAX_TEXT_BYTES, ModelGrammarError, ModelSyn
 from miles.datamodels.inference import SampleNotAnObjectError, infer_root, read_sample
 from miles.datamodels.layout import ModelEntry
 from miles.datamodels.service import DataModelsService, ModelInUseError, ModelNotFoundError
+from miles.datamodels.usages import Designation, Listing
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,
@@ -49,6 +50,42 @@ class ModelContentOut(ModelOut):
     content: str
 
 
+class UsageOut(BaseModel):
+    """Une déclaration qui DÉSIGNE un modèle (story e36192f8)."""
+
+    model_config = ConfigDict(extra="forbid")
+    # « event_type », « storage », « source », « chain_step » ou « model ».
+    kind: str
+    # L'identifiant du désignateur : c'est par lui que l'écran fait le lien vers lui.
+    name: str
+    label: str | None
+    path: str
+    # L'étape d'une chaîne, le rang d'une entrée de source ; absent sinon.
+    part: str | None
+
+
+class BrokenOut(UsageOut):
+    # « portée/nom » du modèle désigné, qui n'est pas dans la branche.
+    target: str
+
+
+class ListedOut(ModelOut):
+    usages: list[UsageOut]
+
+
+class ListingOut(BaseModel):
+    """La liste des modèles et, à côté, ce qui ne trouve plus sa cible.
+
+    Un objet et non un tableau : les désignations cassées ne se rattachent à AUCUN modèle
+    — c'est leur définition — et il n'y avait pas de ligne où les poser. Rendues avec la
+    liste plutôt que par une route à elles, elles décrivent le même commit qu'elle.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    models: list[ListedOut]
+    broken: list[BrokenOut]
+
+
 class ModelCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     scope: str
@@ -78,6 +115,34 @@ def _out(entry: ModelEntry) -> ModelOut:
         path=entry.path,
         label=entry.label,
         version=entry.version,
+    )
+
+
+def _usage(designation: Designation) -> UsageOut:
+    return UsageOut(
+        kind=designation.kind,
+        name=designation.name,
+        label=designation.label,
+        path=designation.path,
+        part=designation.part,
+    )
+
+
+def _broken(designation: Designation) -> BrokenOut:
+    scope, name = designation.target
+    return BrokenOut(**_usage(designation).model_dump(), target=f"{scope}/{name}")
+
+
+def _listing(listing: Listing) -> ListingOut:
+    return ListingOut(
+        models=[
+            ListedOut(
+                **_out(listed.entry).model_dump(),
+                usages=[_usage(u) for u in listed.usages],
+            )
+            for listed in listing.models
+        ],
+        broken=[_broken(d) for d in listing.broken],
     )
 
 
@@ -122,17 +187,14 @@ def _refusal(exc: Exception) -> JSONResponse:
     raise exc
 
 
-@router.get("", response_model=list[ModelOut])
+@router.get("", response_model=ListingOut)
 async def list_models(
     workspace_id: str, request: Request, service: Service, branch: str | None = None
 ) -> object:
     try:
-        return [
-            _out(e)
-            for e in await service.resolve_list(
-                request_author(request), workspace_id, branch=branch
-            )
-        ]
+        return _listing(
+            await service.resolve_list(request_author(request), workspace_id, branch=branch)
+        )
     except _REFUSALS as exc:
         return _refusal(exc)
 

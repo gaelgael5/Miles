@@ -90,8 +90,8 @@ async def test_writes_on_a_child_branch_stay_in_it(forge: Forge) -> None:
     assert await forge.file(MODEL_PATH, "back/retrait/essai") == PERSONNE
     assert await forge.file(MODEL_PATH) is None
     assert await forge.commits() == base_commits
-    assert [m["name"] for m in on_child.json()] == ["personne"]
-    assert on_base.json() == []
+    assert [m["name"] for m in on_child.json()["models"]] == ["personne"]
+    assert on_base.json()["models"] == []
 
 
 async def test_versions_belong_to_their_branch_and_share_one_numbering(forge: Forge) -> None:

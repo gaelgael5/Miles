@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, fill, HELD, modelListing, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/workflow-events";
@@ -49,7 +49,7 @@ function routes(extra: Record<string, unknown> = {}) {
     ...NO_VERSION,
     [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [DEMANDE] },
     [`GET ${ROUTE}/socle?branch=edition`]: { status: 200, body: SOCLE },
-    [`GET ${MODELS}?branch=edition`]: { status: 200, body: [DEMANDE_MODEL] },
+    [`GET ${MODELS}?branch=edition`]: { status: 200, body: modelListing([DEMANDE_MODEL]) },
     [`GET ${DOMAINS}?branch=edition`]: { status: 200, body: [{ name: "achats" }] },
     ...extra,
   } as never;

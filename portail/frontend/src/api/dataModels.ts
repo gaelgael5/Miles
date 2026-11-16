@@ -18,6 +18,40 @@ export interface DataModelContent extends DataModel {
   content: string;
 }
 
+/**
+ * Ce qui DÉSIGNE un modèle. C'est de là, et de nulle part ailleurs, que son rôle se lit :
+ * jusqu'au 14/11/2026 le dossier le disait, et depuis que « ce qui fait d'un modèle un
+ * type d'event, c'est qu'un DEFINE EVENT le nomme », plus rien ne le distingue dans la
+ * liste (Gael, 16/11/2026 : « la façon d'identifier qui fait quoi m'échappe »).
+ */
+export interface ModelUsage {
+  /** « event_type », « storage », « source », « chain_step » ou « model ». */
+  kind: string;
+  /** L'identifiant du désignateur : c'est par lui qu'on l'ouvre. */
+  name: string;
+  label: string | null;
+  /** Le fichier du dépôt qui porte la déclaration. */
+  path: string;
+  /** L'étape d'une chaîne, le rang d'une entrée de source ; null sinon. */
+  part: string | null;
+}
+
+/** Une déclaration qui désigne un modèle absent de la branche. */
+export interface BrokenModelRef extends ModelUsage {
+  /** « portée/nom » du modèle désigné. */
+  target: string;
+}
+
+export interface ListedModel extends DataModel {
+  usages: ModelUsage[];
+}
+
+/** Les modèles de la branche et, à côté, les désignations qui ne trouvent plus leur cible. */
+export interface ModelListing {
+  models: ListedModel[];
+  broken: BrokenModelRef[];
+}
+
 /** Un manquement à la grammaire, désigné par son chemin dans le document. */
 export interface ModelProblem {
   path: string;
@@ -89,11 +123,22 @@ export function useInferSchema(target: WorkTarget) {
   });
 }
 
-export function useDataModels(target: WorkTarget) {
-  return useQuery({
+function listingQuery(target: WorkTarget) {
+  return {
     queryKey: key(target),
-    queryFn: ({ signal }) => request<DataModel[]>(root(target), { signal }),
-  });
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      request<ModelListing>(root(target), { signal }),
+  };
+}
+
+/** La liste et ses désignations cassées : UNE lecture de branche, un seul commit décrit. */
+export function useModelListing(target: WorkTarget) {
+  return useQuery(listingQuery(target));
+}
+
+/** Les seuls modèles. Même clé que `useModelListing` : les deux partagent une requête. */
+export function useDataModels(target: WorkTarget) {
+  return useQuery({ ...listingQuery(target), select: (listing: ModelListing) => listing.models });
 }
 
 type ModelRef = Pick<DataModel, "scope" | "name">;

@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { type Routes, mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, HELD, modelListing, renderWorkspaces } from "./workspaceFixtures";
 
 // L'écran d'une étape (Gael, 31/10/2026) : ce qu'il DIT quand il refuse, et le document
 // source déplié. Les trois défauts corrigés ici étaient muets — un refus réduit à « voir
@@ -54,7 +54,7 @@ function openStep(routes: Routes = {}) {
     ...HELD,
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
-    [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: [] },
+    [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: modelListing() },
     [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
     ...routes,
   });

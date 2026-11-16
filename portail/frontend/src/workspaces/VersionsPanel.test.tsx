@@ -2,7 +2,14 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { BRANCH_SCREEN, CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
+import {
+  BRANCH_SCREEN,
+  CONFIGURED,
+  fill,
+  HELD,
+  modelListing,
+  renderWorkspaces,
+} from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const VERSIONS = "/api/workspaces/retrait/versions";
@@ -46,7 +53,7 @@ describe("VersionsPanel", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       ...FREEZABLE,
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${VERSIONS}?branch=edition`]: [
         { status: 200, body: [] },
         { status: 200, body: [V1] },
@@ -74,7 +81,7 @@ describe("VersionsPanel", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       ...FREEZABLE,
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
       [`POST ${VERSIONS}?branch=edition`]: {
         status: 422,
@@ -112,7 +119,7 @@ describe("VersionsPanel", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       ...FREEZABLE,
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [V1] },
       [`POST ${VERSIONS}?branch=edition`]: { status: 409, body: { detail: "rien_a_figer" } },
     });
@@ -133,7 +140,7 @@ describe("VersionsPanel", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       ...FREEZABLE,
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [V1] },
       [`POST ${VERSIONS}/1/restore?branch=edition`]: { status: 200, body: { commit: "fedcba98765432100000" } },
     });
@@ -159,7 +166,7 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
       ...FREEZABLE,
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
       [`POST ${VERSIONS}?branch=edition`]: {
         status: 422,
@@ -212,7 +219,7 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
       [`GET ${VERSIONS}/freezable?branch=edition`]: {
         status: 200,
@@ -273,7 +280,7 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
       // La seconde lecture est celle d'après la publication : plus rien n'empêche.
       [`GET ${VERSIONS}/freezable?branch=edition`]: [
@@ -299,7 +306,7 @@ describe("the version button knows what the server will refuse (25/10/2026)", ()
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
       [`GET ${VERSIONS}/freezable?branch=edition`]: {
         status: 200,
@@ -365,7 +372,7 @@ describe("the screen says it is checking, instead of promising what it has not r
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...BRANCHES,
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${VERSIONS}?branch=edition`]: { status: 200, body: [] },
       [`GET ${VERSIONS}/freezable?branch=edition`]: {
         status: 200,

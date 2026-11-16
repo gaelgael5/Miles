@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, HELD, modelListing, renderWorkspaces } from "./workspaceFixtures";
 
 /**
  * Le cul-de-sac du 15/11/2026 : la branche était refusée en nommant la conversion, et
@@ -68,7 +68,10 @@ describe("the old-layout notice", () => {
 
   it("shows nothing at all on a branch that is up to date", async () => {
     openModels(A_JOUR, {
-      "GET /api/workspaces/retrait/data-models?branch=edition": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/data-models?branch=edition": {
+        status: 200,
+        body: modelListing(),
+      },
     });
 
     // Attendre un rendu stable avant de conclure à l'absence : sinon le test passerait

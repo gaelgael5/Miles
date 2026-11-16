@@ -2,7 +2,14 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { BARE, CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
+import {
+  BARE,
+  CONFIGURED,
+  HELD,
+  fill,
+  modelListing,
+  renderWorkspaces,
+} from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/data-models";
@@ -34,7 +41,7 @@ async function openBlankModel(routes: Record<string, unknown> = {}) {
     ...HELD,
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     ...NO_VERSION,
-    [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [PERSONNE] },
+    [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing([PERSONNE]) },
     [`GET ${ROUTE}/shared/personne?branch=edition`]: {
       status: 200,
       body: { ...PERSONNE, content: BLANK },
@@ -119,7 +126,7 @@ describe("smart import", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [PERSONNE] },
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing([PERSONNE]) },
       [`GET ${ROUTE}/shared/personne?branch=edition`]: {
         status: 200,
         body: { ...PERSONNE, content: "title: Personne\ntype: object\nproperties:\n  nom:\n    type: string\n" },
@@ -150,7 +157,7 @@ describe("DataModelsScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [COLIS, PERSONNE] },
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing([COLIS, PERSONNE]) },
       [`GET ${ROUTE}/shared/personne?branch=edition`]: { status: 200, body: { ...PERSONNE, content: YAML } },
     });
     await openModels();
@@ -173,7 +180,7 @@ describe("DataModelsScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing() },
       [`GET ${DOMAINS}?branch=edition`]: { status: 200, body: [{ name: "suivi" }] },
       [`POST ${ROUTE}/declarations?branch=edition`]: { status: 201, body: PERSONNE },
       [`GET ${ROUTE}/shared/personne?branch=edition`]: [
@@ -296,7 +303,7 @@ describe("DataModelsScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [PERSONNE] },
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing([PERSONNE]) },
       [`DELETE ${ROUTE}/shared/personne?branch=edition`]: {
         status: 409,
         body: { detail: { code: "utilise", by: [COLIS.path] } },
@@ -319,7 +326,7 @@ describe("DataModelsScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing() },
       [`GET ${DOMAINS}?branch=edition`]: [
         { status: 200, body: [] },
         { status: 200, body: [{ name: "suivi" }] },
@@ -367,7 +374,7 @@ describe("DataModelsScreen", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       ...NO_VERSION,
-      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing() },
       [`GET ${DOMAINS}?branch=edition`]: { status: 200, body: [{ name: "suivi" }] },
       [`POST ${ROUTE}/declarations?branch=edition`]: {
         status: 409,
@@ -390,7 +397,7 @@ describe("DataModelsScreen", () => {
     mockApi({
       "GET /api/workspaces/retrait/holds": { status: 200, body: [] },
       "GET /api/workspaces": { status: 200, body: [WORKING] },
-      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [] },
+      [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing() },
     });
     await openModels();
 

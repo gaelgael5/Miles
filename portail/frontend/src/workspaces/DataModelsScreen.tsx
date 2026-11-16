@@ -5,14 +5,16 @@ import { ConfirmDialog } from "@miles/socle-web";
 import { proposeSlug } from "../api/contracts";
 import {
   type DataModel,
+  type ListedModel,
   SHARED_SCOPE,
-  useDataModels,
   useDeclareDataModel,
   useDeleteDataModel,
+  useModelListing,
 } from "../api/dataModels";
 import { useDomains } from "../api/domains";
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
+import { BrokenRefs, roleSummary } from "../dataModels/ModelRole";
 import { DomainForm } from "./DomainForm";
 import { ModelRefusal } from "./ModelRefusal";
 
@@ -96,7 +98,7 @@ function ModelRow({
   onOpen,
 }: {
   target: WorkTarget;
-  model: DataModel;
+  model: ListedModel;
   onOpen: () => void;
 }) {
   const { t } = useTranslation();
@@ -118,6 +120,18 @@ function ModelRow({
         <div className="caption">{t("dataModels.list.captionScope")}</div>
         <div className="value">
           {model.scope === SHARED_SCOPE ? t("dataModels.list.shared") : model.scope}
+        </div>
+      </div>
+      {/* À quoi il sert, sur la ligne : depuis le 14/11/2026 le dossier ne le dit plus,
+          et deux modèles de même emplacement n'ont plus rien qui les distingue sans ça
+          (story e36192f8). Un modèle que rien ne désigne le dit, et ce n'est pas une
+          anomalie : il peut être écrit avant ce qui s'en servira. */}
+      <div className="cell">
+        <div className="caption">{t("dataModels.role.caption")}</div>
+        <div className="value">
+          {model.usages.length === 0
+            ? t("dataModels.role.none")
+            : roleSummary(t, model.usages)}
         </div>
       </div>
       <div className="actions row-actions">
@@ -163,7 +177,8 @@ export function DataModelsScreen({
   onOpen: (model: DataModel) => void;
 }) {
   const { t } = useTranslation();
-  const models = useDataModels(target);
+  const listing = useModelListing(target);
+  const models = listing.data?.models ?? [];
   const [creating, setCreating] = useState(false);
   const [addingDomain, setAddingDomain] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
@@ -220,14 +235,18 @@ export function DataModelsScreen({
       {creating && (
         <CreateForm target={target} onCreated={onOpen} onCancel={() => setCreating(false)} />
       )}
-      {models.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
-      {models.isError && <ModelRefusal error={models.error} />}
-      {models.isSuccess && models.data.length === 0 && (
-        <p className="muted">{t("dataModels.empty")}</p>
+      {listing.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
+      {listing.isError && <ModelRefusal error={listing.error} />}
+      {/* Les désignations cassées en TÊTE de liste : elles ne se rattachent à aucune
+          ligne — c'est leur définition — et elles bloqueront l'enregistrement d'une
+          version. Dites ici pour qu'on les voie avant d'y arriver (critère 5). */}
+      {listing.data !== undefined && listing.data.broken.length > 0 && (
+        <BrokenRefs broken={listing.data.broken} />
       )}
-      {models.isSuccess && models.data.length > 0 && (
+      {listing.isSuccess && models.length === 0 && <p className="muted">{t("dataModels.empty")}</p>}
+      {listing.isSuccess && models.length > 0 && (
         <ul className="card-list plain-list">
-          {models.data.map((m) => (
+          {models.map((m) => (
             <ModelRow key={m.path} target={target} model={m} onOpen={() => onOpen(m)} />
           ))}
         </ul>

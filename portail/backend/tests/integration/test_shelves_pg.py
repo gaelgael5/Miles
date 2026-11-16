@@ -147,7 +147,7 @@ async def test_taking_over_again_merges_the_shelf_into_the_updated_branch(forge:
     seen = await state.data_models.resolve_list(BOB, "retrait", branch="edition")
     status = await state.branch_holds.resolve_status(BOB, "retrait", "edition")
 
-    assert [m.path for m in seen] == [MODEL_PATH]
+    assert [listed.entry.path for listed in seen.models] == [MODEL_PATH]
     assert status.unpublished is not None and status.unpublished >= 1
     assert await _tip(forge, await _shelf_name(forge)) is None
     assert await state.shelves.resolve_mine(BOB) == []

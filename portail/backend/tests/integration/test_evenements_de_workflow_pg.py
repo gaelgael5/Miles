@@ -268,7 +268,7 @@ async def test_le_modele_d_un_type_d_event_RESTE_dans_la_liste_des_modeles(forge
 
     modeles = await forge.client.get(MODELES, timeout=120)
 
-    assert [m["name"] for m in modeles.json()] == ["demande"]
+    assert [m["name"] for m in modeles.json()["models"]] == ["demande"]
 
 
 async def test_supprimer_un_modele_qu_une_declaration_designe_est_refuse(forge: Forge) -> None:

@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, HELD, modelListing, renderWorkspaces } from "./workspaceFixtures";
 
 // L'utilité des champs, deuxième onglet d'un modèle (Gael, 05/11/2026).
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
@@ -28,7 +28,7 @@ function open(content = YAML, branch = "edition") {
     ...HELD,
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     [`GET ${ROUTE}/shared/personne`]: { status: 200, body: { ...MODEL, content } },
-    [`GET ${ROUTE}`]: { status: 200, body: [MODEL] },
+    [`GET ${ROUTE}`]: { status: 200, body: modelListing([MODEL]) },
     [`PUT ${ROUTE}/shared/personne`]: {
       status: 200,
       body: { ...MODEL, content, version: 4 },

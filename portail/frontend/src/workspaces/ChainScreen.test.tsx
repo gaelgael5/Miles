@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, fill, HELD, modelListing, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/transformations";
@@ -345,7 +345,7 @@ describe("the step editor (24/10/2026)", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: WITH_MODEL },
-      [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: [] },
+      [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: modelListing() },
       ...routes,
     } as never);
     renderWorkspaces({
@@ -413,7 +413,7 @@ describe("the step editor (24/10/2026)", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: WITH_SOURCE },
       [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
-      [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: [] },
+      [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: modelListing() },
       [`GET /api/workspaces/retrait/data-models/shared/brut/paths${Q}`]: {
         status: 200,
         body: { paths: [{ path: "$.Name", type: "string", description: "" }] },
@@ -440,7 +440,7 @@ describe("the step editor (24/10/2026)", () => {
         "GET /api/workspaces": { status: 200, body: [WORKING] },
         [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
         [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
-        [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: [] },
+        [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: modelListing() },
       });
       renderWorkspaces({
         id: "retrait",
@@ -463,7 +463,7 @@ describe("the step editor (24/10/2026)", () => {
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: CHAIN },
       [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
-      [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: [] },
+      [`GET /api/workspaces/retrait/data-models${Q}`]: { status: 200, body: modelListing() },
     });
     renderWorkspaces({
       id: "retrait",
@@ -511,7 +511,7 @@ describe("ChainScreen — l'écart entre le template et le modèle de destinatio
     const calls = mockApi({
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
-      [MODELS]: { status: 200, body: [] },
+      [MODELS]: { status: 200, body: modelListing() },
       [`GET ${ROUTE}/comptes-import${Q}`]: { status: 200, body: FLAGGED },
       [`GET ${ROUTE}/comptes-import/sample${Q}`]: { status: 200, body: { sample: null } },
       [`PUT ${ROUTE}/comptes-import${Q}`]: { status: 200, body: FLAGGED },

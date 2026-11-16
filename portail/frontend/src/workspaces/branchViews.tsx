@@ -1,3 +1,4 @@
+import type { ModelUsage } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
 import { HoldNotice } from "./HoldNotice";
@@ -23,6 +24,42 @@ import { StorageScreen } from "./StorageScreen";
 import { StoragesScreen } from "./StoragesScreen";
 import { WorkflowsScreen } from "./WorkflowsScreen";
 import { tradsViewScreen } from "./tradsViews";
+
+/**
+ * Où va-t-on en ouvrant ce qui désigne un modèle (story e36192f8) ?
+ *
+ * Le lien est ICI et non dans l'écran du modèle : la correspondance entre une nature de
+ * désignation et une vue de branche est la même affaire que les autres allers-retours de
+ * ce fichier, et un écran qui construirait sa propre sélection en aurait fait une
+ * deuxième source. Un type d'event mène à la LISTE des events : l'écran n'a pas de
+ * sélection par type, et en inventer une ici promettrait une page qui n'existe pas.
+ */
+function usageSelection(
+  id: string,
+  branch: string,
+  usage: ModelUsage,
+): NonNullable<WorkspaceSelection> {
+  if (usage.kind === "storage") {
+    return { id, view: "storages", branch, storage: usage.name };
+  }
+  if (usage.kind === "source") {
+    return { id, view: "sources", branch, source: usage.name };
+  }
+  if (usage.kind === "chain_step") {
+    return {
+      id,
+      view: "transformations",
+      branch,
+      chain: usage.name,
+      step: usage.part ?? undefined,
+    };
+  }
+  if (usage.kind === "model") {
+    // Le nom d'un modèle désignateur est déjà « portée/nom » : c'est la clef de sélection.
+    return { id, view: "dataModels", branch, model: usage.name };
+  }
+  return { id, view: "events", branch };
+}
 
 /** Une vue de branche s'affiche-t-elle ? Non pour le paramétrage, ni sans branche de base. */
 export function hasBranchScreen(workspace: Workspace, selection: NonNullable<WorkspaceSelection>) {
@@ -295,6 +332,7 @@ function viewScreen(
         scope={scope}
         name={name}
         onBack={() => onSelect({ id: workspace.id, view: "dataModels", branch })}
+        onOpenUsage={(usage) => onSelect(usageSelection(workspace.id, branch, usage))}
       />
     );
   }

@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, fill, HELD, modelListing, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/storages";
@@ -18,7 +18,9 @@ const STORAGE = {
 const MODELS = {
   [`GET /api/workspaces/retrait/data-models${Q}`]: {
     status: 200,
-    body: [{ scope: "shared", name: "site", path: "data-models/shared/site.yaml" }],
+    body: modelListing([
+      { scope: "shared", name: "site", path: "data-models/shared/site.yaml" },
+    ]),
   },
   // L'arbre se coche : il vient de la route des chemins, celle de l'intellisense JSLT.
   [`GET /api/workspaces/retrait/data-models/shared/site/paths${Q}`]: {

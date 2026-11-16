@@ -8,6 +8,17 @@ import type { WorkspaceSelection } from "../layout/WorkspacesNav";
 import type { Routes } from "@miles/socle-web/testing";
 import { WorkspacesScreen } from "./WorkspacesScreen";
 
+/**
+ * Le corps de la liste des modèles : les modèles, et à côté les désignations cassées.
+ *
+ * Un objet et non un tableau depuis la story e36192f8 — une désignation dont la cible
+ * manque ne se rattache à aucune ligne. `usages` est posé par défaut pour que chaque
+ * doublure n'ait à déclarer que ce que son test regarde.
+ */
+export function modelListing(models: object[] = [], broken: object[] = []) {
+  return { models: models.map((model) => ({ usages: [], ...model })), broken };
+}
+
 export const REPORT = {
   branch: "miles-verification-0a1b2c3d",
   tag: "miles-verification-0a1b2c3d",

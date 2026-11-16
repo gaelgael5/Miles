@@ -33,6 +33,7 @@ from miles.datamodels.schema import (
     parse_schema,
     references_in,
 )
+from miles.datamodels.usages import Listing, read_listing
 from miles.event_shapes import GESTURE, NAME
 from miles.git.workcopy import WorkCopy
 from miles.workflowevents.dsl import FragmentError, scope_of
@@ -83,11 +84,25 @@ class DataModelsService:
 
     async def resolve_list(
         self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
-    ) -> list[ModelEntry]:
+    ) -> Listing:
+        """Les modèles de la branche, chacun avec ce qui le DÉSIGNE (story e36192f8).
+
+        Les usages voyagent avec la liste, et non par une route à eux : ils se lisent dans
+        la MÊME copie, dont les fichiers de modèle sont déjà lus pour leur label. Une route
+        dédiée aurait rouvert la branche pour une page qui est sur le chemin critique
+        mesuré de l'enabler 7fb3577c — et rendu deux instantanés de deux commits possibles
+        là où l'écran en montre un seul.
+        """
         async with self.branches.checkout(
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
-            return [await _described(copy, e) for e in await _entries(copy)]
+            paths = await copy.paths()
+            # Le texte de chaque modèle, lu UNE fois : son label en sort, et ses `$ref`
+            # aussi. Deux boucles séparées auraient lu deux fois chaque fichier.
+            texts = [(e, await copy.read(e.path) or "") for e in _entries_in(paths)]
+            return await read_listing(
+                copy.read, paths, [(await _described(copy, e, text), text) for e, text in texts]
+            )
 
     async def resolve_get(
         self,
@@ -368,12 +383,21 @@ async def _check_references(copy: WorkCopy, entry: ModelEntry, schema: ModelSche
 
 
 async def _entries(copy: WorkCopy) -> list[ModelEntry]:
-    return [e for e in map(entry_of, await copy.paths()) if e is not None]
+    return _entries_in(await copy.paths())
 
 
-async def _described(copy: WorkCopy, entry: ModelEntry) -> ModelEntry:
-    """Le modèle avec son label (le `title` du schéma) et sa version (ses métadonnées)."""
-    text = await copy.read(entry.path)
+def _entries_in(paths: list[str]) -> list[ModelEntry]:
+    return [e for e in map(entry_of, paths) if e is not None]
+
+
+async def _described(copy: WorkCopy, entry: ModelEntry, text: str | None = None) -> ModelEntry:
+    """Le modèle avec son label (le `title` du schéma) et sa version (ses métadonnées).
+
+    `text` : le contenu déjà lu, quand l'appelant l'a sous la main. La liste en a besoin
+    pour les usages, et le relire ici doublerait une lecture par modèle de la branche.
+    """
+    if text is None:
+        text = await copy.read(entry.path)
     try:
         label = parse_schema(text or "").title
     except ValueError:

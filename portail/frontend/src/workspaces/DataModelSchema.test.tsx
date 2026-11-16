@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, HELD, modelListing, renderWorkspaces } from "./workspaceFixtures";
 
 // Éditeur visuel JSONJoy et YAML, synchronisés, en mémoire jusqu'à « Enregistrer » (e38806f3).
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
@@ -28,7 +28,7 @@ function open(routes: Record<string, unknown> = {}, held = true) {
     ...(held ? HELD : { "GET /api/workspaces/retrait/holds": { status: 200, body: [] } }),
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     [`GET ${ROUTE}/shared/personne?branch=edition`]: { status: 200, body: { ...MODEL, content: YAML } },
-    [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [MODEL, ADRESSE] },
+    [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing([MODEL, ADRESSE]) },
     ...routes,
   } as Parameters<typeof mockApi>[0]);
   renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", model: "shared/personne" });

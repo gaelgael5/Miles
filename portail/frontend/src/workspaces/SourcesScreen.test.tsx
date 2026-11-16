@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, fill, renderWorkspaces } from "./workspaceFixtures";
+import { CONFIGURED, fill, HELD, modelListing, renderWorkspaces } from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/sources";
@@ -27,7 +27,9 @@ const PICKERS = {
   },
   [`GET /api/workspaces/retrait/data-models${Q}`]: {
     status: 200,
-    body: [{ scope: "pudo", name: "import-crm", path: "domains/pudo/models/import-crm.yaml" }],
+    body: modelListing([
+      { scope: "pudo", name: "import-crm", path: "domains/pudo/models/import-crm.yaml" },
+    ]),
   },
   [`GET /api/workspaces/retrait/transformations${Q}`]: {
     status: 200,

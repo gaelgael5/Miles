@@ -4,15 +4,19 @@ import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, Tabs } from "@miles/socle-web";
 import {
+  type BrokenModelRef,
   type DataModelContent,
+  type ModelUsage,
   SHARED_SCOPE,
   useDataModel,
   useDataModels,
+  useModelListing,
   useReplaceDataModel,
 } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
 import { FieldUsage } from "../dataModels/FieldUsage";
 import { ImportSmart } from "../dataModels/ImportSmart";
+import { ModelRole } from "../dataModels/ModelRole";
 import { isBlankSchema, parseSchema, sameSchema, schemaText } from "../dataModels/schemaText";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { ModelRefusal } from "./ModelRefusal";
@@ -44,8 +48,12 @@ function withIdentity(current: JsonSchema, inferred: Record<string, unknown>): J
  * Les vues d'un modèle (Gael, 05/11/2026) : ce qu'il DÉCRIT, puis ce que ses champs
  * SERVENT à faire. L'éditeur d'abord — on ne déclare l'utilité que de champs qui
  * existent.
+ *
+ * « Désigné par » en dernier (story e36192f8) : son onglet PORTE le nombre, de sorte
+ * qu'on sache qu'un modèle sert à quelque chose sans avoir à l'ouvrir — c'est ce qu'on
+ * lit avant de changer un modèle.
  */
-const ONGLETS = ["editor", "usage"] as const;
+const ONGLETS = ["editor", "usage", "role"] as const;
 type Onglet = (typeof ONGLETS)[number];
 
 /**
@@ -56,14 +64,20 @@ function Editor({
   target,
   model,
   saved,
+  usages,
+  broken,
   onDirty,
   onSaved,
+  onOpenUsage,
 }: {
   target: WorkTarget;
   model: DataModelContent;
   saved: boolean;
+  usages: ModelUsage[];
+  broken: BrokenModelRef[];
   onDirty: (dirty: boolean) => void;
   onSaved: () => void;
+  onOpenUsage?: (usage: ModelUsage) => void;
 }) {
   const { t } = useTranslation();
   const replace = useReplaceDataModel(target, model);
@@ -179,11 +193,19 @@ function Editor({
           remontera d'un cran, pas la barre qui descendra. */}
       <Tabs
         label={t("dataModels.tabs.title")}
-        tabs={ONGLETS.map((nom) => ({ name: nom, label: t(`dataModels.tabs.${nom}`) }))}
+        tabs={ONGLETS.map((nom) => ({
+          name: nom,
+          label:
+            nom === "role"
+              ? t("dataModels.tabs.role", { count: usages.length })
+              : t(`dataModels.tabs.${nom}`),
+        }))}
         current={onglet}
         onSelect={setOnglet}
       >
-        {onglet === "editor" ? (
+        {onglet === "role" ? (
+          <ModelRole usages={usages} broken={broken} onOpen={onOpenUsage} />
+        ) : onglet === "editor" ? (
           /* Pas de <form> ici, exprès : JSONJoy porte ses propres formulaires (ajout d'une
              définition) ; imbriqués dans le nôtre, leur envoi rechargeait toute la page. */
           <div className="card" role="group" aria-label={t("dataModels.editor.title")}>
@@ -223,14 +245,20 @@ export function DataModelScreen({
   scope,
   name,
   onBack,
+  onOpenUsage,
 }: {
   target: WorkTarget;
   scope: string;
   name: string;
   onBack: () => void;
+  onOpenUsage?: (usage: ModelUsage) => void;
 }) {
   const { t } = useTranslation();
   const model = useDataModel(target, { scope, name });
+  // La MÊME requête que la liste des modèles, déjà chargée par l'éditeur pour ses `$ref` :
+  // les usages voyagent avec elle, et cet écran n'ouvre pas la branche une fois de plus.
+  const listing = useModelListing(target);
+  const listed = listing.data?.models.find((m) => m.scope === scope && m.name === name);
   const data = model.data;
   const [dirty, setDirty] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -268,6 +296,11 @@ export function DataModelScreen({
             target={target}
             model={data}
             saved={saved}
+            usages={listed?.usages ?? []}
+            // Celles que CE modèle porte : un `$ref` vers un modèle que la branche n'a
+            // plus. Les autres se voient sur la liste, où elles ne manquent à personne.
+            broken={(listing.data?.broken ?? []).filter((ref) => ref.path === data.path)}
+            onOpenUsage={onOpenUsage}
             onDirty={(value) => {
               setDirty(value);
               if (value) setSaved(false);

@@ -2,7 +2,7 @@ import { fireEvent, screen } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, HELD, renderWorkspaces } from "../workspaces/workspaceFixtures";
+import { CONFIGURED, HELD, modelListing, renderWorkspaces } from "../workspaces/workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const Q = "?branch=edition";
@@ -114,7 +114,7 @@ describe("Swagger viewer (25/10/2026)", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${WS}/storages${Q}`]: { status: 200, body: [] },
-      [`GET ${WS}/data-models${Q}`]: { status: 200, body: [] },
+      [`GET ${WS}/data-models${Q}`]: { status: 200, body: modelListing() },
       [`GET ${WS}/transformations${Q}`]: { status: 200, body: [] },
       [`GET ${WS}/sources${Q}`]: { status: 200, body: [] },
       [`GET ${WS}/sources/crm${Q}`]: { status: 200, body: SOURCE },
@@ -134,7 +134,7 @@ describe("Swagger viewer (25/10/2026)", () => {
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
       [`GET ${WS}/storages${Q}`]: { status: 200, body: [] },
-      [`GET ${WS}/data-models${Q}`]: { status: 200, body: [] },
+      [`GET ${WS}/data-models${Q}`]: { status: 200, body: modelListing() },
       [`GET ${WS}/transformations${Q}`]: { status: 200, body: [] },
       [`GET ${WS}/sources${Q}`]: { status: 200, body: [] },
       [`GET ${WS}/sources/crm${Q}`]: { status: 200, body: SOURCE },

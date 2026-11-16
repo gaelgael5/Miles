@@ -95,6 +95,6 @@ async def unknown(
         refusal(
             "modele_inconnu",
             path=model_path(scope, name) if scope and name else "",
-            existants=[e.path for e in existing],
+            existants=[listed.entry.path for listed in existing.models],
         )
     )

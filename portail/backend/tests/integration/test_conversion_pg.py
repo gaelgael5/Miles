@@ -100,7 +100,7 @@ async def test_la_conversion_deplace_les_fichiers_dans_le_depot_et_rend_la_lectu
     assert await forge.file(f"shared/{_VIEUX}/personne.yaml") is None
     listed = await forge.client.get(MODELS, timeout=120)
     assert listed.status_code == 200, listed.text
-    assert [m["name"] for m in listed.json()] == ["personne"]
+    assert [m["name"] for m in listed.json()["models"]] == ["personne"]
     event = await forge.portal.pool.fetchrow(
         "SELECT properties FROM events WHERE type = 'work_layout.converted'"
     )
