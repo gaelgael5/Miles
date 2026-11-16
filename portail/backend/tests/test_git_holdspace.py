@@ -9,7 +9,7 @@ from miles_socle.git.forge import Repository
 from miles_socle.secrets.model import Secret
 
 from miles.git.holdspace import HoldSpaces
-from miles.git.workcopy import BranchMovedError
+from miles.git.workcopy import BranchMissingError, BranchMovedError, WorkCopy
 
 TOKEN = GitAccess(token=Secret("jeton-de-lea"))
 LEA = "Léa Martin <lea@forge.invalid>"
@@ -167,3 +167,127 @@ def _push_outside(seed: Path, repo: Repository) -> None:
     (seed / "a.yaml").write_text("hors Miles\n")
     _git("-C", str(seed), *IDENTITY, "commit", "-qam", "hors Miles")
     _git("-C", str(seed), "push", "-q", repo.url.removeprefix("file://"), f"main:{BRANCH}")
+
+
+def _compte_git(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Les sous-commandes git qu'un geste sur la branche tenue lance réellement.
+
+    On compte, on ne chronomètre pas (bug 347ffd22, critère 1) : sur une forge `file://`
+    locale un `fetch` coûte quelques millisecondes, et un test au chronomètre resterait
+    vert le jour où le `fetch` inutile revient. Ce qu'on protège est un aller-retour
+    réseau vers la forge.
+    """
+    appels: list[str] = []
+    origine = WorkCopy.git
+
+    async def compte(self: WorkCopy, *args: str) -> object:
+        appels.append(args[0])
+        return await origine(self, *args)
+
+    monkeypatch.setattr(WorkCopy, "git", compte)
+    return appels
+
+
+async def test_a_second_gesture_on_an_unchanged_held_branch_fetches_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _, head = _remote(tmp_path)
+    spaces = HoldSpaces(tmp_path / "tenues")
+    async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA):
+        pass
+
+    appels = _compte_git(monkeypatch)
+    async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA) as c:
+        contenu = await c.read("a.yaml")
+        tenue = (c.head, c.published)
+
+    assert "fetch" not in appels
+    # La forge est TOUJOURS interrogée : c'est ce qui distingue l'économie d'un cache.
+    assert appels.count("ls-remote") == 1
+    assert (contenu, tenue) == ("un\n", (head, head))
+
+
+async def test_two_identical_gestures_in_a_row_ask_the_forge_once_each_and_never_fetch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _, head = _remote(tmp_path)
+    spaces = HoldSpaces(tmp_path / "tenues")
+    async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA):
+        pass
+
+    appels = _compte_git(monkeypatch)
+    for _ in range(2):
+        async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA):
+            pass
+
+    assert (appels.count("ls-remote"), appels.count("fetch")) == (2, 0)
+
+
+async def test_a_held_branch_moved_on_the_forge_is_fetched_and_followed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, seed, head = _remote(tmp_path)
+    spaces = HoldSpaces(tmp_path / "tenues")
+    async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA):
+        pass
+    _push_outside(seed, repo)
+    moved = _remote_head(repo)
+
+    appels = _compte_git(monkeypatch)
+    async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA) as c:
+        contenu = await c.read("a.yaml")
+        tenue = (c.head, c.published)
+
+    assert "fetch" in appels
+    assert (contenu, tenue) == ("hors Miles\n", (moved, moved))
+
+
+async def test_with_commits_pending_the_gesture_does_not_even_ask_the_forge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le `fetch` sauté ne doit pas l'être pour la mauvaise raison (critère 3).
+
+    Avec du travail en attente, rien ne bouge AVANT toute interrogation : c'est une
+    décision, distincte de l'économie faite quand il n'y a rien à récupérer. Les deux
+    produisent le même effet visible et se confondraient dans un seul test.
+    """
+    repo, seed, head = _remote(tmp_path)
+    spaces = HoldSpaces(tmp_path / "tenues")
+    mine = await _edit(spaces, repo, head, "deux\n")
+    _push_outside(seed, repo)
+
+    appels = _compte_git(monkeypatch)
+    async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA) as c:
+        tenue = (c.head, c.published)
+
+    assert "fetch" not in appels and "ls-remote" not in appels
+    assert tenue == (mine, head)
+
+
+async def test_a_branch_deleted_on_the_forge_during_the_hold_is_named_as_missing(
+    tmp_path: Path,
+) -> None:
+    repo, _, head = _remote(tmp_path)
+    spaces = HoldSpaces(tmp_path / "tenues")
+    async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA):
+        pass
+    _git("-C", repo.url.removeprefix("file://"), "branch", "-D", BRANCH)
+
+    with pytest.raises(BranchMissingError):
+        async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA):
+            pass
+
+
+async def test_a_space_absent_from_the_volume_still_clones_from_the_forge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Sans référence de suivi, l'économie ne se décide pas : on récupère (critère 5)."""
+    repo, _, head = _remote(tmp_path)
+    spaces = HoldSpaces(tmp_path / "tenues")
+
+    appels = _compte_git(monkeypatch)
+    async with spaces.open(repo, TOKEN, "retrait", "edition", published=head, signature=LEA) as c:
+        contenu = await c.read("a.yaml")
+
+    assert "fetch" in appels
+    assert (contenu, c.head) == ("un\n", head)

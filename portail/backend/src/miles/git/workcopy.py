@@ -35,6 +35,15 @@ class BranchMovedError(WorkBranchError):
     """La branche a bougé pendant l'écriture : rien n'est poussé, l'appelant réessaie."""
 
 
+def remote_head(stdout: str, ref: str) -> str | None:
+    """Le SHA que `ls-remote` a rendu pour cette référence, sans relancer git."""
+    for line in stdout.splitlines():
+        sha, _, name = line.partition("\t")
+        if name.strip() == ref:
+            return sha.strip() or None
+    return None
+
+
 @dataclass
 class WorkCopy:
     """Copie locale jetable d'UNE branche, le temps d'un geste de lecture ou d'écriture.
@@ -92,6 +101,21 @@ class WorkCopy:
         if not target.is_relative_to(self.root.resolve()):
             raise ValueError("chemin hors de la copie de travail")
         return target
+
+
+async def tracked_sha(copy: WorkCopy, tracking: str) -> str | None:
+    """Le SHA que la copie tient déjà pour cette branche, ou None.
+
+    Jamais une erreur : une copie neuve n'a pas encore de référence de suivi, et c'est le
+    cas NORMAL du premier passage. Rendre None fait alors différer la comparaison, donc
+    récupérer — l'économie ne se décide que sur une égalité prouvée, jamais sur un doute.
+
+    Posées ici avec `remote_head`, et non dans l'un des deux chemins d'ouverture : la même
+    règle écrite deux fois n'a valu que dans un seul (bug 347ffd22, où le chemin de la
+    branche tenue avait été oublié).
+    """
+    result = await copy.git("rev-parse", "--verify", "--quiet", tracking)
+    return result.stdout.strip() or None if result.ok else None
 
 
 @asynccontextmanager

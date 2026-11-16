@@ -13,7 +13,7 @@ from miles_socle.git.failures import classify
 from miles_socle.git.forge import Repository
 from miles_socle.git.runner import run_git
 
-from miles.git.workcopy import BranchMissingError, WorkCopy
+from miles.git.workcopy import BranchMissingError, WorkCopy, remote_head, tracked_sha
 from miles.git.worktree import WORK_BRANCH_ROOT, RepositoryAccessError
 
 # Segments de chemin : un identifiant de workspace et un nom de branche déjà validés par
@@ -105,33 +105,13 @@ async def _align(copy: WorkCopy) -> None:
     # GitHub est toujours vue — « git fait foi » est intact. Il n'y a ni fenêtre de
     # fraîcheur, ni délai, ni état gardé. On n'économise que le transfert d'objets déjà
     # présents, ce que le SHA prouve.
-    if _remote_head(listed.stdout, ref) != await _tracked(copy, tracking):
+    if remote_head(listed.stdout, ref) != await tracked_sha(copy, tracking):
         await _ok(copy, "fetch", "-q", "--depth", "1", _REMOTE, f"+{ref}:{tracking}")
     # Forcé puis nettoyé : un geste interrompu a pu laisser un commit non poussé, des
     # modifications ou des fichiers non suivis ; aucun ne doit atteindre le geste suivant.
     await _ok(copy, "checkout", "-q", "-f", "-B", copy.branch, tracking)
     await _ok(copy, "clean", "-q", "-fdx")
     copy.head = (await copy.git("rev-parse", "HEAD")).stdout.strip()
-
-
-def _remote_head(stdout: str, ref: str) -> str | None:
-    """Le SHA que `ls-remote` a rendu pour cette référence, sans relancer git."""
-    for line in stdout.splitlines():
-        sha, _, name = line.partition("\t")
-        if name.strip() == ref:
-            return sha.strip() or None
-    return None
-
-
-async def _tracked(copy: WorkCopy, tracking: str) -> str | None:
-    """Le SHA que la copie tient déjà pour cette branche, ou None.
-
-    Jamais une erreur : une copie neuve n'a pas encore de référence de suivi, et c'est le
-    cas NORMAL du premier passage. Rendre None fait alors différer la comparaison, donc
-    récupérer — l'économie ne se décide que sur une égalité prouvée, jamais sur un doute.
-    """
-    result = await copy.git("rev-parse", "--verify", "--quiet", tracking)
-    return result.stdout.strip() or None if result.ok else None
 
 
 async def _ok(copy: WorkCopy, *args: str) -> None:

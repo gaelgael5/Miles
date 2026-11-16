@@ -11,7 +11,14 @@ from miles_socle.git.access import GitAccess
 from miles_socle.git.failures import classify
 from miles_socle.git.forge import Repository
 
-from miles.git.workcopy import BranchMissingError, BranchMovedError, WorkCopy, author_parts
+from miles.git.workcopy import (
+    BranchMissingError,
+    BranchMovedError,
+    WorkCopy,
+    author_parts,
+    remote_head,
+    tracked_sha,
+)
 from miles.git.workdirs import SEGMENT_RE
 from miles.git.worktree import RepositoryAccessError, work_branch_name
 
@@ -151,7 +158,8 @@ class HoldSpaces:
 async def _clone(copy: HeldCopy) -> None:
     ref = f"refs/heads/{copy.branch}"
     await asyncio.to_thread(copy.root.mkdir, parents=True, exist_ok=True)
-    await _exists(copy)
+    # La branche doit exister dans la forge : on ne la recrée jamais implicitement.
+    await _remote_branch_head(copy)
     for args in (
         ("init", "-q"),
         ("remote", "add", _REMOTE, copy.repo.url),
@@ -176,10 +184,22 @@ async def _follow(copy: HeldCopy) -> None:
     tracking = f"refs/remotes/{_REMOTE}/{copy.branch}"
     ref = f"refs/heads/{copy.branch}"
     # Une branche supprimée dans la forge se dit comme telle, pas comme un dépôt muet.
-    await _exists(copy)
-    fetched = await copy.git("fetch", "-q", "--depth", "1", _REMOTE, f"+{ref}:{tracking}")
-    if not fetched.ok:
-        raise RepositoryAccessError(classify(fetched))
+    distant = await _remote_branch_head(copy)
+    # UNE interrogation de la forge au lieu de deux, comme sur le chemin de la copie
+    # partagée (enabler 782ce1e9, qui avait oublié celui-ci — bug 347ffd22) : le
+    # `ls-remote` ci-dessus a DÉJÀ rendu le SHA distant, et récupérer ensuite des objets
+    # qu'on tient déjà est un aller-retour HTTPS pur. Mesuré le 15/11/2026 sur
+    # host-test-37, contre GitHub : `fetch --depth 1` ≈ 0,66 s, et une page du portail
+    # ouvre la branche tenue 9 fois, gestes sérialisés par le verrou de la copie.
+    #
+    # CE N'EST PAS UN CACHE : la forge reste interrogée à chaque geste, donc une
+    # modification faite dans GitHub pendant la prise est toujours vue — c'est la raison
+    # d'être de `_follow`. Ni fenêtre de fraîcheur, ni délai, ni état gardé : on
+    # n'économise que le transfert d'objets déjà présents, ce que le SHA prouve.
+    if distant != await tracked_sha(copy, tracking):
+        fetched = await copy.git("fetch", "-q", "--depth", "1", _REMOTE, f"+{ref}:{tracking}")
+        if not fetched.ok:
+            raise RepositoryAccessError(classify(fetched))
     remote = await _rev(copy, tracking)
     if remote != copy.published:
         moved = await copy.git("checkout", "-q", "-B", copy.branch, tracking)
@@ -188,12 +208,21 @@ async def _follow(copy: HeldCopy) -> None:
         copy.published = remote
 
 
-async def _exists(copy: HeldCopy) -> None:
-    listed = await copy.git("ls-remote", "--heads", copy.repo.url, f"refs/heads/{copy.branch}")
+async def _remote_branch_head(copy: HeldCopy) -> str:
+    """Rend la tête de la branche sur la forge ; refuse si elle n'y est plus.
+
+    Le `ls-remote` est conservé alors que le `fetch` qui le suivait est devenu
+    conditionnel : c'est lui qui fait que la forge est toujours interrogée, et lui seul
+    qui distingue « branche supprimée » de « dépôt injoignable ».
+    """
+    ref = f"refs/heads/{copy.branch}"
+    listed = await copy.git("ls-remote", "--heads", copy.repo.url, ref)
     if not listed.ok:
         raise RepositoryAccessError(classify(listed))
-    if not listed.stdout.strip():
+    head = remote_head(listed.stdout, ref)
+    if head is None:
         raise BranchMissingError(copy.branch)
+    return head
 
 
 async def _rev(copy: HeldCopy, ref: str) -> str:
