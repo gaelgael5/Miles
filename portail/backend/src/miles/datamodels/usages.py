@@ -58,8 +58,9 @@ class Designation:
     """Une déclaration, et le modèle qu'elle désigne."""
 
     kind: str
-    # L'identifiant du désignateur : le nom du type d'event, du storage, de la source, le
-    # slug de la chaîne, le nom du modèle. C'est par lui que l'écran fait le lien.
+    # L'identifiant par lequel l'écran OUVRE le désignateur : le nom du type d'event, du
+    # storage ou de la source, le slug de la chaîne — et « portée/nom » pour un modèle,
+    # dont la rubrique n'est pas plate (voir `_in_models`).
     name: str
     # Son libellé quand la déclaration en porte un ; None sinon.
     label: str | None
