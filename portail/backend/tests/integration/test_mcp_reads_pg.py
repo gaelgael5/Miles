@@ -65,15 +65,17 @@ async def test_a_whole_domain_comes_in_one_call_with_stray_files_named(m: McpFor
 
     assert listed["domains"] == ["suivi"]
     sections = domain["sections"]
-    assert [e["path"] for e in sections["messages"]] == ["domains/suivi/models/colis.yaml"]
-    assert sections["messages"][0]["content"] == COLIS
+    # `models` et non `messages` : la clef a été renommée avec le dossier le 13/11/2026,
+    # rupture de contrat MCP assumée. Ce test est ce qui empêche l'ancien nom de revenir.
+    assert [e["path"] for e in sections["models"]] == ["domains/suivi/models/colis.yaml"]
+    assert sections["models"][0]["content"] == COLIS
     assert [e["path"] for e in sections["mappings/inbound"]] == [
         "domains/suivi/mappings/inbound/depot.jslt"
     ]
     assert sections["screens"] == [] and sections["scenarios"] == []
     assert domain["misplaced"] == [{"path": "domains/suivi/notes.txt", "content": "égaré\n"}]
     assert (domain["truncated"], domain["next_after"]) == (False, None)
-    assert shared["messages"] == [{"path": "shared/models/personne.yaml", "content": PERSONNE}]
+    assert shared["models"] == [{"path": "shared/models/personne.yaml", "content": PERSONNE}]
 
 
 async def test_an_unknown_domain_names_those_that_exist(m: McpForge) -> None:
