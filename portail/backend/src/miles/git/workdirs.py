@@ -97,8 +97,14 @@ async def _align(copy: WorkCopy) -> None:
     # ci-dessus a DÉJÀ rendu le SHA distant : récupérer ensuite des objets qu'on tient
     # déjà est un aller-retour HTTPS pur, avec sa propre poignée de main. Mesuré le
     # 03/11/2026 sur host-test-37 : `ls-remote` 460 ms, `fetch --depth 1` 665 ms, et le
-    # travail local de tout l'alignement 15 ms — la lenteur des écrans de paramétrage
-    # était là, pas dans la lecture des fichiers.
+    # travail local de tout l'alignement 15 ms.
+    #
+    # Ces 15 ms ne valaient que pour un dépôt qui portait alors 9 fichiers suivis : au
+    # 15/11/2026, sur une branche de 215 fichiers dont 200 documents YAML, le travail
+    # local d'une lecture d'écran pesait au contraire quelques secondes (enabler
+    # 1af50397, qui a changé le lecteur YAML). Les deux mesures sont justes à leur date,
+    # et c'est leur écart qui enseigne : ne pas conclure d'un profil pris sur un dépôt
+    # vide qu'il n'y a rien à gagner côté lecture.
     #
     # CE N'EST PAS UN CACHE, et la distinction est ce qui rend l'économie acceptable :
     # on continue d'INTERROGER la forge à chaque geste, donc une modification faite dans
