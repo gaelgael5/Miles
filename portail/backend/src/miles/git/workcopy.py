@@ -158,12 +158,12 @@ class CommitView(WorkCopy):
         return self.repo_dir
 
     async def git(self, *args: str) -> GitResult:
-        # Un `fetch` — celui des étiquettes de version — est la SEULE plomberie mutante
-        # qu'une lecture lance encore : il écrit des références, et deux fetch concurrents
-        # dans le même dépôt se disputent le verrou de référence de git, l'un échouant sur
-        # « cannot lock ref ». Tout le reste (ls-tree, cat-file, archive, rev-parse) ne lit
-        # que des objets et ne craint aucune concurrence, pas même celle d'une écriture qui
-        # recale l'arbre à côté.
+        # Un `fetch` est la seule plomberie MUTANTE qu'une lecture lance encore — ici
+        # celui des étiquettes de version, et dans `published_head` celui des objets de la
+        # branche. Il écrit des références, et deux fetch concurrents dans le même dépôt se
+        # disputent le verrou de référence de git : l'un échoue sur « cannot lock ref ». Le
+        # reste (ls-tree, archive, rev-parse) ne lit que des objets et ne craint aucune
+        # concurrence, pas même celle d'une écriture qui recale l'arbre à côté.
         if args and args[0] == "fetch" and self.fetch_lock is not None:
             async with self.fetch_lock:
                 return await super().git(*args)
@@ -187,7 +187,7 @@ class CommitView(WorkCopy):
 
 
 @dataclass
-class TreeCopy(CommitView, WorkCopy):
+class TreeCopy(CommitView):
     """La tête publiée d'une branche, lue sans poser d'arbre dans la copie partagée."""
 
 
