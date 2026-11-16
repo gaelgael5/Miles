@@ -581,7 +581,7 @@
     "fields": {
       "label": "Label",
       "name": "Name",
-      "nameHelp": "Lowercase letters, digits and underscores. The engine DSL rejects the dash, and this name is both the file name and the script name."
+      "nameHelp": "Lowercase letters, digits and underscores, starting with a letter. The engine DSL rejects the dash, and this name is both the file name and the script name."
     },
     "form": {
       "title": "New workflow",
@@ -602,7 +602,7 @@
     },
     "errors": {
       "invalid": {
-        "name": "Invalid name: lowercase letters, digits and underscores, starting with a letter or a digit. The engine DSL rejects the dash.",
+        "name": "Invalid name: lowercase letters, digits and underscores, starting with a letter. The engine DSL rejects the dash, and a leading digit.",
         "nameReserved": "This name is a reserved word of the engine DSL: the script would not load.",
         "perimeterName": "A perimeter already bears this name. On publication its artefact and this workflow would become the same file, and one would overwrite the other."
       }

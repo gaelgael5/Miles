@@ -581,7 +581,7 @@
     "fields": {
       "label": "Libellé",
       "name": "Nom",
-      "nameHelp": "Minuscules, chiffres et soulignés. Le DSL du moteur refuse le tiret, et ce nom est celui du fichier comme du script."
+      "nameHelp": "Minuscules, chiffres et soulignés, en commençant par une lettre. Le DSL du moteur refuse le tiret, et ce nom est celui du fichier comme du script."
     },
     "form": {
       "title": "Nouveau workflow",
@@ -602,7 +602,7 @@
     },
     "errors": {
       "invalid": {
-        "name": "Nom invalide : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le DSL du moteur refuse le tiret.",
+        "name": "Nom invalide : minuscules, chiffres et soulignés, en commençant par une lettre. Le DSL du moteur refuse le tiret, et un chiffre en tête.",
         "nameReserved": "Ce nom est un mot réservé du DSL du moteur : le script ne se chargerait pas.",
         "perimeterName": "Un périmètre porte déjà ce nom. À la publication, son artefact et ce workflow deviendraient le même fichier, et l'un écraserait l'autre."
       }

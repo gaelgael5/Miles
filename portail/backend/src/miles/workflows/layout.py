@@ -36,10 +36,18 @@ ROOT = "workflows"
 # que recopié : c'est la même décision, pas deux décisions qui se ressemblent.
 _FILE_RE = re.compile(rf"^{ROOT}/(?P<name>[^/]+)\{SUFFIX}$")
 
-# Le nom d'un workflow est celui d'un type d'event, et pour la même mesure : le DSL
-# refuse le tiret (`mismatched input '-'`) et tout caractère accentué (erreur de LEXER).
-# Il devient à la fois le `NAME` du script et le nom de son fichier — voir `workflow_path`.
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_]{0,62}$")
+# Le nom d'un workflow : minuscules, chiffres et soulignés, et il COMMENCE PAR UNE LETTRE.
+#
+# Plus étroit que le nom d'un type d'event (`^[a-z0-9][a-z0-9_]…`), et c'est une mesure et
+# non un excès : le `REGULAR_ID` du DSL est `[A-Za-z][A-Za-z0-9_]*`, donc un chiffre en
+# tête est une erreur de PARSEUR, comme le tiret est une erreur de lexer. Admettre
+# `[a-z0-9]` en tête faisait refuser `2` par `writable` — donc sous
+# `name_non_ecrivable`, dont le message parle de mot réservé. Le nom était bien refusé,
+# mais pour une raison fausse, et c'est la campagne du 16/11/2026 qui l'a montré.
+#
+# Ce nom devient à la fois le `NAME` du script et le nom de son fichier — voir
+# `workflow_path`.
+NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
 
 def workflow_path(name: str) -> str:
