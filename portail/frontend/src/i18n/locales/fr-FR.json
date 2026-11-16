@@ -325,7 +325,7 @@
         "domain": "Nom de domaine : lettres minuscules, chiffres, tirets et soulignés, 63 caractères au plus, en commençant par une lettre ou un chiffre."
       },
       "conflict": {
-        "nom_pris": "Un autre modèle porte déjà ce nom à cet emplacement.",
+        "nom_pris": "Un autre élément porte déjà ce nom à cet emplacement.",
         "branche_de_travail_absente": "Ouvrez d'abord une branche de travail.",
         "branche_de_travail_introuvable": "La branche de travail n'existe plus dans le dépôt. Elle n'est pas recréée d'office.",
         "branche_modifiee": "La branche de travail a changé entre-temps : rien n'a été écrit. Réessayez.",
@@ -353,7 +353,8 @@
         "noms_en_conflit": "La conversion s'arrête : un ancien event porte le nom d'un modèle déjà présent dans le même périmètre. Choisissez dans la forge lequel garder.",
         "perimetre_non_ecrivable": "Un périmètre porte un nom que le DSL de workflow n'accepte pas (tiret, accent, chiffre en tête) : renommez-le dans la forge avant de convertir.",
         "prise_concurrente": "La prise de main a changé entre-temps : réessayez.",
-        "rangement_existant": "Un rangement existe déjà pour cette branche : relisez-le avant d'en créer un autre."
+        "rangement_existant": "Un rangement existe déjà pour cette branche : relisez-le avant d'en créer un autre.",
+        "workflow_inconnu": "Ce workflow n'existe pas sur cette branche."
       },
       "_sans_libelle": "refus « {{code}} » — ce refus n'a pas encore de message : signalez-le",
       "unexpected": "L'opération a échoué. Voir les journaux du back-office."
@@ -598,6 +599,13 @@
       "noIncludes": "aucun",
       "problems": "Manquements du script",
       "unreadable": "Script illisible : une version ne pourra pas être enregistrée tant qu'il n'est pas réparé."
+    },
+    "errors": {
+      "invalid": {
+        "name": "Nom invalide : minuscules, chiffres et soulignés, en commençant par une lettre ou un chiffre. Le DSL du moteur refuse le tiret.",
+        "nameReserved": "Ce nom est un mot réservé du DSL du moteur : le script ne se chargerait pas.",
+        "perimeterName": "Un périmètre porte déjà ce nom. À la publication, son artefact et ce workflow deviendraient le même fichier, et l'un écraserait l'autre."
+      }
     }
   },
   "versions": {

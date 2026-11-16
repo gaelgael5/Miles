@@ -325,7 +325,7 @@
         "domain": "Domain name: lowercase letters, digits, hyphens and underscores, 63 characters at most, starting with a letter or a digit."
       },
       "conflict": {
-        "nom_pris": "A different model with this name already exists at this location.",
+        "nom_pris": "Another item already bears this name at this location.",
         "branche_de_travail_absente": "Open a work branch first.",
         "branche_de_travail_introuvable": "The work branch no longer exists in the repository. It is not recreated automatically.",
         "branche_modifiee": "The work branch changed meanwhile: nothing was written. Try again.",
@@ -353,7 +353,8 @@
         "noms_en_conflit": "Conversion stopped: a former event has the same name as a model already present in the same perimeter. Choose in the forge which one to keep.",
         "perimetre_non_ecrivable": "A perimeter has a name the workflow DSL refuses (hyphen, accent, leading digit): rename it in the forge before converting.",
         "prise_concurrente": "The hold changed in the meantime: try again.",
-        "rangement_existant": "A shelf already exists for this branch: read it before creating another."
+        "rangement_existant": "A shelf already exists for this branch: read it before creating another.",
+        "workflow_inconnu": "This workflow does not exist on this branch."
       },
       "_sans_libelle": "refusal “{{code}}” — this refusal has no message yet: please report it",
       "unexpected": "The operation failed. See the back-office logs."
@@ -598,6 +599,13 @@
       "noIncludes": "none",
       "problems": "Script problems",
       "unreadable": "Unreadable script: no version can be saved until it is fixed."
+    },
+    "errors": {
+      "invalid": {
+        "name": "Invalid name: lowercase letters, digits and underscores, starting with a letter or a digit. The engine DSL rejects the dash.",
+        "nameReserved": "This name is a reserved word of the engine DSL: the script would not load.",
+        "perimeterName": "A perimeter already bears this name. On publication its artefact and this workflow would become the same file, and one would overwrite the other."
+      }
     }
   },
   "versions": {

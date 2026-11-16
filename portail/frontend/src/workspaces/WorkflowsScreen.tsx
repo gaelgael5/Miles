@@ -14,6 +14,19 @@ import type { Workspace } from "../api/workspaces";
 import { ModelRefusal } from "./ModelRefusal";
 
 /**
+ * Les champs refusés qui ne veulent pas dire ici ce qu'ils veulent dire ailleurs.
+ *
+ * `name` est le cas qui mord : le libellé partagé parle d'un slug « tirets et soulignés »,
+ * or le DSL du moteur refuse le tiret. Sans cette redirection, l'écran expliquerait à
+ * l'utilisateur qu'il a droit à un caractère que le serveur vient de lui refuser.
+ */
+const REFUSED_FIELDS = {
+  name: "workflows.errors.invalid.name",
+  name_non_ecrivable: "workflows.errors.invalid.nameReserved",
+  nom_de_perimetre: "workflows.errors.invalid.perimeterName",
+};
+
+/**
  * Création en deux temps, comme un modèle (Gael, 23/10/2026) : le libellé et le nom ici,
  * le comportement — états et transitions — sur l'écran du workflow.
  *
@@ -63,7 +76,7 @@ function CreateForm({
         />
       </label>
       <p className="help">{t("workflows.fields.nameHelp")}</p>
-      {create.isError && <ModelRefusal error={create.error} />}
+      {create.isError && <ModelRefusal error={create.error} fields={REFUSED_FIELDS} />}
       <div className="actions">
         <button type="submit" className="btn btn-primary" disabled={create.isPending}>
           {t("workflows.form.submit")}
