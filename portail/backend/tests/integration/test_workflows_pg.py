@@ -116,7 +116,16 @@ async def test_un_workflow_neuf_se_charge_a_cote_de_l_artefact_d_un_perimetre(
     config = load_directory(WorkflowsConfig(), WorkflowConfigVisitor, plat, "*.wf")
     # Un seul document chargé : le FRAGMENT n'en est pas un, il alimente celui-ci.
     assert len(config) == 1
-    assert [c.name for c in config.get_all("retrait_comptoir")] == ["retrait_comptoir"]
+    document = config.get_all("retrait_comptoir")[0]
+    assert document.name == "retrait_comptoir"
+    # Et le type d'event du périmètre est ARRIVÉ dans le document : c'est tout l'objet de
+    # l'`INCLUDE`, et ce que l'aplatissement de la publication devra reproduire. Sans
+    # cette assertion, le test prouverait seulement que deux fichiers se lisent.
+    #
+    # `$_result` est là parce que le MOTEUR l'injecte lui-même dans chaque workflow
+    # (mesuré le 16/11/2026) — c'est la septième catégorie de types d'event, `moteur-
+    # workflow`, et son absence de cette liste serait l'anomalie.
+    assert sorted(document.declared_events) == ["$_result", "colis_recu"]
 
 
 async def test_la_liste_montre_deux_workflows_et_celui_qui_ne_se_relit_pas(forge: Forge) -> None:
