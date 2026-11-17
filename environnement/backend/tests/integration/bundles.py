@@ -117,6 +117,26 @@ properties:
 """
 
 
+def _pose(depot: Path, chemin: str, contenu: str) -> None:
+    """Écrit un fichier du paramétrage en CRÉANT son répertoire, déduit de son chemin.
+
+    Le répertoire se déduit du chemin du fichier, et c'est la correction d'un défaut réel.
+    Le renommage de `messages/` en `models/` (13/11/2026, commit `95cd0b8`) a remplacé les
+    chemins écrits d'une seule chaîne — `"domains/pudo/models/x.yaml"` — et laissé intacts
+    les `mkdir` qui épellent le même nom en SEGMENTS : `"domains" / "pudo" / "messages"`.
+    Une recherche de `messages/` ne voit pas la seconde forme. Résultat : toute la campagne
+    d'ingestion fichier de ce module est restée rouge quatre jours, sur un
+    `FileNotFoundError` qui ne nommait pas sa cause — et elle ne se voyait pas, parce que
+    les campagnes lancées étaient celles du portail.
+
+    Déduire le répertoire du fichier rend l'écart inexprimable : il n'y a plus deux endroits
+    à renommer ensemble.
+    """
+    cible = depot / chemin
+    cible.parent.mkdir(parents=True, exist_ok=True)
+    cible.write_text(contenu, encoding="utf-8")
+
+
 def _storage(
     nom: str,
     modele: str,
@@ -277,13 +297,10 @@ def fabrique_nettoyage(
     """
     depot = tmp_path / "nettoyage"
     git("init", "-q", "-b", "main", str(depot))
-    (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
     (depot / "storages").mkdir()
     (depot / "sources").mkdir()
-    (depot / "domains/pudo/models/magasin.yaml").write_text(MAGASIN_DATE_MODELE, encoding="utf-8")
-    (depot / "domains/pudo/models/magasin-import.yaml").write_text(
-        MAGASIN_DATE_ENTREE, encoding="utf-8"
-    )
+    _pose(depot, "domains/pudo/models/magasin.yaml", MAGASIN_DATE_MODELE)
+    _pose(depot, "domains/pudo/models/magasin-import.yaml", MAGASIN_DATE_ENTREE)
     (depot / "storages/magasins.yaml").write_text(
         _storage(
             "magasins",
@@ -336,11 +353,10 @@ def fabrique_parametrage(tmp_path: Path) -> dict[int, VersionFabriquee]:
     """
     depot = tmp_path / "param"
     git("init", "-q", "-b", "main", str(depot))
-    (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
     (depot / "storages").mkdir()
     (depot / "sources").mkdir()
-    (depot / "domains/pudo/models/accounts.yaml").write_text(ACCOUNTS_MODELE, encoding="utf-8")
-    (depot / "domains/pudo/models/site.yaml").write_text(SITE_MODELE, encoding="utf-8")
+    _pose(depot, "domains/pudo/models/accounts.yaml", ACCOUNTS_MODELE)
+    _pose(depot, "domains/pudo/models/site.yaml", SITE_MODELE)
     # Les chaînes que les sources nomment. SANS ÉTAPE, et c'est le cas réel de ces deux
     # sources : leur modèle d'entrée EST celui de leur storage, donc il n'y a rien à
     # transformer. Exiger un template identité pour ne rien faire serait du bruit — et
@@ -476,13 +492,10 @@ def fabrique_import(tmp_path: Path) -> dict[int, VersionFabriquee]:
     """UNE version : le storage `magasins`, sa source, et la chaîne qui y mène."""
     depot = tmp_path / "import"
     git("init", "-q", "-b", "main", str(depot))
-    (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
     (depot / "storages").mkdir()
     (depot / "sources").mkdir()
-    (depot / "domains/pudo/models/magasin.yaml").write_text(MAGASIN_MODELE, encoding="utf-8")
-    (depot / "domains/pudo/models/magasin-import.yaml").write_text(
-        MAGASIN_ENTREE, encoding="utf-8"
-    )
+    _pose(depot, "domains/pudo/models/magasin.yaml", MAGASIN_MODELE)
+    _pose(depot, "domains/pudo/models/magasin-import.yaml", MAGASIN_ENTREE)
     (depot / "storages/magasins.yaml").write_text(
         _storage("magasins", "pudo/magasin", "$.Code", [("ville", ["$.Ville"])]), encoding="utf-8"
     )
@@ -521,13 +534,10 @@ def fabrique_import_fichier(
     """
     depot = tmp_path / "import-fichier"
     git("init", "-q", "-b", "main", str(depot))
-    (depot / "domains" / "pudo" / "messages").mkdir(parents=True)
     (depot / "storages").mkdir()
     (depot / "sources").mkdir()
-    (depot / "domains/pudo/models/magasin.yaml").write_text(MAGASIN_MODELE, encoding="utf-8")
-    (depot / "domains/pudo/models/magasin-import.yaml").write_text(
-        MAGASIN_ENTREE, encoding="utf-8"
-    )
+    _pose(depot, "domains/pudo/models/magasin.yaml", MAGASIN_MODELE)
+    _pose(depot, "domains/pudo/models/magasin-import.yaml", MAGASIN_ENTREE)
     (depot / "storages/magasins.yaml").write_text(
         _storage("magasins", "pudo/magasin", "$.Code", [("ville", ["$.Ville"])]), encoding="utf-8"
     )

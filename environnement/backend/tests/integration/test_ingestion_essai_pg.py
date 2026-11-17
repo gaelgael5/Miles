@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from miles_socle.parametrage.layout import model_path
 from miles_socle.testing.enrolment_double import EnrolmentDouble
 
 from environnement.apikeys.self_key import SELF_KEY_LABEL, SELF_KEY_SLUG, SELF_KEY_TYPE
@@ -273,7 +274,10 @@ async def test_un_modele_d_entree_absent_de_la_version_servie_est_NOMME(
         await sert(stack, double, versions[1])
         # La v1 déclare `comptes-pudo` sur `pudo/accounts`, puis on retire le fichier du
         # modèle de l'arbre servi : c'est l'état d'un paramétrage incomplet.
-        (tmp_path / "parametrage" / "domains" / "pudo" / "messages" / "accounts.yaml").unlink()
+        # Le chemin vient du socle (`model_path`), pas de segments retapés : c'est la
+        # forme en segments qui a survécu au renommage de `messages/` en `models/` et
+        # laissé la campagne rouge quatre jours (13/11/2026).
+        (tmp_path / "parametrage" / model_path("pudo", "accounts")).unlink()
 
         lues = await _methodes(stack)
 
