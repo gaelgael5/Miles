@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 import asyncpg
@@ -11,24 +11,22 @@ from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.datamodels.grammar import Problem
-from miles.datamodels.layout import SHARED, ModelEntry, model_path
-from miles.datamodels.layout import entry_of as model_entry_of
+from miles.datamodels.layout import SHARED, model_path
 from miles.datamodels.schema import parse_schema
 from miles.event_shapes import GESTURE, NAME
 from miles.git.workcopy import WorkCopy
-from miles.workflowevents.dsl import (
-    DslProblem,
-    EventType,
-    FragmentError,
-    fragment_path,
-    parse,
-    render,
-)
+from miles.workflowevents.dsl import EventType, fragment_path, render
 from miles.workflowevents.layout import (
     checked_model,
     checked_name,
     checked_scope,
     visible,
+)
+from miles.workflowevents.reading import (
+    DeclaredType,
+    Perimeter,
+    declared_in,
+    read_perimeters,
 )
 from miles.workflowevents.schema import EventModelError, dedup_problems, payload_problems
 from miles.workshop.domains import domains_in
@@ -58,44 +56,6 @@ EVENT_TYPES = frozenset(forme.name for forme in EVENT_SHAPES)
 
 class EventTypeNotFoundError(Exception):
     pass
-
-
-@dataclass(frozen=True)
-class DeclaredType:
-    """Un type d'event tel que l'artefact de son périmètre le déclare."""
-
-    scope: str  # « shared », ou le nom du domaine
-    name: str
-    label: str
-    # (portée, nom) du modèle qui décrit le payload, et son chemin : l'écran et la surface
-    # MCP désignent un modèle par son chemin de dépôt, comme partout ailleurs.
-    model: tuple[str, str]
-    model_path: str
-    unique: tuple[str, ...] = field(default=())
-    # Le modèle désigné manque sur la branche. RENDU plutôt que refusé : une liste doit
-    # montrer une déclaration orpheline — c'est ce qui bloque l'enregistrement d'une
-    # version —, jamais la cacher.
-    model_missing: bool = field(default=False, compare=False)
-
-
-@dataclass(frozen=True)
-class Perimeter:
-    """Un périmètre et son artefact : ses types, ou ce qui empêche de les relire.
-
-    Rendu pour TOUS les périmètres de la branche — « shared » et chaque domaine —, même
-    ceux dont l'artefact n'existe pas : c'est la liste que l'écran déplie, et un périmètre
-    qui n'apparaîtrait qu'une fois son premier type déclaré serait introuvable pour le
-    déclarer (story `8a9ff6bc`, critères 1 et 6).
-    """
-
-    scope: str
-    # Où l'artefact VIT, qu'il existe ou non : c'est le fichier que l'écran nomme quand il
-    # n'est pas relisible, et celui qu'un geste écrira.
-    path: str
-    types: tuple[DeclaredType, ...] = field(default=())
-    # Ce qui empêche de relire CET artefact. Non vide : `types` est vide, et ce n'est pas
-    # « aucun type » — l'écran doit dire les deux choses différemment.
-    problems: tuple[DslProblem, ...] = field(default=())
 
 
 @dataclass(frozen=True)
@@ -134,11 +94,7 @@ class WorkflowEventsService:
         (`resolve_perimeters`) — il nomme le fichier fautif sans perdre le reste de
         l'arbre, ce qu'une liste plate ne sait pas faire.
         """
-        perimeters = await self.resolve_perimeters(viewer, workspace_id, branch=branch)
-        problems = [p for perimeter in perimeters for p in perimeter.problems]
-        if problems:
-            raise FragmentError(problems)
-        return [d for perimeter in perimeters for d in perimeter.types]
+        return declared_in(await self.resolve_perimeters(viewer, workspace_id, branch=branch))
 
     async def resolve_perimeters(
         self, viewer: EventAuthor, workspace_id: str, *, branch: str | None = None
@@ -152,7 +108,7 @@ class WorkflowEventsService:
         async with self.branches.checkout(
             workspace_id, branch, by=viewer, gesture=Gesture.READ
         ) as copy:
-            return await _perimeters(copy)
+            return await read_perimeters(copy.read, await copy.paths())
 
     async def resolve_get(
         self,
@@ -369,62 +325,5 @@ def _own(declared: list[DeclaredType], scope: str) -> list[DeclaredType]:
 
 
 async def _declared(copy: WorkCopy) -> list[DeclaredType]:
-    """Tous les types déclarés sur la branche, périmètre par périmètre.
-
-    Un artefact illisible fait lever `FragmentError` : on ne rend PAS une liste partielle.
-    Masquer un périmètre entier parce que son fichier a été retouché hors de Miles ferait
-    croire que ses types ont disparu, et un geste de déclaration écrirait alors par-dessus
-    ce qu'on n'a pas su relire. C'est ici que la règle vit, et TOUTE écriture passe par là.
-    """
-    perimeters = await _perimeters(copy)
-    problems = [p for perimeter in perimeters for p in perimeter.problems]
-    if problems:
-        raise FragmentError(problems)
-    return [d for perimeter in perimeters for d in perimeter.types]
-
-
-async def _perimeters(copy: WorkCopy) -> tuple[Perimeter, ...]:
-    """Les périmètres de la branche : « shared » d'abord, puis les domaines, par ordre.
-
-    TOUS les périmètres, même sans artefact : c'est la liste que l'écran déplie, et un
-    périmètre qui n'apparaîtrait qu'une fois son premier type déclaré serait introuvable
-    pour le déclarer.
-
-    Un artefact qui ne se relit pas n'arrête QUE son périmètre, et ses manquements sont
-    rendus avec lui. Ce n'est pas un assouplissement du tout-ou-rien : un périmètre rendu
-    AVEC son erreur ne fait pas croire que ses types ont disparu — il nomme son fichier —,
-    et l'écriture continue de passer par `_declared`, qui refuse en bloc.
-    """
-    paths = await copy.paths()
-    known = {(e.scope, e.name) for e in _models(paths)}
-    found = []
-    for scope in [SHARED, *domains_in(paths)]:
-        path = fragment_path(scope)
-        try:
-            declared = parse(await copy.read(path) or "")
-        except FragmentError as exc:
-            found.append(Perimeter(scope, path, (), exc.problems))
-            continue
-        found.append(
-            Perimeter(
-                scope,
-                path,
-                tuple(
-                    DeclaredType(
-                        scope,
-                        d.name,
-                        d.label,
-                        d.model,
-                        model_path(*d.model),
-                        d.unique,
-                        d.model not in known,
-                    )
-                    for d in declared
-                ),
-            )
-        )
-    return tuple(found)
-
-
-def _models(paths: list[str]) -> list[ModelEntry]:
-    return [e for e in map(model_entry_of, paths) if e is not None]
+    """Tous les types déclarés sur la branche, ou rien : la règle du tout-ou-rien."""
+    return declared_in(await read_perimeters(copy.read, await copy.paths()))

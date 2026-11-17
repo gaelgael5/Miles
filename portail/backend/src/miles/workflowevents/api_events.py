@@ -9,13 +9,9 @@ from pydantic import BaseModel, ConfigDict
 
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError
 from miles.workflowevents.dsl import FragmentError
+from miles.workflowevents.reading import DeclaredType, Perimeter
 from miles.workflowevents.schema import socle_schema
-from miles.workflowevents.service import (
-    DeclaredType,
-    EventTypeNotFoundError,
-    Perimeter,
-    WorkflowEventsService,
-)
+from miles.workflowevents.service import EventTypeNotFoundError, WorkflowEventsService
 from miles.workspaces.model import (
     BranchNotFoundError,
     RepositoryUnavailableError,

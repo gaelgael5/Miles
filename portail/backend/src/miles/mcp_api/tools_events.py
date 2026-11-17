@@ -30,11 +30,8 @@ from miles.mcp_api.calls import Caller, caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
 from miles.mcp_api.tool_args import ReadBranch, Workspace, WriteBranch
 from miles.workflowevents.dsl import fragment_path
-from miles.workflowevents.service import (
-    DeclaredType,
-    EventTypeNotFoundError,
-    WorkflowEventsService,
-)
+from miles.workflowevents.reading import DeclaredType
+from miles.workflowevents.service import EventTypeNotFoundError, WorkflowEventsService
 
 Scope = Annotated[
     str,

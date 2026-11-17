@@ -12,7 +12,7 @@ que le SDK valide depuis leurs annotations.
 from __future__ import annotations
 
 from miles.mcp_api.tools_events import _out
-from miles.workflowevents.service import DeclaredType
+from miles.workflowevents.reading import DeclaredType
 
 DEMANDE = DeclaredType(
     "shared",
