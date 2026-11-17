@@ -11,8 +11,9 @@ from tests.integration.test_datamodels_pg import COLIS, PERSONNE, body_of
 
 pytestmark = pytest.mark.integration
 
-# Une seule série de primitives pour les deux familles : le premier argument dit laquelle
-# (décision de Gael, 11/11/2026).
+# Les SCHÉMAS, et eux seuls : `kind` a quitté ces primitives le 14/11/2026 avec la famille
+# « événement », un type d'event étant devenu une déclaration. Les déclarations ont leurs
+# propres primitives, éprouvées par `test_mcp_events_pg.py`.
 
 WS = {"workspace_id": "retrait"}
 EDIT = WS | {"branch": "edition"}

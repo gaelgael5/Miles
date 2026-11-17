@@ -19,6 +19,7 @@ from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE
 from miles.mcp_api.errors import refusal, refusal_code
 from miles.obo.service import Actor
 from miles.transform.api_transform import step_problem_out
+from miles.workflowevents.dsl import FragmentError
 from miles.workflowevents.schema import EventModelError
 from miles.workshop.trads import TradsFileError
 from miles.workshop.trads_keys_errors import (
@@ -174,6 +175,14 @@ def tool_refusal(exc: Exception) -> ToolError | None:
             else "modele_non_conforme"
         )
         code, detail = nom, {"problems": problems}
+    elif isinstance(exc, FragmentError):
+        # L'artefact d'un périmètre a été retouché hors de Miles. Les positions sont celles
+        # du MOTEUR : un agent ne sait rien faire de « le fichier est invalide », et le même
+        # code nomme ce refus sur la route de l'écran — apprendre l'un suffit pour l'autre.
+        positions = [
+            {"line": d.line, "column": d.column, "message": d.message} for d in exc.problems
+        ]
+        code, detail = "artefact_illisible", {"problems": positions}
     elif isinstance(exc, ChainInvalidError):
         problems = [step_problem_out(p).model_dump() for p in exc.problems]
         code, detail = "chaine_invalide", {"problems": problems}
