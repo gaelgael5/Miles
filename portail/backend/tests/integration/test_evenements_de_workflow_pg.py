@@ -451,3 +451,133 @@ async def test_un_perimetre_illisible_n_arrete_que_lui_et_nomme_son_fichier(
     # Les positions sont celles du MOTEUR : l'écran renvoie à la ligne fautive plutôt
     # qu'à « le fichier est invalide ».
     assert [p["line"] for p in rendu["achats"]["problems"]] == [2]
+
+
+# Un artefact qui porte les CINQ sortes de déclarations qu'un fragment admet. Le portail
+# n'en écrit qu'une ; les quatre autres arrivent par un humain, un agent ou un push direct,
+# et il ne doit pas les détruire (bug `ff8779c6`).
+CINQ_SORTES = (
+    "FRAGMENT NAME shared\n"
+    "DESCRIPTION 'Référentiel transverse'\n"
+    "\n"
+    "DEFINE CONST Seuil 12 'Seuil de poids';\n"
+    "DEFINE EVENT demande_soumise 'Demande soumise' AS @shared.demande;\n"
+    "DEFINE RULE estGrand (INTEGER poids) 'Est grand' AS @regles.grand;\n"
+    "DEFINE ACTION notifier (TEXT destinataire) 'Notifier';\n"
+    "DEFINE ARTIFACT Corps 'Corps HTTP' USING @scripts.corps;\n"
+)
+# Ce que le portail n'écrit pas, et qui doit traverser chaque geste À L'OCTET PRÈS.
+GARDEES = (
+    "DESCRIPTION 'Référentiel transverse'",
+    "DEFINE CONST Seuil 12 'Seuil de poids';",
+    "DEFINE RULE estGrand (INTEGER poids) 'Est grand' AS @regles.grand;",
+    "DEFINE ACTION notifier (TEXT destinataire) 'Notifier';",
+    "DEFINE ARTIFACT Corps 'Corps HTTP' USING @scripts.corps;",
+)
+
+
+async def _relu_par_le_moteur(forge: Forge) -> str:
+    """L'artefact tel qu'il est dans le dépôt, relu par le PARSEUR DU MOTEUR.
+
+    Pas une comparaison de chaînes seule (critère 7) : le consommateur de ce fichier
+    n'est pas Miles, et un texte qui « contient les bonnes lignes » peut très bien ne
+    plus se charger.
+    """
+    written = await forge.file(ARTEFACT)
+    assert written is not None, "l'artefact doit rester dans le dépôt"
+    script = WorkflowScriptParser.parse_string(written, ARTEFACT)
+    assert [(e.line, e.message) for e in script.errors] == [], written
+    assert script.is_fragment
+    return written
+
+
+async def _avec_les_cinq_sortes(forge: Forge) -> None:
+    await _model(forge, "demande", DEMANDE)
+    await forge.seed({ARTEFACT: CINQ_SORTES})
+
+
+async def test_declarer_un_type_garde_les_regles_actions_artefacts_et_constantes(
+    forge: Forge,
+) -> None:
+    await _avec_les_cinq_sortes(forge)
+
+    declared = await _declare(forge, slug="demande_recue", label="Demande reçue")
+
+    assert declared.status_code == 201, declared.text
+    written = await _relu_par_le_moteur(forge)
+    for gardee in GARDEES:
+        assert gardee in written, f"déclaration perdue : {gardee}"
+    assert "DEFINE EVENT demande_recue 'Demande reçue'" in written
+
+
+async def test_modifier_un_type_garde_les_quatre_autres_sortes(forge: Forge) -> None:
+    await _avec_les_cinq_sortes(forge)
+
+    changed = await forge.client.put(
+        f"{ROUTE}/shared/demande_soumise",
+        json={
+            "label": "Demande reçue",
+            "model_scope": "shared",
+            "model_name": "demande",
+            "unique": ["Montant"],
+        },
+        timeout=120,
+    )
+
+    assert changed.status_code == 200, changed.text
+    written = await _relu_par_le_moteur(forge)
+    for gardee in GARDEES:
+        assert gardee in written, f"déclaration perdue : {gardee}"
+    assert "DEFINE EVENT demande_soumise 'Demande reçue'" in written
+    assert "UNIQUE (Montant)" in written
+
+
+async def test_supprimer_le_dernier_type_GARDE_le_fichier_quand_une_regle_y_reste(
+    forge: Forge,
+) -> None:
+    """Critère 3 : le fichier ne se retire que s'il ne reste RIEN à déclarer.
+
+    Aujourd'hui il est supprimé dès qu'il n'y a plus de type d'event — ce qui emporte la
+    règle, l'action, l'artefact et la constante avec lui.
+    """
+    await _avec_les_cinq_sortes(forge)
+
+    removed = await forge.client.delete(f"{ROUTE}/shared/demande_soumise", timeout=120)
+
+    assert removed.status_code == 204, removed.text
+    written = await _relu_par_le_moteur(forge)
+    for gardee in GARDEES:
+        assert gardee in written, f"déclaration perdue : {gardee}"
+    assert "DEFINE EVENT" not in written
+
+
+async def test_deux_gestes_de_suite_ne_font_pas_danser_le_fichier(forge: Forge) -> None:
+    """Critère 5 : l'ordre des déclarations conservées est stable d'un geste à l'autre.
+
+    Sans cette garde, chaque geste pourrait réécrire le fichier dans un autre ordre, et
+    l'historique git deviendrait illisible pour un changement d'un libellé.
+    """
+    await _avec_les_cinq_sortes(forge)
+    await _declare(forge, slug="demande_recue", label="Demande reçue")
+    apres_un = await _relu_par_le_moteur(forge)
+
+    await forge.client.put(
+        f"{ROUTE}/shared/demande_recue",
+        json={
+            "label": "Demande reçue par le comptoir",
+            "model_scope": "shared",
+            "model_name": "demande",
+            "unique": [],
+        },
+        timeout=120,
+    )
+
+    apres_deux = await _relu_par_le_moteur(forge)
+    # Tout ce qui n'est pas la ligne modifiée est identique, ligne pour ligne.
+    changees = [
+        (une, deux)
+        for une, deux in zip(apres_un.splitlines(), apres_deux.splitlines(), strict=True)
+        if une != deux
+    ]
+    assert len(changees) == 1, changees
+    assert "Demande reçue par le comptoir" in changees[0][1]
