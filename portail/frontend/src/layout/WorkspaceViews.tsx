@@ -5,6 +5,7 @@ import { CollapsibleGroup } from "@miles/socle-web";
 
 import type { Direction } from "../api/contracts";
 import { ContractLinks } from "./ContractLinks";
+import { EventPerimeterLinks } from "./EventPerimeterLinks";
 import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
 
 // « branch » en tête : c'est l'écran de la branche qu'on regarde — ses versions et le
@@ -66,7 +67,10 @@ export function WorkspaceViews({
           {/* Une vue qui PORTE des entrées est repliable ; une vue seule reste un lien.
               Un bouton de repli sur une entrée sans enfant promettrait un niveau qui
               n'existe pas (Gael, 30/10/2026). */}
-          {view === "dataModels" || view === "contracts" || view === "trads" ? (
+          {view === "dataModels" ||
+          view === "contracts" ||
+          view === "trads" ||
+          view === "events" ? (
             <CollapsibleGroup
               className="sidebar-link sidebar-sublink sidebar-group-link"
               label={t(`workspaces.card.${view}`)}
@@ -76,7 +80,7 @@ export function WorkspaceViews({
                 className="sidebar-link sidebar-subsublink"
                 aria-current={
                   here && selection?.view === view && selection.contract === undefined &&
-                  selection.model === undefined
+                  selection.model === undefined && selection.scope === undefined
                     ? "page"
                     : undefined
                 }
@@ -84,7 +88,23 @@ export function WorkspaceViews({
               >
                 {t(`workspaces.nav.all_${view}`)}
               </button>
-              {view === "trads" ? (
+              {view === "events" ? (
+                // Un sous-menu par PÉRIMÈTRE (Gael, 12/11/2026) : son clic lit l'artefact
+                // du périmètre et affiche son référentiel.
+                <EventPerimeterLinks
+                  // Des liens qui ne font que lire : aucun geste d'écriture ne part du menu.
+                  target={{
+                    workspaceId,
+                    branch,
+                    readOnly: true,
+                    canFreeze: false,
+                    canMigrate: false,
+                  }}
+                  open={open}
+                  current={here ? selection?.scope : undefined}
+                  onSelect={(scope) => onSelect({ id: workspaceId, view, branch, scope })}
+                />
+              ) : view === "trads" ? (
                 // La COUVERTURE à côté des contextes (story 82e60880) : lire ce qui
                 // manque et gérer les contextes sont deux gestes, pas deux onglets d'un
                 // même écran — celui qui traduit ne crée pas de répertoire.

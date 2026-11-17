@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { ADMIN, BRANCHES, openMenu, renderApp } from "./appTestHarness";
 import { mockApi } from "@miles/socle-web/testing";
-import { BARE, CONFIGURED, modelListing } from "./workspaces/workspaceFixtures";
+import { BARE, CONFIGURED, eventPerimeter, modelListing } from "./workspaces/workspaceFixtures";
 
 /**
  * La BRANCHE VUE : ce qu'elle nomme dans le menu, et ce qu'elle ouvre.
@@ -34,7 +34,10 @@ describe("App, selon la branche vue", () => {
       },
       "GET /api/workspaces/retrait/contracts?branch=essai": { status: 200, body: [] },
       "GET /api/workspaces/retrait/storages?branch=essai": { status: 200, body: [] },
-      "GET /api/workspaces/retrait/workflow-events?branch=essai": { status: 200, body: [] },
+      "GET /api/workspaces/retrait/workflow-events?branch=essai": {
+        status: 200,
+        body: [eventPerimeter("shared")],
+      },
       "GET /api/workspaces/retrait/versions?branch=essai": { status: 200, body: [] },
       // Simulée, et avec du CONTENU : sans elle la carte du graphe s'afficherait
       // quand même — sur son chemin d'erreur — et l'assertion ne distinguerait pas
@@ -96,11 +99,17 @@ describe("App, selon la branche vue", () => {
       await screen.findByRole("heading", { name: "Storages — Retrait de colis" }),
     ).toBeInTheDocument();
     // Même garde pour « Event types » (11/11/2026) : le référentiel des types d'event a
-    // sa propre entrée, et un écran qu'aucune entrée n'ouvre n'existe pas.
-    fireEvent.click(within(nav).getByRole("button", { name: "Event types" }));
+    // sa propre entrée, et un écran qu'aucune entrée n'ouvre n'existe pas. Depuis le
+    // 17/11/2026 l'entrée PORTE les périmètres : son bouton replie le groupe, et l'écran
+    // s'ouvre par « Tous les types » — un clic ne fait qu'une chose.
+    await openMenu("Event types");
+    fireEvent.click(within(nav).getByRole("button", { name: "All types" }));
     expect(
       await screen.findByRole("heading", { name: "Event types — Retrait de colis" }),
     ).toBeInTheDocument();
+    // Le périmètre transverse est dans le menu, lu de l'artefact : un périmètre qui
+    // n'apparaîtrait qu'une fois son premier type déclaré serait introuvable.
+    expect(await within(nav).findByRole("button", { name: "Shared" })).toBeInTheDocument();
     // « Data models » PORTE des entrées : depuis le 30/10/2026 son bouton replie le
     // groupe, et l'écran s'ouvre par l'entrée dédiée — un clic ne fait qu'une chose.
     await openMenu("Data models");

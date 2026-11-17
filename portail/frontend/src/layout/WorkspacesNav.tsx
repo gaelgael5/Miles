@@ -49,6 +49,9 @@ export type WorkspaceSelection = {
   swagger?: string;
   // Un modèle de données ouvert (« portée/nom »), avec la vue « dataModels ».
   model?: string;
+  // Un périmètre de types d'event ouvert, avec la vue « events » : « shared » ou le nom
+  // d'un domaine. Absent : tous les périmètres se suivent sur la page.
+  scope?: string;
   // Le sens des contrats dont on liste les modèles, avec la vue « contractModels ».
   sens?: Direction;
   // Un modèle dérivé ouvert (« contrat/version/nom »), avec la vue « contractModels ».

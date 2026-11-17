@@ -102,7 +102,7 @@ function viewScreen(
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.
-  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.step ?? ""}/${selection.source ?? ""}/${selection.storage ?? ""}/${selection.swagger ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}`;
+  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.step ?? ""}/${selection.source ?? ""}/${selection.storage ?? ""}/${selection.swagger ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}/${selection.scope ?? ""}`;
   if (
     selection.view === "contracts" &&
     selection.contract !== undefined &&
@@ -309,6 +309,7 @@ function viewScreen(
         key={key}
         workspace={workspace}
         target={target}
+        scope={selection.scope}
         onBack={back}
         // Le payload d'un type d'event est un modèle ORDINAIRE : il s'édite par l'écran
         // des modèles, et non par un éditeur propre aux events qui n'existe plus.

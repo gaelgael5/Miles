@@ -13,6 +13,7 @@ from miles.workflowevents.schema import socle_schema
 from miles.workflowevents.service import (
     DeclaredType,
     EventTypeNotFoundError,
+    Perimeter,
     WorkflowEventsService,
 )
 from miles.workspaces.model import (
@@ -58,6 +59,27 @@ class EventTypeOut(BaseModel):
     model_missing: bool
 
 
+class ProblemOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    line: int
+    column: int
+    message: str
+
+
+class PerimeterOut(BaseModel):
+    """Un périmètre et son artefact, pour l'arbre du bloc Events (story 8a9ff6bc)."""
+
+    model_config = ConfigDict(extra="forbid")
+    scope: str
+    # Le fichier de l'artefact, qu'il existe ou non : c'est lui que l'écran nomme quand il
+    # ne se relit pas, et un périmètre sans aucun type n'en a pas encore.
+    path: str
+    types: list[EventTypeOut]
+    # Ce qui empêche de relire CE périmètre. Non vide : `types` est vide, et ce n'est pas
+    # « aucun type » — l'écran dit les deux choses différemment (critères 5 et 6).
+    problems: list[ProblemOut]
+
+
 class Declaration(BaseModel):
     """Déclaration d'un type d'event : son identité, le modèle de son payload, ses clés."""
 
@@ -88,6 +110,17 @@ def _out(declared: DeclaredType) -> EventTypeOut:
         model_name=declared.model[1],
         unique=list(declared.unique),
         model_missing=declared.model_missing,
+    )
+
+
+def _perimeter(perimeter: Perimeter) -> PerimeterOut:
+    return PerimeterOut(
+        scope=perimeter.scope,
+        path=perimeter.path,
+        types=[_out(d) for d in perimeter.types],
+        problems=[
+            ProblemOut(line=p.line, column=p.column, message=p.message) for p in perimeter.problems
+        ],
     )
 
 
@@ -140,14 +173,25 @@ def _refusal(exc: Exception) -> JSONResponse:
     raise exc
 
 
-@router.get("", response_model=list[EventTypeOut])
-async def list_event_types(
+@router.get("", response_model=list[PerimeterOut])
+async def list_perimeters(
     workspace_id: str, request: Request, service: Service, branch: str | None = None
 ) -> object:
+    """Les périmètres de la branche, chacun avec ses types ou son artefact illisible.
+
+    Par PÉRIMÈTRE et non en liste plate (story `8a9ff6bc`) : le bloc Events se déplie
+    périmètre par périmètre, un périmètre sans aucun type doit s'y voir pour qu'on puisse
+    y déclarer le premier, et un artefact retouché hors de Miles ne doit arrêter que le
+    sien — l'écran nomme alors son fichier et garde le reste de l'arbre navigable.
+
+    La liste plate existe encore, mais pour la surface MCP seule (`resolve_list`) : un
+    agent ÉCRIT, et une liste amputée l'amènerait à déclarer par-dessus un périmètre qu'on
+    n'a pas su relire. D'où le tout-ou-rien là-bas, et le détail ici.
+    """
     try:
         return [
-            _out(d)
-            for d in await service.resolve_list(
+            _perimeter(p)
+            for p in await service.resolve_perimeters(
                 request_author(request), workspace_id, branch=branch
             )
         ]

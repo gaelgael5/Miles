@@ -9,6 +9,9 @@ import { CopyButton } from "@miles/socle-web";
 import { derivedModelQuery } from "../api/contracts";
 import { type DataModel, type DataModelContent, SHARED_SCOPE, modelQuery } from "../api/dataModels";
 import type { WorkTarget } from "../api/workTarget";
+import { useEventSocle } from "../api/workflowEvents";
+import { socleClash } from "../workspaces/EventSocle";
+import LockedSchema from "./LockedSchema";
 import { type Parsed, derivedOf, modelUri, targetOf } from "./schemaText";
 
 // Monaco ne se charge qu'à l'ouverture de cet écran (story e38806f3).
@@ -37,6 +40,7 @@ export default function SchemaEditor({
   models,
   text,
   parsed,
+  asEventPayload,
   onVisual,
   onYaml,
 }: {
@@ -45,6 +49,8 @@ export default function SchemaEditor({
   models: DataModel[];
   text: string;
   parsed: Parsed;
+  /** Une déclaration `DEFINE EVENT` désigne ce modèle : le socle du moteur s'y applique. */
+  asEventPayload: boolean;
   onVisual: (schema: JsonSchema) => void;
   onYaml: (text: string) => void;
 }) {
@@ -68,11 +74,31 @@ export default function SchemaEditor({
     [client, target, t],
   );
   const references = visibleModels(models, model);
+  // Lu seulement quand une déclaration désigne ce modèle : ailleurs, le socle ne s'applique
+  // pas et l'afficher ferait croire qu'il s'applique à tout modèle.
+  const socle = useEventSocle(target, asEventPayload);
+  const clash = asEventPayload && parsed.ok ? socleClash(socle.data, parsed.schema) : [];
 
   return (
     <div className="model-editor">
       <section aria-label={t("dataModels.schema.visual")}>
         <h2>{t("dataModels.schema.visual")}</h2>
+        {/* Le socle AU-DESSUS des champs métier et verrouillé, dans le MÊME éditeur :
+            montré autrement il se lirait comme une annexe, et on ne verrait plus que le
+            type d'event en DÉRIVE (Gael, 11/11/2026). Le fork de l'éditeur ne sait pas
+            verrouiller un champ isolé, d'où une seconde instance en lecture seule. */}
+        {asEventPayload && socle.data !== undefined && (
+          <div className="panel">
+            <h3>{t("dataModels.schema.socle")}</h3>
+            <p className="help">{t("dataModels.schema.socleHelp")}</p>
+            <LockedSchema schema={socle.data as JsonSchema} />
+          </div>
+        )}
+        {clash.length > 0 && (
+          <p className="notice notice-danger" role="alert">
+            {t("dataModels.schema.socleClash", { names: clash.join(", ") })}
+          </p>
+        )}
         {parsed.ok ? (
           <SchemaFieldsEditor
             value={parsed.schema}

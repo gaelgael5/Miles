@@ -2,7 +2,14 @@ import { fireEvent, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
-import { CONFIGURED, fill, HELD, modelListing, renderWorkspaces } from "./workspaceFixtures";
+import {
+  CONFIGURED,
+  eventPerimeter,
+  fill,
+  HELD,
+  modelListing,
+  renderWorkspaces,
+} from "./workspaceFixtures";
 
 const WORKING = { ...CONFIGURED, work_branch: "back/retrait/atelier" };
 const ROUTE = "/api/workspaces/retrait/workflow-events";
@@ -21,6 +28,18 @@ const DEMANDE = {
   model_name: "demande",
   // L'ordre est DISCRIMINANT : un tri à l'affichage changerait le dédoublonnage.
   unique: ["Tracking", "ExternalId"],
+  model_missing: false,
+};
+// Le type d'un AUTRE périmètre, aux valeurs toutes différentes : un seul périmètre
+// laisserait passer un écran qui ignore la sélection (critère 10 de la story 8a9ff6bc).
+const VALIDATION = {
+  scope: "achats",
+  name: "commande_validee",
+  label: "Commande validée",
+  model: "domains/achats/models/commande.yaml",
+  model_scope: "achats",
+  model_name: "commande",
+  unique: ["Reference"],
   model_missing: false,
 };
 const DEMANDE_MODEL = {
@@ -47,7 +66,10 @@ function routes(extra: Record<string, unknown> = {}) {
     ...HELD,
     "GET /api/workspaces": { status: 200, body: [WORKING] },
     ...NO_VERSION,
-    [`GET ${ROUTE}?branch=edition`]: { status: 200, body: [DEMANDE] },
+    [`GET ${ROUTE}?branch=edition`]: {
+      status: 200,
+      body: [eventPerimeter("shared", [DEMANDE]), eventPerimeter("achats", [VALIDATION])],
+    },
     [`GET ${ROUTE}/socle?branch=edition`]: { status: 200, body: SOCLE },
     [`GET ${MODELS}?branch=edition`]: { status: 200, body: modelListing([DEMANDE_MODEL]) },
     [`GET ${DOMAINS}?branch=edition`]: { status: 200, body: [{ name: "achats" }] },
@@ -60,6 +82,17 @@ async function openEvents(extra: Record<string, unknown> = {}) {
   renderWorkspaces({ id: "retrait", view: "events", branch: "edition" });
   await screen.findByRole("heading", { name: "Event types — Retrait de colis" });
   return calls;
+}
+
+/** L'écran d'UN périmètre, tel que le menu l'ouvre (story 8a9ff6bc, critère 2). */
+async function openPerimeter(scope: string, extra: Record<string, unknown> = {}) {
+  const calls = mockApi(routes(extra));
+  renderWorkspaces({ id: "retrait", view: "events", branch: "edition", scope });
+  return calls;
+}
+
+function section(name: string): HTMLElement {
+  return screen.getByRole("region", { name: `Perimeter ${name}` });
 }
 
 /**
@@ -175,7 +208,7 @@ describe("the event type referential", () => {
     await openEvents({
       [`GET ${ROUTE}?branch=edition`]: {
         status: 200,
-        body: [{ ...DEMANDE, model_missing: true }],
+        body: [eventPerimeter("shared", [{ ...DEMANDE, model_missing: true }])],
       },
     });
 
@@ -218,7 +251,9 @@ describe("the event type referential", () => {
     fill("Uniqueness keys", "ExternalId");
     fireEvent.click(screen.getByRole("button", { name: "Save the declaration" }));
 
-    await screen.findByRole("button", { name: "Edit" });
+    // `findAll` : chaque périmètre a son bouton « Edit » depuis que l'écran les montre
+    // tous. On attend que le formulaire soit refermé, pas qu'un bouton soit unique.
+    await screen.findAllByRole("button", { name: "Edit" });
     const sent = calls.find((c) => c.key === `PUT ${ROUTE}/shared/demande_soumise?branch=edition`);
     expect(sent?.body).toEqual({
       label: "Demande reçue",
@@ -228,11 +263,14 @@ describe("the event type referential", () => {
     });
   });
 
-  it("reports an unreadable artefact at the engine's own position", async () => {
+  it("reports an unreadable artefact at the engine's own position, on a write", async () => {
     // Retouché hors de Miles, ou produit par un autre outil : le moteur refuserait de
     // charger tout le répertoire. Un « fichier invalide » sans position ne se corrige pas.
+    // Sur une ÉCRITURE : depuis le 17/11/2026 la lecture, elle, rend le périmètre avec son
+    // erreur plutôt que de refuser en bloc — un geste d'écriture, lui, refuse toujours,
+    // pour ne pas écrire par-dessus ce qu'on n'a pas su relire.
     await openEvents({
-      [`GET ${ROUTE}?branch=edition`]: {
+      [`POST ${ROUTE}/declarations?branch=edition`]: {
         status: 422,
         body: {
           detail: {
@@ -242,10 +280,103 @@ describe("the event type referential", () => {
         },
       },
     });
+    fireEvent.click(await screen.findByText("Declare an event type"));
+    fill("Label", "Demande");
+    await pickModel();
+    fireEvent.click(screen.getByRole("button", { name: "Declare the event type" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/would refuse to load the whole directory/);
     expect(alert).toHaveTextContent(/line 2, column 13/);
     expect(alert).toHaveTextContent(/mismatched input/);
+  });
+
+  it("lists both perimeters, each with its artefact and its own declarations", async () => {
+    await openEvents();
+
+    await screen.findByText("Demande soumise");
+    const shared = section("Shared");
+    const achats = section("achats");
+    // Le FICHIER de chaque périmètre : c'est lui qu'on ouvre pour comprendre, et lui que
+    // le moteur chargera.
+    expect(within(shared).getByText("shared/shared.wf")).toBeInTheDocument();
+    expect(within(achats).getByText("domains/achats/achats.wf")).toBeInTheDocument();
+    // Et chaque type sous SON périmètre, pas sous l'autre.
+    expect(within(shared).getByText("demande_soumise")).toBeInTheDocument();
+    expect(within(shared).queryByText("commande_validee")).not.toBeInTheDocument();
+    expect(within(achats).getByText("commande_validee")).toBeInTheDocument();
+    expect(within(achats).getByText("Reference")).toBeInTheDocument();
+  });
+
+  it("shows only the perimeter the menu opened", async () => {
+    await openPerimeter("achats");
+
+    expect(
+      await screen.findByRole("heading", { name: "Event types — achats" }),
+    ).toBeInTheDocument();
+    // Attendu : le titre vient de la SÉLECTION et s'affiche avant la lecture ; sans cette
+    // attente le test mesurerait l'écran d'avant la réponse.
+    const achats = await screen.findByRole("region", { name: "Perimeter achats" });
+    expect(within(achats).getByText("commande_validee")).toBeInTheDocument();
+    // Discriminant : sans la sélection, l'écran montrerait les deux.
+    expect(screen.queryByRole("region", { name: "Perimeter Shared" })).not.toBeInTheDocument();
+    expect(screen.queryByText("demande_soumise")).not.toBeInTheDocument();
+  });
+
+  it("names the unreadable artefact and keeps the other perimeter listed", async () => {
+    // Critères 5 et 7 : un périmètre cassé ne noircit pas tout le bloc, et ce qui se lit
+    // ailleurs se lit quand même.
+    await openEvents({
+      [`GET ${ROUTE}?branch=edition`]: {
+        status: 200,
+        body: [
+          eventPerimeter("shared", [DEMANDE]),
+          eventPerimeter("achats", [], [{ line: 2, column: 13, message: "mismatched input ';'" }]),
+        ],
+      },
+    });
+
+    await screen.findByText("Demande soumise");
+    const achats = within(section("achats")).getByRole("note");
+    expect(achats).toHaveTextContent(/domains\/achats\/achats\.wf/);
+    expect(achats).toHaveTextContent(/line 2, column 13/);
+    expect(achats).toHaveTextContent(/mismatched input/);
+    // L'autre périmètre, lui, liste toujours.
+    expect(within(section("Shared")).getByText("demande_soumise")).toBeInTheDocument();
+  });
+
+  it("invites to declare in a perimeter whose artefact does not exist yet", async () => {
+    // Critère 6 : « aucun type » et « illisible » sont deux états, et pas une page blanche.
+    await openEvents({
+      [`GET ${ROUTE}?branch=edition`]: {
+        status: 200,
+        body: [eventPerimeter("shared", [DEMANDE]), eventPerimeter("achats")],
+      },
+    });
+
+    await screen.findByText("Demande soumise");
+    const achats = section("achats");
+    expect(achats).toHaveTextContent(/declares no event type/);
+    expect(within(achats).queryByRole("note")).not.toBeInTheDocument();
+  });
+
+  it("declares in the perimeter being viewed, without asking for it again", async () => {
+    const calls = await openPerimeter("achats", {
+      [`POST ${ROUTE}/declarations?branch=edition`]: { status: 201, body: VALIDATION },
+    });
+    fireEvent.click(await screen.findByText("Declare an event type"));
+    fill("Label", "Commande validée");
+    // Le modèle du domaine est visible du périmètre du domaine, le transverse aussi.
+    await screen.findByRole("option", { name: /shared\/models\/demande\.yaml/ });
+    fireEvent.change(screen.getByLabelText("Payload model"), {
+      target: { value: "shared/demande" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Declare the event type" }));
+
+    await screen.findByText("Declare an event type");
+    const sent = calls.find((c) => c.key === `POST ${ROUTE}/declarations?branch=edition`);
+    // `achats` et non « shared » : déclarer depuis l'écran d'un périmètre et devoir le
+    // rechoisir ferait écrire dans le mauvais artefact d'un clic distrait.
+    expect((sent?.body as { scope: string }).scope).toBe("achats");
   });
 });

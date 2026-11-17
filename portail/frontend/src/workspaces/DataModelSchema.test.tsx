@@ -106,3 +106,71 @@ describe("schema editor", () => {
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
   });
 });
+
+/**
+ * Le socle verrouillé AU-DESSUS des champs métier, quand une déclaration désigne ce
+ * modèle (story 8a9ff6bc, critère 3).
+ *
+ * Il avait disparu de l'écran le 14/11/2026 avec l'éditeur de schéma d'event ; il revient
+ * là où le modèle s'édite vraiment. Ce qui le déclenche, c'est l'USAGE du modèle — un
+ * `DEFINE EVENT` le nomme —, jamais son nom ni son dossier.
+ */
+const SOCLE = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  title: "urban-workflow base event",
+  type: "object",
+  required: ["Name"],
+  properties: { Name: { type: "string" }, ExternalId: { type: "string" } },
+};
+const AS_EVENT = {
+  kind: "event_type",
+  name: "personne_vue",
+  label: "Personne vue",
+  path: "shared/shared.wf",
+  part: null,
+};
+const SOCLE_ROUTE = "GET /api/workspaces/retrait/workflow-events/socle?branch=edition";
+
+function openAsPayload(usages: object[], routes: Record<string, unknown> = {}) {
+  return open({
+    [`GET ${ROUTE}?branch=edition`]: {
+      status: 200,
+      body: { models: [{ ...MODEL, usages }, { ...ADRESSE, usages: [] }], broken: [] },
+    },
+    [SOCLE_ROUTE]: { status: 200, body: SOCLE },
+    ...routes,
+  });
+}
+
+describe("a model a DEFINE EVENT designates", () => {
+  it("mounts the engine's base type above the business fields, locked", async () => {
+    openAsPayload([AS_EVENT]);
+
+    expect(await screen.findByText("Engine base type", {}, { timeout: 10_000 })).toBeInTheDocument();
+    // Les propriétés du socle, dans le MÊME éditeur : montré autrement, il se lirait
+    // comme une annexe et on ne verrait plus que le type d'event en DÉRIVE.
+    expect(await screen.findByText("ExternalId")).toBeInTheDocument();
+  });
+
+  it("says nothing of the socle on a model no declaration designates", async () => {
+    // Discriminant : sans ce contrôle, un socle affiché toujours passerait le test
+    // ci-dessus — et il ferait croire que la règle vaut pour tout modèle.
+    const calls = openAsPayload([]);
+    await screen.findByLabelText("YAML", {}, { timeout: 10_000 });
+
+    expect(screen.queryByText("Engine base type")).not.toBeInTheDocument();
+    // Et le socle n'est même pas DEMANDÉ : la règle ne s'applique pas ici.
+    expect(calls.some((c) => c.key === SOCLE_ROUTE)).toBe(false);
+  });
+
+  it("warns, while typing, on a business property that clashes with the socle", async () => {
+    openAsPayload([AS_EVENT]);
+    const yaml = await screen.findByLabelText("YAML", {}, { timeout: 10_000 });
+
+    fireEvent.change(yaml, { target: { value: YAML + "  ExternalId:\n    type: integer\n" } });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/ExternalId/);
+    expect(alert).toHaveTextContent(/unsatisfiable/);
+  });
+});

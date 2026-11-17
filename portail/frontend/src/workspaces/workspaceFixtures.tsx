@@ -19,6 +19,19 @@ export function modelListing(models: object[] = [], broken: object[] = []) {
   return { models: models.map((model) => ({ usages: [], ...model })), broken };
 }
 
+/**
+ * Le corps de la liste des types d'event : UN périmètre, avec ses types.
+ *
+ * La lecture est par périmètre depuis la story 8a9ff6bc. `types` et `problems` sont posés
+ * par défaut pour que chaque doublure ne déclare que ce que son test regarde — un
+ * périmètre sans artefact et un périmètre illisible sont deux états distincts, et c'est
+ * `problems` qui les sépare.
+ */
+export function eventPerimeter(scope: string, types: object[] = [], problems: object[] = []) {
+  const path = scope === "shared" ? "shared/shared.wf" : `domains/${scope}/${scope}.wf`;
+  return { scope, path, types, problems };
+}
+
 export const REPORT = {
   branch: "miles-verification-0a1b2c3d",
   tag: "miles-verification-0a1b2c3d",

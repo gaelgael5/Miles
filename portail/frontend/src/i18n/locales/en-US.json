@@ -224,6 +224,7 @@
     "nav": {
       "all_dataModels": "All models",
       "all_contracts": "All contracts",
+      "all_events": "All types",
       "all_trads": "Contexts"
     }
   },
@@ -518,6 +519,9 @@
     },
     "schema": {
       "visual": "Visual editor",
+      "socle": "Engine base type",
+      "socleHelp": "A declared event type designates this model: the engine validates these properties IN ADDITION to the ones below. Locked — they come from the engine, not from the branch — and must not be redeclared.",
+      "socleClash": "These properties redeclare a base property: {{names}}. Both schemas apply to the same property, and two incompatible types make every payload unsatisfiable. Saving the declaration will be refused.",
       "unreadable": "Unreadable YAML: {{message}}. Fix it on the right to get the visual editor back.",
       "references": "Referenceable models",
       "referencesHelp": "To point at another model, give a property the “$ref” type and paste its URI.",
@@ -560,8 +564,16 @@
     "back": "← Workspaces",
     "title": "Event types — {{name}}",
     "intro": "The event types a workflow accepts, declared in",
+    "perimeter": {
+      "title": "Event types — {{name}}",
+      "region": "Perimeter {{name}}",
+      "empty": "This perimeter declares no event type. Its artefact does not exist yet: it is born with the first declared type.",
+      "unreadable": "Artefact {{path}} cannot be read back. It was edited outside Miles, and the engine would not load this perimeter. The other perimeters remain readable.",
+      "at": "line {{line}}, column {{column}}: {{message}}",
+      "unknown": "The work branch carries no perimeter named “{{name}}”.",
+      "badge": "unreadable"
+    },
     "add": "Declare an event type",
-    "empty": "No event type declared in the work branch.",
     "fields": {
       "label": "Label",
       "slug": "DSL name",

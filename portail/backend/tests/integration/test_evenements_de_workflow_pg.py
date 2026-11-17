@@ -388,3 +388,66 @@ async def test_aucune_route_des_types_d_event_n_est_atteignable_sans_session(
         for methode, url, body in appels:
             refused = await visiteur.request(methode, url, json=body, timeout=120)
             assert refused.status_code in (401, 403), f"{methode} {url} -> {refused.status_code}"
+
+
+async def test_la_liste_rend_chaque_perimetre_avec_son_artefact_et_ses_types(
+    forge: Forge,
+) -> None:
+    """Deux périmètres, dont un SANS artefact : c'est l'arbre que le bloc Events déplie.
+
+    Un domaine qui n'apparaîtrait qu'une fois son premier type déclaré serait introuvable
+    pour le déclarer (story `8a9ff6bc`, critères 1 et 6).
+    """
+    await add_domain(forge, "achats")
+    await _model(forge, "demande", DEMANDE)
+    await _declare(forge, unique=["Montant"])
+
+    listed = await forge.client.get(ROUTE, timeout=120)
+
+    assert listed.status_code == 200, listed.text
+    assert listed.json() == [
+        {
+            "scope": "shared",
+            "path": ARTEFACT,
+            "types": [
+                {
+                    "scope": "shared",
+                    "name": "demande_soumise",
+                    "label": "Demande soumise",
+                    "model": "shared/models/demande.yaml",
+                    "model_scope": "shared",
+                    "model_name": "demande",
+                    "unique": ["Montant"],
+                    "model_missing": False,
+                }
+            ],
+            "problems": [],
+        },
+        # Aucun type, et AUCUN manquement : « rien à lire » et « illisible » sont deux
+        # états que l'écran doit distinguer, donc la réponse les distingue.
+        {"scope": "achats", "path": "domains/achats/achats.wf", "types": [], "problems": []},
+    ]
+
+
+async def test_un_perimetre_illisible_n_arrete_que_lui_et_nomme_son_fichier(
+    forge: Forge,
+) -> None:
+    """Critères 5 et 7 : un périmètre cassé ne noircit pas tout le bloc.
+
+    Semé hors de Miles : par ses propres gestes, Miles n'écrit jamais un artefact qu'il
+    ne sait pas relire. Le périmètre transverse, lui, reste lu — et c'est tout l'objet.
+    """
+    await add_domain(forge, "achats")
+    await _model(forge, "demande", DEMANDE)
+    await _declare(forge)
+    await forge.seed({"domains/achats/achats.wf": "FRAGMENT NAME achats\nDEFINE EVENT ;\n"})
+
+    listed = await forge.client.get(ROUTE, timeout=120)
+
+    rendu = {p["scope"]: p for p in listed.json()}
+    assert [d["name"] for d in rendu["shared"]["types"]] == ["demande_soumise"]
+    assert rendu["achats"]["types"] == []
+    assert rendu["achats"]["path"] == "domains/achats/achats.wf"
+    # Les positions sont celles du MOTEUR : l'écran renvoie à la ligne fautive plutôt
+    # qu'à « le fichier est invalide ».
+    assert [p["line"] for p in rendu["achats"]["problems"]] == [2]

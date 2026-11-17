@@ -224,6 +224,7 @@
     "nav": {
       "all_dataModels": "Tous les modèles",
       "all_contracts": "Tous les contrats",
+      "all_events": "Tous les types",
       "all_trads": "Contextes"
     }
   },
@@ -518,6 +519,9 @@
     },
     "schema": {
       "visual": "Éditeur visuel",
+      "socle": "Socle commun du moteur",
+      "socleHelp": "Un type d'event déclaré désigne ce modèle : le moteur valide ces propriétés EN PLUS de celles ci-dessous. Verrouillées — elles viennent du moteur, pas de la branche — et à ne pas redéclarer.",
+      "socleClash": "Ces propriétés redéclarent une propriété du socle : {{names}}. Les deux schémas s'appliquent à la même propriété, et deux types incompatibles rendent tout payload insatisfiable. L'enregistrement de la déclaration sera refusé.",
       "unreadable": "YAML illisible : {{message}}. Corrigez-le à droite pour retrouver l'éditeur visuel.",
       "references": "Modèles référençables",
       "referencesHelp": "Pour désigner un autre modèle, donnez à une propriété le type « $ref » et collez son URI.",
@@ -560,8 +564,16 @@
     "back": "← Workspaces",
     "title": "Types d'event — {{name}}",
     "intro": "Les types d'event qu'un workflow accepte, déclarés dans",
+    "perimeter": {
+      "title": "Types d'event — {{name}}",
+      "region": "Périmètre {{name}}",
+      "empty": "Ce périmètre ne déclare aucun type d'event. Son artefact n'existe pas encore : il naîtra avec le premier type déclaré.",
+      "unreadable": "L'artefact {{path}} ne se relit pas. Il a été retouché hors de Miles, et le moteur ne chargerait pas ce périmètre. Les autres périmètres restent lisibles.",
+      "at": "ligne {{line}}, colonne {{column}} : {{message}}",
+      "unknown": "La branche de travail ne porte aucun périmètre « {{name}} ».",
+      "badge": "illisible"
+    },
     "add": "Déclarer un type d'event",
-    "empty": "Aucun type d'event déclaré dans la branche de travail.",
     "fields": {
       "label": "Libellé",
       "slug": "Nom dans le DSL",

@@ -66,10 +66,38 @@ function key(target: WorkTarget) {
   return branchKey("workflow-events", target);
 }
 
-export function useEventTypes(target: WorkTarget) {
+/** Un manquement de l'artefact, positionné comme le MOTEUR le positionne. */
+export interface DslProblem {
+  line: number;
+  column: number;
+  message: string;
+}
+
+/**
+ * Un périmètre et son artefact : ses types, ou ce qui empêche de les relire.
+ *
+ * La lecture est par PÉRIMÈTRE et non en liste plate (story 8a9ff6bc) : le bloc Events se
+ * déplie périmètre par périmètre, un périmètre sans aucun type doit s'y voir pour qu'on
+ * puisse y déclarer le premier, et un artefact retouché hors de Miles ne doit arrêter que
+ * le sien. La surface MCP, elle, garde la liste plate en tout-ou-rien : un agent écrit, et
+ * une liste amputée l'amènerait à déclarer par-dessus ce qu'on n'a pas su relire.
+ */
+export interface EventPerimeter {
+  /** « shared », ou le nom du domaine. */
+  scope: string;
+  /** Le fichier de l'artefact, qu'il existe ou non : celui qu'on nomme quand il est cassé. */
+  path: string;
+  types: EventType[];
+  /** Non vide : `types` est vide, et ce n'est PAS « aucun type ». Deux états distincts. */
+  problems: DslProblem[];
+}
+
+/** `enabled` à false pour le menu replié : chaque lecture de branche la clone. */
+export function useEventPerimeters(target: WorkTarget, enabled = true) {
   return useQuery({
     queryKey: key(target),
-    queryFn: ({ signal }) => request<EventType[]>(root(target), { signal }),
+    enabled,
+    queryFn: ({ signal }) => request<EventPerimeter[]>(root(target), { signal }),
   });
 }
 
@@ -79,9 +107,10 @@ export function useEventTypes(target: WorkTarget) {
  * Clef de requête à part de celle des déclarations : il vient du moteur installé, pas de
  * la branche — déclarer un type ne le change pas, et il n'a pas à être relu.
  */
-export function useEventSocle(target: WorkTarget) {
+export function useEventSocle(target: WorkTarget, enabled = true) {
   return useQuery({
     queryKey: ["workflow-event-socle"],
+    enabled,
     queryFn: ({ signal }) =>
       request<SocleSchema>(atBranch(target, "workflow-events", "socle"), { signal }),
   });

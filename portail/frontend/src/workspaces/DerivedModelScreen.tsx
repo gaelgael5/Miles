@@ -60,6 +60,9 @@ export function DerivedModelScreen({
                 models={[]}
                 text={data.content}
                 parsed={parseSchema(data.content)}
+                // Un modèle dérivé d'un contrat ne peut pas porter un type d'event :
+                // il vit hors de la liste des modèles, et un `AS @…` ne le résout pas.
+                asEventPayload={false}
                 onVisual={() => undefined}
                 onYaml={() => undefined}
               />

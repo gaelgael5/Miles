@@ -216,6 +216,10 @@ function Editor({
                 models={models.data ?? []}
                 text={text}
                 parsed={parsed}
+                /* Un `DEFINE EVENT` désigne-t-il ce modèle ? La question se lit dans ses
+                   USAGES, déjà chargés par cet écran (story e36192f8) : rien à demander
+                   de plus, et pas de règle recopiée sur le nom ou le dossier. */
+                asEventPayload={usages.some((usage) => usage.kind === "event_type")}
                 onVisual={fromVisual}
                 onYaml={fromYaml}
               />
