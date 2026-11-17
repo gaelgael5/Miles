@@ -175,9 +175,12 @@ async def test_le_type_converti_est_servi_par_la_route_des_types_d_event(
     listed = await forge.client.get("/api/workspaces/retrait/workflow-events", timeout=120)
 
     assert listed.status_code == 200, listed.text
-    assert [(t["name"], t["label"], t["model"]) for t in listed.json()] == [
+    # Par PÉRIMÈTRE depuis le 17/11/2026 : le converti vit dans l'artefact transverse.
+    perimetres = {p["scope"]: p for p in listed.json()}
+    assert [(t["name"], t["label"], t["model"]) for t in perimetres["shared"]["types"]] == [
         ("colis_recu", "Colis reçu", "shared/models/colis_recu.yaml")
     ]
+    assert perimetres["shared"]["problems"] == []
 
 
 async def test_un_depot_qui_porte_models_et_events_se_convertit_quand_meme(
