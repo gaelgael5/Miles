@@ -556,6 +556,11 @@ async def test_deux_gestes_de_suite_ne_font_pas_danser_le_fichier(forge: Forge) 
 
     Sans cette garde, chaque geste pourrait réécrire le fichier dans un autre ordre, et
     l'historique git deviendrait illisible pour un changement d'un libellé.
+
+    Celui-ci ne DISCRIMINE PAS le bug `ff8779c6`, et c'est mesuré : il était déjà vert
+    sur le code fauté, où le fichier entier était rendu depuis la liste des types — donc
+    déterministe. Il garde le nouveau code, où un découpage maladroit pourrait, lui,
+    déplacer les lignes. Les trois tests au-dessus, eux, ont bien été vus rouges.
     """
     await _avec_les_cinq_sortes(forge)
     await _declare(forge, slug="demande_recue", label="Demande reçue")

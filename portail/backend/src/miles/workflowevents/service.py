@@ -15,7 +15,8 @@ from miles.datamodels.layout import SHARED, model_path
 from miles.datamodels.schema import parse_schema
 from miles.event_shapes import GESTURE, NAME
 from miles.git.workcopy import WorkCopy
-from miles.workflowevents.dsl import EventType, fragment_path, render
+from miles.workflowevents.artefact import rewrite
+from miles.workflowevents.dsl import EventType, fragment_path
 from miles.workflowevents.layout import (
     checked_model,
     checked_name,
@@ -280,17 +281,26 @@ class WorkflowEventsService:
     async def _rewrite(
         self, copy: WorkCopy, author: EventAuthor, scope: str, types: list[DeclaredType]
     ) -> str:
-        """Réécrit l'artefact d'un périmètre, ou le supprime quand il ne reste rien.
+        """Édite l'artefact d'un périmètre, ou le supprime quand il ne reste RIEN à déclarer.
 
-        Un artefact sans déclaration est une erreur de syntaxe pour le moteur : le laisser
-        derrière, vide, ferait échouer le chargement de tout le répertoire. On retire donc
-        le fichier plutôt que de l'écrire vide.
+        Édite, et ne réécrit pas : jusqu'au 17/11/2026 le texte était rendu depuis la
+        seule liste des types d'event, donc tout `DEFINE RULE`, `ACTION`, `ARTIFACT`,
+        `CONST` et le `DESCRIPTION` du fichier disparaissaient sans un mot au premier
+        geste (bug `ff8779c6`). `artefact.rewrite` ne remplace que les étendues des types
+        d'event, situées par le parseur du moteur.
+
+        Un artefact sans aucune déclaration est une erreur de syntaxe pour le moteur : le
+        laisser derrière, vide, ferait échouer le chargement de tout le répertoire. On
+        retire donc le fichier — mais seulement s'il ne reste plus rien, règles comprises.
         """
         path = fragment_path(scope)
-        text = render(scope, [EventType(d.name, d.label, d.model, d.unique) for d in types])
+        current = await copy.read(path)
+        text = rewrite(
+            current, scope, [EventType(d.name, d.label, d.model, d.unique) for d in types]
+        )
         if text:
             await copy.write(path, text)
-        elif await copy.read(path) is not None:
+        elif current is not None:
             await copy.remove(path)
         return await self.branches.commit(copy, f"Types d'event {path}", author)
 

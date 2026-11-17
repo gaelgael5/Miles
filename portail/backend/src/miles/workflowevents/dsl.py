@@ -173,13 +173,22 @@ def render(scope: str, types: Sequence[EventType]) -> str:
     # d'un périmètre que le DSL ne sait pas écrire : on n'invente pas un nom de
     # remplacement, qui ne désignerait plus rien de reconnaissable.
     lines = [f"FRAGMENT NAME {SHARED if scope == SHARED else scope}", ""]
-    for declared in types:
-        head = f"DEFINE EVENT {declared.name} {_quoted(declared.label)}"
-        head += f" AS @{model_ref(*declared.model)}"
-        if declared.unique:
-            head += f" UNIQUE ({', '.join(declared.unique)})"
-        lines.append(f"{head};")
+    lines += [render_event(declared) for declared in types]
     return "\n".join(lines) + "\n"
+
+
+def render_event(declared: EventType) -> str:
+    """UNE ligne `DEFINE EVENT … ;`, sans saut de ligne.
+
+    Extraite de `render` le 17/11/2026 : l'édition conservatrice d'un artefact
+    (`miles.workflowevents.artefact`) remplace une déclaration à sa place, et deux rendus
+    d'une même ligne auraient divergé — l'un écrivant `UNIQUE` que l'autre oublierait.
+    """
+    head = f"DEFINE EVENT {declared.name} {_quoted(declared.label)}"
+    head += f" AS @{model_ref(*declared.model)}"
+    if declared.unique:
+        head += f" UNIQUE ({', '.join(declared.unique)})"
+    return f"{head};"
 
 
 def _quoted(label: str) -> str:
