@@ -17,6 +17,7 @@ from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError
 from miles.datamodels.service import ModelInUseError, ModelNotFoundError
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE
 from miles.mcp_api.errors import refusal, refusal_code
+from miles.mcp_api.services import McpServices, caller_services
 from miles.obo.service import Actor
 from miles.transform.api_transform import step_problem_out
 from miles.workflowevents.dsl import FragmentError
@@ -50,7 +51,10 @@ class Caller:
 
     principal: KeyPrincipal
     actor: Actor | None
-    services: Any
+    # TYPÉ depuis le 17/11/2026 (enabler 8ae4c5d1) : c'était `Any`, et mypy ne voyait donc
+    # rien de ce qu'une primitive demandait à un service. Une rupture de signature rougit
+    # maintenant en une seconde, au lieu d'une heure de campagne.
+    services: McpServices
 
     @property
     def viewer(self) -> EventAuthor:
@@ -151,7 +155,7 @@ def caller_of(ctx: Context[Any, Request]) -> Caller:
         # Inatteignable derrière ApiKeyAuth : fermé quand même, si la garde venait à manquer.
         raise ToolError(refusal("cle_requise"))
     actor = getattr(request.state, ACTOR_STATE, None)
-    return Caller(principal, actor, getattr(request.state, SERVICES_STATE))
+    return Caller(principal, actor, caller_services(getattr(request.state, SERVICES_STATE)))
 
 
 def tool_refusal(exc: Exception) -> ToolError | None:

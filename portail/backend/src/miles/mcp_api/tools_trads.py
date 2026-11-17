@@ -20,8 +20,7 @@ ContextName = Annotated[
 
 
 def _service(caller: Caller) -> TradsService:
-    service: TradsService = caller.services.trads
-    return service
+    return caller.services.trads
 
 
 def _context(context: TradsContext) -> dict[str, Any]:

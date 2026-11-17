@@ -68,8 +68,7 @@ def _chain(checked: CheckedChain) -> dict[str, Any]:
 
 
 async def _chains(caller: Caller) -> ChainsService:
-    service: ChainsService = caller.services.chains
-    return service
+    return caller.services.chains
 
 
 async def _unknown(caller: Caller, workspace_id: str, branch: str | None, slug: str) -> ToolError:
@@ -185,6 +184,6 @@ def register(server: MCPServer) -> None:
         sample: Annotated[Any, Field(description="Message d'entrée (JSON).")] = None,
     ) -> dict[str, Any]:
         # Rien n'est écrit ni lu d'un workspace : la clé suffit, sans droit particulier.
-        budget: int = caller_of(ctx).services.transform_budget
+        budget = caller_of(ctx).services.transform_budget
         specs = [StepIn(template=s.template, target=s.target) for s in steps]
         return run_check(specs, sample, budget).model_dump()

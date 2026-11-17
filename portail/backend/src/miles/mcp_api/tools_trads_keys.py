@@ -32,8 +32,7 @@ Values = Annotated[
 
 
 def _keys(caller: Caller) -> TradsKeysService:
-    service: TradsKeysService = caller.services.trads_keys
-    return service
+    return caller.services.trads_keys
 
 
 def register(server: MCPServer) -> None:

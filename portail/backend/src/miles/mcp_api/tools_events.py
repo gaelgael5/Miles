@@ -81,8 +81,7 @@ Unique = Annotated[
 
 
 def _service(caller: Caller) -> WorkflowEventsService:
-    service: WorkflowEventsService = caller.services.workflow_events
-    return service
+    return caller.services.workflow_events
 
 
 def _out(declared: DeclaredType) -> dict[str, Any]:

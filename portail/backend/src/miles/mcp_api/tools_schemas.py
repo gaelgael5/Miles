@@ -29,7 +29,6 @@ from miles.mcp_api.tool_args import (
     written_out,
 )
 from miles.workflowevents.schema import socle_schema
-from miles.workshop.domains_service import DomainsService
 
 DomainName = Annotated[
     str,
@@ -203,7 +202,7 @@ def register(server: MCPServer) -> None:
         branch: WriteBranch = None,
     ) -> dict[str, Any]:
         caller = caller_of(ctx)
-        service: DomainsService = caller.services.domains
+        service = caller.services.domains
 
         async def run(author: Any) -> dict[str, Any]:
             commit = await service.resolve_add(author, workspace_id, name, branch=branch)

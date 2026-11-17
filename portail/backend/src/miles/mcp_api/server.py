@@ -23,6 +23,7 @@ from miles.mcp_api import (
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE, ApiKeyAuth
 from miles.mcp_api.calls import caller_of, tool_refusal
 from miles.mcp_api.errors import refusal
+from miles.mcp_api.services import McpServices, caller_services
 from miles.obo.service import Actor
 from miles.workshop.target import base_slug
 from miles.workspaces.service import WorkspacesService
@@ -74,9 +75,9 @@ def actor_of(ctx: Context[Any, Request]) -> Actor | None:
     return actor
 
 
-def services_of(ctx: Context[Any, Request]) -> Any:
+def services_of(ctx: Context[Any, Request]) -> McpServices:
     """L'état de l'app Miles (ses services), posé par la garde sur la requête."""
-    return getattr(_request(ctx).state, SERVICES_STATE)
+    return caller_services(getattr(_request(ctx).state, SERVICES_STATE))
 
 
 def build_server() -> MCPServer:

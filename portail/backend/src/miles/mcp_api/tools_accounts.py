@@ -45,8 +45,7 @@ AddressField = Annotated[
 
 
 def _service(caller: Caller) -> AccountsService:
-    service: AccountsService = caller.services.accounts
-    return service
+    return caller.services.accounts
 
 
 def _out(state: ReferenceState) -> dict[str, Any]:

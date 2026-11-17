@@ -41,8 +41,7 @@ ContractSlug = Annotated[str, Field(description="Slug du contrat (voir list_cont
 
 
 def _reads(caller: Caller) -> TargetedReads:
-    reads: TargetedReads = caller.services.targeted_reads
-    return reads
+    return caller.services.targeted_reads
 
 
 def _refused(exc: Exception) -> Exception:
