@@ -197,6 +197,10 @@ async def test_the_model_of_a_declared_type_cannot_be_deleted_by_the_schema_prim
 async def test_an_artefact_touched_outside_miles_is_refused_with_the_engine_positions(
     m: McpForge,
 ) -> None:
+    # Le modèle D'ABORD, et c'est le test qui l'a appris : une déclaration vérifie le
+    # modèle désigné AVANT de relire l'artefact, donc sans lui le refus aurait parlé du
+    # modèle absent et ce test n'aurait rien dit de l'artefact.
+    await _model(m, "shared", "demande", DEMANDE)
     await m.forge.seed({ARTEFACT: "FRAGMENT NAME shared\nDEFINE EVENT ceci n'est pas du DSL\n"})
 
     listing = await m.refused("list_event_types", EDIT)
