@@ -171,6 +171,14 @@ h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
   background: var(--surface); border: 1px solid var(--bordure); border-radius: 8px;
   padding: 24px 26px; margin-bottom: 20px;
 }
+/* Un formulaire qui SUIT du contenu commence un bloc. Sans cet écart, l'étiquette de son
+   premier champ se lit comme une ligne de plus du texte au-dessus : mesuré le 18/11/2026
+   sur « Mon profil », 0 px entre la liste des dépôts d'une connexion git et « Jeton
+   d'accès personnel », et 6 px entre un titre de carte et son champ. Les maquettes
+   séparent toujours ces deux blocs de 18 px (l'intro d'une carte porte `margin-bottom:
+   18px` avant le premier champ). Sélecteur en frère ADJACENT : un formulaire seul dans sa
+   carte ne gagne rien, sinon il décollerait du bord haut sans raison. */
+.card > * + form, .row-detail > * + form { margin-top: 18px; }
 .card-list { background: var(--surface); border: 1px solid var(--bordure); border-radius: 8px; overflow: hidden; }
 .row {
   display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 22px;

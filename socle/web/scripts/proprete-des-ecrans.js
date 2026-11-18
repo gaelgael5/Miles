@@ -112,6 +112,20 @@ export const BATTERIE = () => {
     }
   }
 
+  // L. Un formulaire collé à ce qui le précède. Généralise A, qui ne regardait que le
+  // titre d'une carte : un bloc de SAISIE qui touche le texte au-dessus se lit comme la
+  // suite de ce texte, et l'étiquette du premier champ passe pour une ligne de plus.
+  // Mesuré le 18/11/2026 sur « Mon profil » : la liste des dépôts d'une connexion git et
+  // l'étiquette « Jeton d'accès personnel » étaient à 0 px l'une de l'autre.
+  for (const form of document.querySelectorAll("main form")) {
+    const avant = form.previousElementSibling;
+    if (avant === null || texte(avant) === "") { continue; }
+    const ecart = form.getBoundingClientRect().top - avant.getBoundingClientRect().bottom;
+    if (ecart < 8) {
+      dit("formulaire-colle", { ecart: Math.round(ecart), apres: texte(avant).slice(0, 40) });
+    }
+  }
+
   // K. Le même texte écrit deux fois dans la page, hors tableaux et listes.
   const vus = {};
   for (const el of document.querySelectorAll("main p, main dd, main dt, main h2, main h3, main .value, main .caption")) {

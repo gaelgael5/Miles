@@ -63,6 +63,13 @@ export default async function ({ page, context }) {
   // Le réseau au repos ne veut pas dire la page peinte : les écrans enchaînent une
   // seconde requête sur la réponse de la première, et React rend après.
   await new Promise((r) => setTimeout(r, 1500));
+  // Tous les écrans ne sont pas au bout d'une URL : « Mon profil » s'ouvre par le bouton
+  // de la barre du haut, et son état vit dans React. Sans ce clic, on mesurerait l'écran
+  // d'accueil en croyant mesurer le profil — et tout y serait juste.
+  if (context.clic) {
+    await page.click(context.clic);
+    await new Promise((r) => setTimeout(r, 1200));
+  }
   const defauts = await page.evaluate("(" + context.batterie + ")()");
   const styles = await page.evaluate((demandes) => {
     const sortie = {};
@@ -88,11 +95,16 @@ export function batterie() {
   return source.slice(source.indexOf(marque) + marque.length).trimEnd().replace(/;$/, "");
 }
 
-/** Le corps de la requête `POST /function` de browserless. */
-export function charge({ url, table = [], styles = [], largeur = 1280 }) {
+/**
+ * Le corps de la requête `POST /function` de browserless.
+ *
+ * `clic` : sélecteur à cliquer une fois la page peinte, pour un écran qui n'est pas au
+ * bout d'une URL (le profil s'ouvre par `.topbar-user`).
+ */
+export function charge({ url, table = [], styles = [], largeur = 1280, clic = null }) {
   return JSON.stringify({
     code: FONCTION,
-    context: { url, table, styles, largeur, batterie: batterie() },
+    context: { url, table, styles, largeur, clic, batterie: batterie() },
   });
 }
 
