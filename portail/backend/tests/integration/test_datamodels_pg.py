@@ -535,9 +535,18 @@ async def test_un_modele_device_designe_un_transverse_mais_jamais_un_domaine(
     await _create(forge, COLIS)
 
     partage = await _create(forge, TRANSACTION)
+    # Un AUTRE nom que « transaction », qui vient d'être créé : le recréer rendait 409
+    # « existe_deja » — `detail` est alors une CHAÎNE, et l'assertion suivante tombait sur
+    # un TypeError au lieu d'éprouver la portée. Mesuré en campagne le 18/11/2026 : un test
+    # qui bute sur le nom a l'air de prouver la règle de portée, et ne prouve rien.
     fuite = await _create(
         forge,
-        TRANSACTION.replace("$ref: miles:/shared/personne", "$ref: miles:/domains/suivi/colis"),
+        normalized(
+            "title: Fuite\ntype: object\nproperties:\n"
+            "  montant:\n    $ref: miles:/domains/suivi/colis\n",
+            INBOUND,
+            "fuite",
+        ),
     )
 
     assert partage.status_code == 201, partage.text
