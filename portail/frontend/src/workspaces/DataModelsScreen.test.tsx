@@ -520,6 +520,26 @@ describe("devices entrants et sortants", () => {
     });
   });
 
+  it("ramène au sens d'où l'on vient, pas à la liste entière", async () => {
+    mountAll({
+      [`GET ${ROUTE}/devices-inbound/transaction?branch=edition`]: {
+        status: 200,
+        body: { ...TRANSACTION, content: BLANK },
+      },
+    });
+    renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", device: "inbound" });
+    fireEvent.click(await screen.findByRole("button", { name: "Transaction" }));
+    await screen.findByLabelText("YAML", {}, { timeout: 10_000 });
+
+    fireEvent.click(screen.getByRole("button", { name: "← Back to models" }));
+
+    // Sans le sens porté par la sélection, le retour tombait sur « Tous les modèles » et
+    // le sous-menu se perdait au premier aller-retour.
+    expect(
+      await screen.findByRole("heading", { name: "Inbound devices — Retrait de colis" }),
+    ).toBeInTheDocument();
+  });
+
   it("ne propose pas d'ajouter un domaine depuis un sens", async () => {
     mountAll();
     renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", device: "outbound" });
