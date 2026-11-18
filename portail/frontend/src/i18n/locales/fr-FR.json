@@ -336,6 +336,7 @@
         "prise_de_main_requise": "Prenez la main sur cette branche dans « Tous les workspaces » pour la modifier.",
         "nom_fige": "Le nom du modèle (nom:) ne change pas : il est figé à la création.",
         "domaine_inconnu": "Ce domaine n'existe pas dans la branche : ajoutez-le d'abord.",
+        "nom_reserve": "Ce nom est celui d'une portée que le dépôt range ailleurs (shared, devices-inbound, devices-outbound) : un domaine ne peut pas le porter.",
         "evenement_inconnu": "Ce type d'event n'est pas déclaré sur cette branche.",
         "nom_pris_ailleurs": "Un type d'event de ce nom est déjà déclaré dans un autre périmètre : un script de workflow qui inclut les deux artefacts ne se chargerait pas du tout.",
         "portee_du_modele": "Ce modèle n'est pas visible depuis ce périmètre : un périmètre transverse ne peut désigner qu'un modèle transverse, sinon il cesse d'être transverse.",
@@ -534,6 +535,16 @@
       "refBroken": "Cette référence ne désigne rien : ni une définition de ce document, ni un modèle de Miles."
     },
     "addDomain": "Ajouter un domaine",
+    "devices": {
+      "inbound": "Devices entrants",
+      "outbound": "Devices sortants",
+      "title": "{{sens}} — {{name}}",
+      "empty": "Aucun modèle déclaré pour ce sens dans la branche de travail.",
+      "intro": {
+        "inbound": "Messages que le terminal envoie à Miles, déclarés à la main dans la branche de travail",
+        "outbound": "Messages que Miles envoie au terminal, déclarés à la main dans la branche de travail"
+      }
+    },
     "domainForm": {
       "title": "Nouveau domaine",
       "name": "Nom du domaine",

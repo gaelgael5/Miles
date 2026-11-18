@@ -15,9 +15,10 @@ function key(target: WorkTarget) {
   return branchKey("domains", target);
 }
 
-export function useDomains(target: WorkTarget) {
+export function useDomains(target: WorkTarget, enabled = true) {
   return useQuery({
     queryKey: key(target),
+    enabled,
     queryFn: ({ signal }) => request<Domain[]>(atBranch(target, "domains"), { signal }),
   });
 }

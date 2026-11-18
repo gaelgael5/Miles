@@ -1,7 +1,9 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import "../i18n/i18n";
 import { mockApi } from "@miles/socle-web/testing";
+import { WorkspaceViews } from "../layout/WorkspaceViews";
 import {
   BARE,
   CONFIGURED,
@@ -402,6 +404,129 @@ describe("DataModelsScreen", () => {
     await openModels();
 
     expect(await screen.findByText("No data model on the work branch.")).toBeInTheDocument();
+    expect(screen.queryByText("Add a domain")).toBeNull();
+  });
+});
+
+/**
+ * Les messages du tuyau terminal (story 31025fe6) : deux sous-menus, le MÊME écran.
+ *
+ * Éprouvés par la NAVIGATION et non en montant l'écran avec une propriété : c'est le
+ * menu qui pose la sélection, et c'est là que la panne se produirait — un sous-menu qui
+ * ouvre « tous les modèles » paraîtrait juste tant qu'on ne compte pas les lignes.
+ */
+describe("devices entrants et sortants", () => {
+  const TRANSACTION = {
+    scope: "devices-inbound",
+    name: "transaction",
+    path: "devices/inbound/transaction.yaml",
+    label: "Transaction",
+  };
+  const PARAMETRAGE = {
+    scope: "devices-outbound",
+    name: "parametrage",
+    path: "devices/outbound/parametrage.yaml",
+    label: "Paramétrage",
+  };
+
+  function mountAll(extra: Record<string, unknown> = {}) {
+    return mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...NO_VERSION,
+      [`GET ${ROUTE}?branch=edition`]: {
+        status: 200,
+        body: modelListing([PERSONNE, TRANSACTION, PARAMETRAGE]),
+      },
+      ...extra,
+    } as never);
+  }
+
+  it("ne liste que les modèles de son sens", async () => {
+    mountAll();
+    renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", device: "inbound" });
+
+    expect(
+      await screen.findByRole("heading", { name: "Inbound devices — Retrait de colis" }),
+    ).toBeInTheDocument();
+    // Attendu, et pas lu dans la foulée : le titre se peint avant la lecture de branche.
+    expect(await screen.findByText(TRANSACTION.path)).toBeInTheDocument();
+    // Discriminant, et c'est TOUT l'objet du test : sans le filtre, les trois modèles de
+    // la branche seraient là et l'écran paraîtrait juste. Que la liste ENTIÈRE les garde
+    // tous est éprouvé par le test suivant, qui les trouve sous « Tous les modèles ».
+    expect(screen.queryByText(PARAMETRAGE.path)).toBeNull();
+    expect(screen.queryByText(PERSONNE.path)).toBeNull();
+  });
+
+  it("est atteint par deux entrées du menu, une par sens", () => {
+    const onSelect = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <WorkspaceViews
+          workspaceId="retrait"
+          branch="edition"
+          open={false}
+          active
+          selection={null}
+          onSelect={onSelect}
+        />
+      </QueryClientProvider>,
+    );
+
+    // « Data models » porte ces entrées : c'est un groupe repliable, fermé au chargement.
+    fireEvent.click(screen.getByRole("button", { name: "Data models" }));
+    fireEvent.click(screen.getByRole("button", { name: "Inbound devices" }));
+    fireEvent.click(screen.getByRole("button", { name: "Outbound devices" }));
+
+    expect(onSelect.mock.calls).toEqual([
+      [{ id: "retrait", view: "dataModels", branch: "edition", device: "inbound" }],
+      [{ id: "retrait", view: "dataModels", branch: "edition", device: "outbound" }],
+    ]);
+  });
+
+  it("montre l'emplacement d'un device en mots, jamais sa portée brute", async () => {
+    mountAll();
+    await openModels();
+
+    const row = (await screen.findByText("Transaction")).closest("li") as HTMLElement;
+    expect(within(row).getByText("Inbound devices")).toBeInTheDocument();
+    // « devices-inbound » affiché tel quel se lirait comme un domaine mal nommé.
+    expect(within(row).queryByText("devices-inbound")).toBeNull();
+  });
+
+  it("déclare dans le sens ouvert, sans faire choisir un emplacement", async () => {
+    const calls = mountAll({
+      [`POST ${ROUTE}/declarations?branch=edition`]: { status: 201, body: TRANSACTION },
+      [`GET ${ROUTE}/devices-inbound/transaction?branch=edition`]: {
+        status: 200,
+        body: { ...TRANSACTION, content: BLANK },
+      },
+    });
+    renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", device: "inbound" });
+    fireEvent.click(await screen.findByText("Add a model"));
+    const form = screen.getByRole("form", { name: "New data model" });
+    // Aucun domaine à choisir : un sens n'en est pas un, et son dossier est à la racine.
+    expect(within(form).queryByLabelText("Domain")).toBeNull();
+    fill("Label", "Transaction");
+    fill("Slug", "transaction");
+
+    fireEvent.click(screen.getByText("Create the model"));
+
+    await screen.findByLabelText("YAML", {}, { timeout: 10_000 });
+    expect(calls.find((c) => c.key === `POST ${ROUTE}/declarations?branch=edition`)?.body).toEqual({
+      scope: "devices-inbound",
+      label: "Transaction",
+      slug: "transaction",
+    });
+  });
+
+  it("ne propose pas d'ajouter un domaine depuis un sens", async () => {
+    mountAll();
+    renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition", device: "outbound" });
+
+    await screen.findByRole("heading", { name: "Outbound devices — Retrait de colis" });
+    // Le geste d'ajout d'un modèle reste offert avec la main.
+    expect(await screen.findByText("Add a model")).toBeInTheDocument();
     expect(screen.queryByText("Add a domain")).toBeNull();
   });
 });

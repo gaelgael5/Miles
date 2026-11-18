@@ -73,10 +73,23 @@ FRAGMENT_SUFFIX = ".wf"
 # qui envoie convertir.
 _OBSOLETE = {"messages", "events"}
 _MAPPINGS = {"inbound", "outbound"}
+# Les messages du tuyau MQTT, rangés par sens à la racine (story 31025fe6) : le tuyau est
+# commun à tous les domaines, comme les contrats. Les deux noms sont RECOPIÉS de
+# `miles_socle.parametrage.layout`, et non importés : la couche git ne dépend d'aucun
+# module de paramétrage, pas même du socle métier. `test_tree_layout.py` refuse que les
+# deux divergent — sans quoi un modèle écrit par le portail serait rapporté en
+# « emplacement inattendu » et rendrait la branche non figeable, exactement la panne de
+# `comptes/` du 31/10/2026.
+DEVICES_ROOT = "devices"
+_DEVICE_SENSES = {"inbound", "outbound"}
 SKELETON = (
     "contracts",
     *(f"shared/{d}" for d in sorted(_SHARED)),
     "domains",
+    # Les deux sens du tuyau terminal, créés avec la branche : une branche ouverte avant
+    # la story 31025fe6 ne les a pas, et il ne faut pas qu'elle en ait besoin — écrire un
+    # modèle device y crée son dossier au passage.
+    *(f"{DEVICES_ROOT}/{sens}" for sens in sorted(_DEVICE_SENSES)),
     # Chaînes de transformations (Gael, 22/10/2026) : un répertoire par chaîne, à la
     # racine puisque le dépôt est déjà propre à une application.
     "transformations",
@@ -240,6 +253,12 @@ def _allowed(parts: list[str]) -> bool:
         # Le nom vient d'ici plutôt que de `miles.accounts.layout` : la couche git ne
         # dépend d'aucun module métier, et c'est un test qui tient les deux d'accord.
         return len(parts) == 2 and parts[1] in (ACCOUNTS_FILE, ".gitkeep")
+    if top == DEVICES_ROOT:
+        # Le SENS seul est ouvert, pas `devices/` en entier : un fichier posé directement
+        # sous `devices/`, ou sous un troisième sens inventé, reste rapporté. Ouvrir la
+        # racine aurait admis des fichiers que rien ne lit et que rien ne signalerait —
+        # la faute évitée en n'ouvrant pas `comptes/` en entier le 01/11/2026.
+        return parts[1] in _DEVICE_SENSES or parts[1] == ".gitkeep"
     if top == "shared":
         if parts[1] in _OBSOLETE:
             return _marker_only(parts[2:])

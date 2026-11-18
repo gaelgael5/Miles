@@ -61,6 +61,24 @@ export interface ModelProblem {
 
 export const SHARED_SCOPE = "shared";
 
+/**
+ * Les deux sens du tuyau MQTT (story 31025fe6) : « inbound » = ce que le terminal envoie
+ * à Miles, « outbound » = ce que Miles envoie au terminal.
+ */
+export type DeviceSens = "inbound" | "outbound";
+export const DEVICE_SENSES: DeviceSens[] = ["inbound", "outbound"];
+
+/**
+ * La portée d'un modèle device, telle que le serveur l'attend dans l'URL et dans la
+ * désignation « portée/nom ». UN seul segment, là où le DOSSIER en a deux
+ * (`devices/inbound/`) : la raison est au socle (`miles_socle.parametrage.layout`), et la
+ * recopier ici serait la deuxième source qui diverge. Composée, donc, jamais écrite en
+ * dur dans un écran.
+ */
+export function deviceScope(sens: DeviceSens): string {
+  return `devices-${sens}`;
+}
+
 function root(target: WorkTarget) {
   return atBranch(target, "data-models");
 }

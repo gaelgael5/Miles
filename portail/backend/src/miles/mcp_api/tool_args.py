@@ -46,8 +46,12 @@ Scope = Annotated[
     str,
     Field(
         description=(
-            "« shared » pour un schéma transverse, sinon le nom d'un domaine existant"
-            " (list_domains ; create_domain pour en ajouter un)."
+            "« shared » pour un schéma transverse, « devices-inbound » pour un message que"
+            " le terminal envoie à Miles, « devices-outbound » pour un message que Miles"
+            " envoie au terminal, sinon le nom d'un domaine existant (list_domains ;"
+            " create_domain pour en ajouter un). Un schéma de domaine ne désigne que son"
+            " domaine et les transverses ; un schéma device, que les transverses et les"
+            " devices de son sens."
         )
     ),
 ]

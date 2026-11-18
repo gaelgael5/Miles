@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from miles_socle.parametrage.layout import INBOUND, OUTBOUND, model_path
 
 from miles.accounts.layout import PATH as ACCOUNTS_PATH
 from miles.chains.layout import ROOT as CHAINS_ROOT
@@ -114,4 +115,29 @@ def test_le_marqueur_d_une_rubrique_disparue_ne_bloque_pas_une_version(path: str
 def test_un_FICHIER_sous_une_rubrique_disparue_reste_rapporte(path: str) -> None:
     # Discriminant : c'est ce rapport qui envoie convertir. Tolérer la rubrique entière
     # aurait fait cohabiter deux rangements, dont un que plus rien ne lit.
+    assert _unexpected(path) == [path]
+
+
+@pytest.mark.parametrize("scope", [INBOUND, OUTBOUND])
+def test_un_modele_device_est_a_un_emplacement_admis(scope: str) -> None:
+    """La même garde que `comptes/`, sur la famille arrivée avec la story 31025fe6.
+
+    Le chemin vient de `model_path` — le module qui l'ÉCRIT —, et `_allowed` le juge
+    depuis deux constantes RECOPIÉES. C'est exactement la divergence que ce fichier
+    existe pour empêcher : sans ce test, renommer un sens d'un seul côté rendrait toute
+    branche portant un modèle device non figeable, et le message aurait accusé
+    l'arborescence au lieu du renommage.
+    """
+    assert _unexpected(model_path(scope, "transaction")) == []
+    # Les métadonnées de version vivent à côté du modèle : admises par le même chemin.
+    assert _unexpected(model_path(scope, "transaction").replace(".yaml", ".meta.yaml")) == []
+
+
+@pytest.mark.parametrize(
+    "path", ["devices/entrant/transaction.yaml", "devices/transaction.yaml", "devices/in/x.yaml"]
+)
+def test_un_SENS_inventé_sous_devices_reste_rapporte(path: str) -> None:
+    """Discriminant : la liste des sens est fermée, et `devices/` n'est pas ouvert en
+    entier. L'ouvrir aurait admis des fichiers que rien ne lit et que rien ne
+    signalerait — la faute évitée en n'ouvrant pas `comptes/` le 01/11/2026."""
     assert _unexpected(path) == [path]

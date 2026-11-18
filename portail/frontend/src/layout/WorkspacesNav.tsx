@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useBranchViews } from "../api/branches";
 import type { Direction } from "../api/contracts";
+import type { DeviceSens } from "../api/dataModels";
 import { type Workspace, useWorkspaces } from "../api/workspaces";
 import { WorkspaceViews } from "./WorkspaceViews";
 
@@ -49,6 +50,9 @@ export type WorkspaceSelection = {
   swagger?: string;
   // Un modèle de données ouvert (« portée/nom »), avec la vue « dataModels ».
   model?: string;
+  // Le sens du tuyau terminal dont on ne liste que les modèles, avec la vue
+  // « dataModels » (story 31025fe6). Absent : tous les modèles de la branche.
+  device?: DeviceSens;
   // Un périmètre de types d'event ouvert, avec la vue « events » : « shared » ou le nom
   // d'un domaine. Absent : tous les périmètres se suivent sur la page.
   scope?: string;

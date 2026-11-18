@@ -336,6 +336,7 @@
         "prise_de_main_requise": "Take over this branch in “All workspaces” to change it.",
         "nom_fige": "The model name (nom:) does not change: it is frozen at creation.",
         "domaine_inconnu": "This domain does not exist on the branch: add it first.",
+        "nom_reserve": "This name belongs to a scope the repository stores elsewhere (shared, devices-inbound, devices-outbound): a domain cannot use it.",
         "evenement_inconnu": "This event type is not declared on this branch.",
         "nom_pris_ailleurs": "An event type with this name is already declared in another perimeter: a workflow script including both artefacts would not load at all.",
         "portee_du_modele": "This model is not visible from this perimeter: a shared perimeter may only designate a shared model, otherwise it stops being shared.",
@@ -534,6 +535,16 @@
       "refBroken": "This reference points at nothing: neither a definition of this document nor a Miles model."
     },
     "addDomain": "Add a domain",
+    "devices": {
+      "inbound": "Inbound devices",
+      "outbound": "Outbound devices",
+      "title": "{{sens}} — {{name}}",
+      "empty": "No model declared for this direction in the work branch.",
+      "intro": {
+        "inbound": "Messages the terminal sends to Miles, declared by hand in the work branch",
+        "outbound": "Messages Miles sends to the terminal, declared by hand in the work branch"
+      }
+    },
     "domainForm": {
       "title": "New domain",
       "name": "Domain name",

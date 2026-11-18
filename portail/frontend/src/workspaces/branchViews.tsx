@@ -102,7 +102,7 @@ function viewScreen(
   const back = () => onSelect(null);
   // La clé suit la branche : changer de branche repart d'un écran neuf, sans état d'une
   // autre branche (formulaire ouvert, aperçu) recopié par erreur.
-  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.step ?? ""}/${selection.source ?? ""}/${selection.storage ?? ""}/${selection.swagger ?? ""}/${selection.model ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}/${selection.scope ?? ""}`;
+  const key = `${branch}/${selection.view}/${selection.contract ?? ""}/${selection.chain ?? ""}/${selection.step ?? ""}/${selection.source ?? ""}/${selection.storage ?? ""}/${selection.swagger ?? ""}/${selection.model ?? ""}/${selection.device ?? ""}/${selection.sens ?? ""}/${selection.derived ?? ""}/${selection.scope ?? ""}`;
   if (
     selection.view === "contracts" &&
     selection.contract !== undefined &&
@@ -332,7 +332,12 @@ function viewScreen(
         target={target}
         scope={scope}
         name={name}
-        onBack={() => onSelect({ id: workspace.id, view: "dataModels", branch })}
+        // Le retour revient d'où l'on vient : ouvert depuis « Devices entrants », un
+        // modèle y ramène, et non sur « Tous les modèles » — sinon le sous-menu se perd
+        // au premier aller-retour.
+        onBack={() =>
+          onSelect({ id: workspace.id, view: "dataModels", branch, device: selection.device })
+        }
         onOpenUsage={(usage) => onSelect(usageSelection(workspace.id, branch, usage))}
       />
     );
@@ -343,9 +348,16 @@ function viewScreen(
         key={key}
         workspace={workspace}
         target={target}
+        device={selection.device}
         onBack={back}
         onOpen={(m) =>
-          onSelect({ id: workspace.id, view: "dataModels", branch, model: `${m.scope}/${m.name}` })
+          onSelect({
+            id: workspace.id,
+            view: "dataModels",
+            branch,
+            model: `${m.scope}/${m.name}`,
+            device: selection.device,
+          })
         }
       />
     );

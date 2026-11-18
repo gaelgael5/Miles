@@ -11,9 +11,9 @@ from miles_socle.events.journal import db_write_event
 from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.event_shapes import GESTURE, NAME
-from miles.workshop.domains import DOMAINS, checked_domain, domains_in
+from miles.workshop.domains import DOMAINS, checked_domain, domains_in, reserved_scope
 from miles.workshop.target import Gesture, WorkBranches
-from miles.workspaces.model import WorkspaceInputError
+from miles.workspaces.model import WorkspaceConflictError, WorkspaceInputError
 
 log = structlog.get_logger(__name__)
 
@@ -32,10 +32,16 @@ _PLACEHOLDER = ".gitkeep"
 
 def domain_name(name: str) -> str:
     try:
-        return checked_domain(name)
+        name = checked_domain(name)
     except ValueError:
         # Le nom devient un segment de chemin : refusé avant tout accès au dépôt.
         raise WorkspaceInputError("name") from None
+    if reserved_scope(name):
+        # Nommé à part du nom mal formé, et c'est la raison qui change : la forme est
+        # bonne, c'est la PLACE qui est prise. « Champ invalide » enverrait corriger la
+        # syntaxe d'un nom correct.
+        raise WorkspaceConflictError("nom_reserve")
+    return name
 
 
 @dataclass(frozen=True)

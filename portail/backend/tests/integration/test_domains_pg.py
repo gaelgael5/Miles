@@ -62,3 +62,22 @@ async def test_the_root_branch_lists_domains_but_takes_none(forge: Forge) -> Non
     assert listed.status_code == 200, listed.text
     assert (refused.status_code, refused.json()["detail"]) == (409, "branche_racine_lecture_seule")
     assert await forge.file("domains/suivi/.gitkeep", f"back/retrait/{ROOT}") is None
+
+
+@pytest.mark.parametrize("name", ["shared", "devices-inbound", "devices-outbound"])
+async def test_un_nom_de_portee_rangee_ailleurs_ne_devient_pas_un_domaine(
+    forge: Forge, name: str
+) -> None:
+    """Le nom est bien FORMÉ : c'est la place qui est prise, et le refus doit le dire.
+
+    Sans ce refus, `domains/devices-inbound/models/x.yaml` et `devices/inbound/x.yaml`
+    rendraient la même portée et le même nom : deux fichiers pour une seule identité
+    (story 31025fe6).
+    """
+    before = await forge.commits()
+
+    refused = await add_domain(forge, name)
+
+    assert (refused.status_code, refused.json()["detail"]) == (409, "nom_reserve")
+    assert await forge.commits() == before
+    assert await forge.file(f"domains/{name}/.gitkeep") is None

@@ -32,7 +32,13 @@ from miles.workflowevents.schema import socle_schema
 
 DomainName = Annotated[
     str,
-    Field(description="Nom du domaine : minuscules, chiffres, - et _ (63 caractères au plus)."),
+    Field(
+        description=(
+            "Nom du domaine : minuscules, chiffres, - et _ (63 caractères au plus). « shared »,"
+            " « devices-inbound » et « devices-outbound » sont des portées rangées ailleurs dans"
+            " le dépôt et ne peuvent pas nommer un domaine (refus nom_reserve)."
+        )
+    ),
 ]
 Content = Annotated[
     str,
@@ -40,8 +46,9 @@ Content = Annotated[
         description=(
             "Le schéma : un JSON Schema 2020-12 écrit en YAML, dont la racine est un objet"
             " (type: object). `title` est son label. `$schema` et `$id` sont posés par Miles."
-            " Un autre modèle se désigne par $ref: miles:/shared/<nom> ou"
-            " miles:/domains/<domaine>/<nom>. Un modèle qu'un TYPE D'EVENT désigne décrit les"
+            " Un autre modèle se désigne par $ref: miles:/shared/<nom>,"
+            " miles:/domains/<domaine>/<nom> ou miles:/devices/<inbound|outbound>/<nom>."
+            " Un modèle qu'un TYPE D'EVENT désigne décrit les"
             " seules données MÉTIER : le moteur valide en plus un socle commun"
             " (get_event_base), dont les propriétés ne se redéclarent pas, et"
             " `additionalProperties: false` y est refusé parce qu'il rendrait tout payload"
@@ -95,7 +102,8 @@ def register(server: MCPServer) -> None:
         description=(
             "Crée un modèle dans une branche enfant. Refus structurés : yaml_invalide,"
             " modele_non_conforme (tous les écarts), nom_pris, domaine_inconnu (le domaine se"
-            " crée d'abord par create_domain)."
+            " crée d'abord par create_domain ; les portées shared, devices-inbound et"
+            " devices-outbound n'ont rien à déclarer)."
         )
     )
     async def create_schema(
@@ -193,6 +201,7 @@ def register(server: MCPServer) -> None:
         description=(
             "Ajoute un domaine (répertoire domains/<nom>/) dans une branche enfant. Un modèle"
             " de domaine ne peut se créer que dans un domaine existant. Déjà là : sans effet."
+            " Refus structuré : nom_reserve (le nom est celui d'une portée rangée ailleurs)."
         )
     )
     async def create_domain(

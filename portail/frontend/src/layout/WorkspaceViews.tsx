@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { CollapsibleGroup } from "@miles/socle-web";
 
 import type { Direction } from "../api/contracts";
+import { DEVICE_SENSES } from "../api/dataModels";
 import { ContractLinks } from "./ContractLinks";
 import { EventPerimeterLinks } from "./EventPerimeterLinks";
 import type { WorkspaceSelection, WorkspaceView } from "./WorkspacesNav";
@@ -80,7 +81,8 @@ export function WorkspaceViews({
                 className="sidebar-link sidebar-subsublink"
                 aria-current={
                   here && selection?.view === view && selection.contract === undefined &&
-                  selection.model === undefined && selection.scope === undefined
+                  selection.model === undefined && selection.scope === undefined &&
+                  selection.device === undefined
                     ? "page"
                     : undefined
                 }
@@ -121,25 +123,48 @@ export function WorkspaceViews({
                   {t("workspaces.card.tradsCoverage")}
                 </button>
               ) : view === "dataModels" ? (
-                // Modèles dérivés des contrats, par sens (story 47f55d8b).
-                SENSES.map((sens) => (
-                  <button
-                    key={sens}
-                    type="button"
-                    className="sidebar-link sidebar-subsublink"
-                    aria-current={
-                      here && selection?.view === "contractModels" && selection.sens === sens &&
-                      selection.contract === undefined
-                        ? "page"
-                        : undefined
-                    }
-                    onClick={() =>
-                      onSelect({ id: workspaceId, view: "contractModels", branch, sens })
-                    }
-                  >
-                    {t(`contractModels.nav.${sens}`)}
-                  </button>
-                ))
+                <>
+                  {/* Modèles dérivés des contrats, par sens (story 47f55d8b). */}
+                  {SENSES.map((sens) => (
+                    <button
+                      key={sens}
+                      type="button"
+                      className="sidebar-link sidebar-subsublink"
+                      aria-current={
+                        here && selection?.view === "contractModels" && selection.sens === sens &&
+                        selection.contract === undefined
+                          ? "page"
+                          : undefined
+                      }
+                      onClick={() =>
+                        onSelect({ id: workspaceId, view: "contractModels", branch, sens })
+                      }
+                    >
+                      {t(`contractModels.nav.${sens}`)}
+                    </button>
+                  ))}
+                  {/* Les messages du tuyau terminal, par sens (story 31025fe6). Sous
+                      « Modèles de données » parce que c'en SONT, déclarés à la main comme
+                      les pivots — et non sous « Événements », où rien ne les déclare. */}
+                  {DEVICE_SENSES.map((sens) => (
+                    <button
+                      key={sens}
+                      type="button"
+                      className="sidebar-link sidebar-subsublink"
+                      aria-current={
+                        here && selection?.view === "dataModels" && selection.device === sens &&
+                        selection.model === undefined
+                          ? "page"
+                          : undefined
+                      }
+                      onClick={() =>
+                        onSelect({ id: workspaceId, view: "dataModels", branch, device: sens })
+                      }
+                    >
+                      {t(`dataModels.devices.${sens}`)}
+                    </button>
+                  ))}
+                </>
               ) : (
                 <ContractLinks
                   // Des liens qui ne font que lire : aucun geste d'écriture ne part du menu.

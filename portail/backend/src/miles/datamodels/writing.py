@@ -14,7 +14,7 @@ from __future__ import annotations
 from miles_socle.events.model import EventAuthor
 
 from miles.datamodels.errors import ModelNotFoundError
-from miles.datamodels.layout import SHARED, ModelEntry, model_path
+from miles.datamodels.layout import DEVICE_SCOPES, SHARED, ModelEntry, model_path
 from miles.datamodels.links import check_references
 from miles.datamodels.meta import meta_path, meta_text, read_version
 from miles.datamodels.reading import described
@@ -37,8 +37,13 @@ async def write_new(
 ) -> tuple[ModelEntry, str | None]:
     """Écrit un modèle qui n'existe pas encore ; le même déjà là : rien n'est écrit, None."""
     # Le domaine se déclare à part (story 7fa00f56) : le créer ici au passage ferait
-    # d'une faute de frappe un domaine de plus, sans que personne ne le voie.
-    if entry.scope != SHARED and entry.scope not in domains_in(await copy.paths()):
+    # d'une faute de frappe un domaine de plus, sans que personne ne le voie. Les deux
+    # portées de sens (story 31025fe6) ne sont pas des domaines et n'ont rien à déclarer :
+    # la liste des sens est fermée, donc une portée hors de cette liste et hors des
+    # domaines reste une faute de frappe, et c'est toujours ce refus qui la nomme.
+    if entry.scope not in (SHARED, *DEVICE_SCOPES) and entry.scope not in domains_in(
+        await copy.paths()
+    ):
         raise WorkspaceConflictError("domaine_inconnu")
     existing = await copy.read(entry.path)
     if existing is not None:

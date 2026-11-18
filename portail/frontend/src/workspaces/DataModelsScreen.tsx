@@ -1,12 +1,16 @@
 import { type FormEvent, useState } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog } from "@miles/socle-web";
 import { proposeSlug } from "../api/contracts";
 import {
+  DEVICE_SENSES,
   type DataModel,
+  type DeviceSens,
   type ListedModel,
   SHARED_SCOPE,
+  deviceScope,
   useDeclareDataModel,
   useDeleteDataModel,
   useModelListing,
@@ -19,15 +23,33 @@ import { DomainForm } from "./DomainForm";
 import { ModelRefusal } from "./ModelRefusal";
 
 /**
+ * L'emplacement d'un modèle, en mots : une portée technique ne se montre pas telle quelle.
+ *
+ * Un domaine est rendu par son propre nom — il est choisi par la personne, et il n'a pas
+ * de traduction. Les trois autres portées sont posées par Miles, et ont donc un libellé :
+ * « devices-inbound » affiché brut se lirait comme un nom de domaine mal nommé.
+ */
+function scopeLabel(t: TFunction, scope: string): string {
+  if (scope === SHARED_SCOPE) {
+    return t("dataModels.list.shared");
+  }
+  const sens = DEVICE_SENSES.find((s) => deviceScope(s) === scope);
+  return sens === undefined ? scope : t(`dataModels.devices.${sens}`);
+}
+
+/**
  * Création en deux temps (Gael, 23/10/2026) : label, slug et domaine ici ; le YAML
  * s'écrit ensuite sur l'écran d'édition du modèle, qu'on ouvre aussitôt.
  */
 function CreateForm({
   target,
+  pinnedScope,
   onCreated,
   onCancel,
 }: {
   target: WorkTarget;
+  /** Portée imposée : le sous-menu d'un sens crée chez lui, et nulle part ailleurs. */
+  pinnedScope?: string;
   onCreated: (model: DataModel) => void;
   onCancel: () => void;
 }) {
@@ -38,8 +60,11 @@ function CreateForm({
   const [slugTouched, setSlugTouched] = useState(false);
   // Transverse par défaut : on ne promeut au transverse qu'au second usage réel, mais un
   // domaine se choisit dans la liste, jamais ne se tape (story 7fa00f56).
-  const [scope, setScope] = useState(SHARED_SCOPE);
-  const domains = useDomains(target);
+  const [chosenScope, setScope] = useState(SHARED_SCOPE);
+  const scope = pinnedScope ?? chosenScope;
+  // Aucun domaine à proposer quand la portée est imposée : la requête serait faite pour
+  // un `<select>` qui ne s'affiche pas.
+  const domains = useDomains(target, pinnedScope === undefined);
   const shownSlug = slugTouched ? slug : proposeSlug(label);
 
   function submit(event: FormEvent) {
@@ -67,18 +92,25 @@ function CreateForm({
         />
       </label>
       <p className="help">{t("dataModels.form.slugHelp")}</p>
-      <label className="field">
-        {t("dataModels.fields.domain")}
-        <select value={scope} onChange={(e) => setScope(e.target.value)}>
-          <option value={SHARED_SCOPE}>{t("dataModels.list.shared")}</option>
-          {(domains.data ?? []).map((d) => (
-            <option key={d.name} value={d.name}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p className="help">{t("dataModels.form.domainHelp")}</p>
+      {/* Pas de choix d'emplacement quand le sous-menu l'impose : un `<select>` qui
+          n'offre qu'une valeur demande un geste pour rien, et laisser choisir ferait
+          créer un transverse depuis l'écran des devices entrants. */}
+      {pinnedScope === undefined && (
+        <>
+          <label className="field">
+            {t("dataModels.fields.domain")}
+            <select value={scope} onChange={(e) => setScope(e.target.value)}>
+              <option value={SHARED_SCOPE}>{t("dataModels.list.shared")}</option>
+              {(domains.data ?? []).map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="help">{t("dataModels.form.domainHelp")}</p>
+        </>
+      )}
       {declare.isError && <ModelRefusal error={declare.error} />}
       <div className="actions">
         <button type="submit" className="btn btn-primary" disabled={declare.isPending}>
@@ -118,9 +150,7 @@ function ModelRow({
       </div>
       <div className="cell">
         <div className="caption">{t("dataModels.list.captionScope")}</div>
-        <div className="value">
-          {model.scope === SHARED_SCOPE ? t("dataModels.list.shared") : model.scope}
-        </div>
+        <div className="value">{scopeLabel(t, model.scope)}</div>
       </div>
       {/* À quoi il sert, sur la ligne : depuis le 14/11/2026 le dossier ne le dit plus,
           et deux modèles de même emplacement n'ont plus rien qui les distingue sans ça
@@ -164,21 +194,35 @@ function ModelRow({
   );
 }
 
-/** Modèles de données du workspace, lus et écrits dans sa branche de travail. */
+/**
+ * Modèles de données du workspace, lus et écrits dans sa branche de travail.
+ *
+ * `device` : le sens du tuyau MQTT dont on ne montre que les modèles (story 31025fe6).
+ * LE MÊME écran, et c'est la décision : « même forme et même éditeur que les pivots ».
+ * Un écran séparé aurait dupliqué la liste, la déclaration, la suppression et leurs
+ * refus — quatre endroits à corriger deux fois, pour un filtre sur une portée.
+ */
 export function DataModelsScreen({
   workspace,
   target,
+  device,
   onBack,
   onOpen,
 }: {
   workspace: Workspace;
   target: WorkTarget;
+  device?: DeviceSens;
   onBack: () => void;
   onOpen: (model: DataModel) => void;
 }) {
   const { t } = useTranslation();
   const listing = useModelListing(target);
-  const models = listing.data?.models ?? [];
+  const scope = device === undefined ? undefined : deviceScope(device);
+  // La liste de la branche est lue en UNE fois, quel que soit le sous-menu : c'est la même
+  // requête que « Tous les modèles », donc le filtre ne coûte aucune ouverture de branche
+  // de plus (chemin critique mesuré de l'enabler 7fb3577c).
+  const all = listing.data?.models ?? [];
+  const models = scope === undefined ? all : all.filter((m) => m.scope === scope);
   const [creating, setCreating] = useState(false);
   const [addingDomain, setAddingDomain] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
@@ -190,14 +234,24 @@ export function DataModelsScreen({
       </button>
       <div className="page-head">
         <div>
-          <h1 id="data-models-title">{t("dataModels.title", { name: workspace.name })}</h1>
+          <h1 id="data-models-title">
+            {device === undefined
+              ? t("dataModels.title", { name: workspace.name })
+              : t("dataModels.devices.title", {
+                  sens: t(`dataModels.devices.${device}`),
+                  name: workspace.name,
+                })}
+          </h1>
           <p className="lead">
-            {t("dataModels.intro")} <span className="mono">{workspace.work_branch}</span>
+            {device === undefined ? t("dataModels.intro") : t(`dataModels.devices.intro.${device}`)}{" "}
+            <span className="mono">{workspace.work_branch}</span>
           </p>
         </div>
         {!target.readOnly && (
           <div className="actions">
-            {!addingDomain && (
+            {/* Un sens n'a pas de domaine à déclarer : son dossier est à la racine du
+                dépôt, commun à tous les domaines. */}
+            {!addingDomain && device === undefined && (
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -233,17 +287,29 @@ export function DataModelsScreen({
         </p>
       )}
       {creating && (
-        <CreateForm target={target} onCreated={onOpen} onCancel={() => setCreating(false)} />
+        <CreateForm
+          target={target}
+          pinnedScope={scope}
+          onCreated={onOpen}
+          onCancel={() => setCreating(false)}
+        />
       )}
       {listing.isPending && <p className="muted" role="status">{t("dataModels.loading")}</p>}
       {listing.isError && <ModelRefusal error={listing.error} />}
       {/* Les désignations cassées en TÊTE de liste : elles ne se rattachent à aucune
           ligne — c'est leur définition — et elles bloqueront l'enregistrement d'une
           version. Dites ici pour qu'on les voie avant d'y arriver (critère 5). */}
-      {listing.data !== undefined && listing.data.broken.length > 0 && (
+      {/* Les désignations cassées ne sont dites que sur la liste ENTIÈRE : elles sont de
+          la branche, pas d'une portée, et les répéter sur chaque sous-menu ferait lire
+          trois fois le même blocage — dont deux fois sous un titre qui ne le concerne pas. */}
+      {device === undefined && listing.data !== undefined && listing.data.broken.length > 0 && (
         <BrokenRefs broken={listing.data.broken} />
       )}
-      {listing.isSuccess && models.length === 0 && <p className="muted">{t("dataModels.empty")}</p>}
+      {listing.isSuccess && models.length === 0 && (
+        <p className="muted">
+          {device === undefined ? t("dataModels.empty") : t("dataModels.devices.empty")}
+        </p>
+      )}
       {listing.isSuccess && models.length > 0 && (
         <ul className="card-list plain-list">
           {models.map((m) => (

@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 import pytest
 
+from miles.datamodels.layout import INBOUND, OUTBOUND
 from miles.datamodels.schema import normalized, target_of
 from tests.integration.git_stack import create_workspace
 from tests.integration.test_domains_pg import add_domain
@@ -473,3 +474,165 @@ async def test_the_paths_go_through_a_reference_to_another_model(forge: Forge) -
 
     paths = [p["path"] for p in got.json()["paths"]]
     assert "$.Adresse.Rue" in paths
+
+
+# Les messages du tuyau MQTT (story 31025fe6) : déclarés à la main, dans le dossier de
+# leur sens. `normalized` pose l'`$id`, donc `body_of` les retrouve comme les autres.
+TRANSACTION = normalized(
+    """title: Transaction
+type: object
+properties:
+  montant:
+    $ref: miles:/shared/personne
+""",
+    INBOUND,
+    "transaction",
+)
+PARAMETRAGE = normalized(
+    "title: Paramétrage\ntype: object\nproperties:\n  theme:\n    type: string\n",
+    OUTBOUND,
+    "parametrage",
+)
+
+
+async def test_un_modele_device_s_ecrit_dans_le_dossier_de_son_sens_et_se_relit(
+    forge: Forge,
+) -> None:
+    """Critère 1 : déclaré par label et slug comme un pivot, et rangé par son sens.
+
+    Déclaré SANS domaine : un sens n'est pas un domaine et n'a rien à déclarer d'abord,
+    là où un modèle de domaine se heurte à `domaine_inconnu`.
+    """
+    entrant = await _declare(forge, label="Transaction", slug="transaction", scope=INBOUND)
+    sortant = await _declare(forge, label="Paramétrage", slug="parametrage", scope=OUTBOUND)
+    read = await forge.client.get(f"{ROUTE}/{INBOUND}/transaction", timeout=120)
+    listed = await forge.client.get(ROUTE, timeout=120)
+
+    assert entrant.status_code == 201, entrant.text
+    assert entrant.json() == {
+        "scope": INBOUND,
+        "name": "transaction",
+        "path": "devices/inbound/transaction.yaml",
+        "label": "Transaction",
+        "version": 1,
+    }
+    assert sortant.json()["path"] == "devices/outbound/parametrage.yaml"
+    # L'`$id` porte le sens : c'est par lui qu'un autre modèle le désigne, et il doit
+    # survivre à l'aller-retour d'écriture.
+    assert "$id: miles:/devices/inbound/transaction" in read.json()["content"]
+    assert sorted((m["scope"], m["name"]) for m in listed.json()["models"]) == [
+        (INBOUND, "transaction"),
+        (OUTBOUND, "parametrage"),
+    ]
+
+
+async def test_un_modele_device_designe_un_transverse_mais_jamais_un_domaine(
+    forge: Forge,
+) -> None:
+    """Critère 3, éprouvé sur la route : le refus vient du serveur, pas de l'écran."""
+    await _create(forge, PERSONNE)
+    await add_domain(forge)
+    await _create(forge, COLIS)
+
+    partage = await _create(forge, TRANSACTION)
+    fuite = await _create(
+        forge,
+        TRANSACTION.replace("$ref: miles:/shared/personne", "$ref: miles:/domains/suivi/colis"),
+    )
+
+    assert partage.status_code == 201, partage.text
+    assert fuite.json()["detail"]["problems"] == [
+        {"path": "properties.montant.$ref", "code": "modele_inconnu", "detail": "suivi/colis"}
+    ]
+
+
+async def test_un_modele_device_ne_voit_pas_l_autre_sens_et_personne_ne_le_voit(
+    forge: Forge,
+) -> None:
+    """L'autre moitié du critère 3 : la règle vaut dans les DEUX sens.
+
+    Sans la seconde moitié, un transverse pourrait dépendre d'un message du tuyau — et le
+    tuyau cesserait d'être commun à tous les domaines, ce que son emplacement à la racine
+    affirme pourtant.
+    """
+    await _create(forge, PARAMETRAGE)
+
+    traverse = await _create(
+        forge, TRANSACTION.replace("miles:/shared/personne", "miles:/devices/outbound/parametrage")
+    )
+    remonte = await _create(
+        forge,
+        normalized(
+            "title: Montant\ntype: object\nproperties:\n"
+            "  envoye:\n    $ref: miles:/devices/outbound/parametrage\n",
+            "shared",
+            "montant",
+        ),
+    )
+
+    assert traverse.json()["detail"]["problems"] == [
+        {
+            "path": "properties.montant.$ref",
+            "code": "modele_inconnu",
+            "detail": f"{OUTBOUND}/parametrage",
+        }
+    ]
+    assert remonte.json()["detail"]["problems"] == [
+        {
+            "path": "properties.envoye.$ref",
+            "code": "modele_inconnu",
+            "detail": f"{OUTBOUND}/parametrage",
+        }
+    ]
+
+
+async def test_un_modele_device_se_supprime_et_protege_ce_qu_il_designe(forge: Forge) -> None:
+    """Critère 1 (suppression) et sa garde : le refus « utilisé » couvre les devices."""
+    await _create(forge, PERSONNE)
+    await _create(forge, TRANSACTION)
+
+    protege = await forge.client.delete(f"{ROUTE}/shared/personne", timeout=120)
+    supprime = await forge.client.delete(f"{ROUTE}/{INBOUND}/transaction", timeout=120)
+
+    assert protege.json()["detail"] == {
+        "code": "utilise",
+        "by": ["devices/inbound/transaction.yaml"],
+    }
+    assert supprime.status_code == 204, supprime.text
+    assert await forge.file("devices/inbound/transaction.yaml") is None
+    # Les métadonnées de version partent avec le modèle, comme pour un pivot.
+    assert await forge.file("devices/inbound/transaction.meta.yaml") is None
+
+
+async def test_une_version_se_fige_avec_des_modeles_devices_sur_la_branche(
+    forge: Forge,
+) -> None:
+    """Critère 5, et c'est LA panne que ce test existe pour empêcher.
+
+    `comptes/` (31/10/2026) puis l'artefact des périmètres (14/11/2026) ont tous deux
+    produit le même défaut : le produit écrivait un fichier que son propre diagnostic
+    d'arborescence rapportait en « emplacement inattendu », et AUCUNE version n'était plus
+    enregistrable sur la branche — sans que le message accuse le vrai coupable. Un modèle
+    device vide reste refusé comme un pivot vide : c'est la même règle, pas une de plus.
+    """
+    await _create(forge, PERSONNE)
+    await _create(forge, TRANSACTION)
+    await _declare(forge, label="Brouillon", slug="brouillon", scope=OUTBOUND)
+    await forge.publish()
+
+    bloque = await forge.client.post(
+        "/api/workspaces/retrait/versions", json={"label": "Brouillon"}, timeout=120
+    )
+    await forge.client.delete(f"{ROUTE}/{OUTBOUND}/brouillon", timeout=120)
+    await forge.publish()
+    figee = await forge.client.post(
+        "/api/workspaces/retrait/versions", json={"label": "Avec devices"}, timeout=120
+    )
+
+    assert bloque.json()["detail"]["reports"] == [
+        {
+            "path": "devices/outbound/brouillon.yaml",
+            "problems": [{"path": "properties", "code": "proprietes_vides", "detail": None}],
+        }
+    ]
+    assert figee.status_code == 201, figee.text

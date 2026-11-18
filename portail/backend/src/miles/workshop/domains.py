@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from miles_socle.parametrage.layout import DEVICE_SCOPES, SHARED
+
 # Nom de la rubrique du seul artefact de déclaration du domaine, et suffixe de son
 # fichier : voir `miles.workflowevents.dsl`, dont `fragment_path` est seul à composer le
 # chemin. Recopié ici pour la même raison que dans la couche git — ce module ne connaît
@@ -34,6 +36,10 @@ DOMAINS = "domains/"
 _PLACEHOLDERS = {".gitkeep"}
 _META_SUFFIX = ".meta.yaml"
 _DOMAIN_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
+# Portées qui ne sont pas des domaines : le transverse et les deux sens du tuyau terminal.
+# Importées du socle, qui les POSE : ici un nom recopié finirait par ne plus réserver la
+# bonne chose, et la collision ne se verrait qu'à l'usage.
+_RESERVED_SCOPES = frozenset({SHARED, *DEVICE_SCOPES})
 # Borne d'une réponse : au-delà, la suite se demande par `after` (critère 11). Assez pour
 # un domaine ordinaire, assez peu pour ne pas saturer le contexte d'un agent.
 MAX_CONTENT_BYTES = 256 * 1024
@@ -76,6 +82,22 @@ def checked_domain(name: str) -> str:
         # Le nom devient un préfixe de chemin : refusé avant tout usage.
         raise ValueError("nom de domaine invalide")
     return name
+
+
+def reserved_scope(name: str) -> bool:
+    """Ce nom est-il celui d'une portée que le dépôt range AILLEURS que sous `domains/` ?
+
+    Vrai pour `shared` et pour les deux portées de sens (story 31025fe6). Un domaine qui
+    porterait l'un de ces noms rendrait deux fichiers pour une seule identité :
+    `domains/devices-inbound/models/x.yaml` et `devices/inbound/x.yaml` donnent la même
+    portée et le même nom, et savoir lequel est écrit puis relu deviendrait un hasard de
+    l'ordre de parcours. `shared` est de la même famille, et était déjà exposé.
+
+    **Interrogé par le geste de CRÉATION seulement, jamais par la lecture** : un dépôt
+    ouvert avant cette story peut porter un tel domaine, et il doit rester lisible — c'est
+    la seule façon de voir ce qu'il contient pour le vider.
+    """
+    return name in _RESERVED_SCOPES
 
 
 def section_of(relative: str, domain: str) -> str | None:

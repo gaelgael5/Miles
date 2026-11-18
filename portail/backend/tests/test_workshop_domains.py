@@ -3,7 +3,13 @@ from __future__ import annotations
 import pytest
 
 from miles.workshop import domains
-from miles.workshop.domains import domain_files, domains_in, section_of, shared_models
+from miles.workshop.domains import (
+    domain_files,
+    domains_in,
+    reserved_scope,
+    section_of,
+    shared_models,
+)
 from miles.workshop.targeted import read_page
 
 PATHS = [
@@ -91,3 +97,25 @@ async def test_one_oversized_element_is_still_returned_whole(
 
     assert [e.content for e in page.elements] == ["x" * 10, None]
     assert page.next_after == "a"
+
+
+@pytest.mark.parametrize("name", ["shared", "devices-inbound", "devices-outbound"])
+def test_un_nom_de_portee_rangee_ailleurs_est_reserve(name: str) -> None:
+    """Deux fichiers pour une seule identité, et c'est ce que la réserve empêche.
+
+    `domains/devices-inbound/models/x.yaml` et `devices/inbound/x.yaml` rendent la MÊME
+    portée et le MÊME nom (`entry_of`) : lequel serait écrit puis relu dépendrait de
+    l'ordre de parcours des chemins. `shared` était déjà exposé à la même collision avant
+    la story 31025fe6 ; il entre ici parce que c'est la même règle, pas une de plus.
+    """
+    assert reserved_scope(name) is True
+    # La FORME reste bonne : c'est la place qui est prise, et le refus doit le dire —
+    # d'où `nom_reserve` et non « champ invalide » côté service.
+    assert domains.checked_domain(name) == name
+
+
+@pytest.mark.parametrize("name", ["suivi", "devices", "devices-entrant", "shared-2"])
+def test_un_nom_de_domaine_ordinaire_n_est_pas_reserve(name: str) -> None:
+    # Discriminant : une réserve trop large interdirait des domaines légitimes, et
+    # `devices` seul ne collisionne avec rien — aucune portée ne porte ce nom.
+    assert reserved_scope(name) is False
