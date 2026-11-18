@@ -15,7 +15,7 @@ from mcp.server.mcpserver import Context, MCPServer
 from pydantic import Field
 from starlette.requests import Request
 
-from miles.datamodels.service import ModelNotFoundError
+from miles.datamodels.errors import ModelNotFoundError
 from miles.mcp_api.calls import caller_of, tool_refusal
 from miles.mcp_api.tool_args import (
     Name,

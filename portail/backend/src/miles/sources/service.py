@@ -12,7 +12,7 @@ from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 
 from miles.datamodels.grammar import load_yaml
 from miles.datamodels.layout import MODEL_RE, model_path
-from miles.datamodels.service import inlined_schema
+from miles.datamodels.reading import inlined_schema
 from miles.event_shapes import GESTURE, NAME
 from miles.sources import openapi
 from miles.sources.checks import branch_problems

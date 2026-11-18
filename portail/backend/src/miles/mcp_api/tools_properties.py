@@ -21,9 +21,9 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 from starlette.requests import Request
 
+from miles.datamodels.errors import ModelNotFoundError
 from miles.datamodels.grammar import load_yaml
 from miles.datamodels.patch import PropertyPathError, remove_property, set_property
-from miles.datamodels.service import ModelNotFoundError
 from miles.mcp_api.calls import caller_of
 from miles.mcp_api.errors import refusal
 from miles.mcp_api.tool_args import (

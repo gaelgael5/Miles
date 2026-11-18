@@ -13,7 +13,7 @@ from miles.apikeys import service as apikeys_events
 from miles.chains import service as chains_events
 from miles.contracts import models_service as contract_models_events
 from miles.contracts import service as contracts_events
-from miles.datamodels import service as datamodels_events
+from miles.datamodels import events as datamodels_events
 from miles.gitaccess import confide_model as confide_events
 from miles.gitaccess import model as gitaccess_events
 from miles.identities import service as identities_events

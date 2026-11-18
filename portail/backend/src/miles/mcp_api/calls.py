@@ -13,8 +13,8 @@ from starlette.requests import Request
 
 from miles.apikeys.model import KEY_DIRECTORY, KeyPrincipal
 from miles.chains.service import ChainInUseError, ChainNotFoundError
+from miles.datamodels.errors import ModelInUseError, ModelNotFoundError
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError
-from miles.datamodels.service import ModelInUseError, ModelNotFoundError
 from miles.mcp_api.auth import ACTOR_STATE, PRINCIPAL_STATE, SERVICES_STATE
 from miles.mcp_api.errors import refusal, refusal_code
 from miles.mcp_api.services import McpServices, caller_services

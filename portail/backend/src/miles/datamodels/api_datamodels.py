@@ -1,24 +1,31 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
-from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
-from pydantic import BaseModel, ConfigDict, Field
 
-from miles.datamodels.grammar import MAX_TEXT_BYTES, ModelGrammarError, ModelSyntaxError
-from miles.datamodels.inference import SampleNotAnObjectError, infer_root, read_sample
-from miles.datamodels.layout import ModelEntry
-from miles.datamodels.service import DataModelsService, ModelInUseError, ModelNotFoundError
-from miles.datamodels.usages import Designation, Listing
-from miles.workspaces.model import (
-    BranchNotFoundError,
-    RepositoryUnavailableError,
-    WorkspaceConflictError,
-    WorkspaceInputError,
-    WorkspaceNotFoundError,
+from miles.datamodels.api_shapes import (
+    ExampleOut,
+    InferredOut,
+    ListingOut,
+    ModelContentOut,
+    ModelCreate,
+    ModelDeclare,
+    ModelOut,
+    ModelReplace,
+    PathOut,
+    PathsOut,
+    SampleIn,
+    listing_out,
+    model_out,
 )
+from miles.datamodels.grammar import ModelSyntaxError
+from miles.datamodels.inference import SampleNotAnObjectError, infer_root, read_sample
+from miles.datamodels.refusals import REFUSALS as _REFUSALS
+from miles.datamodels.refusals import error as _error
+from miles.datamodels.refusals import refusal as _refusal
+from miles.datamodels.service import DataModelsService
 
 # Réservé à l'administrateur tant que les rôles n'existent pas : la passerelle refuse
 # toute autre session. Le droit de lecture seule viendra avec les rôles (1b282b07).
@@ -33,166 +40,12 @@ def data_models_service(request: Request) -> DataModelsService:
 Service = Annotated[DataModelsService, Depends(data_models_service)]
 
 
-class ModelOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    # « shared » pour un modèle transverse, sinon le nom du domaine.
-    scope: str
-    name: str
-    path: str
-    # Le `title` du schéma ; absent s'il n'en porte pas.
-    label: str | None
-    # Tenue par le système : 1 à la création, +1 à chaque enregistrement qui le change.
-    version: int | None
-
-
-class ModelContentOut(ModelOut):
-    # Le YAML tel qu'il est dans le dépôt, octet pour octet.
-    content: str
-
-
-class UsageOut(BaseModel):
-    """Une déclaration qui DÉSIGNE un modèle (story e36192f8)."""
-
-    model_config = ConfigDict(extra="forbid")
-    # « event_type », « storage », « source », « chain_step » ou « model ».
-    kind: str
-    # L'identifiant du désignateur : c'est par lui que l'écran fait le lien vers lui.
-    name: str
-    label: str | None
-    path: str
-    # L'étape d'une chaîne, le rang d'une entrée de source ; absent sinon.
-    part: str | None
-
-
-class BrokenOut(UsageOut):
-    # « portée/nom » du modèle désigné, qui n'est pas dans la branche.
-    target: str
-
-
-class ListedOut(ModelOut):
-    usages: list[UsageOut]
-
-
-class ListingOut(BaseModel):
-    """La liste des modèles et, à côté, ce qui ne trouve plus sa cible.
-
-    Un objet et non un tableau : les désignations cassées ne se rattachent à AUCUN modèle
-    — c'est leur définition — et il n'y avait pas de ligne où les poser. Rendues avec la
-    liste plutôt que par une route à elles, elles décrivent le même commit qu'elle.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-    models: list[ListedOut]
-    broken: list[BrokenOut]
-
-
-class ModelCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    scope: str
-    # Le nom du fichier et de l'`$id` : un JSON Schema n'a pas de clé de nom.
-    name: str
-    content: str
-
-
-class ModelDeclare(BaseModel):
-    """Déclaration par label et slug (Gael, 23/10/2026) : le YAML s'écrit à l'édition."""
-
-    model_config = ConfigDict(extra="forbid")
-    scope: str
-    label: str
-    slug: str
-
-
-class ModelReplace(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    content: str
-
-
-def _out(entry: ModelEntry) -> ModelOut:
-    return ModelOut(
-        scope=entry.scope,
-        name=entry.name,
-        path=entry.path,
-        label=entry.label,
-        version=entry.version,
-    )
-
-
-def _usage(designation: Designation) -> UsageOut:
-    return UsageOut(
-        kind=designation.kind,
-        name=designation.name,
-        label=designation.label,
-        path=designation.path,
-        part=designation.part,
-    )
-
-
-def _broken(designation: Designation) -> BrokenOut:
-    scope, name = designation.target
-    return BrokenOut(**_usage(designation).model_dump(), target=f"{scope}/{name}")
-
-
-def _listing(listing: Listing) -> ListingOut:
-    return ListingOut(
-        models=[
-            ListedOut(
-                **_out(listed.entry).model_dump(),
-                usages=[_usage(u) for u in listed.usages],
-            )
-            for listed in listing.models
-        ],
-        broken=[_broken(d) for d in listing.broken],
-    )
-
-
-def _error(code: int, detail: object) -> JSONResponse:
-    return JSONResponse(status_code=code, content={"detail": detail})
-
-
-_REFUSALS = (
-    ModelSyntaxError,
-    ModelGrammarError,
-    ModelNotFoundError,
-    ModelInUseError,
-    RepositoryUnavailableError,
-    WorkspaceConflictError,
-    WorkspaceInputError,
-    WorkspaceNotFoundError,
-)
-
-
-def _refusal(exc: Exception) -> JSONResponse:
-    unprocessable = status.HTTP_422_UNPROCESSABLE_CONTENT
-    if isinstance(exc, ModelSyntaxError):
-        detail = {"code": "yaml_invalide", "message": exc.message}
-        return _error(unprocessable, detail | {"line": exc.line, "column": exc.column})
-    if isinstance(exc, ModelGrammarError):
-        problems = [{"path": p.path, "code": p.code, "detail": p.detail} for p in exc.problems]
-        return _error(unprocessable, {"code": "modele_non_conforme", "problems": problems})
-    if isinstance(exc, ModelInUseError):
-        return _error(status.HTTP_409_CONFLICT, {"code": "utilise", "by": exc.users})
-    if isinstance(exc, ModelNotFoundError):
-        return _error(status.HTTP_404_NOT_FOUND, "modele_inconnu")
-    if isinstance(exc, RepositoryUnavailableError):
-        return _error(unprocessable, {"code": "acces_depot", "reason": exc.reason})
-    if isinstance(exc, WorkspaceInputError):
-        return _error(unprocessable, {"field": exc.field})
-    if isinstance(exc, WorkspaceConflictError):
-        return _error(status.HTTP_409_CONFLICT, exc.code)
-    if isinstance(exc, BranchNotFoundError):
-        return _error(status.HTTP_404_NOT_FOUND, "branche_inconnue")
-    if isinstance(exc, WorkspaceNotFoundError):
-        return _error(status.HTTP_404_NOT_FOUND, "workspace_inconnu")
-    raise exc
-
-
 @router.get("", response_model=ListingOut)
 async def list_models(
     workspace_id: str, request: Request, service: Service, branch: str | None = None
 ) -> object:
     try:
-        return _listing(
+        return listing_out(
             await service.resolve_list(request_author(request), workspace_id, branch=branch)
         )
     except _REFUSALS as exc:
@@ -214,7 +67,7 @@ async def get_model(
         )
     except _REFUSALS as exc:
         return _refusal(exc)
-    return ModelContentOut(**_out(entry).model_dump(), content=content)
+    return ModelContentOut(**model_out(entry).model_dump(), content=content)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ModelOut)
@@ -241,28 +94,7 @@ async def create_model(
         # Rejeu à l'identique : ni fichier ni commit de plus, et la réponse le dit.
         response.status_code = status.HTTP_200_OK
         response.headers["X-Miles-Already-Exists"] = "true"
-    return _out(entry)
-
-
-class SampleIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    format: Literal["json", "yaml"]
-    # Borné comme les schémas eux-mêmes : un échantillon colle, il ne se téléverse pas
-    # sans limite.
-    sample: str = Field(max_length=MAX_TEXT_BYTES)
-
-
-class InferredOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    schema_body: dict[str, Any] = Field(serialization_alias="schema")
-    # L'échantillon était une liste : le modèle décrit un de ses éléments. Rendu à
-    # l'écran, qui le dit — un dégagement silencieux laisserait croire à une erreur.
-    unwrapped: bool
-
-
-class ExampleOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    example: Any
+    return model_out(entry)
 
 
 @router.get("/{scope}/{name}/example", response_model=ExampleOut)
@@ -282,25 +114,6 @@ async def model_example(
     except _REFUSALS as exc:
         return _refusal(exc)
     return ExampleOut(example=example)
-
-
-class PathOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    path: str
-    # Nom attendu par le composant <jslt-editor> (urban-json-editor >= 0.2.0) : il
-    # affiche « <type> · <description> » sous chaque proposition.
-    type: str
-    description: str
-    # Le `format` du schéma quand il en porte un, vide sinon. À CÔTÉ de `type` et non
-    # fondu dedans : <jslt-editor> lit `type` tel quel, et le module d'environnement en
-    # dérive le type SQL de ses colonnes projetées. Ajout ADDITIF (10/11/2026) — un
-    # consommateur qui ne lit pas ce champ est inchangé.
-    format: str
-
-
-class PathsOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    paths: list[PathOut]
 
 
 @router.get("/{scope}/{name}/paths", response_model=PathsOut)
@@ -374,7 +187,7 @@ async def declare_model(
     if commit is None:
         response.status_code = status.HTTP_200_OK
         response.headers["X-Miles-Already-Exists"] = "true"
-    return _out(entry)
+    return model_out(entry)
 
 
 @router.put("/{scope}/{name}", response_model=ModelOut)
@@ -397,7 +210,7 @@ async def replace_model(
     if commit is None:
         # Même contenu : ni écriture ni commit, et la réponse le dit.
         response.headers["X-Miles-Already-Exists"] = "true"
-    return _out(entry)
+    return model_out(entry)
 
 
 @router.delete("/{scope}/{name}", status_code=status.HTTP_204_NO_CONTENT)
