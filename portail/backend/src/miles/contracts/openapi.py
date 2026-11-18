@@ -62,8 +62,21 @@ class ParsedContract:
     document: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
 
-def parse_contract(text: str) -> ParsedContract:
-    """Lit et vérifie un contrat OpenAPI, en YAML ou en JSON (le JSON est du YAML)."""
+def read_contract(text: str) -> ParsedContract:
+    """Lit un contrat OpenAPI SANS le confronter à la spécification.
+
+    « On valide les documents seulement à la sauvegarde et au commit » (Gael,
+    18/11/2026). La confrontation à la spécification coûte **1 852 ms** sur le contrat
+    réel de la branche `test1` — 60 % du temps de la route des contrats, mesuré le
+    18/11/2026 (enabler ee2c3665) —, et son verdict ne peut changer qu'au prix d'un
+    commit fait hors de Miles. L'AFFICHAGE l'évite donc ; `parse_contract` la garde pour
+    l'import, l'aperçu et la validation de branche.
+
+    Ce qui reste ici n'est pas un allègement par confort : la syntaxe, la version prise en
+    charge et le refus des références externes sont ce qui permet de LIRE le document, et
+    ils coûtent 4 ms. Le refus des `$ref` externes en particulier ne se déplace pas — voir
+    son commentaire.
+    """
     try:
         data = load_yaml(text, MAX_CONTRACT_BYTES)
     except ModelSyntaxError as exc:
@@ -72,23 +85,48 @@ def parse_contract(text: str) -> ParsedContract:
         raise ContractInvalidError([ContractProblem("$", "le document doit être un objet")])
     found = data.get("openapi")
     version = ".".join(str(found).split(".")[:2]) if isinstance(found, str) else None
-    validator = SUPPORTED.get(version or "")
-    if validator is None:
+    if SUPPORTED.get(version or "") is None:
         raise UnsupportedVersionError(str(found) if found is not None else data.get("swagger"))
     # Avant tout : une référence hors du document ferait télécharger au validateur une
     # adresse choisie par l'auteur du fichier, depuis le serveur. Seules les références
     # internes (« #/… ») sont admises — un contrat déposé doit se suffire à lui-même. Une
     # interne qui ne mène nulle part ferait lever le validateur au lieu de la signaler.
+    #
+    # Reste sur le chemin de LECTURE alors que la validation en sort : c'est une garde de
+    # sécurité, elle coûte 4 ms, et un document chargé sans elle serait prêt à faire
+    # sortir une requête du serveur dès qu'un appelant le validerait.
     broken = _reference_problems(data)
     if broken:
         raise ContractInvalidError(broken)
+    if "info" not in data or not isinstance(data.get("info"), dict):
+        # Sans la validation de spécification, c'est ICI qu'un document sans `info.title`
+        # se signale : sinon il lèverait un KeyError à la ligne suivante, et l'écran
+        # rendrait 500 là où il doit dire « openapi_invalide ».
+        raise ContractInvalidError([ContractProblem("$.info", "`info` manquant")])
+    title = data["info"].get("title")
+    if not isinstance(title, str):
+        raise ContractInvalidError([ContractProblem("$.info.title", "`title` manquant")])
+    return ParsedContract(title, str(found), tuple(_operations(data)), data)
+
+
+def parse_contract(text: str) -> ParsedContract:
+    """Lit un contrat OpenAPI ET le confronte à la spécification.
+
+    Le geste qui fait ENTRER un contrat — import, aperçu —, et la validation de la
+    branche, qui précède le figement d'une version. L'affichage, lui, passe par
+    `read_contract` : voir sa docstring pour la décision et la mesure.
+    """
+    parsed = read_contract(text)
+    validator = SUPPORTED[".".join(parsed.openapi.split(".")[:2])]
     problems = [
         ContractProblem(str(error.json_path), error.message)
-        for _, error in zip(range(MAX_PROBLEMS), validator(data).iter_errors(), strict=False)
+        for _, error in zip(
+            range(MAX_PROBLEMS), validator(parsed.document).iter_errors(), strict=False
+        )
     ]
     if problems:
         raise ContractInvalidError(problems)
-    return ParsedContract(str(data["info"]["title"]), str(found), tuple(_operations(data)), data)
+    return parsed
 
 
 def _reference_problems(data: dict[str, Any]) -> list[ContractProblem]:

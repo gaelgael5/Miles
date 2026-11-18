@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -71,8 +72,49 @@ def checked_model_name(name: str) -> str:
     return name
 
 
+def derived_contents(data: dict[str, Any], slug: str, number: int) -> list[DerivedModel]:
+    """Les modèles d'une version de contrat, SANS les confronter au méta-schéma.
+
+    « On valide les documents seulement à la sauvegarde et au commit » (Gael,
+    18/11/2026). Les 183 méta-validations du contrat réel de la branche `test1` coûtent
+    **639 ms** par affichage (enabler ee2c3665, mesuré le 18/11/2026), pour un verdict qui
+    ne change qu'au prix d'un commit fait hors de Miles.
+
+    Ce qui reste est ce qui PRODUIT le contenu — les noms, la conversion, l'émission
+    YAML —, parce que c'est lui qu'on compare octet par octet à ce que git porte. Les
+    écarts STRUCTURELS (nom en double, schéma non convertible) lèvent toujours : sans eux
+    il n'y a pas de contenu à comparer.
+
+    Conséquence assumée de la décision : un schéma qui se convertit mais dont le modèle
+    produit n'est pas un JSON Schema valide se lira « à redériver » à l'affichage, au lieu
+    de « non dérivable ». `derive_models` le dit toujours, là où on écrit et où on fige.
+    """
+    return _derive(data, slug, number, None)
+
+
 def derive_models(data: dict[str, Any], slug: str, number: int) -> list[DerivedModel]:
-    """Les modèles d'une version de contrat ; lève DerivationError avec tous les écarts."""
+    """Les modèles d'une version de contrat, méta-validés ; lève DerivationError avec tous
+    les écarts.
+
+    Le nom et le comportement d'avant le 18/11/2026, délibérément : tous les sites
+    d'ÉCRITURE et la validation de branche l'appellent, et un site oublié devait garder la
+    validation plutôt que la perdre en silence. Seul l'affichage demande explicitement la
+    variante allégée, `derived_contents`.
+    """
+    return _derive(data, slug, number, _META)
+
+
+def _derive(
+    data: dict[str, Any], slug: str, number: int, meta: Draft202012Validator | None
+) -> list[DerivedModel]:
+    """La dérivation, avec ou sans le méta-schéma — `None` ne le confronte pas.
+
+    Un validateur passé plutôt qu'un drapeau, et la confrontation DANS la boucle plutôt
+    qu'en seconde passe : les écarts d'un schéma doivent rester groupés avec les siens.
+    Sortie de la boucle, elle rejetait tous les `schema_invalide` à la fin, et un nom en
+    double levait avant que le méta-schéma ait vu quoi que ce soit — deux refus
+    simultanés cessaient d'être rendus ensemble, et c'est un test unitaire qui l'a dit.
+    """
     schemas = (data.get("components") or {}).get("schemas") or {}
     names, problems = _names(schemas)
     legacy = str(data.get("openapi", "")).startswith("3.0")
@@ -86,9 +128,10 @@ def derive_models(data: dict[str, Any], slug: str, number: int) -> list[DerivedM
         name = names[source]
         head = {"$schema": DIALECT, "$id": derived_id(slug, number, name)}
         body = {"title": source} | {k: v for k, v in body.items() if k not in head}
-        problems += [
-            Problem(where, "schema_invalide", error.message) for error in _META.iter_errors(body)
-        ]
+        if meta is not None:
+            problems += [
+                Problem(where, "schema_invalide", error.message) for error in meta.iter_errors(body)
+            ]
         content = yaml.safe_dump(head | body, allow_unicode=True, sort_keys=False)
         models.append(
             DerivedModel(name, source, f"{models_dir(slug, number)}/{name}.yaml", content)
@@ -224,11 +267,40 @@ async def derived_state(
 
     Retouchés à la main dans git, absents (version intégrée avant la story 47f55d8b) ou en
     trop, ils ne disent plus ce que dit le contrat : « à redériver ».
+
+    Méta-validés, donc capable de dire « non dérivable » : c'est la variante de la
+    SAUVEGARDE et du COMMIT — la validation de la branche, qui précède le figement.
+    L'affichage appelle `read_derived_state`.
     """
+    return await _state_of(read, paths, slug, number, document, derive_models)
+
+
+async def read_derived_state(
+    read: Read, paths: list[str], slug: str, number: int, document: dict[str, Any]
+) -> DerivedState:
+    """Le même état, sans méta-valider les modèles produits (Gael, 18/11/2026).
+
+    Variante de l'AFFICHAGE : elle économise 639 ms par lecture sur le contrat réel de la
+    branche `test1` (enabler ee2c3665). Son seul écart de verdict est connu et accepté —
+    un modèle produit qui n'est pas un JSON Schema valide s'y lit « à redériver » au lieu
+    de « non dérivable ». La comparaison octet par octet avec git, elle, est identique :
+    c'est elle qui porte l'information que l'écran montre.
+    """
+    return await _state_of(read, paths, slug, number, document, derived_contents)
+
+
+async def _state_of(
+    read: Read,
+    paths: list[str],
+    slug: str,
+    number: int,
+    document: dict[str, Any],
+    derive: Callable[[dict[str, Any], str, int], list[DerivedModel]],
+) -> DerivedState:
     present = present_models(paths, slug, number)
     names = tuple(sorted(present))
     try:
-        expected = derive_models(document, slug, number)
+        expected = derive(document, slug, number)
     except DerivationError as exc:
         return DerivedState(UNDERIVABLE, names, tuple(exc.problems))
     if {m.name for m in expected} != set(present):

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from miles.contracts.derived import DerivedState, derived_state
+from miles.contracts.derived import DerivedState, read_derived_state
 from miles.contracts.layout import ContractMeta, meta_path, read_meta, version_path, versions_in
-from miles.contracts.openapi import ParsedContract, parse_contract
+from miles.contracts.openapi import ParsedContract, read_contract
 from miles.workshop.reading import Read
 
 
@@ -32,7 +32,11 @@ async def contract_at(read: Read, paths: list[str], slug: str) -> Contract | Non
     versions = []
     for number in versions_in(paths, slug):
         try:
-            parsed: ParsedContract | None = parse_contract(
+            # `read_contract` et non `parse_contract` : la lecture ne confronte plus le
+            # document à la spécification (Gael, 18/11/2026 — « on valide les documents
+            # seulement à la sauvegarde et au commit »). C'est la SEULE voie de lecture du
+            # contrat, et c'est pourquoi la coupure tient en un endroit.
+            parsed: ParsedContract | None = read_contract(
                 await read(version_path(slug, number)) or ""
             )
         except ValueError:
@@ -40,7 +44,7 @@ async def contract_at(read: Read, paths: list[str], slug: str) -> Contract | Non
             # de la branche dira pourquoi.
             parsed = None
         models = (
-            await derived_state(read, paths, slug, number, parsed.document)
+            await read_derived_state(read, paths, slug, number, parsed.document)
             if parsed is not None
             else None
         )
