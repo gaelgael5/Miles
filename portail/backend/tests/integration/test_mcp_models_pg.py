@@ -5,9 +5,10 @@ from pathlib import Path
 
 import pytest
 
+from miles.datamodels.layout import INBOUND, OUTBOUND
 from tests.integration.mcp_stack import McpForge, issue_key, open_mcp_forge
 from tests.integration.oauth_helpers import obtain_tokens, open_oauth
-from tests.integration.test_datamodels_pg import COLIS, PERSONNE, body_of
+from tests.integration.test_datamodels_pg import COLIS, PERSONNE, TRANSACTION, body_of
 
 pytestmark = pytest.mark.integration
 
@@ -238,3 +239,47 @@ async def test_a_domain_is_created_once_and_its_name_is_checked(m: McpForge) -> 
     assert await m.forge.file("domains/suivi/.gitkeep") == ""
     # Écrit dans la branche enfant seulement : la racine reste en lecture seule.
     assert await m.forge.file("domains/suivi/.gitkeep", "back/retrait/atelier") is None
+
+
+async def test_un_schema_device_se_cree_par_sa_portee_sans_declarer_quoi_que_ce_soit(
+    m: McpForge,
+) -> None:
+    """Critère 4 de la story 31025fe6 : la portée d'un sens est admise par les primitives.
+
+    Éprouvé DE BOUT EN BOUT par MCP, et pas seulement sur le service : c'est l'argument
+    `scope` qui porte la décision — un seul segment, `devices-inbound` —, et un agent qui
+    écrirait `devices/inbound` doit recevoir un refus et non un fichier mal rangé.
+    """
+    # Le transverse d'abord : TRANSACTION le désigne, et un `$ref` vers un modèle absent
+    # est refusé avant toute écriture — c'est la règle de visibilité, pas une exception.
+    await m.ok("create_schema", EDIT | body_of(PERSONNE))
+    created = await m.ok("create_schema", EDIT | body_of(TRANSACTION))
+    listed = await m.ok("list_schemas", EDIT)
+    read = await m.ok("get_schema", EDIT | {"scope": INBOUND, "name": "transaction"})
+    avec_barre = await m.refused(
+        "create_schema",
+        EDIT | {"scope": "devices/inbound", "name": "transaction", "content": TRANSACTION},
+    )
+    deleted = await m.ok("delete_schema", EDIT | {"scope": INBOUND, "name": "transaction"})
+
+    # Aucun `create_domain` préalable : un sens n'est pas un domaine et n'a rien à déclarer.
+    assert created["path"] == "devices/inbound/transaction.yaml" and created["commit"]
+    assert sorted(e["path"] for e in listed) == [
+        "devices/inbound/transaction.yaml",
+        "shared/models/personne.yaml",
+    ]
+    assert "$id: miles:/devices/inbound/transaction" in read["content"]
+    assert (avec_barre["code"], avec_barre["champ"]) == ("champ_invalide", "scope")
+    assert deleted["commit"] and await m.forge.file("devices/inbound/transaction.yaml") is None
+
+
+async def test_un_domaine_ne_peut_pas_porter_le_nom_d_une_portee_rangee_ailleurs(
+    m: McpForge,
+) -> None:
+    """Le refus `nom_reserve` par MCP, où il compte le plus : c'est un agent qui créera
+    des domaines en série, et deux fichiers pour une seule identité ne se verraient qu'à
+    la relecture d'un modèle qu'on croyait avoir écrit ailleurs."""
+    for name in ("shared", INBOUND, OUTBOUND):
+        refused = await m.refused("create_domain", EDIT | {"name": name})
+        assert refused["code"] == "nom_reserve", refused
+    assert (await m.ok("list_domains", EDIT))["domains"] == []
