@@ -26,6 +26,7 @@ from miles.workflowevents.inheritance import (
     TOO_DEEP,
     ancestry,
     cycle_problems,
+    loop_problems,
     parents_of,
     with_parent,
 )
@@ -468,6 +469,7 @@ class WorkflowEventsService:
             return [Problem("allOf", TOO_DEEP, str(MAX_DEPTH))]
         return (
             payload_problems(text, schema)
+            + loop_problems(declared.model, above)
             + list(above.problems)
             + dedup_problems(declared.unique, schema, above.properties)
         )

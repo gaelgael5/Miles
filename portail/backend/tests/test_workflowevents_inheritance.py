@@ -23,6 +23,7 @@ from miles.workflowevents.inheritance import (
     ancestors,
     ancestry,
     cycle_problems,
+    loop_problems,
     parents_of,
     with_parent,
 )
@@ -68,9 +69,7 @@ class TestCeDontUnPayloadHerite:
         Sans elle, un modèle qui porte un champ `Dossier: {$ref: …}` se lirait comme
         héritant du dossier, et l'écran afficherait un héritage que personne n'a posé.
         """
-        text = _model(
-            "demande", properties={"Dossier": {"$ref": "miles:/shared/dossier"}}
-        )
+        text = _model("demande", properties={"Dossier": {"$ref": "miles:/shared/dossier"}})
 
         assert parents_of(text) == ()
 
@@ -231,9 +230,7 @@ class TestLeRefusDesCycles:
 
         problems = await cycle_problems(_branch(chaine), ("shared", "x"), ("shared", "n0"))
 
-        assert [(p.code, p.detail) for p in problems] == [
-            ("heritage_trop_profond", str(MAX_DEPTH))
-        ]
+        assert [(p.code, p.detail) for p in problems] == [("heritage_trop_profond", str(MAX_DEPTH))]
 
 
 class TestCeQueLAscendanceApporte:
@@ -289,9 +286,30 @@ class TestCeQueLAscendanceApporte:
         above = await ancestry(read, [("shared", "a")])
 
         assert above is not None
-        assert [(p.code, p.detail) for p in above.problems] == [
-            ("parent_non_conforme", "shared/a")
+        assert [(p.code, p.detail) for p in above.problems] == [("parent_non_conforme", "shared/a")]
+
+    async def test_un_payload_dans_sa_propre_ascendance_est_un_manquement(self) -> None:
+        """Ce que `cycle_problems` ne voit pas : une boucle DÉJÀ écrite.
+
+        L'écran des modèles peut la produire après coup — il ne connaît pas les events —,
+        et une version ne doit pas figer un paramétrage que le moteur ne charge pas.
+        """
+        read = _branch(
+            {
+                ("shared", "a"): _model("a", parent=("shared", "b")),
+                ("shared", "b"): _model("b", parent=("shared", "a")),
+            }
+        )
+
+        above = await ancestry(read, [("shared", "b")])
+
+        assert above is not None
+        assert [(p.path, p.code) for p in loop_problems(("shared", "a"), above)] == [
+            ("allOf", "heritage_recursif")
         ]
+        # Et un payload qui ne boucle pas n'en porte aucun : sans ce second cas, le test
+        # resterait vert sur une fonction qui refuse tout.
+        assert loop_problems(("shared", "c"), above) == []
 
     async def test_une_ascendance_trop_profonde_rend_None(self) -> None:
         chaine = {

@@ -163,9 +163,7 @@ class TestLesClesDUnicite:
         vide = "title: D\ntype: object\nproperties: {}\n"
 
         assert _dedup_codes(vide, ("Montant",)) == [("unique.0", "cle_d_unicite_inconnue")]
-        assert (
-            dedup_problems(("Montant",), parse_schema(vide), frozenset({"Montant"})) == []
-        )
+        assert dedup_problems(("Montant",), parse_schema(vide), frozenset({"Montant"})) == []
 
     def test_la_position_de_la_cle_fautive_est_rendue(self) -> None:
         # L'ordre est une donnée : le refus doit dire LAQUELLE des clés, pas seulement

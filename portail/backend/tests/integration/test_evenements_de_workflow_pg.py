@@ -431,6 +431,9 @@ async def test_la_liste_rend_chaque_perimetre_avec_son_artefact_et_ses_types(
                     "model_name": "demande",
                     "unique": ["Montant"],
                     "model_missing": False,
+                    # Déclaré sur un modèle qui n'hérite de rien : l'event dérive du seul
+                    # socle commun, et son fichier ne porte aucun renvoi.
+                    "parents": [],
                 }
             ],
             "problems": [],
@@ -750,3 +753,37 @@ async def test_un_parent_inconnu_est_refuse_sans_rien_ecrire(forge: Forge) -> No
     assert refused.status_code == 404, refused.text
     assert refused.json()["detail"] == "evenement_inconnu"
     assert await forge.remote_file("shared/models/colis_livre.yaml") is None
+
+
+async def test_un_cycle_ECRIT_PAR_L_ECRAN_DES_MODELES_bloque_la_version(forge: Forge) -> None:
+    """L'écran des modèles ne connaît pas les events : il peut fermer une boucle après coup.
+
+    C'est le chemin que le refus au geste ne couvre pas — et il faut qu'une version ne fige
+    pas un paramétrage que le moteur ne saurait pas charger : mesuré le 22/11/2026, un
+    schéma dans sa propre ascendance part en `RecursionError`.
+    """
+    await _create(forge, slug="colis_recu", label="Colis reçu")
+    await _create(forge, parent_scope="shared", parent_name="colis_recu")
+    lu = await forge.client.get(f"{MODELES}/shared/colis_recu", timeout=120)
+    assert lu.status_code == 200, lu.text
+
+    # Le PARENT redirigé vers son propre enfant, par la route des modèles.
+    boucle = lu.json()["content"].replace(
+        "type: object", "type: object\nallOf: [{$ref: 'miles:/shared/colis_livre'}]", 1
+    )
+    written = await forge.client.put(
+        f"{MODELES}/shared/colis_recu", json={"content": boucle}, timeout=120
+    )
+    assert written.status_code == 200, written.text
+
+    freezable = await forge.client.get(FREEZABLE, timeout=120)
+
+    assert freezable.status_code == 200, freezable.text
+    codes = [
+        (problem["path"], problem["code"])
+        for report in freezable.json()["reports"]
+        for problem in report["problems"]
+    ]
+    # Les DEUX events sont dans la boucle, et chacun le dit sous son propre nom.
+    assert ("events.colis_recu.allOf", "heritage_recursif") in codes, codes
+    assert ("events.colis_livre.allOf", "heritage_recursif") in codes, codes

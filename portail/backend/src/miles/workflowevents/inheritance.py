@@ -136,6 +136,17 @@ async def cycle_problems(
     return []
 
 
+def loop_problems(model: tuple[str, str], above: Ancestry) -> list[Problem]:
+    """Le payload est dans sa propre ascendance : le schéma composé ne se valide pas.
+
+    Distinct de `cycle_problems`, et les deux sont nécessaires : celui-là refuse le geste
+    qui POSE un parent, en le nommant ; celui-ci regarde une ascendance DÉJÀ écrite — un
+    fichier retouché hors de Miles, ou un modèle parent redirigé après coup par l'écran
+    des modèles, qui ne connaît pas les events.
+    """
+    return [Problem("allOf", RECURSIVE, _chain([model, model]))] if model in above.models else []
+
+
 @dataclass(frozen=True)
 class Ancestry:
     """Ce qu'un payload tient de ses parents, et ce qui les rendrait inaptes à en être un."""

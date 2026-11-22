@@ -18,6 +18,13 @@ from miles.git.workcopy import WorkCopy
 from miles.git.worktree import MANIFEST, diagnose
 from miles.workflowevents.dsl import FragmentError, scope_of
 from miles.workflowevents.dsl import parse as parse_fragment
+from miles.workflowevents.inheritance import (
+    MAX_DEPTH,
+    TOO_DEEP,
+    ancestry,
+    loop_problems,
+    parents_of,
+)
 from miles.workflowevents.layout import visible as event_visible
 from miles.workflowevents.schema import dedup_problems, payload_problems
 from miles.workflows.validation import workflow_reports
@@ -191,9 +198,20 @@ async def _fragment_problems(
             # Le modèle rapporte ses propres manquements sous SON chemin : les répéter ici
             # ferait lire deux défauts là où il n'y en a qu'un.
             continue
+        # L'ascendance compte ici comme au geste : le moteur reçoit le schéma COMPOSÉ.
+        # Une version ne fige donc pas un payload dont un parent est fermé, redéclare une
+        # propriété du socle, ne se relit pas — ou boucle, ce que l'écran des modèles peut
+        # produire après coup, lui qui ne connaît pas les events.
+        above = await ancestry(copy.read, parents_of(text))
+        if above is None:
+            problems.append(Problem(f"{where}.allOf", TOO_DEEP, str(MAX_DEPTH)))
+            continue
         problems += [
             Problem(f"{where}.{p.path}", p.code, p.detail)
-            for p in payload_problems(text, schema) + dedup_problems(item.unique, schema)
+            for p in payload_problems(text, schema)
+            + loop_problems(item.model, above)
+            + list(above.problems)
+            + dedup_problems(item.unique, schema, above.properties)
         ]
     return tuple(problems)
 
