@@ -23,6 +23,11 @@ from pathlib import Path
 PRODUITS = ("portail", "enrolement", "environnement")
 GARDES_SH = "socle/deploy/gardes.sh"
 INTEGRATION_SH = "socle/deploy/integration.sh"
+# Extrait de `gardes.sh` le 11/11/2026 et resté hors de cette liste jusqu'au 22/11 : la
+# garde de la garde ne voyait donc pas les gardes définies là. Tout fichier du socle qui
+# définit une garde appelée par un produit doit y être, sinon `resolve_gardes_non_definies`
+# la déclare introuvable alors qu'elle est bien là.
+ESPACE_SH = "socle/deploy/espace.sh"
 
 # Garde → la panne qui l'a motivée. La raison est ici parce qu'un test qui échoue doit dire
 # ce qu'on s'apprête à perdre, pas seulement qu'un nom manque.
@@ -57,9 +62,15 @@ GARDES_DU_DEPLOIEMENT = {
         "interroge le résultat, pas le code de retour"
     ),
     "socle_sante": "sans plafond, un service qui ne démarre jamais fait attendre indéfiniment",
-    "socle_purge_hebdomadaire": (
+    # La panne du disque saturé était portée par `socle_purge_hebdomadaire` jusqu'au
+    # 22/11/2026 (bug `8e10adb5`). Elle a changé de garde, elle n'a pas disparu : le
+    # ramasse-miettes du démon borne le cache en continu, et ce qu'il ne fait pas — libérer
+    # en urgence, avant une construction — est exactement ce que celle-ci fait. La purge
+    # périodique, elle, emportait le cache des autres projets de la machine transverse.
+    "socle_espace_avant_construction": (
         "les couches détaggées saturent le disque, et une machine sans espace ne relance "
-        "plus la stack qu'elle vient d'arrêter — en plein déploiement"
+        "plus la stack qu'elle vient d'arrêter — en plein déploiement ; un plafond de démon "
+        "borne le cache mais ne libère rien en urgence"
     ),
 }
 
@@ -120,7 +131,7 @@ def resolve_gardes_non_definies(depot: Path) -> tuple[str, ...]:
     produits sans dire que la définition, elle, a changé de nom.
     """
     definies: set[str] = set()
-    for relatif in (GARDES_SH, INTEGRATION_SH):
+    for relatif in (GARDES_SH, INTEGRATION_SH, ESPACE_SH):
         fichier = depot / relatif
         if fichier.is_file():
             texte = fichier.read_text(encoding="utf-8")

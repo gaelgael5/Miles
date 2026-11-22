@@ -14,27 +14,34 @@
 # même journée. Une garde qui protège une moitié des bâtisseurs protège mal.
 
 # --- Espace disque AVANT la construction, et seulement quand il manque ------------------
-# DEUXIÈME garde d'espace, et elle ne remplace pas la purge hebdomadaire de `gardes.sh` :
-# les deux se complètent, et il faut les deux. (Elles étaient voisines jusqu'à
-# l'extraction du 11/11/2026 ; la purge hebdomadaire est restée au déploiement, qui est
-# le seul à avoir un témoin horodaté où noter son passage.)
+# SEULE garde d'espace du dépôt depuis le 22/11/2026 (bug `8e10adb5`) : la purge
+# hebdomadaire de `gardes.sh` a été retirée — le ramasse-miettes du démon borne le cache en
+# continu, et elle le payait avec le cache des autres projets d'une machine transverse. Son
+# emplacement dans `gardes.sh` porte la raison en entier ; ne pas la remettre.
 #
-# POURQUOI CELLE-CI EXISTE. La purge hebdomadaire est placée APRÈS le contrôle de santé,
-# pour ne pas retarder la mise à disposition — c'est le bon choix en régime normal. Mais
-# dans le cas précis pour lequel elle a été écrite, elle arrive trop tard : quand le disque
-# est plein, c'est la CONSTRUCTION qui échoue, et elle passe avant. Mesuré le 11/11/2026 sur
-# host-test-37 : 96 % d'occupation, 1,9 Go libres, 10,1 Go de cache de construction
-# récupérable et AUCUN témoin de purge — exactement l'état de host-test-36 avant l'incident
-# que la purge hebdomadaire cite. La garde qui devait l'empêcher ne pouvait pas le faire.
+# POURQUOI CELLE-CI RESTE, et c'est ce que le plafond du démon ne couvre PAS : un plafond
+# borne un cache en continu, il ne libère RIEN en urgence quand la place manque pour la
+# construction qui démarre. Mesuré le 11/11/2026 sur host-test-37 : 96 % d'occupation,
+# 1,9 Go libres, 10,1 Go de cache récupérable — et le démon tournait déjà avec son plafond
+# (machine redémarrée le 9/11, `daemon.json` du 23/10), donc le cache était tenu à son
+# plafond et c'est le plafond qui était haut pour ce disque-là. Le déploiement, lui, ne peut
+# pas attendre le prochain passage du ramasse-miettes : il bâtit maintenant.
+#
+# ELLE RESTE GLOBALE, et c'est assumé : `docker builder prune` ne sait pas isoler le cache
+# par projet (il ne connaît que `--filter until=<durée>`, qui borne l'ÂGE). En situation
+# d'urgence — disque sous le plancher, construction imminente — prendre du cache
+# reconstructible, y compris celui d'un autre projet, coûte moins qu'un déploiement qui
+# échoue en laissant la stack à terre. C'est la différence avec la purge périodique, qui
+# faisait payer ce prix-là SANS urgence.
 #
 # CONDITIONNÉE AU BESOIN, PAS À LA FRÉQUENCE. Sur une machine saine, elle ne fait que lire
 # `df` et rend la main : aucune minute ajoutée, donc aucune raison de la désactiver « le
 # temps de » — c'est précisément ce qui avait rendu la purge inconditionnelle intenable.
 # Elle ne tient aucun témoin : un disque court n'a pas de périodicité.
 #
-# Le code de retour ne fait JAMAIS échouer le déploiement, comme la purge hebdomadaire : si
-# la purge ne récupère rien, c'est la construction qui dira que l'espace manque, et elle le
-# dira mieux — avec le nom de la couche qui n'a pas pu s'écrire.
+# Le code de retour ne fait JAMAIS échouer le déploiement : si la purge ne récupère rien,
+# c'est la construction qui dira que l'espace manque, et elle le dira mieux — avec le nom de
+# la couche qui n'a pas pu s'écrire.
 socle_espace_avant_construction() {
   local minimum_mo="$1" libre_mo apres_mo
   libre_mo="$(socle_espace_libre_mo)"

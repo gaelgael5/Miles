@@ -77,6 +77,19 @@ services:
       - ./.deploy/mosquitto/passwd:/mosquitto/config/passwd:ro
       - ./.deploy/mosquitto/acl:/mosquitto/config/acl:ro
       - miles-mqtt:/mosquitto/data
+    # `/mosquitto/log` monté en tmpfs, et ce n'est pas une préférence : l'image déclare
+    # DEUX volumes — mesuré, `docker image inspect eclipse-mosquitto:2.0.20 --format
+    # '{{json .Config.Volumes}}'` rend `{"/mosquitto/data":{},"/mosquitto/log":{}}`. Sans
+    # montage ici, Docker en crée un ANONYME à chaque création du conteneur, et le
+    # `compose down` du déploiement est volontairement sans `--volumes` (il détruirait
+    # `miles-db`) : l'anonyme de la génération précédente restait orphelin pour toujours —
+    # 30 volumes vides relevés sur host-test-37 le 19/11/2026, un par déploiement.
+    # tmpfs plutôt qu'un volume nommé parce que RIEN de durable ne va là : `log_dest stdout`
+    # dans mosquitto.conf, et c'est le démon qui tourne les journaux du conteneur. Un
+    # `log_dest file` ajouté un jour écrirait donc en RAM : le changer demande de remplacer
+    # ce tmpfs par un volume nommé, pas de le retirer.
+    tmpfs:
+      - /mosquitto/log
     restart: unless-stopped
 
   frontend:

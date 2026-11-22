@@ -20,7 +20,6 @@ DEPOT_DIR="$(cd "$PRODUIT_DIR/.." && pwd)"
 BRANCH="dev"
 STATE_DIR="$PRODUIT_DIR/.deploy"
 LOG_FILE="$STATE_DIR/deploy-$(date +%Y%m%d-%H%M%S).log"
-PURGE_STAMP="$STATE_DIR/last-purge"
 ENV_FILE="$PRODUIT_DIR/.env"
 BACKUP_ENV_FILE="$PRODUIT_DIR/.env.bak"
 ADMIN_PASSWORD_FILE="$STATE_DIR/admin-password"
@@ -34,7 +33,6 @@ TOTAL_STEPS=11
 SERVICE_NAME="miles-enrolement"
 CONTAINER_WAIT_S=90
 HEALTH_WAIT_S=120
-PURGE_EVERY_S=$((7 * 24 * 3600))
 # Plancher d'espace libre sous lequel on purge le cache AVANT de bâtir. Ce n'est pas une
 # mesure de ce qu'une construction consomme — elle varie avec ce qui a changé — mais un
 # plancher délibérément large : une construction qui échoue faute de place échoue TARD et
@@ -134,9 +132,9 @@ socle_declaration_annuaire
 unset PORTAL_TOKEN
 
 socle_step 5 "construction des images depuis la copie du dépôt"
-# L'espace AVANT de bâtir, et seulement s'il manque : la purge hebdomadaire est après le
-# contrôle de santé, donc trop tard pour la construction qui a besoin de la place. Lecture
-# de `df` et retour immédiat sur une machine au large.
+# L'espace AVANT de bâtir, et seulement s'il manque : c'est la CONSTRUCTION qui échoue
+# d'abord quand le disque est plein, et le plafond du démon borne le cache sans rien libérer
+# en urgence. Lecture de `df` et retour immédiat sur une machine au large.
 socle_espace_avant_construction "$ESPACE_MINIMUM_MO"
 # Jamais sautée : c'est ici, sur copie fraîche, qu'on prouve que les images se bâtissent.
 socle_compose build --pull \
@@ -167,5 +165,3 @@ socle_step 11 "entretien du journal (déclencheur d'hôte)"
 socle_entretien_du_journal "enrolement" "$HTTP_PORT"
 
 echo "déploiement OK : $(git -C "$DEPOT_DIR" rev-parse --short HEAD) sur http://$(hostname):$HTTP_PORT"
-
-socle_purge_hebdomadaire "$PURGE_STAMP" "$PURGE_EVERY_S"

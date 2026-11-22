@@ -16,9 +16,12 @@ Notes sur `test1` (`host-test-37`), relevées le 2026-10-23 :
 - **Plus dédiée depuis le 28/10/2026 au soir** : une pile tierce (`tutor-*` — web, backend,
   postgres) y tourne désormais à côté des services standard (`devpod-alloy-agent`,
   `devpod-alloy-metrics`, `browserless-chromium` sur 3000, `buildx_buildkit`). Conséquence
-  pratique : le disque se remplit plus vite qu'avant (85 % le 28/10 au soir, pour 40 Go), et
-  la purge hebdomadaire de `dev-deploy.sh` ne suffit plus à elle seule. Vérifier `df -h /`
-  avant une campagne, et ne jamais supposer que ce qui tourne ici nous appartient.
+  pratique : le disque se remplit plus vite qu'avant. **Aucun geste global sur son démon
+  docker** (Gael, 19/11/2026) — et depuis le 22/11/2026 nos scripts n'en font plus : la purge
+  périodique a été retirée (bug `8e10adb5`), le ramasse-miettes du démon borne le cache, et
+  il ne reste qu'une purge d'urgence avant une construction. Relevé du 22/11/2026 : 59 Gio
+  dont 27 libres (53 %). Vérifier `df -h` avant une campagne, et ne jamais supposer que ce
+  qui tourne ici nous appartient.
 - **Ports** : le portail est publié sur **8080** et son broker MQTT sur **1883** ; le module
   d'enrôlement sur **8081** ; le module d'environnement sur **8082**. Figés au premier
   déploiement dans le `.env` DU PRODUIT. **Trois stacks cohabitent** sur cette machine :

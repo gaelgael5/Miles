@@ -215,32 +215,33 @@ socle_sante() {
     || socle_fail "santé KO après ${plafond}s : curl -s http://127.0.0.1:$port/api/health"
 }
 
-# --- Récupération d'espace disque, au plus une fois par semaine -------------------------
-# PANNE RÉELLE : chaque déploiement reconstruit les images ; les couches précédentes sont
-# détaggées mais restent sur le disque, et rien ne les récupère. Une machine sans espace
-# n'arrive plus à relancer la stack qu'elle vient d'arrêter — en plein déploiement
-# (host-test-36, 95 %, 11 Go de cache).
+# --- Pas de purge d'espace PÉRIODIQUE : le démon s'en charge ----------------------------
+# IL Y EN A EU UNE, de `socle_purge_hebdomadaire`, retirée le 22/11/2026 (bug `8e10adb5`).
+# Elle faisait `docker builder prune -f && docker image prune -f`, au plus une fois par
+# semaine et par produit. NE PAS LA REMETTRE, et voici pourquoi — la raison est mesurée :
 #
-# Quatre bornes, toutes nécessaires : la FRÉQUENCE (un témoin horodaté, sinon la purge
-# ajoute des minutes à chaque passage et finit par être désactivée « le temps de ») ; la
-# POSITION (après le contrôle de santé, pour ne pas retarder la mise à disposition) ; la
-# PORTÉE (cache de construction et images détaggées, jamais les volumes qui portent les
-# données, jamais une purge globale qui supprimerait les images de base) ; et le CODE DE
-# RETOUR, qui ne doit jamais faire échouer le déploiement.
-socle_purge_hebdomadaire() {
-  local temoin="$1" periode="$2" maintenant derniere avant_mo apres_mo
-  maintenant="$(date +%s)"
-  derniere="$(cat "$temoin" 2>/dev/null || echo 0)"
-  if ((maintenant - derniere > periode)); then
-    {
-      avant_mo="$(socle_espace_libre_mo)"
-      docker builder prune -f >/dev/null && docker image prune -f >/dev/null
-      apres_mo="$(socle_espace_libre_mo)"
-      echo "purge hebdomadaire : $((apres_mo - avant_mo)) Mo récupérés"
-      echo "$maintenant" > "$temoin"
-    } || echo "purge en échec (sans effet sur le déploiement)"
-  fi
-}
+# 1. `builder prune` et `image prune` sont des gestes GLOBAUX sur le démon. Les machines de
+#    test sont TRANSVERSES (Gael, 19/11/2026) : celle-ci porte aussi `photoreader`, `tutor`,
+#    `urban-workflow`, deux collecteurs `alloy` et le builder `buildx`. On emportait le
+#    cache des autres projets, qui payaient des reconstructions sans que rien dans leur
+#    journal ne nomme la cause.
+# 2. Le démon se borne DÉJÀ lui-même : `/etc/docker/daemon.json` de host-test-37 active le
+#    ramasse-miettes du bâtisseur (5 Gio pour le cache inutilisé depuis 168 h, 10 Gio en
+#    tout) et tourne les journaux de conteneurs. C'est ce que la skill de déploiement
+#    appelle « le remède durable, à poser dans l'image de machine de test » : il est posé.
+#    Relu sur la machine le 22/11/2026, inchangé depuis le 23/10 — et le cache y valait
+#    4,447 Gio, sous son plancher, donc tenu par le ramasse-miettes et non par nous.
+# 3. Elle ne couvrait NI l'une NI l'autre des deux pannes qu'on lui prêtait. Placée après le
+#    contrôle de santé, elle arrive trop tard pour la panne de host-test-36 — un disque
+#    plein fait échouer la CONSTRUCTION, qui passe avant. Et le 11/11/2026 sur host-test-37
+#    (96 % d'occupation), la machine avait redémarré le 9/11 avec ce plafond déjà en place
+#    et AUCUN témoin de purge : la purge hebdomadaire n'avait jamais tourné là où on
+#    l'invoquait pour justifier son maintien.
+#
+# Ce qui couvre ces pannes, c'est `socle_espace_avant_construction` (`espace.sh`), appelée
+# AVANT de bâtir et seulement sous un plancher d'espace libre. Un plafond borne un cache en
+# continu ; il ne libère rien en urgence. Les deux rôles sont distincts, et un seul des deux
+# nous revient.
 
 # --- Déclaration à l'annuaire du portail, best-effort -----------------------------------
 # Appelée AVANT la construction, pas après le contrôle de santé : le code TOTP vit ~30 s et
