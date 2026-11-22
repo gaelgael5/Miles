@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { WorkTarget } from "../api/workTarget";
 import { type EventType, useEventPerimeters } from "../api/workflowEvents";
 import type { Workspace } from "../api/workspaces";
+import { BaseEvent } from "../events/BaseEvent";
 import { DeclareForm } from "../events/EventForms";
 import { PerimeterSection, perimeterLabel } from "../events/PerimeterSection";
 import { DomainForm } from "./DomainForm";
@@ -43,6 +44,9 @@ export function EventsScreen({
   const [added, setAdded] = useState<string | null>(null);
   const all = perimeters.data ?? [];
   const shown = scope === undefined ? all : all.filter((p) => p.scope === scope);
+  // TOUS les types de la branche, et non ceux du périmètre montré : l'héritage traverse
+  // les périmètres — un type de domaine dérive légitimement d'un type transverse.
+  const types = all.flatMap((perimeter) => perimeter.types);
 
   return (
     <section aria-labelledby="workflow-events-title">
@@ -113,6 +117,10 @@ export function EventsScreen({
         </p>
       )}
       {perimeters.isError && <ModelRefusal error={perimeters.error} />}
+      {/* L'event de base EN TÊTE, et en lecture seule : « tout d'abord je veux voir au
+          départ l'event de base » (Gael, 19/11/2026). Il est la racine de tout type
+          d'event, quel que soit le périmètre regardé. */}
+      <BaseEvent target={target} />
       {/* Un périmètre nommé que la branche ne porte pas : un domaine supprimé, ou une vue
           partagée après coup. On le DIT, plutôt que de rendre une page vide qui se lirait
           comme « ce périmètre ne déclare rien ». */}
@@ -123,6 +131,7 @@ export function EventsScreen({
         <PerimeterSection
           key={perimeter.scope}
           target={target}
+          types={types}
           perimeter={perimeter}
           onOpenModel={onOpenModel}
         />

@@ -592,17 +592,16 @@
       "label": "Label",
       "slug": "DSL name",
       "domain": "Perimeter",
-      "model": "Payload model",
-      "unique": "Uniqueness keys"
+      "unique": "Uniqueness keys",
+      "parent": "Inherits from"
     },
     "form": {
       "title": "New event type",
       "slugHelp": "Proposed from the label; it is the name written in a DEFINE EVENT. Lowercase letters, digits and underscores — the engine's DSL rejects hyphens.",
       "domainHelp": "Shared: declared in shared/shared.wf, visible from every domain. A domain missing from the list is added with “Add a domain”. A domain whose name carries a hyphen cannot hold an event type: the DSL cannot write it.",
-      "modelNone": "— pick a model —",
-      "modelHelp": "The model describing the BUSINESS data of the payload. It is an ordinary data model: a storage or a source may designate it too. The engine also validates the common base, whose properties must not be redeclared.",
       "uniqueHelp": "Optional, comma-separated, IN ORDER — the engine derives the deduplication hash by concatenation, so the order changes the deduplication. A key names a property of the model or of the common base ({{base}}). Without keys the engine still deduplicates, on the base: the sender's Uuid if it provides one, otherwise Name + EventDate (+ ExternalId).",
-      "submit": "Declare the event type"
+      "submit": "Declare the event type",
+      "parentHelp": "The new event's payload is created with it and derives from the parent's, through an “allOf: $ref”. The base event writes no reference: the engine applies its root anyway."
     },
     "edit": {
       "title": "Edit {{name}}",
@@ -629,6 +628,20 @@
         "scope": "The engine's DSL cannot write this domain name (hyphens are rejected): this perimeter cannot hold an event type without being renamed.",
         "model": "The engine's DSL cannot write this model name (hyphens are rejected): it stays usable by a storage or a source, but not as an event type payload."
       }
+    },
+    "base": {
+      "title": "Base event",
+      "help": "The base the engine applies to EVERY event, whether a reference is written or not. Served by the portal from the installed engine: it is not a file of the repository, and nothing here changes it.",
+      "readOnly": "read-only"
+    },
+    "inherit": {
+      "base": "The base event",
+      "unknownParent": "a model no event carries — {{path}}",
+      "fromBase": "Inherits from the base event: the engine's common base, and nothing else.",
+      "fromEvent": "Inherits from “{{label}}” ({{name}}): its payload takes over the properties through an “allOf: $ref”.",
+      "fromModel": "Inherits from model {{path}}, which is no declared event's payload.",
+      "redirect": "Redirect inheritance to",
+      "submit": "Redirect"
     }
   },
   "workflows": {

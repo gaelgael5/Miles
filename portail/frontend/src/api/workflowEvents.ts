@@ -31,6 +31,16 @@ export interface EventType {
   unique: string[];
   /** Le modèle désigné manque sur la branche : la version ne pourra pas être enregistrée. */
   model_missing: boolean;
+  /**
+   * Les modèles dont le payload HÉRITE (`allOf: $ref`), par leur chemin.
+   *
+   * Vide : l'event ne tient que du socle commun — il dérive de l'event de base, et son
+   * fichier ne porte aucun renvoi, le moteur appliquant sa racine d'office.
+   *
+   * Le CHEMIN, pour qu'il se compare au `model` des autres types : c'est ainsi que
+   * l'écran dit de quel event l'héritage vient, sans recomposer de clef.
+   */
+  parents: string[];
 }
 
 /**
@@ -44,11 +54,35 @@ export type SocleSchema = Record<string, unknown>;
 
 export type { ModelProblem };
 
-/** Ce qu'une déclaration porte, côté saisie : l'identité, le modèle, les clefs. */
+/**
+ * Ce qu'une création porte, côté saisie : l'identité, le PARENT, les clefs.
+ *
+ * Plus de modèle à choisir depuis le 19/11/2026 (Gael : « dans le menu types d'events ce
+ * que l'on fait c'est ajouter et créer les events ») : le payload est créé avec l'event,
+ * et il hérite du parent désigné. Sans parent, c'est l'event de base.
+ *
+ * La route accepte aussi un modèle existant — c'est le geste d'un agent, qui a écrit son
+ * modèle d'abord. L'écran, lui, ne l'offre plus.
+ */
 export interface Declaration {
   scope: string;
   label: string;
   slug: string;
+  parent_scope?: string;
+  parent_name?: string;
+  unique: string[];
+}
+
+/**
+ * Ce qu'une REDÉCLARATION porte : le libellé, les clefs, et le modèle déjà déclaré.
+ *
+ * Le modèle est renvoyé tel quel et ne s'édite plus depuis cet écran : le payload
+ * appartient à l'event depuis le 19/11/2026, et son héritage se redirige à part.
+ */
+export interface Redeclaration {
+  scope: string;
+  name: string;
+  label: string;
   model_scope: string;
   model_name: string;
   unique: string[];
@@ -141,10 +175,8 @@ export function useDeclareEventType(target: WorkTarget) {
  * casserait tout `ON EVENT` qui le nomme. Renommer, c'est déclarer puis supprimer.
  */
 export function useReplaceEventType(target: WorkTarget) {
-  return useInvalidating(
-    target,
-    (input: { scope: string; name: string } & Omit<Declaration, "scope" | "slug">) =>
-      request<EventType>(one(target, input.scope, input.name), {
+  return useInvalidating(target, (input: Redeclaration) =>
+    request<EventType>(one(target, input.scope, input.name), {
         method: "PUT",
         body: JSON.stringify({
           label: input.label,
@@ -152,6 +184,28 @@ export function useReplaceEventType(target: WorkTarget) {
           model_name: input.model_name,
           unique: input.unique,
         }),
+      }),
+  );
+}
+
+/**
+ * Redirige l'héritage d'un type d'event ; `undefined` le ramène à l'event de base.
+ *
+ * « cet heritage peut être redirigé sur un autre event présent sur le disque » (Gael,
+ * 19/11/2026). Ce qui change est UNE ligne du modèle du payload, son `allOf: $ref` —
+ * l'artefact du périmètre ne bouge pas, d'où une route à part de la redéclaration.
+ */
+export function useRedirectInheritance(target: WorkTarget) {
+  return useInvalidating(
+    target,
+    (input: { scope: string; name: string; parent: { scope: string; name: string } | undefined }) =>
+      request<EventType>(atBranch(target, "workflow-events", input.scope, input.name, "parent"), {
+        method: "PUT",
+        body: JSON.stringify(
+          input.parent === undefined
+            ? {}
+            : { parent_scope: input.parent.scope, parent_name: input.parent.name },
+        ),
       }),
   );
 }

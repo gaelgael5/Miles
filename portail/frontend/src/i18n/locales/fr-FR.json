@@ -592,17 +592,16 @@
       "label": "Libellé",
       "slug": "Nom dans le DSL",
       "domain": "Périmètre",
-      "model": "Modèle du payload",
-      "unique": "Clés d'unicité"
+      "unique": "Clés d'unicité",
+      "parent": "Hérite de"
     },
     "form": {
       "title": "Nouveau type d'event",
       "slugHelp": "Proposé d'après le libellé ; c'est le nom écrit dans un DEFINE EVENT. Lettres minuscules, chiffres et soulignés — le tiret est refusé par le DSL du moteur.",
       "domainHelp": "Transverse : déclaré dans shared/shared.wf, visible de tous les domaines. Un domaine absent de la liste s'ajoute avec « Ajouter un domaine ». Un domaine dont le nom porte un tiret ne peut pas porter de type d'event : le DSL ne sait pas l'écrire.",
-      "modelNone": "— choisir un modèle —",
-      "modelHelp": "Le modèle qui décrit les données MÉTIER du payload. C'est un modèle de données ordinaire : un storage ou une source peut le désigner aussi. Le moteur valide en plus le socle commun, dont les propriétés ne se redéclarent pas.",
       "uniqueHelp": "Facultatif, séparées par des virgules, DANS L'ORDRE — le moteur dérive le hash d'anti-doublon par concaténation, donc l'ordre change le dédoublonnage. Une clé nomme une propriété du modèle ou du socle commun ({{base}}). Sans clé, le moteur dédoublonne quand même, sur le socle : l'Uuid de l'émetteur s'il en fournit un, sinon Name + EventDate (+ ExternalId).",
-      "submit": "Déclarer le type d'event"
+      "submit": "Déclarer le type d'event",
+      "parentHelp": "Le payload du nouvel event est créé avec lui et dérive de celui du parent, par un « allOf: $ref ». L'event de base n'écrit aucun renvoi : le moteur applique sa racine d'office."
     },
     "edit": {
       "title": "Modifier {{name}}",
@@ -629,6 +628,20 @@
         "scope": "Le DSL du moteur ne sait pas écrire ce nom de domaine (le tiret y est refusé) : ce périmètre ne peut pas porter de type d'event sans être renommé.",
         "model": "Le DSL du moteur ne sait pas écrire ce nom de modèle (le tiret y est refusé) : il reste utilisable par un storage ou une source, mais pas comme payload d'un type d'event."
       }
+    },
+    "base": {
+      "title": "Event de base",
+      "help": "Le socle que le moteur applique à TOUT event, qu'un renvoi soit écrit ou non. Servi par le portail depuis le moteur installé : il n'est pas un fichier du dépôt, et rien ici ne le modifie.",
+      "readOnly": "lecture seule"
+    },
+    "inherit": {
+      "base": "L'event de base",
+      "unknownParent": "un modèle qu'aucun event ne porte — {{path}}",
+      "fromBase": "Hérite de l'event de base : le socle commun du moteur, et rien d'autre.",
+      "fromEvent": "Hérite de « {{label}} » ({{name}}) : son payload en reprend les propriétés par un « allOf: $ref ».",
+      "fromModel": "Hérite du modèle {{path}}, qui n'est le payload d'aucun event déclaré.",
+      "redirect": "Rediriger l'héritage vers",
+      "submit": "Rediriger"
     }
   },
   "workflows": {

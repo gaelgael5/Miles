@@ -11,6 +11,7 @@ import {
 } from "../api/workflowEvents";
 import { ModelRefusal } from "../workspaces/ModelRefusal";
 import { EditForm } from "./EventForms";
+import { InheritanceBlock } from "./Inheritance";
 
 /** Le nom lisible d'un périmètre : « Transverse » pour `shared`, sinon le domaine. */
 export function perimeterLabel(t: (key: string) => string, scope: string): string {
@@ -19,10 +20,13 @@ export function perimeterLabel(t: (key: string) => string, scope: string): strin
 
 function EventRow({
   target,
+  types,
   declared,
   onOpenModel,
 }: {
   target: WorkTarget;
+  /** TOUS les types de la branche : l'héritage peut désigner un autre périmètre. */
+  types: EventType[];
   declared: EventType;
   onOpenModel: () => void;
 }) {
@@ -72,6 +76,9 @@ function EventRow({
           </>
         )}
       </div>
+      {/* « l'affichage de l'héritage apparait en bas » (Gael, 19/11/2026) : après les
+          cellules et les actions, avant les refus. */}
+      <InheritanceBlock target={target} types={types} declared={declared} />
       {editing && (
         <div className="row-detail">
           <EditForm
@@ -115,10 +122,13 @@ function EventRow({
  */
 export function PerimeterSection({
   target,
+  types,
   perimeter,
   onOpenModel,
 }: {
   target: WorkTarget;
+  /** Tous les types de la branche, pour l'héritage : il traverse les périmètres. */
+  types: EventType[];
   perimeter: EventPerimeter;
   onOpenModel: (declared: EventType) => void;
 }) {
@@ -161,6 +171,7 @@ export function PerimeterSection({
             <EventRow
               key={`${d.scope}/${d.name}`}
               target={target}
+              types={types}
               declared={d}
               onOpenModel={() => onOpenModel(d)}
             />

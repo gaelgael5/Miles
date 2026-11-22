@@ -2,25 +2,33 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { proposeDslName } from "../api/contracts";
-import { SHARED_SCOPE, useDataModels } from "../api/dataModels";
+import { SHARED_SCOPE } from "../api/dataModels";
 import { useDomains } from "../api/domains";
 import type { WorkTarget } from "../api/workTarget";
 import {
   type Declaration,
   type EventType,
   useDeclareEventType,
+  useEventPerimeters,
   useEventSocle,
   useReplaceEventType,
 } from "../api/workflowEvents";
 import { socleNames } from "../workspaces/EventSocle";
 import { ModelRefusal } from "../workspaces/ModelRefusal";
+import { BASE, ParentSelect, eligibleParents, parentPair } from "./Inheritance";
 
 /**
- * La SAISIE d'une déclaration : déclarer, et modifier ce qui n'est pas le nom.
+ * La SAISIE d'une déclaration : créer, et modifier ce qui n'est pas le nom.
  *
  * Sortie de `EventsScreen` le 17/11/2026 (story `8a9ff6bc`) : l'écran s'est mis à porter
  * l'arbre des périmètres, et les deux ensemble dépassaient de moitié la limite de 300
- * lignes du dépôt. Les formulaires n'ont pas changé en déménageant.
+ * lignes du dépôt.
+ *
+ * Depuis le 19/11/2026, on ne CHOISIT plus un modèle (Gael : « on créé un model puis on le
+ * selectionne dans event. ca pose un probleme de fond ») : on crée l'event, son payload
+ * est créé avec lui, et il hérite d'un parent — l'event de base par défaut. Le `<select>`
+ * des modèles a donc disparu de cet écran ; le payload s'édite par l'écran des modèles,
+ * qu'on ouvre depuis la ligne du type.
  */
 const REFUSED_FIELDS = {
   name: "workflowEvents.errors.invalid.name",
@@ -42,47 +50,22 @@ function parseUnique(text: string): string[] {
     .filter((item) => item.length > 0);
 }
 
-/** Ce que portent les deux formulaires : le modèle du payload et les clefs d'unicité. */
-function PayloadFields({
+/** Les clefs d'anti-doublon, et les propriétés du socle qu'elles peuvent nommer. */
+function UniqueField({
   target,
-  scope,
-  model,
   unique,
-  onModel,
   onUnique,
 }: {
   target: WorkTarget;
-  scope: string;
-  model: string;
   unique: string;
-  onModel: (value: string) => void;
   onUnique: (value: string) => void;
 }) {
   const { t } = useTranslation();
-  const models = useDataModels(target);
   const socle = useEventSocle(target);
-  // Un périmètre de domaine voit son domaine et les transverses ; un transverse, les
-  // seuls transverses. Même règle que les modèles entre eux, et le serveur la retient
-  // aussi — ici, c'est pour ne pas proposer ce qui serait refusé.
-  const visible = (models.data ?? []).filter(
-    (m) => m.scope === SHARED_SCOPE || (scope !== SHARED_SCOPE && m.scope === scope),
-  );
   const base = [...socleNames(socle.data)].sort().join(", ");
 
   return (
     <>
-      <label className="field">
-        {t("workflowEvents.fields.model")}
-        <select required value={model} onChange={(e) => onModel(e.target.value)}>
-          <option value="">{t("workflowEvents.form.modelNone")}</option>
-          {visible.map((m) => (
-            <option key={m.path} value={`${m.scope}/${m.name}`}>
-              {m.label ?? m.name} — {m.path}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p className="help">{t("workflowEvents.form.modelHelp")}</p>
       <label className="field">
         {t("workflowEvents.fields.unique")}
         <input className="mono" value={unique} onChange={(e) => onUnique(e.target.value)} />
@@ -92,7 +75,15 @@ function PayloadFields({
   );
 }
 
-/** Déclaration d'un type d'event : son identité, le modèle de son payload, ses clefs. */
+/** Les types de la branche, à plat : la liste des parents possibles vient de là. */
+function useAllTypes(target: WorkTarget): EventType[] {
+  // MÊME clef de requête que l'arbre de l'écran : TanStack sert le cache, donc ouvrir le
+  // formulaire ne reclone pas la branche.
+  const perimeters = useEventPerimeters(target);
+  return (perimeters.data ?? []).flatMap((perimeter) => perimeter.types);
+}
+
+/** Création d'un type d'event : son identité, l'event dont il hérite, ses clefs. */
 export function DeclareForm({
   target,
   perimeter,
@@ -113,21 +104,21 @@ export function DeclareForm({
   // Le périmètre REGARDÉ par défaut : déclarer depuis l'écran d'un périmètre et devoir
   // le choisir à nouveau ferait écrire dans le mauvais artefact d'un clic distrait.
   const [scope, setScope] = useState(perimeter ?? SHARED_SCOPE);
-  const [model, setModel] = useState("");
+  const [parent, setParent] = useState(BASE);
   const [unique, setUnique] = useState("");
   const domains = useDomains(target);
+  const types = useAllTypes(target);
   const shownSlug = slugTouched ? slug : proposeDslName(label);
+  const pair = parentPair(parent);
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const [modelScope = "", modelName = ""] = model.split("/");
     const body: Declaration = {
       scope,
       label,
       slug: shownSlug,
-      model_scope: modelScope,
-      model_name: modelName,
       unique: parseUnique(unique),
+      ...(pair === undefined ? {} : { parent_scope: pair.scope, parent_name: pair.name }),
     };
     declare.mutate(body, { onSuccess: onDeclared });
   }
@@ -158,9 +149,9 @@ export function DeclareForm({
           value={scope}
           onChange={(e) => {
             setScope(e.target.value);
-            // Le modèle retenu peut ne plus être visible du nouveau périmètre : le garder
-            // ferait envoyer une déclaration que le serveur refuse (portee_du_modele).
-            setModel("");
+            // Le parent retenu peut ne plus être visible du nouveau périmètre : le garder
+            // ferait envoyer une création que le serveur refuse (portee_du_modele).
+            setParent(BASE);
           }}
         >
           <option value={SHARED_SCOPE}>{t("dataModels.list.shared")}</option>
@@ -172,14 +163,14 @@ export function DeclareForm({
         </select>
       </label>
       <p className="help">{t("workflowEvents.form.domainHelp")}</p>
-      <PayloadFields
-        target={target}
-        scope={scope}
-        model={model}
-        unique={unique}
-        onModel={setModel}
-        onUnique={setUnique}
+      <ParentSelect
+        label={t("workflowEvents.fields.parent")}
+        types={eligibleParents(types, scope)}
+        value={parent}
+        onChange={setParent}
       />
+      <p className="help">{t("workflowEvents.form.parentHelp")}</p>
+      <UniqueField target={target} unique={unique} onUnique={setUnique} />
       {declare.isError && <ModelRefusal error={declare.error} fields={REFUSED_FIELDS} />}
       <div className="actions">
         <button type="submit" className="btn btn-primary" disabled={declare.isPending}>
@@ -193,7 +184,13 @@ export function DeclareForm({
   );
 }
 
-/** Modification d'un type déjà déclaré : tout sauf son NOM, qu'un script écrit. */
+/**
+ * Modification d'un type déjà déclaré : son libellé et ses clefs.
+ *
+ * Ni son NOM — c'est lui qu'un script de workflow écrit —, ni son MODÈLE : le payload
+ * appartient à l'event depuis le 19/11/2026, et son héritage se redirige en bas de la
+ * ligne. Le modèle déjà déclaré est renvoyé tel quel, pour que la route le retrouve.
+ */
 export function EditForm({
   target,
   declared,
@@ -208,19 +205,17 @@ export function EditForm({
   const { t } = useTranslation();
   const replace = useReplaceEventType(target);
   const [label, setLabel] = useState(declared.label);
-  const [model, setModel] = useState(`${declared.model_scope}/${declared.model_name}`);
   const [unique, setUnique] = useState(declared.unique.join(", "));
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const [modelScope = "", modelName = ""] = model.split("/");
     replace.mutate(
       {
         scope: declared.scope,
         name: declared.name,
         label,
-        model_scope: modelScope,
-        model_name: modelName,
+        model_scope: declared.model_scope,
+        model_name: declared.model_name,
         unique: parseUnique(unique),
       },
       { onSuccess: onSaved },
@@ -234,14 +229,7 @@ export function EditForm({
         {t("workflowEvents.fields.label")}
         <input required value={label} onChange={(e) => setLabel(e.target.value)} />
       </label>
-      <PayloadFields
-        target={target}
-        scope={declared.scope}
-        model={model}
-        unique={unique}
-        onModel={setModel}
-        onUnique={setUnique}
-      />
+      <UniqueField target={target} unique={unique} onUnique={setUnique} />
       <p className="help">{t("workflowEvents.edit.nameHelp")}</p>
       {replace.isError && <ModelRefusal error={replace.error} fields={REFUSED_FIELDS} />}
       <div className="actions">
