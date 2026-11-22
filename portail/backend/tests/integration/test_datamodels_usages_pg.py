@@ -94,10 +94,16 @@ async def test_un_modele_sert_a_un_type_d_event_ET_a_un_storage_et_la_liste_dit_
 
     Le type d'event est nommé LUI-MÊME (critère 3) : l'artefact du périmètre seul aurait
     laissé chercher lequel de ses types désigne ce modèle.
+
+    L'ORDRE compte depuis le 22/11/2026 (story `7b4f7a32`) : un storage ne peut plus être
+    déclaré SUR un payload de type d'event. L'inverse reste permis, et c'est l'arbitrage de
+    Gael du même jour — une désignation déjà posée est signalée, jamais cassée. Ce test
+    éprouve donc ce qui subsiste, et c'est le cas qui compte : la liste doit nommer les DEUX
+    natures d'un modèle qu'un storage projetait avant qu'un event n'en fasse son payload.
     """
     await _model(forge, COLIS)
-    declared = await _event_type(forge)
     stored = await _storage(forge)
+    declared = await _event_type(forge)
 
     listed = await forge.client.get(ROUTE, timeout=120)
 
