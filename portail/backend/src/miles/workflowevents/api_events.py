@@ -5,9 +5,10 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from miles_socle.auth.author import request_author
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from miles.datamodels.grammar import ModelGrammarError, ModelSyntaxError
+from miles.datamodels.layout import model_path
 from miles.workflowevents.dsl import FragmentError
 from miles.workflowevents.reading import DeclaredType, Perimeter
 from miles.workflowevents.schema import socle_schema
@@ -53,6 +54,14 @@ class EventTypeOut(BaseModel):
     # Le modèle désigné manque sur la branche : rendu, parce que c'est ce qui bloque
     # l'enregistrement d'une version, et le cacher ferait chercher ailleurs.
     model_missing: bool
+    # Les modèles dont le payload HÉRITE (`allOf: $ref`), par leur CHEMIN — comme un
+    # modèle se désigne partout ailleurs. Vide : l'event ne tient que du socle commun,
+    # c'est-à-dire qu'il dérive de l'event de base.
+    #
+    # Le chemin plutôt qu'un couple (portée, nom) : l'écran compare alors ce chemin au
+    # `model` des autres types pour dire DE QUEL EVENT l'héritage vient, sans avoir à
+    # recomposer une clef.
+    parents: list[str]
 
 
 class ProblemOut(BaseModel):
@@ -77,15 +86,77 @@ class PerimeterOut(BaseModel):
 
 
 class Declaration(BaseModel):
-    """Déclaration d'un type d'event : son identité, le modèle de son payload, ses clés."""
+    """Déclaration d'un type d'event : son identité, ses clés, et D'OÙ VIENT son payload.
+
+    Deux provenances, et une seule à la fois, parce que ce sont deux gestes différents :
+
+    - un **modèle existant** que la déclaration DÉSIGNE. C'est le geste d'un agent, qui a
+      écrit son modèle d'abord ;
+    - un **parent** dont le payload hérite, le modèle étant alors créé avec l'event. C'est
+      le geste de l'écran depuis le 19/11/2026 (Gael : « dans le menu types d'events ce
+      que l'on fait c'est ajouter et créer les events »), et sans parent c'est l'event de
+      base — le moteur applique sa racine d'office, donc aucun `$ref` n'est écrit.
+
+    Une seule route pour les deux, parce que la chose déclarée est la même. Les mélanger
+    dans un seul corps serait en revanche ambigu : `_la_provenance_est_unique` refuse.
+    """
 
     model_config = ConfigDict(extra="forbid")
     scope: str
     label: str
     slug: str
-    model_scope: str
-    model_name: str
+    model_scope: str | None = None
+    model_name: str | None = None
+    parent_scope: str | None = None
+    parent_name: str | None = None
     unique: list[str] = []
+
+    @property
+    def model(self) -> tuple[str, str] | None:
+        return _pair(self.model_scope, self.model_name)
+
+    @property
+    def parent(self) -> tuple[str, str] | None:
+        return _pair(self.parent_scope, self.parent_name)
+
+    @model_validator(mode="after")
+    def _la_provenance_est_unique(self) -> Declaration:
+        """Une désignation à moitié écrite est refusée, et jamais prise pour autre chose.
+
+        Sans ce refus, un `parent_name` envoyé sans sa portée créerait silencieusement un
+        event dérivant du socle — l'écran dirait « hérite de l'event de base » là où la
+        personne a choisi un parent. Et un corps portant les deux provenances écrirait un
+        payload dont on ne saurait pas dire s'il hérite ou s'il désigne.
+        """
+        if (self.model_scope is None) != (self.model_name is None):
+            raise ValueError("model")
+        if (self.parent_scope is None) != (self.parent_name is None):
+            raise ValueError("parent")
+        if self.model is not None and self.parent is not None:
+            raise ValueError("payload")
+        return self
+
+
+class Reparenting(BaseModel):
+    """Vers quel type d'event rediriger l'héritage ; aucun : l'event de base."""
+
+    model_config = ConfigDict(extra="forbid")
+    parent_scope: str | None = None
+    parent_name: str | None = None
+
+    @property
+    def parent(self) -> tuple[str, str] | None:
+        return _pair(self.parent_scope, self.parent_name)
+
+    @model_validator(mode="after")
+    def _parent_is_whole(self) -> Reparenting:
+        if (self.parent_scope is None) != (self.parent_name is None):
+            raise ValueError("parent")
+        return self
+
+
+def _pair(scope: str | None, name: str | None) -> tuple[str, str] | None:
+    return None if scope is None or name is None else (scope, name)
 
 
 class Redeclaration(BaseModel):
@@ -106,6 +177,7 @@ def _out(declared: DeclaredType) -> EventTypeOut:
         model_name=declared.model[1],
         unique=list(declared.unique),
         model_missing=declared.model_missing,
+        parents=[model_path(*parent) for parent in declared.parents],
     )
 
 
@@ -236,22 +308,67 @@ async def declare_event_type(
     response: Response,
     branch: str | None = None,
 ) -> object:
+    """Déclare un type d'event : sur un modèle existant, ou en créant son payload.
+
+    Les deux gestes du corps (voir `Declaration`). Créer le payload écrit DEUX fichiers —
+    le modèle et l'artefact — en un seul commit, et ne connaît pas le rejeu à l'identique :
+    un nom déjà pris y est refusé, parce que le payload du type existant n'est pas celui
+    que la demande décrit.
+    """
+    author = request_author(request)
     try:
-        declared, commit = await service.resolve_declare(
-            request_author(request),
-            workspace_id,
-            body.scope,
-            body.label,
-            body.slug,
-            (body.model_scope, body.model_name),
-            body.unique,
-            branch=branch,
-        )
+        if body.model is not None:
+            declared, commit = await service.resolve_declare(
+                author,
+                workspace_id,
+                body.scope,
+                body.label,
+                body.slug,
+                body.model,
+                body.unique,
+                branch=branch,
+            )
+        else:
+            declared, commit = await service.resolve_create(
+                author,
+                workspace_id,
+                body.scope,
+                body.label,
+                body.slug,
+                body.parent,
+                body.unique,
+                branch=branch,
+            )
     except _REFUSALS as exc:
         return _refusal(exc)
     # Rejeu à l'identique : rien n'a été écrit, donc 200 et non 201.
     if commit is None:
         response.status_code = status.HTTP_200_OK
+    return _out(declared)
+
+
+@router.put("/{scope}/{name}/parent", response_model=EventTypeOut)
+async def redirect_inheritance(
+    workspace_id: str,
+    request: Request,
+    scope: str,
+    name: str,
+    body: Reparenting,
+    service: Service,
+    branch: str | None = None,
+) -> object:
+    """Redirige l'héritage d'un type d'event ; un corps vide le ramène à l'event de base.
+
+    `PUT` et non `PATCH` : l'héritage est une valeur unique, et on la remplace en entier.
+    Route à part de la redéclaration parce que ce n'est pas l'artefact du périmètre qui
+    change, c'est le modèle du payload — une seule ligne, son `allOf: $ref`.
+    """
+    try:
+        declared, _ = await service.resolve_reparent(
+            request_author(request), workspace_id, scope, name, body.parent, branch=branch
+        )
+    except _REFUSALS as exc:
+        return _refusal(exc)
     return _out(declared)
 
 

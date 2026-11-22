@@ -102,6 +102,29 @@ properties:
         assert "Additional properties are not allowed" in message
         assert "'Name'" in message
 
+    UNEVALUATED = """title: Demande
+type: object
+unevaluatedProperties: false
+properties:
+  Montant: {type: number}
+"""
+
+    def test_un_schema_ferme_par_unevaluatedProperties_est_refuse_AUSSI(self) -> None:
+        """L'autre façon de fermer un schéma en 2020-12, arrivée avec l'héritage.
+
+        C'est celle qu'un rédacteur averti écrit en voyant `additionalProperties: false`
+        refusé — elle est faite pour les schémas qui COMPOSENT. Et elle ne marche pas
+        mieux ici, pour une raison qui n'est pas dans le schéma : le moteur applique la
+        racine SÉPARÉMENT, donc aucun mot-clé du schéma métier ne peut la voir.
+        """
+        assert ("unevaluatedProperties", "schema_ferme") in _codes(self.UNEVALUATED)
+
+    def test_et_le_moteur_l_aurait_refuse_pour_de_vrai_aussi(self) -> None:
+        message = _engine_refuses(self.UNEVALUATED, PAYLOAD)
+        assert message is not None
+        assert "Unevaluated properties are not allowed" in message
+        assert "'Name'" in message
+
     def test_une_propriete_du_socle_redeclaree_est_refusee_en_la_nommant(self) -> None:
         text = "title: D\ntype: object\nproperties:\n  ExternalId: {type: integer}\n"
         assert ("properties.ExternalId", "propriete_du_socle") in _codes(text)
@@ -132,6 +155,17 @@ class TestLesClesDUnicite:
         donc ce refus tombe avant celui qui parle du modèle."""
         text = "title: D\ntype: object\nproperties:\n  Mon-Champ: {type: string}\n"
         assert _dedup_codes(text, ("Mon-Champ",)) == [("unique.0", "cle_non_ecrivable")]
+
+    def test_une_cle_qui_nomme_une_propriete_HÉRITÉE_est_admise(self) -> None:
+        """Le moteur valide le schéma COMPOSÉ : une clé peut nommer ce que le parent
+        apporte. Sans ce paramètre, le portail refuserait une clé qui désigne une
+        propriété existante — et c'est l'héritage du 19/11/2026 qui rend le cas courant."""
+        vide = "title: D\ntype: object\nproperties: {}\n"
+
+        assert _dedup_codes(vide, ("Montant",)) == [("unique.0", "cle_d_unicite_inconnue")]
+        assert (
+            dedup_problems(("Montant",), parse_schema(vide), frozenset({"Montant"})) == []
+        )
 
     def test_la_position_de_la_cle_fautive_est_rendue(self) -> None:
         # L'ordre est une donnée : le refus doit dire LAQUELLE des clés, pas seulement

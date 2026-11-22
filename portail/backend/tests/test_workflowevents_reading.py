@@ -123,6 +123,44 @@ async def test_un_modele_absent_est_marque_sur_la_declaration_qui_le_designe() -
     ]
 
 
+async def test_l_heritage_du_payload_voyage_avec_la_declaration() -> None:
+    """Ce que l'écran affiche sous chaque event (story `6064ce93`), lu dans la MÊME passe.
+
+    Une seconde route l'aurait fait rouvrir la branche — la liste des events est sur le
+    chemin critique mesuré de l'enabler `7fb3577c`. Deux types aux valeurs différentes :
+    l'un hérite, l'autre dérive du seul socle commun.
+    """
+    found = await perimeters(
+        {
+            SHARED_WF: (
+                "FRAGMENT NAME shared\n"
+                "DEFINE EVENT demande_soumise 'Libellé' AS @shared.demande;\n"
+                "DEFINE EVENT demande_close 'Libellé' AS @shared.cloture;\n"
+            ),
+            DEMANDE: "$id: miles:/shared/demande\ntype: object\nproperties: {}\n",
+            "shared/models/cloture.yaml": (
+                "$id: miles:/shared/cloture\n"
+                "type: object\n"
+                "allOf: [{$ref: 'miles:/shared/demande'}]\n"
+                "properties: {}\n"
+            ),
+        }
+    )
+
+    assert [(d.name, d.parents) for d in declared_in(found)] == [
+        ("demande_soumise", ()),
+        ("demande_close", (("shared", "demande"),)),
+    ]
+
+
+async def test_un_type_dont_le_modele_manque_n_a_pas_d_heritage_a_montrer() -> None:
+    # Le cas « rien trouvé » : pas de fichier, donc rien à lire — et surtout pas une
+    # erreur, puisque `model_missing` est déjà ce qui le dit.
+    found = await perimeters({SHARED_WF: _fragment("shared", "demande_soumise", "shared.demande")})
+
+    assert [(d.model_missing, d.parents) for d in declared_in(found)] == [(True, ())]
+
+
 async def test_une_branche_sans_aucun_artefact_rend_le_seul_perimetre_transverse() -> None:
     # Le cas « rien trouvé », celui qu'on oublie : une branche neuve n'a ni domaine ni
     # artefact, et ce n'est pas une erreur.

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from miles.datamodels.layout import SHARED, ModelEntry, model_path
 from miles.datamodels.layout import entry_of as model_entry_of
 from miles.workflowevents.dsl import DslProblem, FragmentError, fragment_path, parse
+from miles.workflowevents.inheritance import parents_of
 from miles.workshop.domains import domains_in
 
 # Lire UN fichier de la branche, ou None s'il n'y est pas.
@@ -40,6 +41,14 @@ class DeclaredType:
     # montrer une déclaration orpheline — c'est ce qui bloque l'enregistrement d'une
     # version —, jamais la cacher.
     model_missing: bool = field(default=False, compare=False)
+    # Les modèles dont le payload HÉRITE (`allOf: $ref`, story `6064ce93`). Vide : l'event
+    # ne dérive que du socle commun, que le moteur applique d'office — c'est l'« event de
+    # base », et il n'y a alors aucun `$ref` dans le fichier.
+    #
+    # HORS de l'égalité, comme `model_missing` : l'héritage vit dans le modèle, pas dans
+    # la déclaration. L'y compter ferait croire à un changement d'artefact aux
+    # comparaisons de rejeu du service, qui ne portent que sur ce que l'artefact écrit.
+    parents: tuple[tuple[str, str], ...] = field(default=(), compare=False)
 
 
 @dataclass(frozen=True)
@@ -87,25 +96,33 @@ async def read_perimeters(read: Reader, paths: list[str]) -> tuple[Perimeter, ..
         except FragmentError as exc:
             found.append(Perimeter(scope, path, (), exc.problems))
             continue
-        found.append(
-            Perimeter(
-                scope,
-                path,
-                tuple(
-                    DeclaredType(
-                        scope,
-                        d.name,
-                        d.label,
-                        d.model,
-                        model_path(*d.model),
-                        d.unique,
-                        d.model not in known,
-                    )
-                    for d in declared
-                ),
+        types = []
+        for d in declared:
+            types.append(
+                DeclaredType(
+                    scope,
+                    d.name,
+                    d.label,
+                    d.model,
+                    model_path(*d.model),
+                    d.unique,
+                    d.model not in known,
+                    await _parents(read, d.model) if d.model in known else (),
+                )
             )
-        )
+        found.append(Perimeter(scope, path, tuple(types)))
     return tuple(found)
+
+
+async def _parents(read: Reader, model: tuple[str, str]) -> tuple[tuple[str, str], ...]:
+    """De quoi le payload de cette déclaration hérite.
+
+    Une lecture de plus par type déclaré, et c'est assumé : l'héritage est ce que l'écran
+    affiche sous chaque event (story `6064ce93`), et le lire dans une seconde passe aurait
+    rouvert la branche — la liste des events est sur le chemin critique mesuré de
+    l'enabler `7fb3577c`.
+    """
+    return parents_of(await read(model_path(*model)) or "")
 
 
 def declared_in(perimeters: tuple[Perimeter, ...]) -> list[DeclaredType]:

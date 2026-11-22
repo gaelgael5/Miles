@@ -36,6 +36,19 @@ from miles.workflowevents.dsl import writable
 _SOCLE: dict[str, Any] = dict(ROOT_SCHEMA.get("properties") or {})
 SOCLE_NAMES = frozenset(_SOCLE)
 
+# Les deux façons de FERMER un schéma en 2020-12, et toutes deux sont refusées pour la
+# même cause : le moteur valide le socle commun EN PLUS du schéma métier, donc ses
+# propriétés sont « inattendues » pour un schéma fermé.
+#
+# `unevaluatedProperties` est arrivé avec l'héritage (story `6064ce93`) : c'est la façon
+# standard de fermer un schéma qui compose — celle qu'un rédacteur averti écrira en voyant
+# `additionalProperties: false` refusé —, et elle ne marche pas mieux ICI. Mesuré le
+# 22/11/2026 : un enfant `allOf: [{$ref: …}] ` + `unevaluatedProperties: false` refuse
+# `{'Name': 'ColisLivre', 'Montant': 12}` avec « Unevaluated properties are not allowed
+# ('Name' was unexpected) ». La raison est que le moteur applique la racine SÉPARÉMENT et
+# non par composition : aucun mot-clé du schéma métier ne peut donc la voir.
+CLOSING = ("additionalProperties", "unevaluatedProperties")
+
 
 class EventModelError(ModelGrammarError):
     """Le modèle désigné ne peut pas porter un event, et c'est une SOUS-CLASSE.
@@ -70,7 +83,8 @@ def payload_problems(text: str, schema: ModelSchema) -> list[Problem]:
 
     Les deux manquements sont MESURÉS sur le moteur, le 11/11/2026 :
 
-    - un schéma **fermé** (`additionalProperties: false`) fait refuser TOUS les payloads
+    - un schéma **fermé** (`additionalProperties: false`, et `unevaluatedProperties: false`
+      depuis le 22/11/2026 — voir `CLOSING`) fait refuser TOUS les payloads
       réels, parce que le moteur valide le socle commun EN PLUS du schéma métier et que
       ses propriétés deviennent alors « inattendues ». Mesure : un schéma fermé déclarant
       `Montant` refuse `{'Name': 'Ping', 'ExternalId': 'X-1', 'Montant': 12}` avec
@@ -87,8 +101,9 @@ def payload_problems(text: str, schema: ModelSchema) -> list[Problem]:
     """
     data = load_yaml(text)
     problems = []
-    if isinstance(data, dict) and data.get("additionalProperties") is False:
-        problems.append(Problem("additionalProperties", "schema_ferme"))
+    for keyword in CLOSING:
+        if isinstance(data, dict) and data.get(keyword) is False:
+            problems.append(Problem(keyword, "schema_ferme"))
     problems += [
         Problem(f"properties.{nom}", "propriete_du_socle", nom)
         for nom in schema.properties
@@ -97,16 +112,24 @@ def payload_problems(text: str, schema: ModelSchema) -> list[Problem]:
     return problems
 
 
-def dedup_problems(keys: tuple[str, ...], schema: ModelSchema) -> list[Problem]:
+def dedup_problems(
+    keys: tuple[str, ...], schema: ModelSchema, inherited: frozenset[str] = frozenset()
+) -> list[Problem]:
     """Ce qui empêche des clés d'unicité de servir. Vide : elles servent.
 
-    Une clé désigne une propriété du PAYLOAD, donc du modèle métier ou du socle commun :
-    `UNIQUE (ExternalId)` est le cas le plus courant, et il ne vient pas du modèle. Une
-    clé qui ne désigne rien donnerait un hash d'anti-doublon calculé sur du vide pour tous
-    les events — `compute_dedup_hash` compte une propriété absente comme vide —, donc un
-    référentiel où deux events différents se dédoublonneraient l'un l'autre.
+    Une clé désigne une propriété du PAYLOAD, donc du modèle métier, de ce qu'il HÉRITE,
+    ou du socle commun : `UNIQUE (ExternalId)` est le cas le plus courant, et il ne vient
+    pas du modèle. Une clé qui ne désigne rien donnerait un hash d'anti-doublon calculé
+    sur du vide pour tous les events — `compute_dedup_hash` compte une propriété absente
+    comme vide —, donc un référentiel où deux events différents se dédoublonneraient l'un
+    l'autre.
+
+    `inherited` est arrivé avec l'héritage (story `6064ce93`) et n'est pas un confort : le
+    moteur valide le schéma COMPOSÉ, donc `UNIQUE (Montant)` sur un event qui tient
+    `Montant` de son parent est parfaitement valide. Sans ce paramètre, le portail le
+    refuserait en nommant une propriété qui existe.
     """
-    known = set(schema.properties) | SOCLE_NAMES
+    known = set(schema.properties) | set(inherited) | SOCLE_NAMES
     problems = []
     for index, key in enumerate(keys):
         if not writable(key):

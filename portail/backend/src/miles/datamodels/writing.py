@@ -36,6 +36,25 @@ async def write_new(
     schema: ModelSchema,
 ) -> tuple[ModelEntry, str | None]:
     """Écrit un modèle qui n'existe pas encore ; le même déjà là : rien n'est écrit, None."""
+    if not await stage_new(copy, entry, content, schema):
+        return await described(copy, entry), None
+    commit = await branches.commit(copy, f"{_MESSAGE} {entry.path}", author)
+    return await described(copy, entry), commit
+
+
+async def stage_new(
+    copy: WorkCopy,
+    entry: ModelEntry,
+    content: str,
+    schema: ModelSchema,
+) -> bool:
+    """Pose un modèle neuf dans la copie, SANS committer. `False` : il y est, à l'identique.
+
+    Séparé de `write_new` le 22/11/2026 (story `6064ce93`) : créer un type d'event écrit
+    DEUX fichiers — le modèle de son payload et l'artefact de son périmètre — et un geste
+    doit faire un seul commit. Sans cette marche, le premier commit laisserait derrière
+    lui, si le second échouait, un modèle que rien ne déclare.
+    """
     # Le domaine se déclare à part (story 7fa00f56) : le créer ici au passage ferait
     # d'une faute de frappe un domaine de plus, sans que personne ne le voie. Les deux
     # portées de sens (story 31025fe6) ne sont pas des domaines et n'ont rien à déclarer :
@@ -48,14 +67,13 @@ async def write_new(
     existing = await copy.read(entry.path)
     if existing is not None:
         if existing == content:
-            return await described(copy, entry), None
+            return False
         raise WorkspaceConflictError("nom_pris")
     await check_references(copy, entry, schema)
     await copy.write(entry.path, content)
     # Un modèle naît en version 1 : la version est au système, jamais au client.
     await copy.write(meta_path(entry.path), meta_text(1))
-    commit = await branches.commit(copy, f"{_MESSAGE} {entry.path}", author)
-    return await described(copy, entry), commit
+    return True
 
 
 async def write_replacement(

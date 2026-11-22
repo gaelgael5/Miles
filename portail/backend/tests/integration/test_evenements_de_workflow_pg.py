@@ -18,6 +18,7 @@ from typing import Any
 
 import httpx
 import pytest
+import yaml
 from urban_workflow.dsl.parser import WorkflowScriptParser
 
 from miles.datamodels.schema import normalized as normalized_model
@@ -65,6 +66,16 @@ async def _declare(forge: Forge, **override: Any) -> httpx.Response:
     return await forge.client.post(f"{ROUTE}/declarations", json=body, timeout=120)
 
 
+async def _create(forge: Forge, **override: Any) -> httpx.Response:
+    """Le geste du 19/11/2026 : créer l'event, son payload étant créé avec lui."""
+    body: dict[str, Any] = {
+        "scope": "shared",
+        "label": "Colis livré",
+        "slug": "colis_livre",
+    } | override
+    return await forge.client.post(f"{ROUTE}/declarations", json=body, timeout=120)
+
+
 async def test_une_declaration_est_ecrite_dans_un_artefact_que_le_moteur_relit(
     forge: Forge,
 ) -> None:
@@ -84,6 +95,7 @@ async def test_une_declaration_est_ecrite_dans_un_artefact_que_le_moteur_relit(
         "model_name": "demande",
         "unique": ["Montant", "ExternalId"],
         "model_missing": False,
+        "parents": [],
     }
 
     written = await forge.file(ARTEFACT)
@@ -586,3 +598,155 @@ async def test_deux_gestes_de_suite_ne_font_pas_danser_le_fichier(forge: Forge) 
     ]
     assert len(changees) == 1, changees
     assert "Demande reçue par le comptoir" in changees[0][1]
+
+
+# --- L'HÉRITAGE entre types d'event (story 6064ce93) -------------------------------------
+#
+# Ce que ces tests tiennent et qu'aucun test unitaire ne tient : que les DEUX fichiers d'une
+# création arrivent dans le dépôt en UN commit, que l'artefact reste relisible par le moteur,
+# et qu'un cycle refusé ne laisse rien derrière lui.
+
+
+async def test_creer_un_event_ecrit_son_payload_ET_sa_declaration_en_un_seul_commit(
+    forge: Forge,
+) -> None:
+    avant = await forge.commits()
+
+    created = await _create(forge)
+
+    assert created.status_code == 201, created.text
+    assert created.json()["model"] == "shared/models/colis_livre.yaml"
+    # Aucun parent : c'est l'event de base, dont le moteur applique la racine d'office —
+    # il n'y a donc RIEN à écrire dans le fichier (décision 2 du 22/11/2026).
+    assert created.json()["parents"] == []
+    model = await forge.file("shared/models/colis_livre.yaml")
+    assert model is not None
+    assert yaml.safe_load(model)["$id"] == "miles:/shared/colis_livre"
+    assert "allOf" not in yaml.safe_load(model)
+    # L'artefact déclare l'event, et c'est le MOTEUR qui le relit.
+    artefact = await forge.file(ARTEFACT)
+    assert artefact is not None
+    script = WorkflowScriptParser.parse_string(artefact, ARTEFACT)
+    assert [(e.line, e.message) for e in script.errors] == []
+    assert "AS @shared.colis_livre" in artefact
+    # UN commit pour les deux fichiers : deux laisseraient, si le second échouait, un
+    # modèle que rien ne déclare.
+    assert await forge.commits() == avant + 1
+
+
+async def test_un_event_cree_sur_un_autre_HERITE_de_son_payload(forge: Forge) -> None:
+    await _create(forge, slug="colis_recu", label="Colis reçu")
+
+    created = await _create(forge, parent_scope="shared", parent_name="colis_recu")
+
+    assert created.status_code == 201, created.text
+    assert created.json()["parents"] == ["shared/models/colis_recu.yaml"]
+    model = yaml.safe_load(await forge.file("shared/models/colis_livre.yaml") or "")
+    # LA forme standard, et rien d'autre : aucun champ du parent recopié, aucun fichier de
+    # métadonnées, le lien EST le `$ref`.
+    assert model["allOf"] == [{"$ref": "miles:/shared/colis_recu"}]
+    assert model["properties"] == {}
+
+
+async def test_l_heritage_se_redirige_puis_revient_a_l_event_de_base(forge: Forge) -> None:
+    await _create(forge, slug="colis_recu", label="Colis reçu")
+    await _create(forge, slug="colis_trie", label="Colis trié")
+    await _create(forge, parent_scope="shared", parent_name="colis_recu")
+
+    redirected = await forge.client.put(
+        f"{ROUTE}/shared/colis_livre/parent",
+        json={"parent_scope": "shared", "parent_name": "colis_trie"},
+        timeout=120,
+    )
+
+    assert redirected.status_code == 200, redirected.text
+    assert redirected.json()["parents"] == ["shared/models/colis_trie.yaml"]
+    model = yaml.safe_load(await forge.file("shared/models/colis_livre.yaml") or "")
+    assert model["allOf"] == [{"$ref": "miles:/shared/colis_trie"}]
+
+    # Un corps vide ramène à l'event de base, et le renvoi disparaît du fichier.
+    back = await forge.client.put(f"{ROUTE}/shared/colis_livre/parent", json={}, timeout=120)
+
+    assert back.status_code == 200, back.text
+    assert back.json()["parents"] == []
+    assert "allOf" not in yaml.safe_load(await forge.file("shared/models/colis_livre.yaml") or "")
+    # Et l'artefact du périmètre n'a pas bougé : une redirection ne touche que le modèle.
+    assert "AS @shared.colis_livre" in (await forge.file(ARTEFACT) or "")
+
+
+async def test_un_cycle_est_refuse_et_RIEN_n_est_ecrit(forge: Forge) -> None:
+    """Le cas qui, sans garde, ne rend pas un refus : il fait tomber le validateur.
+
+    Mesuré le 22/11/2026 — un schéma qui se désigne lui-même part en `RecursionError`.
+    """
+    await _create(forge, slug="colis_recu", label="Colis reçu")
+    await _create(forge, parent_scope="shared", parent_name="colis_recu")
+    avant = await forge.file("shared/models/colis_recu.yaml")
+
+    refused = await forge.client.put(
+        f"{ROUTE}/shared/colis_recu/parent",
+        json={"parent_scope": "shared", "parent_name": "colis_livre"},
+        timeout=120,
+    )
+
+    assert refused.status_code == 422, refused.text
+    detail = refused.json()["detail"]
+    assert detail["code"] == "declaration_non_conforme"
+    assert [(p["path"], p["code"]) for p in detail["problems"]] == [("allOf", "heritage_recursif")]
+    # Le FICHIER après le refus, et non le code de retour : c'est lui qui dit si quelque
+    # chose a été écrit.
+    assert await forge.file("shared/models/colis_recu.yaml") == avant
+
+
+async def test_un_event_ne_peut_pas_heriter_de_lui_meme(forge: Forge) -> None:
+    await _create(forge)
+
+    refused = await forge.client.put(
+        f"{ROUTE}/shared/colis_livre/parent",
+        json={"parent_scope": "shared", "parent_name": "colis_livre"},
+        timeout=120,
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert [p["code"] for p in refused.json()["detail"]["problems"]] == ["heritage_recursif"]
+
+
+async def test_une_cle_d_unicite_sur_une_propriete_HERITEE_est_admise(forge: Forge) -> None:
+    """La conséquence directe de l'héritage : le moteur valide le schéma COMPOSÉ.
+
+    Sans la lecture de l'ascendance, le portail refuserait `UNIQUE (Montant)` en nommant
+    une propriété qui existe — celle que le parent apporte.
+    """
+    await _model(forge, "demande", DEMANDE)
+    await _declare(forge, slug="demande_soumise", model_name="demande")
+
+    created = await _create(
+        forge, parent_scope="shared", parent_name="demande_soumise", unique=["Montant"]
+    )
+
+    assert created.status_code == 201, created.text
+    assert created.json()["unique"] == ["Montant"]
+    # Et la branche reste gelable : un payload hérité sans propriété propre est légitime.
+    freezable = await forge.client.get(FREEZABLE, timeout=120)
+    assert freezable.status_code == 200, freezable.text
+    assert freezable.json()["reports"] == []
+
+
+async def test_heriter_d_un_event_d_un_AUTRE_domaine_est_refuse(forge: Forge) -> None:
+    """Un périmètre transverse qui hériterait d'un domaine cesserait d'être transverse, et
+    le moteur chargerait un schéma que les autres domaines ne voient pas."""
+    await add_domain(forge, "livraison")
+    await _create(forge, scope="livraison", slug="colis_trie", label="Colis trié")
+
+    refused = await _create(forge, parent_scope="livraison", parent_name="colis_trie")
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["detail"] == "portee_du_modele"
+
+
+async def test_un_parent_inconnu_est_refuse_sans_rien_ecrire(forge: Forge) -> None:
+    refused = await _create(forge, parent_scope="shared", parent_name="jamais_declare")
+
+    assert refused.status_code == 404, refused.text
+    assert refused.json()["detail"] == "evenement_inconnu"
+    assert await forge.remote_file("shared/models/colis_livre.yaml") is None

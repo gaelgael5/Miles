@@ -45,11 +45,17 @@ PORTEURS_DE_CODE = ("Problem", "StorageProblem", "SourceProblem", "ReferenceProb
 # l'écrivant ainsi le 01/11/2026.
 _CONTENEURS = "table _CONTAINERS (accounts/checks.py, storages/checks.py)"
 _MANIFESTE = "f-string « manifeste_<état> » (workshop/validation.py)"
+_HERITAGE = "constantes RECURSIVE et TOO_DEEP (workflowevents/inheritance.py)"
 CODES_INDIRECTS = {
     "tableau_interdit": (_CONTENEURS, '"tableau_interdit"'),
     "valeur_attendue": (_CONTENEURS, '"valeur_attendue"'),
     "manifeste_absent": (_MANIFESTE, "manifeste_"),
     "manifeste_invalide": (_MANIFESTE, "manifeste_"),
+    # Deux codes nommés par une constante : le refus est émis depuis deux modules — le
+    # module de l'héritage et le service —, et une chaîne recopiée aux deux endroits
+    # aurait divergé au premier renommage.
+    "heritage_recursif": (_HERITAGE, '"heritage_recursif"'),
+    "heritage_trop_profond": (_HERITAGE, '"heritage_trop_profond"'),
 }
 
 
