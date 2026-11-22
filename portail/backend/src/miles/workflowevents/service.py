@@ -225,11 +225,15 @@ class WorkflowEventsService:
             # Tout est accepté : on écrit enfin. La copie de travail persiste d'un geste à
             # l'autre, donc une copie à moitié écrite serait committée par le suivant —
             # c'est la règle de `datamodels.writing`, et elle vaut ici aussi.
-            await stage_new(copy, entry, content, parse_schema(content))
+            written = await stage_new(copy, entry, content, parse_schema(content))
             commit = await self._rewrite(copy, author, scope, [*_own(existing, scope), declared])
-        await self._journal.db_write(
-            workspace_id, MODEL_CREATED, author, entry, commit, copy.branch
-        )
+        if written:
+            # Pas de fait si rien n'est né : un modèle déjà là À L'IDENTIQUE — un type
+            # supprimé puis recréé sous le même nom — n'est pas un modèle créé, et le
+            # journal dit ce que git a reçu.
+            await self._journal.db_write(
+                workspace_id, MODEL_CREATED, author, entry, commit, copy.branch
+            )
         await self._event(workspace_id, CREATED_EVENT, author, declared, commit, copy.branch)
         log.info("type_d_event_cree", workspace=workspace_id, scope=scope, name=name)
         parents = () if parent_model is None else (parent_model,)
