@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { proposeSlug } from "../api/contracts";
 import { useDataModels } from "../api/dataModels";
+import { PayloadNotice, choosableModels, payloadChosen } from "../dataModels/ModelRole";
 import type { Storage, StorageProblem } from "../api/storages";
 import type { WorkTarget } from "../api/workTarget";
 import { PathPicker } from "./ModelPathTree";
@@ -88,15 +89,19 @@ export function StorageForm({
         <p className="help">{t("storages.form.nameHelp")}</p>
         <label className="field">
           {t("storages.fields.model")}
+          {/* Pas les payloads de types d'event : un storage projette un OBJET, et un
+              payload décrit un fait (story 7b4f7a32). Celui qui est déjà désigné reste
+              dans la liste, et `PayloadNotice` dit pourquoi. */}
           <select required value={storage.model} onChange={(e) => set({ model: e.target.value })}>
             <option value="">{t("storages.form.choose")}</option>
-            {(models.data ?? []).map((m) => (
+            {choosableModels(models.data ?? [], storage.model).map((m) => (
               <option key={`${m.scope}/${m.name}`} value={`${m.scope}/${m.name}`}>
                 {m.scope}/{m.name}
               </option>
             ))}
           </select>
         </label>
+        {payloadChosen(models.data ?? [], storage.model) && <PayloadNotice />}
         <fieldset className="picker-field">
           <legend>{t("storages.fields.keys")}</legend>
           <p className="help">{t("storages.form.keysHelp")}</p>

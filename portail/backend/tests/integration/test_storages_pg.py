@@ -18,6 +18,8 @@ ROUTE = "/api/workspaces/retrait/storages"
 SOURCES = "/api/workspaces/retrait/sources"
 MODELS = "/api/workspaces/retrait/data-models"
 CHAINS = "/api/workspaces/retrait/transformations"
+EVENTS = "/api/workspaces/retrait/workflow-events"
+FREEZABLE = "/api/workspaces/retrait/versions/freezable"
 ADRESSE = normalized("type: object\nproperties:\n  ville:\n    type: string\n", "shared", "adresse")
 SITE = normalized(
     "type: object\nproperties:\n  code:\n    type: string\n"
@@ -49,6 +51,20 @@ async def forge(blank_db: str, tmp_path: Path) -> AsyncIterator[Forge]:
 
 async def _declare(forge: Forge, **changes: Any) -> httpx.Response:
     return await forge.client.post(ROUTE, json=STORAGE | changes, timeout=120)
+
+
+async def _declare_event(forge: Forge) -> None:
+    """`site` devient le payload d'un type d'event — par la ROUTE, donc par le renderer du
+    moteur : un artefact écrit à la main dans ce test aurait dérivé de sa grammaire."""
+    body = {
+        "scope": "shared",
+        "label": "Site reçu",
+        "slug": "site_recu",
+        "model_scope": "shared",
+        "model_name": "site",
+    }
+    declared = await forge.client.post(f"{EVENTS}/declarations", json=body, timeout=120)
+    assert declared.status_code == 201, declared.text
 
 
 async def test_storage_is_declared_in_git_read_back_and_listed(forge: Forge) -> None:
@@ -314,3 +330,58 @@ async def test_an_expiry_rule_needs_a_string_property_declared_in_an_index(forge
     ]
     # Aucun des trois refus n'écrit : un paramétrage fautif ne laisse pas de commit.
     assert await forge.commits() == before
+
+
+async def test_le_payload_d_un_type_d_event_ne_se_projette_pas_en_objet(forge: Forge) -> None:
+    """Story 7b4f7a32. Un payload décrit un FAIT, qui entre par le journal ; le projeter
+    en objet n'a pas de sens, et rien ne le disait avant. Le refus NOMME le type d'event
+    et son artefact : sans eux, il faudrait ouvrir chaque périmètre pour savoir où aller.
+    """
+    await _declare_event(forge)
+    before = await forge.commits()
+
+    refused = await _declare(forge)
+
+    assert refused.status_code == 422, refused.text
+    assert [(p["path"], p["code"], p["detail"]) for p in refused.json()["detail"]["problems"]] == [
+        ("modele", "modele_de_payload", "site_recu · shared/shared.wf")
+    ]
+    # Le FICHIER, pas le code de retour : un refus qui aurait quand même écrit laisserait
+    # une déclaration que personne n'a voulue.
+    assert await forge.file("storages/sites.yaml") is None
+    assert await forge.commits() == before
+
+
+async def test_un_storage_DEJA_pose_sur_un_payload_reste_la_et_la_version_se_fige(
+    forge: Forge,
+) -> None:
+    """Arbitré par Gael le 22/11/2026 : signalé, jamais cassé en silence.
+
+    `storage_reports` rejoue pourtant toutes les autres règles de l'écriture au figement.
+    Celle-ci n'y entre pas, et c'est ce test qui le tient : une branche qu'on livrait hier
+    doit pouvoir se livrer aujourd'hui, sans qu'un storage soit vidé ni réécrit.
+    """
+    declared = await _declare(forge)
+    assert declared.status_code == 201, declared.text
+    await _declare_event(forge)
+
+    read = await forge.client.get(f"{ROUTE}/sites", timeout=120)
+    freezable = await forge.client.get(FREEZABLE, timeout=120)
+
+    assert read.json() == STORAGE
+    assert freezable.status_code == 200, freezable.text
+    assert freezable.json()["reports"] == []
+
+
+async def test_un_modele_qui_CESSE_d_etre_un_payload_redevient_projetable(forge: Forge) -> None:
+    """Critère 6 : l'état n'est pas un aller simple. C'est l'usage qui décide, donc
+    retirer la déclaration suffit — aucun fichier déplacé, aucune migration."""
+    await _declare_event(forge)
+    assert (await _declare(forge)).status_code == 422
+
+    removed = await forge.client.delete(f"{EVENTS}/shared/site_recu", timeout=120)
+    assert removed.status_code == 204, removed.text
+
+    declared = await _declare(forge)
+    assert declared.status_code == 201, declared.text
+    assert (await forge.client.get(f"{ROUTE}/sites", timeout=120)).json() == STORAGE

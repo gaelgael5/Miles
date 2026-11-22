@@ -15,7 +15,7 @@ from miles.datamodels.layout import MODEL_RE, model_path
 from miles.datamodels.reading import inlined_schema
 from miles.event_shapes import GESTURE, NAME
 from miles.sources import openapi
-from miles.sources.checks import branch_problems
+from miles.sources.checks import branch_problems, payload_problems
 from miles.sources.layout import (
     SourceDoc,
     SourceProblem,
@@ -156,7 +156,9 @@ class SourcesService:
                 raise SourceNotFoundError(doc.name)
             if previous == doc:
                 return Saved(doc, True, False)
-            problems = await branch_problems(copy, doc)
+            # Le payload d'un type d'event ne s'ingère pas comme une donnée du
+            # référentiel (story 7b4f7a32) : au GESTE seulement — voir `payload_problems`.
+            problems = await branch_problems(copy, doc) + await payload_problems(copy, doc)
             if problems:
                 raise SourceInvalidError(problems)
             await copy.write(source_path(doc.name), source_text(doc))

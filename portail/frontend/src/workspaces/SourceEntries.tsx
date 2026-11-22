@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useChains } from "../api/chains";
 import { useDataModels } from "../api/dataModels";
+import { PayloadNotice, choosableModels, payloadChosen } from "../dataModels/ModelRole";
 import { DEFAULT_WRITE_BATCH, MAX_BATCH, type SourceEntry } from "../api/sources";
 import type { WorkTarget } from "../api/workTarget";
 import { SourceCleanup } from "./SourceCleanup";
@@ -68,13 +69,17 @@ function EntryCard({
           onChange={(e) => set({ source_model: e.target.value })}
         >
           <option value="">{t("sources.form.choose")}</option>
-          {(models.data ?? []).map((m) => (
+          {/* Pas les payloads de types d'event : une entrée ingère une DONNÉE du
+              référentiel, et un payload décrit un fait (story 7b4f7a32). Celui qui est
+              déjà désigné reste dans la liste, et `PayloadNotice` dit pourquoi. */}
+          {choosableModels(models.data ?? [], entry.source_model).map((m) => (
             <option key={`${m.scope}/${m.name}`} value={`${m.scope}/${m.name}`}>
               {m.scope}/{m.name}
             </option>
           ))}
         </select>
       </label>
+      {payloadChosen(models.data ?? [], entry.source_model) && <PayloadNotice />}
       <p className="help">{t("sources.form.entrySourceModelHelp")}</p>
       <label className="field">
         {t("sources.fields.entryChain", { rank: rank + 1 })}

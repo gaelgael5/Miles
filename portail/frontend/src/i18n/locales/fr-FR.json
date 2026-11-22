@@ -416,6 +416,7 @@
       "modele_de_contrat_interdit": "un modèle de contrat ne se désigne pas depuis un pivot : passez par une chaîne de transformations ({{detail}})",
       "modele_derive_orphelin": "modèle dérivé d'une version de contrat qui n'existe plus",
       "modele_illisible": "le modèle « {{detail}} » ne se lit pas",
+      "modele_de_payload": "ce modèle est le payload du type d'event {{detail}} : il décrit un FAIT, qui entre par le journal, et ne se projette pas en objet — choisis un modèle qu'aucun « DEFINE EVENT » ne désigne, ou retire cette déclaration",
       "modele_inconnu": "le modèle « {{detail}} » n'existe pas ou n'est pas visible d'ici",
       "modele_invalide": "modèle « {{detail}} » : la forme attendue est miles:/<portée>/<nom>",
       "modeles_derives_desynchronises": "les modèles dérivés ne correspondent plus au contrat : régénérez-les depuis sa version",
@@ -467,6 +468,9 @@
       "role": "Désigné par ({{count}})"
     },
     "role": {
+      "payload": {
+        "kept": "Ce modèle est le payload d'un type d'event : il décrit un fait, qui entre par le journal. On ne le choisit plus ici — celui qui est déjà désigné est conservé tel quel, rien n'a été vidé, mais l'enregistrement le refusera tant qu'il est là."
+      },
       "caption": "Rôle",
       "none": "Rien ne le désigne",
       "title": "Ce qui désigne ce modèle",

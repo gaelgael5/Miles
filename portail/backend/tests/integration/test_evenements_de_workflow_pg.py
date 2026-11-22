@@ -3,8 +3,9 @@
 Ce que ces tests tiennent, et qu'aucun test unitaire ne peut tenir : qu'une déclaration
 faite par l'écran arrive dans le dépôt sous la forme que le PARSEUR DU MOTEUR relit, que
 les clés d'unicité en reviennent dans l'ordre saisi, qu'un modèle désigné par un
-`DEFINE EVENT` reste un modèle ordinaire — storages et sources peuvent le désigner — et
-qu'une version de branche valide tout cela.
+`DEFINE EVENT` reste servi AVEC cet usage — c'est de là, et de nulle part ailleurs, que
+l'écran et les gestes savent que c'est un payload — et qu'une version de branche valide
+tout cela.
 
 Le consommateur de l'artefact n'est pas Miles : c'est pourquoi chaque écriture est relue
 ici par `urban_workflow`, et pas seulement comparée à un texte attendu.
@@ -270,17 +271,26 @@ async def test_le_socle_commun_est_servi_en_SCHEMA_depuis_le_moteur_installe(
     assert socle["required"] == ["Name"]
 
 
-async def test_le_modele_d_un_type_d_event_RESTE_dans_la_liste_des_modeles(forge: Forge) -> None:
-    """La conséquence assumée du 14/11/2026, et elle se mesure : la liste séparée
-    interdisait à un storage ou à une source de désigner un schéma d'event. Ce n'est plus
-    le cas — c'est la déclaration, et non le rangement, qui dit ce qu'est un type d'event.
+async def test_le_modele_d_un_type_d_event_est_servi_AVEC_son_usage_de_payload(
+    forge: Forge,
+) -> None:
+    """La route le sert toujours, et c'est volontaire : son propre écran s'ouvre depuis
+    l'event, avec son éditeur et le socle verrouillé au-dessus (story 7b4f7a32, critère 7).
+
+    Ce qui change le 22/11/2026 est ce qu'on en FAIT : l'usage `event_type` voyage avec
+    lui, et c'est de là que l'écran sait ne pas le lister et qu'un storage ou une source
+    sait ne pas le proposer. Le déclencheur est l'usage, jamais le nom ni le dossier.
     """
     await _model(forge, "demande", DEMANDE)
     await _declare(forge)
 
     modeles = await forge.client.get(MODELES, timeout=120)
 
-    assert [m["name"] for m in modeles.json()["models"]] == ["demande"]
+    liste = modeles.json()["models"]
+    assert [m["name"] for m in liste] == ["demande"]
+    assert [(u["kind"], u["name"]) for u in liste[0]["usages"]] == [
+        ("event_type", "demande_soumise")
+    ]
 
 
 async def test_supprimer_un_modele_qu_une_declaration_designe_est_refuse(forge: Forge) -> None:

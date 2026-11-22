@@ -29,6 +29,22 @@ const PICKERS = {
     status: 200,
     body: modelListing([
       { scope: "pudo", name: "import-crm", path: "domains/pudo/models/import-crm.yaml" },
+      // Le payload d'un type d'event (story 7b4f7a32) : présent dans la branche, jamais
+      // proposé ici. Rien ne le distingue de l'autre, sinon son usage.
+      {
+        scope: "shared",
+        name: "colis",
+        path: "shared/models/colis.yaml",
+        usages: [
+          {
+            kind: "event_type",
+            name: "colis_recu",
+            label: "Colis reçu",
+            path: "shared/shared.wf",
+            part: null,
+          },
+        ],
+      },
     ]),
   },
   [`GET /api/workspaces/retrait/transformations${Q}`]: {
@@ -155,6 +171,28 @@ describe("the entries of a source (25/10/2026)", () => {
     // La mutation est asynchrone : on attend son retour avant de lire l'appel.
     expect(await screen.findByText(/rewrite every object/)).toBeInTheDocument();
     expect(calls.find((c) => c.key === `PUT ${ROUTE}/crm${Q}`)?.body).toEqual(SOURCE);
+  });
+
+  it("never offers the payload of an event type as a source model", async () => {
+    // Une entrée ingère une DONNÉE du référentiel ; un payload décrit un fait, qui entre
+    // par le journal — et qu'une source ingérerait deux fois sous deux formes.
+    open();
+    fireEvent.click(await screen.findByText("Add a source"));
+    fireEvent.click(screen.getByRole("button", { name: "Web entry" }));
+
+    expect(await screen.findByRole("option", { name: "pudo/import-crm" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "shared/colis" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+
+  it("keeps an entry already pointing at a payload, and says why", async () => {
+    // Arbitrage de Gael du 22/11/2026 : signalé, jamais vidé en silence — sans quoi
+    // l'entrée s'ouvrirait sans modèle sur une source qui ingère tous les jours.
+    open({ ...SOURCE, entries: [{ ...ENTRY, source_model: "shared/colis" }] });
+
+    expect(await screen.findByRole("option", { name: "shared/colis" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Source model of entry 1")).toHaveValue("shared/colis");
+    expect(screen.getByRole("note")).toHaveTextContent("payload of an event type");
   });
 
   it("declares how many reads happen before a save, independently of the commit", async () => {

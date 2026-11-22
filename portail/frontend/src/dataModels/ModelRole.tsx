@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
-import type { BrokenModelRef, ModelUsage } from "../api/dataModels";
+import type { BrokenModelRef, ListedModel, ModelUsage } from "../api/dataModels";
 
 /**
  * À quoi sert un modèle : ce qui le DÉSIGNE, et rien d'autre.
@@ -11,8 +11,35 @@ import type { BrokenModelRef, ModelUsage } from "../api/dataModels";
  * façons, et c'est justement de nommer qu'il s'agit ici.
  */
 
+/** La nature qui fait d'un modèle le payload d'un type d'event. */
+const EVENT_TYPE = "event_type";
+
 /** Les natures, DANS L'ORDRE où on les montre : du plus parlant au plus technique. */
-const KINDS: string[] = ["event_type", "storage", "source", "chain_step", "model"];
+const KINDS: string[] = [EVENT_TYPE, "storage", "source", "chain_step", "model"];
+
+/**
+ * Un `DEFINE EVENT` désigne-t-il ce modèle ? La question se lit dans ses USAGES, et
+ * dans rien d'autre : ni son nom, ni son dossier (story e36192f8, et c'est le
+ * renversement du 14/11/2026 qui l'impose).
+ */
+export function isEventPayload(usages: ModelUsage[]): boolean {
+  return usages.some((usage) => usage.kind === EVENT_TYPE);
+}
+
+/**
+ * Les modèles qu'un storage ou une entrée de source peut désigner (story 7b4f7a32).
+ *
+ * Un payload décrit un FAIT, qui entre par le journal : le projeter en objet ou
+ * l'ingérer comme une donnée du référentiel n'a pas de sens, et le serveur le refuse.
+ * L'écran ne le propose donc plus — mais `current` est CONSERVÉ même s'il en est un :
+ * une désignation déjà posée se signale, elle ne se vide pas en silence sous les yeux de
+ * celui qui ouvre le formulaire pour autre chose (arbitrage de Gael du 22/11/2026).
+ */
+export function choosableModels(models: ListedModel[], current: string): ListedModel[] {
+  return models.filter(
+    (model) => !isEventPayload(model.usages) || `${model.scope}/${model.name}` === current,
+  );
+}
 
 function kindLabel(t: TFunction, kind: string): string {
   // `defaultValue` : une nature que le serveur ajoute — un état de workflow viendra avec
@@ -36,6 +63,28 @@ export function roleSummary(t: TFunction, usages: ModelUsage[]): string {
       });
     })
     .join(" · ");
+}
+
+/** Le modèle déjà désigné est-il un payload ? C'est ce que `PayloadNotice` annonce. */
+export function payloadChosen(models: ListedModel[], current: string): boolean {
+  const chosen = models.find((model) => `${model.scope}/${model.name}` === current);
+  return chosen !== undefined && isEventPayload(chosen.usages);
+}
+
+/**
+ * Une désignation posée AVANT la règle du 22/11/2026 : on la nomme, on ne la défait pas.
+ *
+ * Sans ce signalement, le formulaire montrerait un choix que la liste ne propose plus,
+ * sans dire pourquoi — et la personne qui enregistre pour changer tout autre chose se
+ * ferait refuser son geste sur un champ qu'elle n'a pas touché.
+ */
+export function PayloadNotice() {
+  const { t } = useTranslation();
+  return (
+    <div className="notice" role="note">
+      <p>{t("dataModels.role.payload.kept")}</p>
+    </div>
+  );
 }
 
 function usageKey(usage: ModelUsage): string {

@@ -4,6 +4,7 @@ from miles_socle.transform.chain import ChainInvalidError, StepSpec, compile_cha
 
 from miles.chains.store import stored_chain
 from miles.datamodels.layout import MODEL_RE, model_path
+from miles.datamodels.payloads import PAYLOAD, claimed, event_payloads
 from miles.datamodels.schema import model_id
 from miles.git.workcopy import WorkCopy
 from miles.sources.layout import Entry, SourceDoc, SourceProblem
@@ -21,6 +22,23 @@ async def branch_problems(copy: WorkCopy, doc: SourceDoc) -> list[SourceProblem]
     target = storage.model if storage is not None else None
     for rank, entry in enumerate(doc.entries):
         problems += await _entry_problems(copy, rank, entry, target)
+    return problems
+
+
+async def payload_problems(copy: WorkCopy, doc: SourceDoc) -> list[SourceProblem]:
+    """Une entrée ingère-t-elle le payload d'un type d'event ? Si oui, on refuse.
+
+    **Hors de `branch_problems`, et ce n'est pas un oubli** : `source_reports` rejoue
+    toutes les règles de l'écriture au figement d'une version, et celle-ci n'y entre pas.
+    Arbitré par Gael le 22/11/2026 — une désignation DÉJÀ posée est signalée, la version
+    se fige quand même ; une branche qu'on livrait hier doit pouvoir se livrer aujourd'hui.
+    """
+    payloads = await event_payloads(copy.read, await copy.paths())
+    problems = []
+    for rank, entry in enumerate(doc.entries):
+        event = claimed(payloads, entry.source_model)
+        if event is not None:
+            problems.append(SourceProblem(f"entrees[{rank}].modele_source", PAYLOAD, event))
     return problems
 
 

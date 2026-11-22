@@ -40,6 +40,40 @@ const MODELS = {
   },
 };
 
+/**
+ * Le payload d'un type d'event (story 7b4f7a32) : AU MÊME endroit et sous la même forme
+ * que `shared/site`, et seul son usage l'en distingue — c'est ce qui rend le jeu d'essai
+ * discriminant. Un modèle d'un autre dossier aurait laissé passer une règle sur le nom.
+ */
+const PAYLOAD = {
+  scope: "shared",
+  name: "colis",
+  path: "data-models/shared/colis.yaml",
+  usages: [
+    {
+      kind: "event_type",
+      name: "colis_recu",
+      label: "Colis reçu",
+      path: "shared/shared.wf",
+      part: null,
+    },
+  ],
+};
+const MODELS_WITH_PAYLOAD = {
+  ...MODELS,
+  [`GET /api/workspaces/retrait/data-models${Q}`]: {
+    status: 200,
+    body: modelListing([
+      { scope: "shared", name: "site", path: "data-models/shared/site.yaml" },
+      PAYLOAD,
+    ]),
+  },
+  [`GET /api/workspaces/retrait/data-models/shared/colis/paths${Q}`]: {
+    status: 200,
+    body: { paths: [{ path: "$.code", type: "string", description: "" }] },
+  },
+};
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -136,6 +170,42 @@ describe("StoragesScreen (24/10/2026)", () => {
     expect(screen.getByText("Sites")).toBeInTheDocument();
     expect(screen.getByText("shared/site")).toBeInTheDocument();
     expect(screen.getByText("$.code")).toBeInTheDocument();
+  });
+
+  it("never offers the payload of an event type as an object model", async () => {
+    // Un storage projette un OBJET ; un payload décrit un fait, qui entre par le journal.
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS_WITH_PAYLOAD,
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition" });
+    fireEvent.click(await screen.findByText("New storage"));
+
+    expect(await screen.findByRole("option", { name: "shared/site" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "shared/colis" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+
+  it("keeps a storage already pointing at a payload, and says why", async () => {
+    // Arbitrage de Gael du 22/11/2026 : signalé, jamais vidé en silence. Sans cela, le
+    // champ s'ouvrirait VIDE sur un storage qui marche, et l'enregistrement d'un autre
+    // champ aurait effacé le modèle sans que personne ne l'ait demandé.
+    mockApi({
+      ...HELD,
+      "GET /api/workspaces": { status: 200, body: [WORKING] },
+      ...MODELS_WITH_PAYLOAD,
+      [`GET ${ROUTE}/sites${Q}`]: { status: 200, body: { ...STORAGE, model: "shared/colis" } },
+      [`GET ${ROUTE}${Q}`]: { status: 200, body: [] },
+    });
+    renderWorkspaces({ id: "retrait", view: "storages", branch: "edition", storage: "sites" });
+
+    // L'option attendue d'abord : le `<select>` existe avant que la liste des modèles
+    // n'arrive, et un contrôlé sans option correspondante rend une valeur vide.
+    expect(await screen.findByRole("option", { name: "shared/colis" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Object model")).toHaveValue("shared/colis");
+    expect(screen.getByRole("note")).toHaveTextContent("payload of an event type");
   });
 
   it("opens a storage from its whole row, with no Open button", async () => {

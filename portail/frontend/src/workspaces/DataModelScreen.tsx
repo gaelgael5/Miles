@@ -16,7 +16,7 @@ import {
 import type { WorkTarget } from "../api/workTarget";
 import { FieldUsage } from "../dataModels/FieldUsage";
 import { ImportSmart } from "../dataModels/ImportSmart";
-import { ModelRole } from "../dataModels/ModelRole";
+import { ModelRole, isEventPayload } from "../dataModels/ModelRole";
 import { isBlankSchema, parseSchema, sameSchema, schemaText } from "../dataModels/schemaText";
 import { useSaveShortcut } from "../layout/useSaveShortcut";
 import { ModelRefusal } from "./ModelRefusal";
@@ -218,8 +218,9 @@ function Editor({
                 parsed={parsed}
                 /* Un `DEFINE EVENT` désigne-t-il ce modèle ? La question se lit dans ses
                    USAGES, déjà chargés par cet écran (story e36192f8) : rien à demander
-                   de plus, et pas de règle recopiée sur le nom ou le dossier. */
-                asEventPayload={usages.some((usage) => usage.kind === "event_type")}
+                   de plus, et pas de règle recopiée sur le nom ou le dossier. La MÊME
+                   lecture décide de la liste et des sélecteurs (story 7b4f7a32). */
+                asEventPayload={isEventPayload(usages)}
                 onVisual={fromVisual}
                 onYaml={fromYaml}
               />

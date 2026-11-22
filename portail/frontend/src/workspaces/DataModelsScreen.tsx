@@ -18,7 +18,7 @@ import {
 import { useDomains } from "../api/domains";
 import type { WorkTarget } from "../api/workTarget";
 import type { Workspace } from "../api/workspaces";
-import { BrokenRefs, roleSummary } from "../dataModels/ModelRole";
+import { BrokenRefs, isEventPayload, roleSummary } from "../dataModels/ModelRole";
 import { DomainForm } from "./DomainForm";
 import { ModelRefusal } from "./ModelRefusal";
 
@@ -221,7 +221,11 @@ export function DataModelsScreen({
   // La liste de la branche est lue en UNE fois, quel que soit le sous-menu : c'est la même
   // requête que « Tous les modèles », donc le filtre ne coûte aucune ouverture de branche
   // de plus (chemin critique mesuré de l'enabler 7fb3577c).
-  const all = listing.data?.models ?? [];
+  // Le payload d'un type d'event n'est pas dans cette liste (Gael, 19/11/2026 : « les
+  // events apparaissent dans le menu events mais pas dans le menu model »). Il reste
+  // joignable et éditable depuis l'écran de son event : il sort d'ici, il ne devient pas
+  // invisible. Et c'est son USAGE qui le dit, jamais son nom ni son dossier.
+  const all = (listing.data?.models ?? []).filter((m) => !isEventPayload(m.usages));
   const models = scope === undefined ? all : all.filter((m) => m.scope === scope);
   const [creating, setCreating] = useState(false);
   const [addingDomain, setAddingDomain] = useState(false);

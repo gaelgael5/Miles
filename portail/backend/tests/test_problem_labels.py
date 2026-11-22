@@ -46,6 +46,7 @@ PORTEURS_DE_CODE = ("Problem", "StorageProblem", "SourceProblem", "ReferenceProb
 _CONTENEURS = "table _CONTAINERS (accounts/checks.py, storages/checks.py)"
 _MANIFESTE = "f-string « manifeste_<état> » (workshop/validation.py)"
 _HERITAGE = "constantes RECURSIVE et TOO_DEEP (workflowevents/inheritance.py)"
+_PAYLOAD = "constante PAYLOAD (datamodels/payloads.py)"
 CODES_INDIRECTS = {
     "tableau_interdit": (_CONTENEURS, '"tableau_interdit"'),
     "valeur_attendue": (_CONTENEURS, '"valeur_attendue"'),
@@ -56,6 +57,10 @@ CODES_INDIRECTS = {
     # aurait divergé au premier renommage.
     "heritage_recursif": (_HERITAGE, '"heritage_recursif"'),
     "heritage_trop_profond": (_HERITAGE, '"heritage_trop_profond"'),
+    # Même raison : le storage et la source rendent ce refus chacun dans son type de
+    # manquement, et c'est la même règle — une chaîne recopiée aux deux endroits aurait
+    # divergé au premier renommage.
+    "modele_de_payload": (_PAYLOAD, '"modele_de_payload"'),
 }
 
 

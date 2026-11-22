@@ -109,6 +109,17 @@ async def read_listing(
     )
 
 
+async def read_event_designations(read: Reader, paths: list[str]) -> list[Designation]:
+    """Les `DEFINE EVENT … AS @modele` de la branche : qui prend quel modèle pour payload.
+
+    Rendue à part de `read_listing` pour les appelants qui ne veulent QUE cette nature —
+    le geste d'un storage ou d'une source, qui refuse de désigner un payload
+    (`datamodels.payloads`). Ils n'ouvrent ainsi ni les storages, ni les sources, ni les
+    chaînes de la branche, dont ils n'ont rien à faire.
+    """
+    return await _in_artefacts(read, paths)
+
+
 def _without_doubles(found: list[Designation]) -> list[Designation]:
     """La même désignation deux fois ne se dit qu'une.
 

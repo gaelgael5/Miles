@@ -18,6 +18,7 @@ ROUTE = "/api/workspaces/retrait/sources"
 STORAGES = "/api/workspaces/retrait/storages"
 MODELS = "/api/workspaces/retrait/data-models"
 CHAINS = "/api/workspaces/retrait/transformations"
+EVENTS = "/api/workspaces/retrait/workflow-events"
 COMPTE = normalized("type: object\nproperties:\n  code:\n    type: string\n", "shared", "compte")
 # Le modèle de CE QU'ON REÇOIT. Son nom porte un tiret à dessein — « pudo/import-crm » en
 # porte un, et le motif de référence le refusait.
@@ -318,3 +319,37 @@ async def test_the_absent_removal_rule_is_refused_without_the_file_mode(forge: F
     assert [(p["path"], p["code"]) for p in refused.json()["detail"]["problems"]] == [
         ("entrees[0].absents_supprimes_apres_jours", "absents_hors_mode_fichier")
     ]
+
+
+async def test_une_entree_n_ingere_pas_le_payload_d_un_type_d_event(forge: Forge) -> None:
+    """Story 7b4f7a32. Le refus nomme le RANG de l'entrée en plus du type d'event : une
+    source en porte plusieurs, et « la source est invalide » n'aurait pas dit laquelle.
+
+    Le payload est ici `shared/fait`, et non `shared/compte-brut` : le DSL du moteur ne
+    sait pas écrire `AS @shared.compte-brut`, donc un modèle à tiret ne peut PAS devenir
+    un type d'event — un modèle en est donc un support légitime, et c'est celui-là qu'on
+    essaie d'ingérer.
+    """
+    fait = normalized("type: object\nproperties:\n  Id:\n    type: string\n", "shared", "fait")
+    created = await forge.client.post(MODELS, json=body_of(fait), timeout=120)
+    assert created.status_code == 201, created.text
+    event = {
+        "scope": "shared",
+        "label": "Compte reçu",
+        "slug": "compte_recu",
+        "model_scope": "shared",
+        "model_name": "fait",
+    }
+    declared = await forge.client.post(f"{EVENTS}/declarations", json=event, timeout=120)
+    assert declared.status_code == 201, declared.text
+    before = await forge.commits()
+
+    refused = await _declare(forge, with_entry(source_model="shared/fait"))
+
+    assert refused.status_code == 422, refused.text
+    assert [(p["path"], p["code"], p["detail"]) for p in refused.json()["detail"]["problems"]] == [
+        ("entrees[0].modele_source", "modele_de_payload", "compte_recu · shared/shared.wf")
+    ]
+    # Le FICHIER, pas le code de retour.
+    assert await forge.file("sources/comptes.yaml") is None
+    assert await forge.commits() == before

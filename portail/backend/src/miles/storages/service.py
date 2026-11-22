@@ -13,7 +13,7 @@ from miles_socle.events.model import EventAuthor, NewEvent, ObjectRef
 from miles.event_shapes import GESTURE, NAME
 from miles.sources.layout import names_in as source_names_in
 from miles.sources.layout import read_source, source_path
-from miles.storages.checks import branch_problems
+from miles.storages.checks import branch_problems, payload_problems
 from miles.storages.layout import (
     StorageDoc,
     StorageProblem,
@@ -133,7 +133,9 @@ class StoragesService:
                 raise StorageNotFoundError(doc.name)
             if previous == doc:
                 return Saved(doc, True, False)
-            problems = await branch_problems(copy, doc)
+            # Le payload d'un type d'event ne se projette pas en objet (story 7b4f7a32) :
+            # vérifié au GESTE seulement, pas au figement — voir `payload_problems`.
+            problems = await branch_problems(copy, doc) + await payload_problems(copy, doc)
             if problems:
                 raise StorageInvalidError(problems)
             await copy.write(storage_path(doc.name), storage_text(doc))

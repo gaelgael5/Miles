@@ -35,6 +35,28 @@ const COLIS = {
     { kind: "storage", name: "sites", label: "Sites", path: "storages/sites.yaml", part: null },
   ],
 };
+/**
+ * Désigné deux fois, et par AUCUN type d'event : c'est lui qui éprouve le résumé de la
+ * ligne depuis le 22/11/2026, parce qu'un payload n'est plus dans cette liste du tout
+ * (story 7b4f7a32). Deux natures, donc, comme avant — mais deux natures qui restent.
+ */
+const SUIVI = {
+  scope: "shared",
+  name: "suivi",
+  path: "shared/models/suivi.yaml",
+  label: "Suivi",
+  version: 3,
+  usages: [
+    { kind: "storage", name: "sites", label: "Sites", path: "storages/sites.yaml", part: null },
+    {
+      kind: "chain_step",
+      name: "import-colis",
+      label: "Import",
+      path: "chains/import-colis/chain.yaml",
+      part: "vers-pivot",
+    },
+  ],
+};
 const ORPHELIN = {
   scope: "shared",
   name: "orphelin",
@@ -89,13 +111,25 @@ async function openRole(models: object[] = [COLIS, ORPHELIN], broken: object[] =
 
 describe("what designates a model", () => {
   it("says on each row what the model serves, and says when nothing does", async () => {
-    listed([COLIS, ORPHELIN]);
+    listed([SUIVI, ORPHELIN]);
     renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition" });
 
-    const row = (await screen.findByText("Colis")).closest("li") as HTMLElement;
-    expect(within(row).getByText("1 event type · 1 storage")).toBeInTheDocument();
+    const row = (await screen.findByText("Suivi")).closest("li") as HTMLElement;
+    expect(within(row).getByText("1 storage · 1 chain step")).toBeInTheDocument();
     const alone = (screen.getByText("Orphelin")).closest("li") as HTMLElement;
     expect(within(alone).getByText("Nothing designates it")).toBeInTheDocument();
+  });
+
+  it("leaves the payload of an event type out of the list, and keeps the others", async () => {
+    // Gael, le 19/11/2026 : « les events apparaissent dans le menu events mais pas dans
+    // le menu model. » C'est l'USAGE qui l'écarte : `COLIS` et `SUIVI` sont au même
+    // endroit, du même nom de rubrique, et seul le premier est un payload.
+    listed([COLIS, SUIVI, ORPHELIN]);
+    renderWorkspaces({ id: "retrait", view: "dataModels", branch: "edition" });
+
+    await screen.findByText("Suivi");
+    expect(screen.getByText("Orphelin")).toBeInTheDocument();
+    expect(screen.queryByText("Colis")).not.toBeInTheDocument();
   });
 
   it("shows the declarations whose target the branch does not have, and what they name", async () => {

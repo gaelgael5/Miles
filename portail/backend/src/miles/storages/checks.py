@@ -7,6 +7,7 @@ from miles_socle.transform.jpath import property_keys
 from miles.datamodels.grammar import load_yaml
 from miles.datamodels.layout import MODEL_RE, model_path
 from miles.datamodels.navigate import kind_at
+from miles.datamodels.payloads import PAYLOAD, claimed, event_payloads
 from miles.datamodels.schema import parse_schema
 from miles.git.workcopy import WorkCopy
 from miles.storages.layout import Expiry, StorageDoc, StorageProblem
@@ -41,6 +42,18 @@ async def branch_problems(copy: WorkCopy, doc: StorageDoc) -> list[StorageProble
     for rank, rule in enumerate(doc.expiries):
         problems += await _expiry_kind_problems(copy, match["scope"], root, rank, rule)
     return problems
+
+
+async def payload_problems(copy: WorkCopy, doc: StorageDoc) -> list[StorageProblem]:
+    """Le modèle projeté est-il le payload d'un type d'event ? Si oui, on refuse.
+
+    **Hors de `branch_problems`, et ce n'est pas un oubli** : `storage_reports` rejoue
+    toutes les règles de l'écriture au figement d'une version, et celle-ci n'y entre pas.
+    Arbitré par Gael le 22/11/2026 — une désignation DÉJÀ posée est signalée, la version
+    se fige quand même ; une branche qu'on livrait hier doit pouvoir se livrer aujourd'hui.
+    """
+    event = claimed(await event_payloads(copy.read, await copy.paths()), doc.model)
+    return [] if event is None else [StorageProblem("modele", PAYLOAD, event)]
 
 
 async def _expiry_kind_problems(

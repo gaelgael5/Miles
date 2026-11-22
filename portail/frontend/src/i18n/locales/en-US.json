@@ -416,6 +416,7 @@
       "modele_de_contrat_interdit": "a contract model cannot be referenced from a pivot: go through a transformation chain ({{detail}})",
       "modele_derive_orphelin": "model derived from a contract version that no longer exists",
       "modele_illisible": "the model “{{detail}}” cannot be read",
+      "modele_de_payload": "this model is the payload of event type {{detail}}: it describes a FACT, which arrives through the journal, and is not projected as an object — pick a model no “DEFINE EVENT” names, or remove that declaration",
       "modele_inconnu": "model “{{detail}}” does not exist or is not visible from here",
       "modele_invalide": "model “{{detail}}”: the expected form is miles:/<scope>/<name>",
       "modeles_derives_desynchronises": "the derived models no longer match the contract: regenerate them from its version",
@@ -467,6 +468,9 @@
       "role": "Used by ({{count}})"
     },
     "role": {
+      "payload": {
+        "kept": "This model is the payload of an event type: it describes a fact, which arrives through the journal. It can no longer be picked here — the one already designated is kept as it is, nothing was emptied, but saving will refuse it as long as it stays."
+      },
       "caption": "Role",
       "none": "Nothing designates it",
       "title": "What designates this model",
