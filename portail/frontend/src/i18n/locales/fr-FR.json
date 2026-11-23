@@ -315,7 +315,7 @@
     "errors": {
       "syntax": "YAML invalide, ligne {{line}}, colonne {{column}} : {{message}}",
       "grammar": "Le modèle ne respecte pas la grammaire :",
-      "inUse": "D'autres modèles utilisent celui-ci : {{list}}.",
+      "inUse": "Ce modèle est désigné par d'autres documents du paramétrage : {{list}}. Retirez ces désignations d'abord.",
       "access": "Le dépôt n'accepte plus cette opération ({{reason}}). La branche de travail est intacte.",
       "invalid": {
         "scope": "Domaine : lettres minuscules, chiffres, tirets et soulignés.",

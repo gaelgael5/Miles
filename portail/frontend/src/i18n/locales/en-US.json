@@ -315,7 +315,7 @@
     "errors": {
       "syntax": "Invalid YAML, line {{line}}, column {{column}}: {{message}}",
       "grammar": "The model does not follow the grammar:",
-      "inUse": "Other models use this one: {{list}}.",
+      "inUse": "This model is designated by other configuration documents: {{list}}. Remove those designations first.",
       "access": "The repository no longer accepts this operation ({{reason}}). The work branch is unchanged.",
       "invalid": {
         "scope": "Domain: lowercase letters, digits, dashes and underscores.",

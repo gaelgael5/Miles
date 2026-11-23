@@ -21,7 +21,10 @@ from miles.datamodels.usages import (
     MODEL,
     SOURCE,
     STORAGE,
+    Designation,
     Listing,
+    Reader,
+    read_designations,
     read_listing,
 )
 from miles.sources.layout import Entry, EntryModes, SourceDoc, source_path, source_text
@@ -58,8 +61,8 @@ def _chain(slug: str, *, source: str | None, destination: str | None) -> str:
     return chain_text(ChainDoc(slug, slug.title(), (step,)))
 
 
-async def _listing(files: dict[str, str]) -> Listing:
-    """La lecture sur un dépôt en mémoire : ce module ne demande qu'un lecteur de fichier."""
+def _branche(files: dict[str, str]) -> tuple[Reader, list[str], list[tuple[ModelEntry, str]]]:
+    """Un dépôt en mémoire : ces lectures ne demandent qu'un lecteur de fichier."""
 
     async def read(path: str) -> str | None:
         return files.get(path)
@@ -70,7 +73,15 @@ async def _listing(files: dict[str, str]) -> Listing:
         for path in paths
         if (entry := entry_of(path)) is not None
     ]
-    return await read_listing(read, paths, models)
+    return read, paths, models
+
+
+async def _listing(files: dict[str, str]) -> Listing:
+    return await read_listing(*_branche(files))
+
+
+async def _designations(files: dict[str, str]) -> list[Designation]:
+    return await read_designations(*_branche(files))
 
 
 async def test_un_modele_que_rien_ne_designe_le_dit_sans_que_ce_soit_une_anomalie() -> None:
@@ -221,3 +232,43 @@ async def test_un_artefact_illisible_ne_fait_inventer_aucun_usage() -> None:
 
     assert listing.models[0].usages == ()
     assert listing.broken == ()
+
+
+async def test_la_lecture_partagee_rend_les_cinq_natures_pour_ses_deux_appelants() -> None:
+    """Bug `6ed86d6b` : cette liste doit rester UNE.
+
+    L'écran des modèles et le refus de supprimer (`datamodels.links.users`) lisent la même
+    fonction depuis le 23/11/2026. La rétrécir ici rouvrirait la divergence qui laissait
+    supprimer, en `204`, un modèle qu'un storage projetait encore — et le défaut ne se
+    serait vu qu'à l'écran de figement, depuis un autre écran et après le commit.
+
+    Le jeu d'essai est discriminant : UN SEUL modèle est désigné par les cinq natures à la
+    fois, donc une lecture qui en oublierait une rougirait en la nommant.
+    """
+    designations = await _designations(
+        {
+            model_path("shared", "colis"): _model("colis"),
+            model_path("shared", "site"): _model("site", refs=("miles:/shared/colis",)),
+            fragment_path("shared"): render(
+                "shared", [EventType("colis_recu", "Colis reçu", ("shared", "colis"))]
+            ),
+            storage_path("sites"): _storage("sites", "shared/colis"),
+            source_path("comptes"): _source("comptes", "shared/colis"),
+            chain_path("comptes-import"): _chain(
+                "comptes-import", source="miles:/shared/colis", destination=None
+            ),
+        }
+    )
+
+    natures = {d.kind for d in designations if d.target == ("shared", "colis")}
+    assert natures == {MODEL, EVENT_TYPE, STORAGE, SOURCE, CHAIN_STEP}
+    # Les chemins sont ce que le refus de suppression nomme dans `by` : un document par
+    # désignation, et le modèle désigné n'y est jamais.
+    chemins = {d.path for d in designations if d.target == ("shared", "colis")}
+    assert chemins == {
+        model_path("shared", "site"),
+        fragment_path("shared"),
+        storage_path("sites"),
+        source_path("comptes"),
+        chain_path("comptes-import"),
+    }

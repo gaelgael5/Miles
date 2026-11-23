@@ -15,5 +15,7 @@ class ModelNotFoundError(Exception):
 
 class ModelInUseError(Exception):
     def __init__(self, users: list[str]) -> None:
-        super().__init__(f"référencé par {len(users)} modèle(s)")
+        # « document » et non « modèle » : depuis le bug `6ed86d6b`, un storage, une
+        # source ou une chaîne empêchent aussi la suppression.
+        super().__init__(f"désigné par {len(users)} document(s)")
         self.users = users

@@ -87,18 +87,37 @@ class Listing:
     broken: tuple[Designation, ...]
 
 
-async def read_listing(
+async def read_designations(
     read: Reader, paths: list[str], models: Sequence[tuple[ModelEntry, str]]
-) -> Listing:
-    """La liste des modèles et ce qui les désigne ; `models` porte le texte déjà lu."""
+) -> list[Designation]:
+    """Toutes les désignations de la branche — les CINQ natures —, sans doublon.
+
+    Rendue partageable le 23/11/2026 (bug `6ed86d6b`), et c'est le fond de ce bug : DEUX
+    lectures répondaient à « qui désigne ce modèle ? » sans que rien ne dise laquelle était
+    la bonne. Celle de l'écran connaissait cinq natures, celle du refus de suppression deux
+    — un modèle qu'un storage projetait se supprimait. Les faire coïncider par le bas aurait
+    caché des désignations réelles ; les laisser diverger aurait voulu entretenir deux
+    listes pour toujours. Il y a donc une lecture, et deux appelants :
+    `read_listing` ci-dessous, et `datamodels.links.users`, qui REFUSE.
+
+    Ce module, lui, ne refuse toujours rien (voir l'en-tête) : il rend ce qui désigne, y
+    compris quand la cible manque. C'est l'appelant qui en tire un refus.
+    """
     found = _in_models(models)
     found += await _in_artefacts(read, paths)
     found += await _in_storages(read, paths)
     found += await _in_sources(read, paths)
     found += await _in_chains(read, paths)
+    return _without_doubles(found)
+
+
+async def read_listing(
+    read: Reader, paths: list[str], models: Sequence[tuple[ModelEntry, str]]
+) -> Listing:
+    """La liste des modèles et ce qui les désigne ; `models` porte le texte déjà lu."""
     by_model: dict[tuple[str, str], list[Designation]] = {(e.scope, e.name): [] for e, _ in models}
     broken: list[Designation] = []
-    for designation in _without_doubles(found):
+    for designation in await read_designations(read, paths, models):
         if designation.target in by_model:
             by_model[designation.target].append(designation)
         else:

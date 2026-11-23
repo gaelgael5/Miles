@@ -300,7 +300,9 @@ describe("DataModelsScreen", () => {
     expect(pressed).toBe(false);
   });
 
-  it("names the models that still use one being deleted", async () => {
+  // Le refus couvre les CINQ natures de désignation depuis le bug `6ed86d6b` : le
+  // désignateur nommé ici est un storage, et c'est le cas qui était accepté hier.
+  it("names the documents that still designate one being deleted", async () => {
     mockApi({
       ...HELD,
       "GET /api/workspaces": { status: 200, body: [WORKING] },
@@ -308,7 +310,7 @@ describe("DataModelsScreen", () => {
       [`GET ${ROUTE}?branch=edition`]: { status: 200, body: modelListing([PERSONNE]) },
       [`DELETE ${ROUTE}/shared/personne?branch=edition`]: {
         status: 409,
-        body: { detail: { code: "utilise", by: [COLIS.path] } },
+        body: { detail: { code: "utilise", by: ["storages/sites.yaml"] } },
       },
     });
     await openModels();
@@ -317,7 +319,10 @@ describe("DataModelsScreen", () => {
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" }));
 
     expect(
-      await screen.findByText(`Other models use this one: ${COLIS.path}.`),
+      await screen.findByText(
+        "This model is designated by other configuration documents: storages/sites.yaml." +
+          " Remove those designations first.",
+      ),
     ).toBeInTheDocument();
     // « Supprimer » est au-dessus de la ligne ouvrable : le modèle ne s'est pas ouvert.
     expect(screen.getByRole("heading", { name: "Data models — Retrait de colis" })).toBeInTheDocument();
