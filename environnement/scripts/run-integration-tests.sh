@@ -113,3 +113,8 @@ grep -q '^MILES_ADMIN_PASSWORD_HASH=.\$argon2id\$' "$MOUNT_DIR/.env" || fail "em
 [[ "$(cat "$MOUNT_DIR/.env.bak")" == "$original" ]] || fail ".env.bak ne contient pas l'original"
 [[ "$(stat -c %a "$MOUNT_DIR/.env")" == 600 ]] || fail "droits de .env modifiés"
 echo "montage fichier par fichier : écriture vérifiée côté hôte"
+
+# Dernière ligne de la séquence, et c'est tout ce qu'elle veut dire : les étapes ci-dessus
+# ont toutes passé (`set -e` aurait sorti avant). C'est ce que le verdict de sortie lit pour
+# distinguer un succès d'une campagne tuée en chemin.
+socle_it_campagne_achevee

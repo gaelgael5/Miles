@@ -68,16 +68,32 @@ socle_it_source_eprouvee() {
 # Rappelé par le piège de SORTIE de l'appelant, donc vraie dernière ligne de la sortie —
 # échec, interruption et succès compris. Deux raisons mesurées le 22/11/2026 : une campagne
 # se relit par la fin, et un tube vers `tail` ne garde que celle-là.
+# Appelée par la DERNIÈRE ligne de la séquence du produit, qui n'est atteinte que si toutes
+# ses étapes ont passé. Sans ce témoin, le verdict mentait : mesuré le 23/11/2026 en tuant
+# une campagne pour éprouver `db3bccb9`, le piège de sortie a annoncé « SUCCÈS (code 0) »
+# alors que le script venait de sortir en 143. La raison est que `$?`, lu dans un piège
+# EXIT, porte le code de la dernière commande ACHEVÉE, pas celui que le shell rendra —
+# et un signal n'achève rien. Un `trap 'exit 143' TERM` n'était pas la réponse : bash
+# diffère un signal TRAPPÉ jusqu'à la fin de la commande au premier plan, donc jusqu'au
+# bout d'une campagne de 75 minutes, ce qui aurait rendu le `kill` inopérant.
+socle_it_campagne_achevee() {
+  SOCLE_IT_ACHEVEE=1
+}
+
 socle_it_verdict_final() {
   local code="$1" verdict
-  if [ "$code" -eq 0 ]; then
+  # Le code n'est annoncé QUE là où il veut dire quelque chose : à l'arrêt par signal il
+  # vaut 0, et l'écrire reproduirait le faux vert qu'on vient de retirer.
+  if [ "$code" -ne 0 ]; then
+    verdict="ÉCHEC (code $code)"
+  elif [ "${SOCLE_IT_ACHEVEE:-0}" = 1 ]; then
     verdict="SUCCÈS"
   else
-    verdict="ÉCHEC"
+    verdict="INTERROMPUE avant sa dernière étape — rien n'est validé"
   fi
   # `:-` : le piège peut s'exécuter AVANT l'annonce (docker absent, interruption au
   # démarrage), et `set -u` ferait alors échouer le nettoyage lui-même.
-  echo "==> campagne terminée sur ${SOCLE_IT_SOURCE:-source inconnue} — verdict : $verdict (code $code)"
+  echo "==> campagne terminée sur ${SOCLE_IT_SOURCE:-source inconnue} — verdict : $verdict"
 }
 
 # --- Tout ce qu'une campagne lance doit pouvoir être retiré à la sortie ------------------

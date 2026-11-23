@@ -80,6 +80,11 @@ GARDES_DE_CAMPAGNE = {
         "et une de ces deux a servi à annoncer une validation fausse : la campagne ne met "
         "pas le dépôt à jour, et rien ne disait sur quoi elle portait"
     ),
+    "socle_it_campagne_achevee": (
+        "sans témoin de fin, le verdict de sortie annonçait « SUCCÈS (code 0) » pour une "
+        "campagne tuée en chemin : `$?` lu dans un piège EXIT porte le code de la dernière "
+        "commande achevée, et un signal n'achève rien"
+    ),
     "socle_it_verdict_final": (
         "une campagne se relit par la fin, et un tube vers `tail` ne garde que la dernière "
         "ligne : le commit éprouvé doit y être rappelé avec le verdict, échec compris"

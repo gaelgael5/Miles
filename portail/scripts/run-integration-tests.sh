@@ -199,3 +199,8 @@ docker run --rm --name "$RUN_ID-pytest-mqtt" --label "miles-campagne=$RUN_ID" --
   -e MILES_TEST_MQTT_PASSWORD_TERM_43="${MQTT_PASSWORDS[term-43]}" \
   "$RUN_ID-backend" -m integration -v tests/integration/test_mqtt_broker.py \
   || { docker logs "$RUN_ID-mqtt" | tail -20 >&2; exit 1; }
+
+# Dernière ligne de la séquence, et c'est tout ce qu'elle veut dire : les étapes ci-dessus
+# ont toutes passé (`set -e` aurait sorti avant). C'est ce que le verdict de sortie lit pour
+# distinguer un succès d'une campagne tuée en chemin.
+socle_it_campagne_achevee

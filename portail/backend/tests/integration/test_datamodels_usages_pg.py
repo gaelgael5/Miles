@@ -18,6 +18,8 @@ from typing import Any
 
 import httpx
 import pytest
+from miles_socle.parametrage.chains import chain_path
+from miles_socle.parametrage.sources import source_path
 
 from miles.datamodels.schema import normalized
 from miles.storages.layout import StorageDoc, storage_path, storage_text
@@ -29,6 +31,8 @@ pytestmark = pytest.mark.integration
 ROUTE = "/api/workspaces/retrait/data-models"
 EVENTS = "/api/workspaces/retrait/workflow-events"
 STORAGES = "/api/workspaces/retrait/storages"
+SOURCES = "/api/workspaces/retrait/sources"
+CHAINS = "/api/workspaces/retrait/transformations"
 
 COLIS = normalized(
     "title: Colis\ntype: object\nproperties:\n  code:\n    type: string\n", "shared", "colis"
@@ -43,6 +47,15 @@ SITE = normalized(
 )
 ORPHELIN = normalized(
     "title: Orphelin\ntype: object\nproperties:\n  x:\n    type: string\n", "shared", "orphelin"
+)
+# Le modèle de CE QU'ON REÇOIT : il n'est désigné que par l'entrée d'une source.
+BRUT = normalized(
+    "title: Brut\ntype: object\nproperties:\n  accountId:\n    type: string\n", "shared", "brut"
+)
+# Même propriété que `COLIS`, pour qu'un storage puisse passer de l'un à l'autre sans que
+# ses clés deviennent le sujet du test.
+AUTRE = normalized(
+    "title: Autre\ntype: object\nproperties:\n  code:\n    type: string\n", "shared", "autre"
 )
 
 
@@ -78,6 +91,34 @@ async def _storage(forge: Forge, **override: Any) -> httpx.Response:
         "expiries": [],
     } | override
     return await forge.client.post(STORAGES, json=body, timeout=120)
+
+
+async def _chain(forge: Forge, slug: str = "comptes-import", **override: Any) -> httpx.Response:
+    body: dict[str, Any] = {
+        "label": "Import",
+        "steps": [{"name": "copier", "template": '{ "code": $.code }'}],
+    } | override
+    return await forge.client.put(f"{CHAINS}/{slug}", json=body, timeout=120)
+
+
+async def _source(forge: Forge, **override: Any) -> httpx.Response:
+    entry: dict[str, Any] = {
+        "kind": "web",
+        "source_model": "shared/brut",
+        "chain": "comptes-import",
+        "modes": {"element": True, "batch": True, "file": True},
+        "split": "$.accounts[*]",
+        "unified_transaction": False,
+        "write_batch": 100,
+        "missing_removed_after_days": None,
+    }
+    body: dict[str, Any] = {
+        "name": "comptes",
+        "label": "Comptes",
+        "storage": "sites",
+        "entries": [entry],
+    } | override
+    return await forge.client.post(SOURCES, json=body, timeout=120)
 
 
 def _usages(listed: httpx.Response, name: str) -> list[tuple[str, str, str | None]]:
@@ -154,3 +195,98 @@ async def test_un_storage_qui_designe_un_modele_absent_est_rendu_avec_la_liste(
     assert [(b["kind"], b["name"], b["target"]) for b in listed.json()["broken"]] == [
         ("storage", "comptes", "shared/absent")
     ]
+
+
+# --- Le refus de supprimer couvre-t-il les mêmes natures que la liste ? (bug `6ed86d6b`) -
+# Trois tests et non un seul, par décision du ticket : les trois natures manquaient à la
+# même liste, et rien ne garantit qu'elles se corrigent ensemble. Ils sont ICI, avec la
+# lecture qu'ils doivent faire coïncider — pas dans `test_datamodels_pg.py`, qui éprouve le
+# geste de suppression lui-même.
+
+
+async def test_supprimer_un_modele_qu_un_storage_projette_est_refuse(forge: Forge) -> None:
+    """Jusqu'au 23/11/2026 la suppression partait en `204`, et le storage désignait un
+    modèle absent : l'incohérence ne se disait qu'à l'ouverture de l'écran de figement,
+    depuis un autre écran et après que le commit de suppression était parti.
+    """
+    await _model(forge, COLIS)
+    stored = await _storage(forge)
+
+    refused = await forge.client.delete(f"{ROUTE}/shared/colis", timeout=120)
+    toujours_la = await forge.client.get(f"{ROUTE}/shared/colis", timeout=120)
+
+    assert stored.status_code == 201, stored.text
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["detail"] == {"code": "utilise", "by": [storage_path("sites")]}
+    assert toujours_la.status_code == 200, toujours_la.text
+
+
+async def test_supprimer_un_modele_qu_une_entree_de_source_designe_est_refuse(
+    forge: Forge,
+) -> None:
+    await _model(forge, COLIS)
+    await _model(forge, BRUT)
+    await _storage(forge)
+    await _chain(forge)
+    declared = await _source(forge)
+
+    refused = await forge.client.delete(f"{ROUTE}/shared/brut", timeout=120)
+    toujours_la = await forge.client.get(f"{ROUTE}/shared/brut", timeout=120)
+
+    assert declared.status_code == 201, declared.text
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["detail"] == {"code": "utilise", "by": [source_path("comptes")]}
+    assert toujours_la.status_code == 200, toujours_la.text
+
+
+async def test_supprimer_un_modele_qu_une_etape_de_chaine_lit_est_refuse(forge: Forge) -> None:
+    await _model(forge, ADRESSE)
+    saved = await _chain(
+        forge,
+        steps=[
+            {
+                "name": "copier",
+                "template": '{ "ville": $.ville }',
+                "source_model": "miles:/shared/adresse",
+            }
+        ],
+    )
+
+    refused = await forge.client.delete(f"{ROUTE}/shared/adresse", timeout=120)
+    toujours_la = await forge.client.get(f"{ROUTE}/shared/adresse", timeout=120)
+
+    assert saved.status_code in (200, 201), saved.text
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["detail"] == {"code": "utilise", "by": [chain_path("comptes-import")]}
+    assert toujours_la.status_code == 200, toujours_la.text
+
+
+async def test_ce_qui_ne_designe_plus_ne_bloque_pas_la_suppression(forge: Forge) -> None:
+    """Le refus élargi ne doit pas devenir un verrou (critère 4 du bug `6ed86d6b`).
+
+    Discriminant : le storage EXISTE toujours, il projette un AUTRE modèle. Le supprimer
+    aurait aussi fait passer ce test, sans éprouver que le refus relit l'état de la branche
+    au lieu de se souvenir d'une désignation passée.
+    """
+    for content in (COLIS, AUTRE, ORPHELIN):
+        await _model(forge, content)
+    await _storage(forge)
+    deplace = await forge.client.put(
+        f"{STORAGES}/sites",
+        json={
+            "name": "sites",
+            "label": "Sites",
+            "model": "shared/autre",
+            "keys": ["$.code"],
+            "indexes": [],
+            "expiries": [],
+        },
+        timeout=120,
+    )
+
+    libere = await forge.client.delete(f"{ROUTE}/shared/colis", timeout=120)
+    jamais_designe = await forge.client.delete(f"{ROUTE}/shared/orphelin", timeout=120)
+
+    assert deplace.status_code == 200, deplace.text
+    assert libere.status_code == 204, libere.text
+    assert jamais_designe.status_code == 204, jamais_designe.text
