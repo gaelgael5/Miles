@@ -9,8 +9,8 @@ une machine de test TRANSVERSE.
 La correction est au socle (`socle_it_ressources_jetables_retirees`, qui retire par
 étiquette). Ce module garde la moitié qui reste chez chaque produit : POSER l'étiquette, et
 la poser partout. C'est la seule part où l'oubli est possible, parce qu'elle se répète à
-chaque `docker run` — il y en avait seize le jour où ce module a été écrit, dont dix
-n'avaient pas de nom.
+chaque `docker run` — il y en a VINGT ET UN dans les trois campagnes, et le jour où ce
+module a été écrit DOUZE n'avaient pas de nom (compté sur `61ea4f5`, le commit d'avant).
 
 On lit les scripts, on ne les exécute pas : ils bâtissent des images et lancent des
 conteneurs.

@@ -108,7 +108,8 @@ socle_it_verdict_final() {
 # conteneurs survivants du 07/11/2026 notés dans `LESSONS.md`.
 #
 # ON RETIRE PAR ÉTIQUETTE, PAS PAR LISTE DE NOMS. Une liste tenue à la main est ce qui a
-# produit la panne : il y manquait trois `docker run` sur sept. L'étiquette est posée par
+# produit la panne : sur les vingt et un `docker run` des trois campagnes, douze n'avaient
+# aucun nom. L'étiquette est posée par
 # chaque `docker run` de la campagne, et `tests/architecture/test_campagnes.py` rougit si un
 # seul l'oublie. Les NOMS restent dérivés de `$RUN_ID` pour une autre raison : la machine de
 # test est TRANSVERSE, et un relevé d'état doit pouvoir attribuer ce qu'il trouve.
