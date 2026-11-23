@@ -157,8 +157,10 @@ def register(server: MCPServer) -> None:
     @server.tool(
         description=(
             "Supprime un modèle d'une branche enfant. Un modèle encore désigné est refusé"
-            " (modele_utilise) : le refus nomme ce qui le désigne — un autre modèle par un"
-            " $ref, ou l'artefact d'un périmètre dont un DEFINE EVENT le prend pour payload."
+            " (modele_utilise) : le refus nomme les CHEMINS de ce qui le désigne — un autre"
+            " modèle par un $ref, l'artefact d'un périmètre dont un DEFINE EVENT le prend"
+            " pour payload, un storage qui le projette, une entrée de source, ou une étape"
+            " de chaîne qui le lit ou le produit."
         )
     )
     async def delete_schema(
