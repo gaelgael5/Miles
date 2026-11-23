@@ -24,30 +24,32 @@ OIDC_IMAGE="ghcr.io/navikt/mock-oauth2-server:2.1.10"
 OIDC_CONFIG='{"interactiveLogin":false,"tokenCallbacks":[{"issuerId":"miles","requestMappings":[{"requestParam":"code","match":"*","claims":{"sub":"alice-sub","name":"Alice","email":"alice@example.org","aud":["miles-client"]}}]}]}'
 MOUNT_DIR="$(mktemp -d)"
 
+# Ce que la campagne va éprouver, AVANT tout le reste : c'est la première ligne du journal,
+# et c'est ce qui manquait le 22/11/2026 (bug `18b6f722`). Le dépôt, pas le produit : c'est
+# `HEAD` qui décide de ce qui est éprouvé, pas le répertoire d'où l'on part.
+socle_it_source_eprouvee "$PRODUIT_DIR/.."
+
 socle_it_docker_present
 
 cleanup() {
-  # `-v` et pas seulement `-f` : les images de ces services déclarent des volumes
-  # ANONYMES (le `VOLUME` de `postgres`, de `gitea`), que Docker crée à la volée et que
-  # `docker rm` sans `-v` laisse derrière. Mesuré sur test1 le 29/10/2026 : 249 volumes
-  # orphelins, 7,9 Go dont 97 % récupérables, pour un disque à 82 %. La purge de
-  # `dev-deploy.sh` ne les couvre pas, et c'est délibéré — elle ne touche jamais aux
-  # volumes, qui portent des données de travail. Donc c'est à celui qui les crée de les
-  # reprendre, à la sortie, quel qu'ait été le verdict.
-  docker rm -f -v "$RUN_ID-db" "$RUN_ID-oidc" >/dev/null 2>&1 || true
-  docker network rm "$RUN_ID" >/dev/null 2>&1 || true
+  # Le code de sortie se capture en PREMIER : tout ce qui suit l'écraserait, et c'est lui
+  # que le verdict final annonce.
+  local code=$?
+  # Conteneurs (par étiquette) puis réseau : la garde du socle porte la panne du 22/11/2026.
+  socle_it_ressources_jetables_retirees "$RUN_ID"
   docker image rm "$RUN_ID-backend" >/dev/null 2>&1 || true
   rm -rf "$MOUNT_DIR"
+  socle_it_verdict_final "$code"
 }
 trap cleanup EXIT
 
 docker network create "$RUN_ID" >/dev/null
-docker run -d --name "$RUN_ID-db" --network "$RUN_ID" \
+docker run -d --name "$RUN_ID-db" --label "miles-campagne=$RUN_ID" --network "$RUN_ID" \
   -e POSTGRES_PASSWORD="$PG_PASSWORD" postgres:16 >/dev/null
 
 socle_it_postgres_pret "$RUN_ID-db"
 
-docker run -d --name "$RUN_ID-oidc" --network "$RUN_ID" -e JSON_CONFIG="$OIDC_CONFIG" \
+docker run -d --name "$RUN_ID-oidc" --label "miles-campagne=$RUN_ID" --network "$RUN_ID" -e JSON_CONFIG="$OIDC_CONFIG" \
   "$OIDC_IMAGE" >/dev/null
 
 # --build-context socle=… : même mécanisme que le compose du produit. Sans lui, le
@@ -65,8 +67,12 @@ docker build -q --target test -t "$RUN_ID-backend" \
 
 # Le fournisseur démarre en quelques secondes : on attend sa découverte, depuis le réseau.
 oidc_ready=0
-for _ in $(seq 1 60); do
-  if docker run --rm --network "$RUN_ID" --entrypoint /opt/venv/bin/python "$RUN_ID-backend" \
+for essai in $(seq 1 60); do
+  # Le nom porte le NUMÉRO D'ESSAI : un `--rm` qui vient de sortir peut retenir son nom
+  # une fraction de seconde, et réutiliser le même nom soixante fois de suite changerait
+  # une sonde de disponibilité en conflit de nom.
+  if docker run --rm --name "$RUN_ID-sonde-oidc-$essai" --label "miles-campagne=$RUN_ID" \
+      --network "$RUN_ID" --entrypoint /opt/venv/bin/python "$RUN_ID-backend" \
       -c "import httpx,sys; sys.exit(httpx.get('http://$RUN_ID-oidc:8080/miles/.well-known/openid-configuration').status_code != 200)" \
       >/dev/null 2>&1; then
     oidc_ready=1
@@ -77,7 +83,7 @@ done
 [[ "$oidc_ready" == 1 ]] || { echo "fournisseur OIDC jetable jamais prêt (docker logs $RUN_ID-oidc)" >&2; exit 1; }
 
 echo "==> [1/2] tests contre PostgreSQL et un vrai fournisseur OIDC"
-docker run --rm --network "$RUN_ID" \
+docker run --rm --name "$RUN_ID-pytest-pg" --label "miles-campagne=$RUN_ID" --network "$RUN_ID" \
   -e MILES_TEST_DATABASE_URL="postgresql://postgres:$PG_PASSWORD@$RUN_ID-db:5432/postgres" \
   -e MILES_TEST_OIDC_URL="http://$RUN_ID-oidc:8080" \
   "$RUN_ID-backend" -m integration -v --ignore=tests/integration/test_env_mount.py "$@"
@@ -91,7 +97,8 @@ chmod 600 "$MOUNT_DIR/.env" "$MOUNT_DIR/.env.bak"
 chown "$RUNTIME_UID:$RUNTIME_UID" "$MOUNT_DIR/.env" "$MOUNT_DIR/.env.bak"
 # pytest du venv directement : `uv run` voudrait écrire dans le venv, ce que
 # l'utilisateur du runtime ne peut pas faire.
-docker run --rm --user "$RUNTIME_UID:$RUNTIME_UID" \
+docker run --rm --name "$RUN_ID-pytest-env" --label "miles-campagne=$RUN_ID" \
+  --user "$RUNTIME_UID:$RUNTIME_UID" \
   -v "$MOUNT_DIR/.env:/run/miles/.env" -v "$MOUNT_DIR/.env.bak:/run/miles/.env.bak" \
   -e MILES_TEST_MOUNTED_ENV=/run/miles/.env -e MILES_TEST_MOUNTED_BAK=/run/miles/.env.bak \
   --entrypoint /opt/venv/bin/pytest "$RUN_ID-backend" \

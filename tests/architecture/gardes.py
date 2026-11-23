@@ -75,6 +75,20 @@ GARDES_DU_DEPLOIEMENT = {
 }
 
 GARDES_DE_CAMPAGNE = {
+    "socle_it_source_eprouvee": (
+        "deux campagnes ont rendu « vert » sur un arbre de travail vieux de trois commits, "
+        "et une de ces deux a servi à annoncer une validation fausse : la campagne ne met "
+        "pas le dépôt à jour, et rien ne disait sur quoi elle portait"
+    ),
+    "socle_it_verdict_final": (
+        "une campagne se relit par la fin, et un tube vers `tail` ne garde que la dernière "
+        "ligne : le commit éprouvé doit y être rappelé avec le verdict, échec compris"
+    ),
+    "socle_it_ressources_jetables_retirees": (
+        "un conteneur de test lancé en `--rm` sans nom échappe au piège de sortie : il a "
+        "tourné huit minutes après l'arrêt du script, retenant le réseau jetable sur une "
+        "machine transverse"
+    ),
     "socle_it_postgres_pret": (
         "l'entrypoint de postgres:16 lance un serveur temporaire pendant initdb : une "
         "boucle qui sort au premier succès puis repose une seconde sonde a produit sept "
