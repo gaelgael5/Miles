@@ -41,12 +41,17 @@ dependencies = [
     # socle porte le moteur qui ÉVALUE, le portail importe `urban_json` pour son
     # diagnostic d'ÉCRITURE (`chains/conformance.py`, qui lit `JsltKind`). Deux versions
     # feraient juger un template contre une grammaire que l'évaluation n'applique pas.
-    # Montée 0.3.0 → 0.6.0 le 11/11/2026 : le delta est mesuré au pyproject du socle, qui
-    # porte le moteur. Le point qui regarde LE PORTAIL : 104 fonctions entrent dans ce que
-    # l'intellisense propose, et le genre `output` passe de 2 à 5 noms refusés.
-    "urban-json==0.6.0",
+    # Montée 0.6.0 → 0.9.0 le 27/11/2026 : le delta est mesuré au pyproject du socle, qui
+    # porte le moteur. Ce qui regarde LE PORTAIL : 28 fonctions entrent dans ce que
+    # l'intellisense propose (177 → 205), et cinq d'entre elles — `filter`, `every`,
+    # `some`, `find`, `findindex` — attendent un PRÉDICAT que le profil d'écriture refuse
+    # sous sa forme naturelle (`filter($.l, $.v == "a")`), puisqu'une comparaison n'y est
+    # admise que comme prédicat d'un `$where`. Elles ne s'écrivent qu'avec un chemin,
+    # `filter($.l, $.ok)`. Élargir le profil est une décision de cadrage : signalée, pas
+    # tranchée ici.
+    "urban-json==0.9.0",
     # Web Component <jslt-editor> et ses assets, servis par le backend (24/10/2026).
-    # 0.3.0 → 0.4.0 le 11/11/2026, avec `urban-json>=0.6.0` : les deux montent ensemble,
+    # 0.3.0 → 0.4.0 le 11/11/2026, avec `urban-json>=0.6.0` : les deux montaient ensemble,
     # l'éditeur le DÉCLARE. Il apporte l'aide à la signature — le paramètre en cours de
     # saisie en gras, et un lien vers la page de référence de la fonction —, servie par un
     # asset de plus (`jslt-signature.js`) que `urban_json_editor.mount` sert sans rien à
@@ -78,7 +83,7 @@ dependencies = [
     # portail est de COMPORTEMENT : sans `UNIQUE`, le moteur ne renonce plus à
     # l'anti-doublon, il se replie sur le socle (`Uuid` de l'émetteur, sinon `Name` +
     # `EventDate` + `ExternalId`). L'écran disait « aucune » : il dit désormais ce repli.
-    # Toujours `urban-json>=0.2.1`, satisfait par le `==0.6.0` épinglé : zéro paquet neuf.
+    # Toujours `urban-json>=0.2.1`, satisfait par le `==0.9.0` épinglé : zéro paquet neuf.
     "urban-workflow[schemas]==0.4.0",
     "uvicorn[standard]>=0.32",
 ]
